@@ -202,21 +202,21 @@ def test_macro_is_a_new_command_with_defaults_and_locals(p):
 T = 5
 BLOCK, 0,0,0, 40,20,T
 NAME, LAST, plate
-*MACRO, hole, x, y, d=6
+*MACRO, drill, x, y, d=6
   DEPTH = T + 2          ! local to the macro
   CYL, x, y, -1, d/2, DEPTH
   SUBTRACT, plate, LAST
 *END
-hole, 10, 10
-hole, 30, 10, 4
+drill, 10, 10
+drill, 30, 10, 4
 """)
     assert "DEPTH" not in p.params
     v = 40 * 20 * 5 - math.pi * (9 + 4) * 5
     assert p.evaluate("VOL(plate)") == pytest.approx(v, rel=1e-6)
-    assert "required" in fail(p, "hole")
-    assert "at most 3" in fail(p, "hole, 1, 2, 3, 4")
+    assert "required" in fail(p, "drill")
+    assert "at most 3" in fail(p, "drill, 1, 2, 3, 4")
     assert "built-in command" in fail(p, "*MACRO, block\n*END")
-    assert run_help(p, "HOLE").startswith("macro HOLE")
+    assert run_help(p, "DRILL").startswith("macro DRILL")
 
 
 def run_help(p, name):

@@ -37,10 +37,13 @@ def _new(p: Processor, shape, what: str) -> str:
 
 
 def _curve(p: Processor, fn, *args, what: str, **kw) -> str:
+    from .feature_handlers import place
+
     try:
         shape = fn(*args, **kw)
     except cv.CurveError as exc:
         raise CommandError(str(exc) if str(exc).startswith(what) else f"{what}: {exc}") from None
+    shape = place(p, shape)  # onto the work plane, if one is set
     b = p.model.add_body(shape)
     kind = "closed" if shape.Closed() else "open"
     name = "" if b.name == f"body{b.id}" else f" '{b.name}'"

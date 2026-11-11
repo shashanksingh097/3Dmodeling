@@ -133,7 +133,37 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
                 raise ExprError(f"PARAM(): no parameter {name!r}") from None
             return default
 
+    def datum(name, fn):
+        if not isinstance(name, str):
+            raise ExprError(f"{fn}(): give the datum's name in quotes, e.g. {fn}(\"mid\")")
+        key = name.upper()
+        from ..core import datum as dt
+
+        if key in dt.BASE_PLANES:
+            o, n = dt.BASE_PLANES[key]
+            return dt.plane(o, n, name=key)
+        if key in dt.BASE_AXES:
+            return dt.axis((0, 0, 0), dt.BASE_AXES[key], name=key)
+        try:
+            return m.datum(name)
+        except ModelError as exc:
+            raise ExprError(f"{fn}(): {exc}") from None
+
+    def origin(name):
+        return Vec(datum(name, "ORIGIN").origin)
+
+    def direction(name):
+        return Vec(datum(name, "DIR").z)
+
+    def gap(a, b):
+        from ..geometry.features import distance
+
+        return distance(m.body(body_id(a, "GAP")).shape, m.body(body_id(b, "GAP")).shape)[0]
+
     return {
+        "ORIGIN": origin,
+        "DIR": direction,
+        "GAP": gap,
         "VOL": vol,
         "AREA": area,
         "LENGTH": length,

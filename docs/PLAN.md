@@ -198,11 +198,11 @@ log abs min max floor ceil`, `pi`, `e`, and model queries such as
   FILLET, EDGE, sel, 2
 *ENDIF
 
-*MACRO, hole, x, y, d          ! user macro = new command
+*MACRO, drill, x, y, d          ! user macro = new command
   CYL, x, y, -1, d/2, 100
   SUBTRACT, VOLU, base, last
 *END
-hole, 10, 10, 6
+drill, 10, 10, 6
 ```
 
 `*PY ... *ENDPY` runs a Python block with the model API, for anything the
@@ -348,7 +348,7 @@ spring is a short script whose numbers you can change later.
 - Bodies kept and reusable after booleans (`KEEP`) `[M2]`
 - Parts with parameters, instances that follow the definition, part library across projects `[M4]`
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
-- `SPLIT` (by plane, face or body), `HOLE` (simple, counterbore, countersink, threaded; one command instead of cylinder plus subtract), variable-radius and face fillets `[M3]`
+- `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes `[M4]`; variable-radius and face fillets `[M3]`
 - Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call `[done]`; `ARRAY ... CUT`; patterns of features (repeat the last steps, not just a body) `[M3]`
 - Direct editing: push/pull a face, move/delete faces (great on imported STEP) `[M4]`
 - Patterns: linear, polar, along a path `[M2]`
@@ -362,10 +362,10 @@ spring is a short script whose numbers you can change later.
 ### 5.7 Productivity and real-life use
 - Units (mm, cm, m, in) and tolerances `[M1]`
 - Snap (grid, endpoints, midpoints, centers), work planes, measure tools `[M3]`
-- **Datum geometry**: work planes, axes, points and local coordinate systems as named objects (`PLANE`, `AXIS`, `POINT`, `CSYS`), from numbers or from picked faces and edges; every sketch and profile can sit on one. Needed before the sketcher. `[M3, first]`
-- **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), minimum wall thickness, clearance and interference between bodies `[M3]`
+- **Datum geometry**: planes, axes and points as named objects (`PLANE`, `AXIS`, `POINT`), from numbers or from faces and edges, and `WORKPLANE` so primitives, profiles and holes are drawn on any plane `[done]`. Next: let the sketcher sit on them `[M3]`
+- **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), `CLASH` (overlap and clearance between bodies) `[done]`; minimum wall thickness `[M3]`
 - Layers, colors, materials, mass properties `[M3]`
-- Section view, hide/show/isolate `[M3]`
+- Section view (`SECTION`) and hide/show `[done]`; isolate `[M3]`
 - Import/export STEP, IGES, STL, OBJ, 3MF, glTF; drawings (2D projection to DXF/SVG) later `[M2]`/`[M8]`
 - Autosave and crash recovery from the log `[M2]`
 - Results checked after every boolean and blend, `CHECK`, `HEAL`, `CLEAN` `[done]`; auto-heal on import, sewing with a tolerance, defeaturing (remove small holes and fillets) `[M4]`
@@ -443,7 +443,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
 | **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Datum planes, axes and coordinate systems first; sketcher with constraints, extrude/revolve, fillet/chamfer/shell/draft/offset, snaps, work planes, measure, layers, section view; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Still to come: sketcher with constraints, extrude/revolve, snaps, layers; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
 | **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
 | **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
@@ -465,7 +465,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 | # | Risk | State | What is built | What is left |
 |---|------|-------|---------------|--------------|
 | 1 | **References break when history is edited** (the topological naming problem). A pick that silently moves to another face makes every edited model suspect. | Much reduced | IDs carried through operations; IDs kept per entry, also when a loop shrinks and grows; IDs saved in project files; picks know which step made the entity and are repaired by fingerprint only when the match is unique, with a warning | Parent-based names for faces made by booleans; fingerprints for ID lists and named sets; GUI picks written as criteria (3.2, items 6 and 7) |
-| 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN` | Same checks for `LOFT`/`SWEEP`/`PIPE` and the M3 features (shell, draft, offset); a corpus of hard cases in CI |
+| 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN`; `HOLE`, `SPLIT`, `SHELL`, `DRAFT` and `OFFSET` are checked the same way (a shell too thick names the thickest wall that works) | Same checks for `LOFT`/`SWEEP`/`PIPE`; a corpus of hard cases in CI |
 | 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 13 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Partly reduced | Snapshot after every entry, so only entries from the edit onwards re-run; `SUBTRACT, a, SEL` cuts all selected bodies in one kernel call (the 300 holes: 0.4 s instead of 13 s) | `ARRAY ... CUT` and feature patterns that use the same one-call route; skip entries whose inputs did not change; rebuild on a worker thread with progress and cancel |
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Not started | | Spike first: an existing solver (planegcs, SolveSpace's solver) against writing our own; decide before M3 |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
@@ -477,12 +477,20 @@ work. Numbers were measured in November 2026 on the code after M2.
 
 ## Next step
 
-M0 and M1 are done. M2 starts with shapes on curves (5.2): curves, profiles,
-`LOFT`, `SWEEP` with laws and morphing, `PIPE` and `HELIX`, so the example
-blade becomes one smooth sweep instead of stacked slices. The rest of M2
-(the usable shell) follows.
+M0 and M1 are done, M2 is done apart from the command forms (a dialog per
+command), and the first round of hardening (risks 1 and 2) is in.
+M3 has started with what the sketcher stands on and the features people
+reach for first: datum planes, axes and points, work planes, `HOLE`,
+`SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, the measure commands and the section
+view (see LANGUAGE.md sections 13 to 15).
 
-Hardening runs alongside the milestones. Risks 1 and 2 above have had their
-first round. The next round is rebuild speed (risk 3) and datum geometry,
-which the sketcher needs; the sketcher's solver gets a spike before M3
-starts.
+Next, in order:
+
+1. Sketcher spike: try an existing 2D constraint solver against writing a
+   small one, on a plate with holes and slots (risk 4), then decide.
+2. `SKETCH, plane ... ENDSKETCH` on any datum plane or face, with lines,
+   arcs, circles and the common constraints, then `EXTRUDE` and `REVOLVE`
+   of a sketch (add or cut), so parts start from 2D instead of primitives.
+3. Feature patterns: repeat the last steps along a line or a circle, using
+   the one-call cut route (risk 3).
+4. Sweep and loft in the GUI: preview, section slider, law handles.

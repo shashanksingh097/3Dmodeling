@@ -32,7 +32,16 @@ _COMMAND_CHOICES = {
     ("HIST", "action"): ("LIST", "EDIT", "INSERT", "DELETE", "SUPPRESS", "RESUME", "MOVE", "REPLAY"),
     ("EXPORT", "format"): ("STEP", "BREP", "STL"),
     ("IMPORT", "format"): ("STEP", "IGES", "BREP", "STL"),
-    ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "SETS"),
+    ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "SETS", "DATUMS"),
+    ("PLANE", "how"): ("XY", "YZ", "ZX", "PN", "3P", "FACE", "OFFSET", "ANGLE", "MID", "NORMAL"),
+    ("AXIS", "how"): ("X", "Y", "Z", "PD", "2P", "EDGE", "FACE", "PLANES"),
+    ("POINT", "how"): ("XYZ", "VERTEX", "CENTER", "ON"),
+    ("DATUM", "action"): ("DELETE",),
+    ("HOLE", "kind"): ("SIMPLE", "CBORE", "CSINK"),
+    ("SPLIT", "keep"): ("BOTH", "ABOVE", "BELOW"),
+    ("SHELL", "side"): ("IN", "OUT"),
+    ("OFFSET", "corners"): ("ROUND", "SHARP"),
+    ("SECTION", "side"): ("ABOVE", "BELOW"),
 }
 _TOKEN = re.compile(r"[A-Za-z_*/][A-Za-z0-9_]*$")
 
@@ -82,6 +91,7 @@ def context(text: str, cursor: int | None = None) -> Context:
 def _names(p: Processor) -> list[str]:
     out = sorted(p.params)
     out += sorted(b.name for b in p.model.bodies.values() if not b.name.startswith("body"))
+    out += sorted(d.name for d in p.model.datums.values())
     return out
 
 

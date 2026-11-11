@@ -69,6 +69,13 @@ def _new(p: Processor, shape, what: str) -> str:
     return _added(p, p.model.add_body(shape), what)
 
 
+def _made(p: Processor, shape, what: str) -> str:
+    """A new shape from typed numbers: placed on the work plane, if one is set."""
+    from .feature_handlers import place
+
+    return _added(p, p.model.add_body(place(p, shape)), what)
+
+
 def _axis(x, y, z, dx, dy, dz, what: str) -> gp_Ax2:
     if dx == dy == dz == 0:
         raise CommandError(f"{what}: the axis direction cannot be (0, 0, 0)")
@@ -94,7 +101,7 @@ _AXIS_ARGS = (
 def block(p: Processor, x, y, z, dx, dy, dz):
     if min(dx, dy, dz) <= 0:
         raise CommandError("BLOCK: sizes must be positive")
-    return _new(p, BRepPrimAPI_MakeBox(gp_Pnt(x, y, z), dx, dy, dz).Shape(), "BLOCK")
+    return _made(p, BRepPrimAPI_MakeBox(gp_Pnt(x, y, z), dx, dy, dz).Shape(), "BLOCK")
 
 
 @command(
@@ -110,7 +117,7 @@ def cyl(p: Processor, x, y, z, r, h, dx, dy, dz, angle):
         raise CommandError("CYL: angle must be in (0, 360]")
     ax = _axis(x, y, z, dx, dy, dz, "CYL")
     mk = BRepPrimAPI_MakeCylinder(ax, r, h) if angle == 360 else BRepPrimAPI_MakeCylinder(ax, r, h, math.radians(angle))
-    return _new(p, mk.Shape(), "CYL")
+    return _made(p, mk.Shape(), "CYL")
 
 
 @command(
@@ -128,14 +135,14 @@ def tube(p: Processor, x, y, z, ro, ri, h, dx, dy, dz):
     algo = BRepAlgoAPI_Cut(outer, inner)
     if not algo.IsDone():
         raise CommandError("TUBE: kernel failed")
-    return _new(p, algo.Shape(), "TUBE")
+    return _made(p, algo.Shape(), "TUBE")
 
 
 @command("SPHERE", Arg("x"), Arg("y"), Arg("z"), Arg("r"), help="Sphere with center (x,y,z), radius r.")
 def sphere(p: Processor, x, y, z, r):
     if r <= 0:
         raise CommandError("SPHERE: radius must be positive")
-    return _new(p, BRepPrimAPI_MakeSphere(gp_Pnt(x, y, z), r).Shape(), "SPHERE")
+    return _made(p, BRepPrimAPI_MakeSphere(gp_Pnt(x, y, z), r).Shape(), "SPHERE")
 
 
 @command(
@@ -149,7 +156,7 @@ def cone(p: Processor, x, y, z, r1, r2, h, dx, dy, dz):
     if r1 == r2:
         raise CommandError("CONE: equal radii make a cylinder; use CYL")
     ax = _axis(x, y, z, dx, dy, dz, "CONE")
-    return _new(p, BRepPrimAPI_MakeCone(ax, r1, r2, h).Shape(), "CONE")
+    return _made(p, BRepPrimAPI_MakeCone(ax, r1, r2, h).Shape(), "CONE")
 
 
 @command(
@@ -161,7 +168,7 @@ def torus(p: Processor, x, y, z, r1, r2, dx, dy, dz):
     if r2 <= 0 or r1 <= r2:
         raise CommandError("TORUS: need ring radius > tube radius > 0")
     ax = _axis(x, y, z, dx, dy, dz, "TORUS")
-    return _new(p, BRepPrimAPI_MakeTorus(ax, r1, r2).Shape(), "TORUS")
+    return _made(p, BRepPrimAPI_MakeTorus(ax, r1, r2).Shape(), "TORUS")
 
 
 @command(
@@ -173,7 +180,7 @@ def wedge(p: Processor, x, y, z, dx, dy, dz, ltx):
     if min(dx, dy, dz) <= 0 or ltx < 0:
         raise CommandError("WEDGE: sizes must be positive and ltx >= 0")
     ax = gp_Ax2(gp_Pnt(x, y, z), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0))
-    return _new(p, BRepPrimAPI_MakeWedge(ax, dx, dy, dz, ltx).Shape(), "WEDGE")
+    return _made(p, BRepPrimAPI_MakeWedge(ax, dx, dy, dz, ltx).Shape(), "WEDGE")
 
 
 # =============================================================================
@@ -1116,7 +1123,7 @@ def fit(p: Processor):
         p.view.fit()
 
 
-@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, SETS"), logged=False,
+@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, SETS, DATUMS"), logged=False,
          help="List bodies, parameters, macros, named sets and the selection.")
 def list_(p: Processor, what):
     m = p.model
@@ -1134,11 +1141,21 @@ def list_(p: Processor, what):
     if what in ("ALL", "SETS") and m.named_sets:
         lines.append("named sets:")
         lines += [f"  {k}: {kind} {', '.join(map(str, ids))}" for k, (kind, ids) in m.named_sets.items()]
+    if what in ("ALL", "DATUMS") and m.datums:
+        from .feature_handlers import _fmt
+
+        lines.append("datums:")
+        for d in m.datums.values():
+            where = (f"at {_fmt(d.origin)}" if d.kind == "POINT" else
+                     f"through {_fmt(d.origin)} " + ("along " if d.kind == "AXIS" else "normal ") + _fmt(d.z))
+            lines.append(f"  {d.kind.lower()} {d.name} {where}")
+    if what in ("ALL", "DATUMS") and m.workplane is not None:
+        lines.append(f"work plane: {m.workplane.name}")
     if what == "ALL":
         lines.append(_describe_selection(p))
     if not lines:
-        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "SETS"):
-            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS or SETS")
+        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "SETS", "DATUMS"):
+            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, SETS or DATUMS")
         lines.append(f"no {what.lower()}")
     return "\n".join(lines)
 

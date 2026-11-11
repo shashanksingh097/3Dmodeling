@@ -36,6 +36,8 @@ from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
 from OCP.TopExp import TopExp
 from OCP.TopoDS import TopoDS_Shape
 
+from .datum import Datum
+
 try:  # OCP 7.x
     from OCP.TopTools import TopTools_IndexedMapOfShape
 except ImportError:  # OCP 8.x dropped the typedef names
@@ -74,7 +76,7 @@ class Body:
 class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
-    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility"
+    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility", "datums"
     body_id: int | None = None
 
 
@@ -140,6 +142,9 @@ class Model:
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
         self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
+        # datum planes, axes and points by upper-case name (see core/datum.py)
+        self.datums: dict[str, Datum] = {}
+        self.workplane: Datum | None = None  # WORKPLANE: where new shapes are drawn
 
     # ---- listeners -------------------------------------------------------
     def subscribe(self, fn: Callable[[Event], None]) -> None:
@@ -171,6 +176,8 @@ class Model:
             "tolerance": self.tolerance,
             "hidden": set(self.hidden),
             "keep": self.keep,
+            "datums": dict(self.datums),
+            "workplane": self.workplane,
         }
 
     def restore(self, snap: dict) -> None:
@@ -186,6 +193,8 @@ class Model:
         self.tolerance = snap["tolerance"]
         self.hidden = set(snap.get("hidden", ()))
         self.keep = snap.get("keep", False)
+        self.datums = dict(snap.get("datums", {}))
+        self.workplane = snap.get("workplane")
         self._emit(Event("restored"))
 
     # ---- IDs ---------------------------------------------------------------
@@ -230,6 +239,9 @@ class Model:
             ids: list[int | None] = [None] * m.Extent()
             if made_from is not None:
                 _carry_ids(kind, m, ids, *made_from)
+                # an ID already held by another body (one piece of a split
+                # carried it first) cannot be shared: the entity gets a new one
+                ids = [None if i is not None and i in self._entities[kind] else i for i in ids]
             claimed = {i for i in ids if i is not None}
             for i in range(len(ids)):
                 if ids[i] is None:
@@ -301,6 +313,8 @@ class Model:
         other = self.body_by_name(name)
         if other is not None and other.id != except_id:
             raise ModelError(f"name {name!r} is already used by body {other.id}")
+        if name.upper() in self.datums:
+            raise ModelError(f"name {name!r} is already used by datum {self.datums[name.upper()].kind.lower()} {name}")
 
     def rename(self, bid: int, name: str) -> None:
         body = self.body(bid)
@@ -382,6 +396,35 @@ class Model:
         self._drop_stale_selection()
         if before != self.selection:
             self._emit(Event("selection"))
+
+    # ---- datums ------------------------------------------------------------
+    def add_datum(self, d: Datum) -> None:
+        key = d.name.upper()
+        if self.body_by_name(d.name) is not None:
+            raise ModelError(f"name {d.name!r} is already used by body {self.body_by_name(d.name).id}")
+        self.datums[key] = d
+        self._emit(Event("datums"))
+
+    def datum(self, name: str, kind: str | None = None) -> Datum:
+        d = self.datums.get(name.upper())
+        if d is None:
+            raise ModelError(f"no datum named {name!r}" + (f" (datums: {', '.join(x.name for x in self.datums.values())})"
+                                                          if self.datums else ""))
+        if kind and d.kind != kind:
+            raise ModelError(f"{name} is a datum {d.kind.lower()}, not a {kind.lower()}")
+        return d
+
+    def remove_datum(self, name: str) -> Datum:
+        d = self.datum(name)
+        del self.datums[name.upper()]
+        if self.workplane is not None and self.workplane.name.upper() == name.upper():
+            self.workplane = None
+        self._emit(Event("datums"))
+        return d
+
+    def set_workplane(self, d: Datum | None) -> None:
+        self.workplane = d
+        self._emit(Event("datums"))
 
     # ---- named sets --------------------------------------------------------
     def save_set(self, name: str, kind: str, ids: list[int]) -> None:
