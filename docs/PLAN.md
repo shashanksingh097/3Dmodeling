@@ -1,7 +1,7 @@
 # 3Dmodeling: Product and Technical Plan
 
 This plan turns the idea in the README (every GUI action is a text command,
-APDL style) into a modeler that is usable for real work: precise solids,
+in our own command language) into a modeler that is usable for real work: precise solids,
 freeform NURBS, equation-driven shapes, reusable parts, booleans, freehand
 cuts and sculpting, with an AI assistant at the end.
 
@@ -22,7 +22,7 @@ It is organized as:
 
 | Tool | What it does best | What we take |
 |------|-------------------|--------------|
-| **ANSYS APDL / SpaceClaim** | Everything is a command; selection sets (`NSEL`, `VSEL`, `ASEL`); parameters, `*DO`, `*IF`; the log file is a complete script | The whole command philosophy, selection-set logic, parameters and loops |
+| **Command-driven FEA preprocessors** | Everything is a command; selection sets; parameters and loops; the log file is a complete script | The whole command philosophy, selection-set logic, parameters and loops |
 | **SolidWorks / Fusion 360 / Onshape** | Sketch, constrain, extrude/revolve/sweep/loft; fillet, chamfer, shell, draft; feature tree you can edit and re-run; parts and assemblies | Sketch + feature workflow, editable history, components/instances |
 | **Rhino (+ Grasshopper)** | NURBS curves and surfaces, loft, network surfaces, blend, rebuild, control-point editing, curvature analysis; visual/parametric scripting | NURBS toolbox, analysis (zebra, curvature), "script drives geometry" |
 | **FreeCAD** | Open source on OCCT; Python console mirrors GUI actions | Proof that OCCT + Python + Qt works; the "GUI echoes Python" pattern |
@@ -118,11 +118,11 @@ new objects" maps to three levels:
 
 Bodies are always kept: a boolean like `SUBTRACT` produces a new body and,
 by default, hides (not deletes) its inputs, so the inputs stay reusable.
-`KEEP, ON|OFF` controls that, like APDL's `BOPTN, KEEP`.
+`KEEP, ON|OFF` controls that.
 
 ### 3.2 IDs and the "topological naming" problem
 
-APDL-style scripts refer to entities by number (`SEL, S, FACE, , 12`). In
+Scripts refer to entities by number (`SEL, S, FACE, , 12`). In
 history-based CAD, numbers shift when an earlier step changes. That breaks
 scripts. Our rules:
 
@@ -148,7 +148,7 @@ Undo/redo walks the log; snapshots every N commands make re-runs fast.
 
 ## 4. The command language
 
-APDL-like, comma separated, case-insensitive, one command per line.
+Comma separated, case-insensitive, one command per line.
 
 ```text
 ! comment
@@ -216,7 +216,7 @@ Every GUI tool is a thin form that fills in one of these commands. The
 command it built is shown in the command line before it runs, so users learn
 the language by using the GUI.
 
-### 4.4 Selection in detail (APDL style)
+### 4.4 Selection in detail
 
 ```text
 SEL, S, VOLU, ID, 3              ! select body 3
