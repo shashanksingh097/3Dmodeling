@@ -352,7 +352,11 @@ def airfoil(origin: Point, chord: float, code: str, normal: Point = (0, 0, 1), a
 
 def _interp(points: list[Point], start: Point | None = None, end: Point | None = None):
     """Edge through points; optionally tangent to a direction at one end."""
-    from OCP.collections import Array1_gp_Vec, HArray1_bool
+    try:  # OCP 8
+        from OCP.collections import Array1_gp_Vec, HArray1_bool
+    except ImportError:  # OCP 7.x
+        from OCP.TColgp import TColgp_Array1OfVec as Array1_gp_Vec  # type: ignore[no-redef]
+        from OCP.TColStd import TColStd_HArray1OfBoolean as HArray1_bool  # type: ignore[no-redef]
 
     arr = _HArrayPnt(1, len(points))
     for i, q in enumerate(points, 1):
