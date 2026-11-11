@@ -64,7 +64,19 @@ Short version:
 6. Save/load as command scripts
 7. AI chat box that explains commands and drafts scripts from plain language
 
+## Quick start (M0 spike)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e ".[test]"
+python -m modeler scripts/m0_demo.cmd
+```
+
+See [docs/M0.md](docs/M0.md) for what to try and what to check on each OS.
+
 ## Requirements
 
 - Python 3.10+
 - PySide6
+- OCP (`cadquery-ocp`, the Open CASCADE kernel; installs with pip)

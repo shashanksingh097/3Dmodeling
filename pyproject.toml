@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modeler3d"
+version = "0.0.1"
+description = "Command-driven 3D modeler: every GUI action is a text command."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5",
+    "cadquery-ocp>=7.7",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+modeler = "modeler.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["modeler*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
