@@ -74,7 +74,7 @@ class Body:
 class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
-    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored"
+    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility"
     body_id: int | None = None
 
 
@@ -121,6 +121,7 @@ class Model:
         self.last_body: int = 0
         self.units: str = "MM"
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
+        self.hidden: set[int] = set()  # body IDs not drawn in the viewport
 
     # ---- listeners -------------------------------------------------------
     def subscribe(self, fn: Callable[[Event], None]) -> None:
@@ -149,6 +150,7 @@ class Model:
             "last_body": self.last_body,
             "units": self.units,
             "tolerance": self.tolerance,
+            "hidden": set(self.hidden),
         }
 
     def restore(self, snap: dict) -> None:
@@ -161,6 +163,7 @@ class Model:
         self.last_body = snap["last_body"]
         self.units = snap["units"]
         self.tolerance = snap["tolerance"]
+        self.hidden = set(snap.get("hidden", ()))
         self._emit(Event("restored"))
 
     # ---- IDs ---------------------------------------------------------------
@@ -219,6 +222,7 @@ class Model:
             for gid in body.entity_ids[kind]:
                 self._entities[kind].pop(gid, None)
         del self.bodies[bid]
+        self.hidden.discard(bid)
         if emit:
             self._drop_stale_selection()
             self._emit(Event("body_removed", bid))
@@ -239,6 +243,13 @@ class Model:
         body = self.add_body(shape, what_name or inherit, (maker, olds), keep_id=first.id if same_id else None)
         self._remap_selection()
         return body
+
+    def set_hidden(self, bid: int, hidden: bool) -> None:
+        self.body(bid)
+        if hidden == (bid in self.hidden):
+            return
+        (self.hidden.add if hidden else self.hidden.discard)(bid)
+        self._emit(Event("visibility", bid))
 
     def clear(self) -> None:
         """Remove everything. IDs restart, as in a fresh session."""

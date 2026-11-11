@@ -165,3 +165,14 @@ def test_typed_block_in_command_line(win):
     assert win.prompt.text() == ">"
     assert len(win.processor.model.bodies) == 5
     assert len(win.viewport._ais) == 5
+
+
+def test_curves_show_and_hidden_bodies_are_not_drawn(win):
+    for line in ("LINE, 0,0,0, 0,0,30", "CIRCLE, 0,0,0, 3", "SWEEP, LAST, LAST - 1"):
+        assert win.execute(line).ok
+    ids = sorted(win.processor.model.bodies)[-3:]
+    assert all(b in win.viewport._ais for b in ids)
+    assert win.execute(f"HIDE, {ids[0]}").ok
+    assert ids[0] not in win.viewport._ais
+    assert win.execute("SHOW").ok
+    assert ids[0] in win.viewport._ais

@@ -348,6 +348,23 @@ def name_(p: Processor, b, name):
     return f"body {b} is '{name}'"
 
 
+@command("HIDE", Arg("b", BodyRef), help="Hide a body in the viewport (it stays in the model).")
+def hide(p: Processor, b):
+    p.model.set_hidden(b, True)
+    return f"hid body {b}"
+
+
+@command("SHOW", Arg("b", Raw, "ALL", "a body, or ALL"), help="Show a hidden body again (default: all of them).")
+def show(p: Processor, b):
+    if b.strip().upper() == "ALL":
+        for bid in sorted(p.model.hidden):
+            p.model.set_hidden(bid, False)
+        return "showing all bodies"
+    bid = p._body_arg(REGISTRY["SHOW"], b)
+    p.model.set_hidden(bid, False)
+    return f"showing body {bid}"
+
+
 @command("CLEAR", help="Delete every body and restart IDs. Parameters and macros stay.")
 def clear(p: Processor):
     p.model.clear()
