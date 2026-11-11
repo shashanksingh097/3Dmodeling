@@ -347,6 +347,13 @@ def first_code_line(text: str) -> str:
     return text.strip()
 
 
+def code_key(text: str) -> str:
+    """The statements of a unit without comments, blank lines or indentation:
+    equal for two texts that run the same commands."""
+    lines = (strip_comment(raw).strip() for raw in text.splitlines())
+    return "\n".join(line for line in lines if line)
+
+
 def leading_comment(text: str) -> str:
     out = []
     for raw in text.splitlines():

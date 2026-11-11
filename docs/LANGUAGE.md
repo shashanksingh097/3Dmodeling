@@ -150,7 +150,7 @@ and running it rebuilds the model.
 | Command | |
 |---------|-|
 | `UNDO [, n]`, `REDO [, n]` | step back and forward (parameters and macros too) |
-| `HIST` | list the history (`x` failed, `-` suppressed) |
+| `HIST` | list the history (`x` failed, `!` ran with a warning, `-` suppressed) |
 | `HIST, EDIT, n, "text"` | replace entry n and re-run from there; `\n` separates lines of a block |
 | `HIST, INSERT, n, "text"` | add an entry before n |
 | `HIST, DELETE, n` | remove entry n |
@@ -161,6 +161,11 @@ and running it rebuilds the model.
 
 After an edit, later entries that now fail stay in the history marked as
 failed (red in the History panel) and are skipped, so you can fix them.
+
+An entry can also run **with a warning** (amber in the History panel, `!`
+in `HIST`): it worked, but something needs a look. A pick that had to be
+repaired, a union of bodies that do not touch, and a boolean that needed a
+tolerance are reported this way. The warning goes away when the cause does.
 
 In the GUI the **History** panel shows the entries; double-click one to edit
 it. The **Parameters** panel lists parameter values; typing a new value edits
@@ -205,14 +210,40 @@ CMSEL, S, top    SEL, S, FACE, SET, top    CMDEL, top
 Modes: `S` new set, `R` reselect within the current set, `A` add, `U` remove.
 `SIZE` and `RADIUS` take `EQ NE LT GT LE GE` or `BETWEEN, lo, hi`.
 
+### What happens to a pick when the history changes
+
+`PICK, FACE, 12` is what a click in the viewport writes. Three things keep
+it pointing at the same face:
+
+* **IDs do not move.** An entry asks for the IDs it used last time. A loop
+  that runs fewer times does not forget the IDs of its longer run, so a
+  pick on hole 3 fails while the plate has two holes and works again when
+  it has four. Project files store these IDs, so a reopened project is
+  numbered exactly as it was when saved.
+* **Every pick remembers what it picked**: which step made it, the kind of
+  surface or curve, where it is, its size and its direction. If the ID is
+  gone, or now belongs to something made by a different step (you deleted a
+  step and built it again another way), the pick looks for the entity that
+  matches. It is accepted only when exactly one entity fits: either one
+  sitting in the same place, or the only one with the same shape, size and
+  direction. The entry then gets a warning that names the entity it used.
+* **It never guesses.** If several entities fit equally (the four equal
+  edges of a block, say), the entry fails and asks you to pick again. A
+  failed entry is easy to see; a pick that quietly moved to the wrong face
+  is not.
+
+A plain script (Save log) holds only the text, so it does not carry these
+IDs. In scripts you write to keep, select by geometry or by name.
+
 ## 7. Commands
 
 | Group | Commands |
 |-------|----------|
 | Primitives | `BLOCK, x,y,z, dx,dy,dz` · `CYL, x,y,z, r, h [, dx,dy,dz] [, angle]` · `TUBE, x,y,z, ro, ri, h [, axis]` · `CONE, x,y,z, r1, r2, h [, axis]` · `SPHERE, x,y,z, r` · `TORUS, x,y,z, ring_r, tube_r [, axis]` · `WEDGE, x,y,z, dx,dy,dz, ltx` |
-| Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
+| Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name; `SEL` in place of the tools means every selected body) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
 | Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original |
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
+| Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
@@ -371,3 +402,54 @@ Tab or Enter takes the highlighted word. Above the line, the command's
 arguments are listed with the one you are typing underlined, plus what it
 means and its default.
 
+## 12. Results you can trust: checks, CHECK, HEAL and CLEAN
+
+A geometry kernel can report success and still hand back a broken shape.
+Every boolean and every fillet or chamfer is therefore checked before its
+result is accepted, and a bad result is an error at the command that caused
+it, with the model left as it was:
+
+| Situation | What you get |
+|-----------|--------------|
+| `SUBTRACT` removes the whole body | error: nothing is left |
+| `INTERSECT` of bodies that do not overlap (or only touch) | error: no volume in common |
+| `FILLET` or `CHAMFER` too large for the edges | error that names the largest size that works there, for example "the largest radius that works here is about 4.9" |
+| A boolean whose exact result is not a valid shape | retried with a small tolerance; if that works the entry gets a warning, otherwise an error |
+| `UNION` of bodies that do not touch | works, with a warning that the body is in separate pieces |
+
+`UNION` (and `ARRAY ... FUSE`) also joins faces that end up on the same
+surface, so two blocks fused side by side give one block with 6 faces, not
+10; the joined face keeps the ID it had on the first body. A boolean result
+that is one solid is stored as a solid.
+
+Cutting many tools in one step is far faster than one at a time, because
+the kernel rebuilds the whole body for every cut: 300 holes take about 13 s
+one by one and under half a second together. Make the tool bodies, select
+them, and write `SEL` for the tools:
+
+```text
+*DO, i, 0, 29
+  *DO, j, 0, 9
+    CYL, 5 + i*10, 5 + j*10, -1, 1.5, 10
+  *ENDDO
+*ENDDO
+SEL, S, BODY, SIZE, LT, 100        ! the cylinders
+SUBTRACT, plate, SEL
+```
+
+Booleans always get the quick tests (something is left, it is still a
+solid, the skin has no open edges). The full validity check is slow on big
+bodies, so on those it runs only now and then, keeping its cost under a
+tenth of the modelling time. Fillets and chamfers always get the full check.
+
+```text
+CHECK                 ! every body: OK, or what is wrong and what to try
+CHECK, housing        ! one body, always the full check
+HEAL, housing         ! repair a broken body (typically an import); HEAL, b, 0.01 closes gaps up to 0.01
+CLEAN, housing        ! join neighbouring faces on the same surface (seams from imports or cuts)
+```
+
+`CHECK` is a query and not part of the history. `HEAL` and `CLEAN` are
+history entries; the body keeps its ID and name, and its faces keep their
+IDs where they survive. `HEAL` refuses, and changes nothing, when the repair
+does not give a valid body (a missing face cannot be invented).

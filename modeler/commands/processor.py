@@ -28,7 +28,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
-from ..core.model import IdPins, Model, ModelError
+from ..core.model import ID_KINDS, IdPins, Model, ModelError
+from ..core.refs import RefLog
 from ..lang.expr import Evaluator, ExprError, Vec, fmt_num, format_value
 from ..lang.script import (
     Assign,
@@ -41,6 +42,7 @@ from ..lang.script import (
     Simple,
     Stmt,
     While,
+    code_key,
     first_code_line,
     is_ident,
     needs_more,
@@ -120,6 +122,7 @@ class Result:
     ok: bool
     message: str = ""
     pending: bool = False  # interactive input is inside an open block
+    warning: str = ""  # the command ran, but something needs the user's attention
 
 
 @dataclass
@@ -131,6 +134,11 @@ class Entry:
     message: str = ""
     suppressed: bool = False
     pins: dict[str, list[int]] = field(default_factory=dict)
+    # fingerprints of the picks this entry made (see core/refs.py)
+    refs: list = field(default_factory=list)
+    # set when the entry ran but needs attention (a repaired pick, say)
+    warning: str = ""
+    uid: int = 0  # stays with the entry for good; says which step made an entity
 
     @property
     def label(self) -> str:
@@ -148,6 +156,9 @@ class _Cycle(Exception):
 class _Return(Exception):
     pass
 
+
+SELECTED = -1  # what the word SEL gives where bodies are expected
+SEL_AS_BODIES = {"UNION", "SUBTRACT", "INTERSECT"}
 
 UNIT_NAMES = {"MM": "MM", "CM": "CM", "METER": "M", "INCH": "IN"}
 RESERVED = {"LAST"} | set(UNIT_NAMES)
@@ -175,6 +186,7 @@ class Processor:
         self.project_path: str | None = None  # the last SAVE/OPEN file
 
         self.history: list[Entry] = []
+        self._uid = 0  # the last entry uid handed out
         self.cursor = 0  # entries[:cursor] are applied; the rest can be redone
         self._snaps: list[dict] = [self._state()]
         self._buffer: list[str] = []
@@ -183,6 +195,8 @@ class Processor:
         self._loops = 0
         self._steps = 0
         self._trace: list[str] = []
+        self._warnings: list[str] = []
+        self.refs: RefLog | None = None  # the running entry's pick fingerprints
         self._quiet = True
 
         from . import queries  # registers the model query functions
@@ -214,25 +228,45 @@ class Processor:
     def pending(self) -> bool:
         return bool(self._buffer)
 
-    def run_script(self, text: str) -> list[Result]:
+    def run_script(self, text: str, saved: list[dict] | None = None) -> list[Result]:
         """Run a whole script, one history entry per top-level unit.
 
         Stops at the first failing unit (which is not added to the history).
+
+        saved: what a project file remembers about each entry (its text, the
+        IDs it handed out and its pick fingerprints). An entry whose text
+        matches gets its IDs back, so the model is numbered exactly as it
+        was when the project was saved.
         """
         try:
             units = split_entries(text)
         except ScriptError as exc:
             return [self._finish(Result(first_code_line(text), False, str(exc)))]
+        saved = list(saved or [])
+        floor: dict[str, int] = {}
+        for item in saved:
+            for kind, ids in (item.get("pins") or {}).items():
+                if ids and kind in ID_KINDS:
+                    floor[kind] = max(floor.get(kind, 1), max(ids) + 1)
+        self.model.id_floor.update(floor)
         results = []
-        for unit in units:
-            r = self._finish(self.run_unit(unit))
-            if r.line:
-                results.append(r)
-                if not r.ok:
-                    break
+        k = 0
+        try:
+            for unit in units:
+                seed = None
+                if k < len(saved) and code_key(saved[k].get("text", "")) == code_key(unit):
+                    seed, k = saved[k], k + 1
+                r = self._finish(self.run_unit(unit, seed))
+                if r.line:
+                    results.append(r)
+                    if not r.ok:
+                        break
+        finally:
+            for kind in floor:
+                self.model.id_floor[kind] = 1
         return results
 
-    def run_unit(self, text: str) -> Result:
+    def run_unit(self, text: str, seed: dict | None = None) -> Result:
         """Run one top-level unit and, if it changes the model, add it to the history."""
         text = text.strip("\n").rstrip()
         label = text.strip()
@@ -249,6 +283,13 @@ class Processor:
             if cmd is not None and not cmd.logged:
                 return self._run_unlogged(cmd, stmts[0], label)
         entry = Entry(text)
+        if seed:
+            entry.pins = {k: [int(i) for i in v] for k, v in (seed.get("pins") or {}).items() if k in ID_KINDS}
+            entry.refs = list(seed.get("refs") or [])
+            uid = int(seed.get("uid") or 0)
+            if uid > 0 and all(e.uid != uid for e in self.history):
+                entry.uid = uid
+                self._uid = max(self._uid, uid)
         ok, message = self._run_entry(entry, stmts)
         entry.ok, entry.message = ok, message
         if not ok:
@@ -259,7 +300,7 @@ class Processor:
         self.cursor += 1
         self._snaps.append(self._state())
         self._history_changed()
-        return Result(label, True, message)
+        return Result(label, True, message, warning=entry.warning)
 
     def reset(self) -> None:
         """Start a new, empty session (history, parameters, macros and model)."""
@@ -270,6 +311,7 @@ class Processor:
         self.file_map = {}
         self.model.clear()
         self.history = []
+        self._uid = 0
         self.cursor = 0
         self._snaps = [self._state()]
         self._history_changed()
@@ -317,6 +359,8 @@ class Processor:
         """Replace entry ``index`` (1-based) and re-run from there."""
         i = self._index(index)
         new = self._check_unit(text)
+        if code_key(new) != code_key(self.history[i].text):
+            self.history[i].refs = []  # new picks: the old fingerprints no longer apply
         self.history[i].text = new
         self.history[i].suppressed = False
         return self.rebuild(i)
@@ -364,21 +408,24 @@ class Processor:
                 if ids:
                     floor[kind] = max(floor.get(kind, 1), max(ids) + 1)
         self.model.id_floor.update(floor)
-        errors = []
+        errors: list[str] = []
+        warnings: list[str] = []
         try:
             for j in range(start, self.cursor):
                 e = self.history[j]
                 if e.suppressed:
-                    e.ok, e.message = True, "suppressed"
+                    e.ok, e.message, e.warning = True, "suppressed", ""
                 else:
                     try:
                         stmts = parse(e.text)
                     except ScriptError as exc:
-                        e.ok, e.message = False, str(exc)
+                        e.ok, e.message, e.warning = False, str(exc), ""
                     else:
                         e.ok, e.message = self._run_entry(e, stmts)
                     if not e.ok:
                         errors.append(f"entry {j + 1}: {e.message}")
+                    elif e.warning:
+                        warnings.append(f"entry {j + 1}: {e.warning}")
                 self._snaps[j + 1] = self._state()
         finally:
             for kind in floor:
@@ -389,6 +436,8 @@ class Processor:
         msg = f"re-ran {n} entr{'y' if n == 1 else 'ies'} from {start + 1}"
         if errors:
             msg += f"; {len(errors)} failed:\n  " + "\n  ".join(errors)
+        if warnings:
+            msg += f"\n{len(warnings)} warning{'s' if len(warnings) > 1 else ''}:\n  " + "\n  ".join(warnings)
         return msg
 
     def entry_for_param(self, name: str) -> int | None:
@@ -473,8 +522,14 @@ class Processor:
         before = self._state()
         revision = self.model_revision()
         self._trace, self._steps, self._loops, self._scopes = [], 0, 0, []
-        pins = IdPins(entry.pins)
+        self._warnings = []
+        entry.warning = ""
+        if not entry.uid:
+            self._uid += 1
+            entry.uid = self._uid
+        pins = IdPins(entry.pins, entry.uid)
         self.model.pins = pins
+        self.refs = refs = RefLog(entry.refs)
         single = len(stmts) == 1 and isinstance(stmts[0], (Cmd, Assign))
         self._quiet = single
         try:
@@ -491,8 +546,19 @@ class Processor:
             return self._fail(before, revision, f"{type(exc).__name__}: {exc}")
         finally:
             self.model.pins = None
-        entry.pins = pins.used
-        return True, self._trace_text()
+            self.refs = None
+        entry.pins = pins.merged()
+        entry.refs = refs.merged()
+        entry.warning = "\n".join(dict.fromkeys(self._warnings))
+        text = self._trace_text()
+        if entry.warning:
+            text = (text + "\n" if text else "") + "\n".join("warning: " + w for w in entry.warning.splitlines())
+        return True, text
+
+    def warn(self, text: str) -> None:
+        """Flag the running entry: it worked, but the user should look at it."""
+        if text:
+            self._warnings.append(text)
 
     def model_revision(self) -> int:
         return self.model.revision
@@ -800,6 +866,8 @@ class Processor:
     def _body_arg(self, cmd: Command, raw: str) -> int:
         s = raw.strip()
         v: Any
+        if s.upper() == "SEL" and cmd.name in SEL_AS_BODIES:
+            return SELECTED  # "all the selected bodies"; the handler expands it
         if is_ident(s):
             try:
                 v = self._lookup(s.upper())

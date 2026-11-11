@@ -79,17 +79,10 @@ def _place(p: Processor, bid: int, trsfs: list[gp_Trsf], fuse: bool, what: str) 
     if not copies:
         return "ARRAY: nothing to add (count 1)"
     if fuse:
-        from .handlers import _shape_list
+        from .handlers import combine
 
-        algo = BRepAlgoAPI_Fuse()
-        algo.SetArguments(_shape_list([shape]))
-        algo.SetTools(_shape_list(copies))
-        if m.tolerance > 0:
-            algo.SetFuzzyValue(m.tolerance)
-        algo.Build()
-        if not algo.IsDone():
-            raise CommandError("ARRAY: the kernel could not fuse the copies")
-        body = m.replace([bid], algo.Shape(), algo)
+        fused, maker = combine(p, "UNION", BRepAlgoAPI_Fuse, shape, copies, bid, merge=True)
+        body = m.replace([bid], fused, maker)
         return f"{what}: {len(copies) + 1} copies fused into body {body.id}"
     ids = [m.add_body(c).id for c in copies]
     shown = f"{ids[0]}..{ids[-1]}" if len(ids) > 3 else ", ".join(map(str, ids))
