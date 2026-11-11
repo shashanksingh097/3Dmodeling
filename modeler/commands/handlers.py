@@ -177,7 +177,8 @@ def wedge(p: Processor, x, y, z, dx, dy, dz, ltx):
 # Booleans and blends
 # =============================================================================
 # The inputs are consumed; the result inherits the first input's name, and
-# faces/edges that survive keep their IDs. Keeping inputs (KEEP, ON) is M2.
+# faces/edges that survive keep their IDs. With KEEP, ON the inputs come back
+# as hidden copies with new IDs, so they can be used again.
 
 _TOOLS = [Arg(f"t{i}", BodyRef, 0) for i in range(2, 9)]
 
@@ -206,8 +207,21 @@ def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
     algo.Build()
     if not algo.IsDone():
         raise CommandError(f"{name}: the kernel could not combine bodies {', '.join(map(str, [a] + tools))}")
+    kept = [(m.body(b).shape, m.body(b).name if b != a else "") for b in [a] + tools] if m.keep else []
     body = m.replace([a] + tools, algo.Shape(), algo)
-    return _added(p, body, f"{name} of {', '.join(map(str, [a] + tools))}")
+    msg = _added(p, body, f"{name} of {', '.join(map(str, [a] + tools))}")
+    if kept:
+        # the inputs come back as new hidden bodies (fresh IDs: the result
+        # carries the old face and edge IDs), ready to be used again. Tools
+        # keep their names; the base's name has moved on to the result.
+        ids = []
+        for shape, old_name in kept:
+            b = m.add_body(shape, "" if old_name.startswith("body") else old_name)
+            m.set_hidden(b.id, True)
+            ids.append(b.id)
+        m.last_body = body.id
+        msg += f"; kept the inputs as hidden bodies {', '.join(map(str, ids))}"
+    return msg
 
 
 @command("UNION", Arg("a", BodyRef), Arg("b", BodyRef), *_TOOLS,
@@ -346,6 +360,15 @@ def name_(p: Processor, b, name):
         raise CommandError(f"NAME: {name} is reserved")
     p.model.rename(b, name)
     return f"body {b} is '{name}'"
+
+
+@command("KEEP", Arg("mode", str, help="ON or OFF"),
+         help="KEEP, ON: booleans keep their input bodies (hidden, with new IDs). KEEP, OFF (default): inputs are used up.")
+def keep(p: Processor, mode):
+    if mode not in ("ON", "OFF"):
+        raise CommandError("KEEP: ON or OFF")
+    p.model.keep = mode == "ON"
+    return f"booleans {'keep' if p.model.keep else 'use up'} their inputs"
 
 
 @command("HIDE", Arg("b", BodyRef), help="Hide a body in the viewport (it stays in the model).")

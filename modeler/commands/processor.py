@@ -168,6 +168,11 @@ class Processor:
         self.macros: dict[str, MacroDef] = {}
         # parameters fixed from outside (batch runner -D): assignments keep these values
         self.overrides = {k.upper(): v for k, v in (overrides or {}).items()}
+        # IMPORT file names as written in the script -> the file to read
+        # (set when a project is opened, so imports come from the project)
+        self.file_map: dict[str, str] = {}
+        self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
+        self.project_path: str | None = None  # the last SAVE/OPEN file
 
         self.history: list[Entry] = []
         self.cursor = 0  # entries[:cursor] are applied; the rest can be redone
@@ -255,6 +260,19 @@ class Processor:
         self._snaps.append(self._state())
         self._history_changed()
         return Result(label, True, message)
+
+    def reset(self) -> None:
+        """Start a new, empty session (history, parameters, macros and model)."""
+        self._buffer = []
+        self._scopes = []
+        self.params = {}
+        self.macros = {}
+        self.file_map = {}
+        self.model.clear()
+        self.history = []
+        self.cursor = 0
+        self._snaps = [self._state()]
+        self._history_changed()
 
     @property
     def log(self) -> list[str]:

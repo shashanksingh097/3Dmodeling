@@ -122,6 +122,7 @@ class Model:
         self.units: str = "MM"
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
+        self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
 
     # ---- listeners -------------------------------------------------------
     def subscribe(self, fn: Callable[[Event], None]) -> None:
@@ -151,6 +152,7 @@ class Model:
             "units": self.units,
             "tolerance": self.tolerance,
             "hidden": set(self.hidden),
+            "keep": self.keep,
         }
 
     def restore(self, snap: dict) -> None:
@@ -164,6 +166,7 @@ class Model:
         self.units = snap["units"]
         self.tolerance = snap["tolerance"]
         self.hidden = set(snap.get("hidden", ()))
+        self.keep = snap.get("keep", False)
         self._emit(Event("restored"))
 
     # ---- IDs ---------------------------------------------------------------
