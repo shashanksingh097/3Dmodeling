@@ -257,13 +257,27 @@ class OccViewport(QWidget):
         elif ev.kind == "selection":
             self._sync_selection()
             return
+        elif ev.kind == "visibility":
+            ais = self._ais.pop(ev.body_id, None)
+            if ais is not None:
+                self.context.Remove(ais, False)
+            if ev.body_id in self.model.bodies and ev.body_id not in self.model.hidden:
+                self._display_body(ev.body_id, update=False)
+            self._sync_selection()
         self.context.UpdateCurrentViewer()
 
     def _display_body(self, bid: int, update: bool = True) -> None:
-        ais = AIS_Shape(self.model.bodies[bid].shape)
-        ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
-        ais.SetColor(_rgb(0.62, 0.66, 0.72))
-        ais.Attributes().SetFaceBoundaryDraw(True)
+        if bid in self.model.hidden:
+            return
+        shape = self.model.bodies[bid].shape
+        ais = AIS_Shape(shape)
+        if self.model.bodies[bid].entity_ids["FACE"]:
+            ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
+            ais.SetColor(_rgb(0.62, 0.66, 0.72))
+            ais.Attributes().SetFaceBoundaryDraw(True)
+        else:  # a curve (path or profile): draw it bright and a little thicker
+            ais.SetColor(_rgb(1.0, 0.62, 0.15))
+            ais.SetWidth(2.5)
         self.context.Display(ais, 1, 0, False)
         self._activate(ais)
         self._ais[bid] = ais

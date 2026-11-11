@@ -213,7 +213,10 @@ Modes: `S` new set, `R` reselect within the current set, `A` add, `U` remove.
 | Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name) |
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
-| Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` |
+| Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
+| Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
+| Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE]` · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
+| Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/BREP/STL, file [, body]` · `RUN, file` |
@@ -230,3 +233,110 @@ python -m modeler run scripts/flange.cmd -D N_BOLTS=8 -q     # fix a parameter, 
 `-D NAME=value` fixes a parameter: the script's own `NAME = ...` keeps the
 given value, so one script makes a whole family of parts. The exit code is 0
 when every statement ran.
+
+## 9. Shapes on curves
+
+A **path** is a curve to move along; a **profile** is a closed curve that
+moves. Both are ordinary bodies (drawn in orange), so they have IDs and names,
+and they stay after you use them: one path can carry many sweeps.
+
+```text
+LINE, 14,0,0, 134,0,0                   ! a path
+NAME, LAST, spanline
+AIRFOIL, 14,0,0, 30, 2412, 1,0,0, 40    ! a profile where the path starts
+SWEEP, LAST, spanline, -32*t, 1 - 0.53*t
+```
+
+### Points
+
+Commands that take a list of points (`POLYLINE`, `SPLINE`) take them as
+points in parentheses, and parameters holding points work too:
+`SPLINE, (0,0,0), P1, P1 + (10,0,5), CLOSE`. Angles everywhere are in
+degrees, including in `sin` and `cos`.
+
+### Where a profile lies
+
+Every profile is drawn on a plane through `(x,y,z)` with normal `(nx,ny,nz)`
+(default +Z), then turned by `angle` in that plane. The profile's own X and Y
+directions are:
+
+* normal +Z: X is world X, Y is world Y;
+* any other normal: X is level (world Z x normal), Y points as far up (+Z)
+  as the plane allows. For normal +X, profile X is world Y and profile Y is
+  world Z.
+
+`AIRFOIL` puts its chord along profile X with the quarter-chord point on
+`(x,y,z)` (change it with the last argument, `pivot`), so a twist turns the
+airfoil about that point.
+
+### Laws
+
+A law is any expression in `t`, where `t` is 0 at the start of the path and
+1 at the end. Laws can use parameters, macro arguments and every function:
+
+| Law | Meaning | Example |
+|-----|---------|---------|
+| `twist` | turn about the path, degrees | `40 - 32*t`, `360*t`, `20*sin(180*t)` |
+| `scale` | grow or shrink | `1 - 0.5*t`, `1 + 0.3*sin(720*t)` |
+| `sx`, `sy` | stretch along the profile's X or Y only | `1 + t` |
+| `ox`, `oy` | slide off the path along X or Y | `10*t**2` |
+
+A law can also be quoted: `SWEEP, prof, path, "30*t"`. A law without `t` is
+a constant: `SWEEP, prof, path, 15` turns the whole profile by 15 degrees.
+
+### LOFT
+
+`LOFT, s1, s2, s3, ...` fits one smooth solid through the sections in order.
+The sections can be different shapes (a circle, then a rounded square, then
+a polygon) and need not be parallel. Add `RULED` for straight sides between
+sections, `CLOSED` to come back to the first section (a ring), `SURFACE` for
+no end caps.
+
+### SWEEP
+
+`SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]`
+
+* Draw the profile where the path starts, usually across it. Its place
+  relative to the path start is kept all along (an offset profile stays
+  offset).
+* `mode`: `MINTWIST` (default) keeps the profile from spinning on 3D
+  curves; `FRENET` follows the curve's bend (good on helices); `FIXED` never
+  turns the profile, it only moves.
+* With no laws the sweep is exact. With a scale law only, it is still exact.
+  Other laws place the profile at `n` stations and fit a smooth surface
+  through them; `n` = 0 picks enough stations for the twist and the bends of
+  the path (the result message says how many).
+* `solid` = 0 gives the swept surface only.
+
+### MORPH
+
+`MORPH, path, twist, scale, mode, s1, s2, s3, ...` sweeps a shape that
+changes on the way: profile `s1` at the start, the last one at the end, the
+others evenly in between, blending smoothly from each to the next. Draw all
+profiles at the start of the path (they may overlap); repeat one to hold it
+longer: `MORPH, duct, 0, 1, , round, round, square`.
+
+### PIPE
+
+`PIPE, path, r [, ri, radius_law, mode]` is a round tube along any path:
+solid, or hollow when `ri` > 0, with an optional radius law
+(`PIPE, coil, 1.5, 0, 1 + t`).
+
+### HELIX and CURVE
+
+`HELIX, x,y,z, r, pitch, turns [, dx,dy,dz] [, taper] [, RIGHT/LEFT] [, pitch_law]`
+starts on the profile-X side of the axis. `taper` (degrees) makes it
+conical; the pitch law multiplies the pitch along the helix
+(`0.5 + 2*t*(1-t)*2` gives tighter coils at the ends).
+
+`CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` samples an equation at `n`
+points and fits an exact smooth curve through them; it closes itself when
+it ends where it starts:
+
+```text
+CURVE, PARAM, 8*(sin(t) + 2*sin(2*t)), 8*(cos(t) - 2*cos(2*t)), -8*sin(3*t), 0, 360, 180
+PIPE, LAST, 3                     ! a trefoil knot
+```
+
+See `scripts/blade_smooth.cmd` and `scripts/sweep_gallery.cmd`.
+
