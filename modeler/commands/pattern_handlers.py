@@ -63,7 +63,7 @@ def _count(v, what="count") -> int:
     if not float(v).is_integer() or v < 1:
         raise CommandError(f"ARRAY: the {what} must be a whole number of at least 1")
     if v > 10000:
-        raise CommandError(f"ARRAY: at most 10000 copies")
+        raise CommandError("ARRAY: at most 10000 copies")
     return int(v)
 
 
@@ -77,7 +77,7 @@ def _place(p: Processor, bid: int, trsfs: list[gp_Trsf], fuse: bool, what: str) 
             raise CommandError("ARRAY: kernel failed placing a copy")
         copies.append(mk.Shape())
     if not copies:
-        return f"ARRAY: nothing to add (count 1)"
+        return "ARRAY: nothing to add (count 1)"
     if fuse:
         from .handlers import _shape_list
 
