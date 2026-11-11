@@ -107,3 +107,27 @@ def test_scripted_pick_highlights(win):
     ctx.InitSelected()
     assert ctx.MoreSelected()
     assert ctx.SelectedShape().IsSame(win.processor.model.entity_shape("FACE", 6))
+
+
+def test_scripted_pick_is_drawn_orange(win):
+    """The highlight really shows: sample the rendered pixel at the face."""
+    from OCP.Image import Image_AlienPixMap
+
+    vp = win.viewport
+    x, y = to_px(win, *face_centre(win, 6))
+    win.execute("SEL, NONE")
+    before = _pixel(vp, x, y, Image_AlienPixMap)
+    win.execute("PICK, FACE, 6")
+    after = _pixel(vp, x, y, Image_AlienPixMap)
+    r, g, b = after
+    assert r > 0.8 and b < 0.3, (before, after)  # orange
+    assert before != after
+
+
+def _pixel(vp, x, y, pixmap_cls):
+    vp.view.Redraw()
+    w, h = vp._window.Size()
+    pm = pixmap_cls()
+    assert vp.view.ToPixMap(pm, w, h)
+    c = pm.PixelColor(x, y).GetRGB()
+    return round(c.Red(), 2), round(c.Green(), 2), round(c.Blue(), 2)

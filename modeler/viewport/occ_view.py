@@ -27,6 +27,7 @@ from OCP.Aspect import (
 from OCP.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial
 from OCP.OpenGl import OpenGl_GraphicDriver
 from OCP.Prs3d import Prs3d_TypeOfHighlight
+from OCP.StdSelect import StdSelect_BRepOwner
 from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHAPE, TopAbs_VERTEX
 from OCP.V3d import V3d_TypeOfOrientation, V3d_Viewer, V3d_ZBUFFER
@@ -250,37 +251,31 @@ class OccViewport(QWidget):
             self.context.UpdateCurrentViewer()
 
     def _sync_selection(self) -> None:
-        """Make the highlighted entities match model.selection."""
+        """Make the highlighted entities match model.selection.
+
+        We build our own owners for the selected sub-shapes instead of
+        looking up the ones OCCT made for picking: that lookup is not exposed
+        the same way in every OCP version, and a fresh owner highlights the
+        same. Clicks never select directly (they emit PICK commands), so
+        these owners are the only selected ones.
+        """
         ctx = self.context
         ctx.ClearSelected(False)
         m = self.model
         kind = m.selection_kind
         if m.selection and kind == self.pick_mode:
-            wanted = set(m.selection)
-            for bid, ais in self._ais.items():
-                mode = AIS_Shape.SelectionMode_s(_TOPABS[kind])
+            for gid in m.selection:
                 if kind == "BODY":
-                    if bid in wanted:
-                        for owner in self._owners(ais, mode):
-                            ctx.AddOrRemoveSelected(owner, False)
+                    bid, shape = gid, m.bodies[gid].shape
+                else:
+                    bid = m.entity_owner(kind, gid)[0]
+                    shape = m.entity_shape(kind, gid)
+                ais = self._ais.get(bid)
+                if ais is None:
                     continue
-                for owner in self._owners(ais, mode):
-                    try:
-                        gid = m.find_entity(bid, kind, owner.Shape())
-                    except ModelError:
-                        continue
-                    if gid in wanted:
-                        ctx.AddOrRemoveSelected(owner, False)
+                owner = StdSelect_BRepOwner(shape, ais, 0, kind != "BODY")
+                ctx.AddOrRemoveSelected(owner, False)
         ctx.UpdateCurrentViewer()
-
-    @staticmethod
-    def _owners(ais: AIS_Shape, mode: int):
-        seen = set()
-        for ent in ais.Selection(mode).Entities():
-            owner = ent.BaseSensitive().OwnerId()
-            if id(owner) not in seen:
-                seen.add(id(owner))
-                yield owner
 
     # ---- picking --------------------------------------------------------
     def pick_at(self, x: int, y: int) -> tuple[str, int] | None:
