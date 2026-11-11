@@ -24,20 +24,31 @@ can also type or script.
 - **Scripts are first-class.** A `.cmd` file is just a list of commands. Running
   it is the same as clicking through the GUI.
 - **Selection is a command too.** Picking entities in the viewport produces
-  commands like `SEL, S, VOLU, , 3`, so selection sets can be scripted.
-- **Undo/redo** works on the command history.
+  commands like `PICK, FACE, 12` or `SEL, S, FACE, NORMAL, 0,0,1`, so selections can be scripted.
+- **Undo/redo** works on the command history, and any old step can be edited: the model re-runs from there.
 
 ## Example script
 
 ```text
-! simple bracket
-BLOCK, 0,0,0, 20,10,2
-CYL,   10,5,0, 3, 2
-SUBTRACT, VOLU, 1, 2
-SEL, S, VOLU, , 3
-MOVE, 0,0,5
-VIEW, ISO
+! plate with a row of holes; change W or N and it rebuilds
+W = 60
+N = 4
+BLOCK, 0,0,0, W,20,5
+NAME, LAST, plate
+*MACRO, hole, x, y, d=6
+  CYL, x, y, -1, d/2, 7
+  SUBTRACT, plate, LAST
+*END
+*DO, i, 1, N
+  hole, i*W/(N+1), 10
+*ENDDO
+SEL, S, FACE, NORMAL, 0,0,1      ! the top face, chosen by meaning, not number
+CM, top, FACE
 ```
+
+The language (parameters, expressions, loops, conditions, macros, selection
+by criteria, the editable history) is described in
+[docs/LANGUAGE.md](docs/LANGUAGE.md).
 
 ## Planned architecture
 
@@ -64,16 +75,18 @@ Short version:
 6. Save/load as command scripts
 7. AI chat box that explains commands and drafts scripts from plain language
 
-## Quick start (M0 spike)
+## Quick start
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[test]"
-python -m modeler scripts/m0_demo.cmd
+python -m modeler scripts/flange.cmd                   # GUI with a parametric flange
+python -m modeler run scripts/flange.cmd -D N_BOLTS=8  # same script, headless
 ```
 
-See [docs/M0.md](docs/M0.md) for what to try and what to check on each OS.
+Status: M0 (viewer and picking, [docs/M0.md](docs/M0.md)) and M1 (command
+core, [docs/M1.md](docs/M1.md)) are in.
 
 ## Requirements
 

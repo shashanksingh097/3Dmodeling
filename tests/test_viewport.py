@@ -131,3 +131,37 @@ def _pixel(vp, x, y, pixmap_cls):
     assert vp.view.ToPixMap(pm, w, h)
     c = pm.PixelColor(x, y).GetRGB()
     return round(c.Red(), 2), round(c.Green(), 2), round(c.Blue(), 2)
+
+
+def test_history_and_parameter_panels_drive_commands(win, app):
+    p = win.processor
+    win.execute("W = 10")
+    win.execute("BLOCK, 50,0,0, W, W, W")
+    hp, pp = win.history_panel, win.param_panel
+    assert hp.rowCount() == len(p.history) == 4
+    assert hp.item(3, 1).text() == "BLOCK, 50,0,0, W, W, W"
+    # typing a new value in the Parameters panel edits the defining entry
+    row = [pp.item(r, 0).text() for r in range(pp.rowCount())].index("W")
+    pp.item(row, 1).setText("20")
+    app.processEvents()
+    assert p.history[2].text == "W = 20"
+    assert p.evaluate("VOL(LAST)") == pytest.approx(8000)
+    assert win.output.toPlainText().splitlines()[-2].startswith('> HIST, EDIT, 3, "W = 20"')
+    # the viewport shows the rebuilt bodies
+    assert sorted(win.viewport._ais) == sorted(p.model.bodies)
+    win.undo_action.trigger()
+    assert len(p.model.bodies) == 2 and sorted(win.viewport._ais) == [1, 2]
+    assert hp.item(3, 0).foreground().color().getRgb()[:3] == (140, 140, 140)  # undone: grey
+    win.redo_action.trigger()
+    assert len(win.viewport._ais) == 3
+
+
+def test_typed_block_in_command_line(win):
+    for line in ("*DO, i, 1, 3", "  SPHERE, i*10, 30, 0, 2", "*ENDDO"):
+        win.cmdline.setText(line)
+        win.cmdline.returnPressed.emit()
+        if line != "*ENDDO":
+            assert win.prompt.text() == "…"
+    assert win.prompt.text() == ">"
+    assert len(win.processor.model.bodies) == 5
+    assert len(win.viewport._ais) == 5

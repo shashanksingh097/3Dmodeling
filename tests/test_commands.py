@@ -51,7 +51,7 @@ def test_bad_input_is_reported_not_raised(p):
     for line, msg in [
         ("NOPE, 1", "unknown command"),
         ("BLOCK, 0,0,0, 1,1", "required"),
-        ("BLOCK, 0,0,0, 1,1,x", "must be a number"),
+        ("BLOCK, 0,0,0, 1,1,x", "unknown name"),
         ("BLOCK, 0,0,0, 1,1,-1", "positive"),
         ("PICK, FACE, 1", "no FACE with ID 1"),
         ("PICK, BLOB, 1", "unknown entity kind"),
@@ -90,9 +90,15 @@ def test_log_replays_to_same_model(p):
     LIST
     """
     assert all(r.ok for r in p.run_script(script))
-    assert p.log == ["BLOCK, 0, 0, 0, 20, 10, 5", "CYL, 30, 5, 0, 4, 12", "PICK, FACE, 6", "PICK, FACE, 8, A"]
+    # the history keeps what was written (comments too); LIST is not history
+    assert p.log == [
+        "! comment line\nBLOCK, 0,0,0, 20,10,5   ! trailing comment",
+        "CYL, 30,5,0, 4, 12",
+        "PICK, FACE, 6",
+        "PICK, FACE, 8, A",
+    ]
     q = Processor()
-    assert all(r.ok for r in q.run_script("\n".join(p.log)))
+    assert all(r.ok for r in q.run_script(p.script()))
     assert q.model.selection == p.model.selection == [6, 8]
     assert q.log == p.log
 
@@ -172,5 +178,26 @@ def test_flange_example_script():
     with open("scripts/flange.cmd", encoding="utf-8") as f:
         results = p.run_script(f.read())
     assert all(r.ok for r in results), [r for r in results if not r.ok]
-    assert sorted(p.model.bodies) == [14, 17]
-    assert p.model.selection == [78]
+    assert [b.name for b in p.model.bodies.values()] == ["flange"]
+    assert p.evaluate("round(VOL(flange))") == 66878
+    assert p.model.named_set("flange_top") == ("FACE", [2])
+    assert p.evaluate("CENT(2, 'FACE').z") == pytest.approx(10)
+
+
+def test_flange_rebuilds_with_more_bolts():
+    p = Processor(overrides={"N_BOLTS": 8})
+    with open("scripts/flange.cmd", encoding="utf-8") as f:
+        assert all(r.ok for r in p.run_script(f.read()))
+    assert p.params["N_BOLTS"] == 8
+    assert p.evaluate("round(VOL(flange))") == 65872
+
+
+@pytest.mark.parametrize("path", sorted(__import__("glob").glob("scripts/*.cmd")))
+def test_every_example_script_runs(path):
+    p = Processor()
+    with open(path, encoding="utf-8") as f:
+        results = p.run_script(f.read())
+    assert results and all(r.ok for r in results), [r for r in results if not r.ok]
+    q = Processor()  # and its saved history rebuilds the same bodies
+    assert all(r.ok for r in q.run_script(p.script()))
+    assert sorted(q.model.bodies) == sorted(p.model.bodies)
