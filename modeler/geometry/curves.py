@@ -28,6 +28,12 @@ try:  # OCP 8
     from OCP.collections import HArray1_gp_Pnt as _HArrayPnt
 except ImportError:  # OCP 7.x
     from OCP.TColgp import TColgp_HArray1OfPnt as _HArrayPnt  # type: ignore[no-redef]
+try:  # OCP 8
+    from OCP.collections import Array1_gp_Vec as _ArrayVec
+    from OCP.collections import HArray1_bool as _HArrayBool
+except ImportError:  # OCP 7.x
+    from OCP.TColgp import TColgp_Array1OfVec as _ArrayVec  # type: ignore[no-redef]
+    from OCP.TColStd import TColStd_HArray1OfBoolean as _HArrayBool  # type: ignore[no-redef]
 
 Point = Sequence[float]
 
@@ -352,14 +358,12 @@ def airfoil(origin: Point, chord: float, code: str, normal: Point = (0, 0, 1), a
 
 def _interp(points: list[Point], start: Point | None = None, end: Point | None = None):
     """Edge through points; optionally tangent to a direction at one end."""
-    from OCP.collections import Array1_gp_Vec, HArray1_bool
-
     arr = _HArrayPnt(1, len(points))
     for i, q in enumerate(points, 1):
         arr.SetValue(i, _pnt(q))
     interp = GeomAPI_Interpolate(arr, False, 1e-7)
-    tans = Array1_gp_Vec(1, len(points))
-    flags = HArray1_bool(1, len(points))
+    tans = _ArrayVec(1, len(points))
+    flags = _HArrayBool(1, len(points))
     for i in range(1, len(points) + 1):
         tans.SetValue(i, gp_Vec(1, 0, 0))
         flags.SetValue(i, False)
