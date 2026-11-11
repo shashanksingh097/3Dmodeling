@@ -388,4 +388,4 @@ class MainWindow(QMainWindow):
     def _run_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Run command script", "", "Command scripts (*.cmd);;All files (*)")
         if path:
-            self.execute(f"RUN, {format_value(path)}")
+            self.execute(f'RUN, "{path}"')

@@ -162,3 +162,9 @@ def test_run_command_and_batch_runner(tmp_path, capsys):
     assert main(["run", str(script), "-D", "W=20", "-q"]) == 0
     assert "done: 6 history entries, 1 bodies" in capsys.readouterr().out
     assert main(["run", str(script), "-D", "nonsense"]) == 2
+
+
+def test_windows_style_paths_are_taken_literally(tmp_path):
+    p = Processor()
+    r = p.run(r'RUN, "C:\Users\new\test.cmd"')
+    assert not r.ok and r"C:\Users\new\test.cmd" in r.message

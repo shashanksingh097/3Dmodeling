@@ -42,7 +42,7 @@ from ..core.model import ENTITY_KINDS, SELECT_KINDS, UNITS, ModelError, check_ki
 from ..lang.expr import ExprError, Vec, fmt_num, format_value
 from ..lang.script import COMPARE_WORDS, first_code_line, is_ident
 from . import queries
-from .processor import REGISTRY, Arg, BodyRef, CommandError, Processor, Raw, Text, command
+from .processor import REGISTRY, Arg, BodyRef, CommandError, Path, Processor, Raw, Text, command
 
 
 def _static(cls, name):
@@ -707,7 +707,7 @@ def _compound(shapes):
 @command(
     "EXPORT",
     Arg("format", str, help="STEP, BREP or STL"),
-    Arg("file", Text),
+    Arg("file", Path),
     Arg("b", BodyRef, 0, "body to export (default: all bodies)"),
     logged=False,
     help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. Runs when given; not kept in the history.",
@@ -738,7 +738,7 @@ def export(p: Processor, format, file, b):
     return f"wrote {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file} ({format}, {m.units})"
 
 
-@command("RUN", Arg("file", Text), session=True,
+@command("RUN", Arg("file", Path), session=True,
          help="Run a script file. Each top-level statement becomes a history entry.")
 def run_(p: Processor, file):
     try:

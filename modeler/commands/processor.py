@@ -70,6 +70,11 @@ class Text:
     """Argument type: a string that keeps its case (file names, labels)."""
 
 
+class Path(Text):
+    """Argument type: a file name. A plain quoted name is taken exactly as
+    written, so Windows paths need no doubled backslashes: RUN, "C:\\work\\a.cmd"."""
+
+
 class Raw:
     """Argument type: the argument text as written; the handler evaluates it."""
 
@@ -757,6 +762,8 @@ class Processor:
 
     def _word_arg(self, cmd: Command, arg: Arg, raw: str) -> str:
         s = raw.strip()
+        if arg.type is Path and len(s) >= 2 and s[0] in "\"'" and s[-1] == s[0] and s[0] not in s[1:-1]:
+            return s[1:-1]
         if s[:1] in "\"'(":
             v = self.evaluator.eval(s)
             if not isinstance(v, str):

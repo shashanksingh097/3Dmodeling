@@ -39,6 +39,9 @@ CM, top, FACE
   commas or when you want an expression: `EXPORT, STEP, "part" + STR(i) + ".step"`.
   A bare word that is the name of a parameter holding text uses that text,
   which is how macros pass kinds around.
+* File names in `RUN` and `EXPORT` are taken exactly as written between the
+  quotes, so Windows paths work as is: `RUN, "C:\work\part.cmd"`. (Inside
+  other expressions a backslash starts an escape such as `\n`; use `/` there.)
 
 ## 2. Parameters and expressions
 
