@@ -94,7 +94,7 @@ later stretch goal).
 | Mesh | numpy, trimesh, manifold3d |
 | Implicit/equations | numpy expression evaluation, scikit-image marching cubes |
 | Expressions | our own safe evaluator over Python's `ast` (no `eval`) |
-| Constraint sketcher | planegcs (FreeCAD's 2D solver, Python package) or a small own solver |
+| Constraint sketcher | our own small solver on numpy (chosen after a spike against planegcs and SolveSpace's solver; see docs/M3-sketcher.md) |
 | File formats | native `.cmd` script + `.3dm`-style project zip; STEP, IGES, BREP, STL, OBJ, 3MF, glTF |
 | Tests | pytest; headless command tests need no GUI |
 | Packaging | pip + `pyproject.toml`; PyInstaller bundles later |
@@ -443,7 +443,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
 | **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Still to come: sketcher with constraints, extrude/revolve, snaps, layers; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Then the sketcher with constraints and dimensions, `EXTRUDE` and `REVOLVE`, snaps. Still to come: layers; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
 | **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
 | **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
@@ -467,7 +467,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 | 1 | **References break when history is edited** (the topological naming problem). A pick that silently moves to another face makes every edited model suspect. | Much reduced | IDs carried through operations; IDs kept per entry, also when a loop shrinks and grows; IDs saved in project files; picks know which step made the entity and are repaired by fingerprint only when the match is unique, with a warning | Parent-based names for faces made by booleans; fingerprints for ID lists and named sets; GUI picks written as criteria (3.2, items 6 and 7) |
 | 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN`; `HOLE`, `SPLIT`, `SHELL`, `DRAFT` and `OFFSET` are checked the same way (a shell too thick names the thickest wall that works) | Same checks for `LOFT`/`SWEEP`/`PIPE`; a corpus of hard cases in CI |
 | 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 13 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Partly reduced | Snapshot after every entry, so only entries from the edit onwards re-run; `SUBTRACT, a, SEL` cuts all selected bodies in one kernel call (the 300 holes: 0.4 s instead of 13 s) | `ARRAY ... CUT` and feature patterns that use the same one-call route; skip entries whose inputs did not change; rebuild on a worker thread with progress and cancel |
-| 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Not started | | Spike first: an existing solver (planegcs, SolveSpace's solver) against writing our own; decide before M3 |
+| 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; trim, offset and fillet in sketches; planegcs as a faster back end if big sketches get slow |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
 | 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Not started | STL import sews to a solid when closed | Mesh bodies with `manifold3d` booleans (M6) |
 | 7 | Sculpting performance in Python | Not started | | numpy/numba brush kernels; a dedicated renderer if needed (measured in M7) |
@@ -486,11 +486,11 @@ view (see LANGUAGE.md sections 13 to 15).
 
 Next, in order:
 
-1. Sketcher spike: try an existing 2D constraint solver against writing a
-   small one, on a plate with holes and slots (risk 4), then decide.
-2. `SKETCH, plane ... ENDSKETCH` on any datum plane or face, with lines,
-   arcs, circles and the common constraints, then `EXTRUDE` and `REVOLVE`
-   of a sketch (add or cut), so parts start from 2D instead of primitives.
+1. Done: the sketcher (solver spike, then `SKETCH ... ENDSKETCH` on any
+   plane or face with constraints and dimensions, `EXTRUDE` and `REVOLVE`,
+   all by mouse too; LANGUAGE.md section 16, docs/M3-sketcher.md).
+2. Sketch tools people ask for next: trim, extend, offset, sketch fillet,
+   mirror and pattern in the sketch, projecting body edges into a sketch.
 3. Feature patterns: repeat the last steps along a line or a circle, using
    the one-call cut route (risk 3).
 4. Sweep and loft in the GUI: preview, section slider, law handles.

@@ -6,7 +6,9 @@ signal, exactly as if it had been typed. The viewport then redraws from model
 change events, so scripted ``PICK``/``SEL`` commands highlight the same way.
 
 Mouse:
-    left click          pick (Ctrl/Shift+click adds, Alt+click removes)
+    left click          pick (Ctrl/Shift+click adds, Alt+click removes);
+                        in sketch mode the click goes to the sketch tool
+                        (gui/sketch_tools.py), which writes sketch commands
     left drag           orbit
     middle or right drag pan  (Shift+left drag also pans)
     wheel               zoom at the cursor
@@ -79,6 +81,44 @@ def _native_window(display: Aspect_DisplayConnection, wid: int):
     raise RuntimeError(f"could not wrap native window handle: {last}")
 
 
+def _num(v) -> str:
+    v = round(float(v), 4) + 0.0
+    return str(int(v)) if v.is_integer() else f"{v:g}"
+
+
+def _on_top(ctx, ais) -> None:
+    """Sketches lie on faces: draw them in front, so the face never hides them."""
+    from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
+
+    ais.SetZLayer(Graphic3d_ZLayerId_Topmost)
+    ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
+
+
+def _mark_position(sk, c):
+    """Where a constraint's mark goes: next to the middle of its first curve."""
+    for r in c.refs:
+        try:
+            ref = sk.ref(r)
+        except Exception:
+            return None
+        if ref.fixed:
+            continue
+        g = ref.geo
+        off = 0.025 * sk.extent()
+        if ref.is_point:
+            p = sk.pt(ref.point)
+            return (p[0] + off, p[1] + off)
+        if g.kind == "LINE":
+            a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            L = (dx * dx + dy * dy) ** 0.5 or 1.0
+            return ((a[0] + b[0]) / 2 + dy / L * off * 1.4 + dx / L * off, (a[1] + b[1]) / 2 - dx / L * off * 1.4 + dy / L * off)
+        c0 = sk.pt(g.pts["C"])
+        rad = sk.radius(g)
+        return (c0[0] - rad * 0.7 - off, c0[1] + rad * 0.7 + off)
+    return None
+
+
 def _capsule(ptr: int):
     new = ctypes.pythonapi.PyCapsule_New
     new.restype = ctypes.py_object
@@ -89,6 +129,8 @@ def _capsule(ptr: int):
 class OccViewport(QWidget):
     command = Signal(str)  # command text for the processor
     ready = Signal()
+    edit_dimension = Signal(str)  # double-click on a sketch size: its label (C4)
+    sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
 
     def __init__(self, model: Model, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -97,6 +139,11 @@ class OccViewport(QWidget):
         self._ais: dict[int, AIS_Shape] = {}
         self._datum_ais: list = []  # datum planes, axes, points and their labels (never pickable)
         self._clip = None  # the SECTION clip plane, if any
+        self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
+        self._preview_ais: list = []  # what a sketch tool is drawing
+        self._shown_active: str | None = None  # the open sketch the view last turned to
+        self._mode_pending = False
+        self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
         self._initialized = False
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan"
@@ -152,6 +199,7 @@ class OccViewport(QWidget):
         for body in self.model.bodies.values():
             self._display_body(body.id, update=False)
         self._show_datums()
+        self._show_sketches()
         self._sync_selection()
         self.view.FitAll(0.1, False)
         self.view.Redraw()
@@ -254,15 +302,22 @@ class OccViewport(QWidget):
             self.context.RemoveAll(False)
             self._ais.clear()
             self._datum_ais.clear()
+            self._sketch_ais.clear()
+            self._preview_ais.clear()
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._ais.clear()
             self._datum_ais.clear()
+            self._sketch_ais.clear()
+            self._preview_ais.clear()
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
             self._show_datums()
+            self._show_sketches()
             self._sync_selection()
             return
+        elif ev.kind in ("sketch", "sketch_selection"):
+            self._show_sketches()
         elif ev.kind == "datums":
             self._show_datums()
         elif ev.kind == "selection":
@@ -292,6 +347,8 @@ class OccViewport(QWidget):
         self.context.Display(ais, 1, 0, False)
         self._activate(ais)
         self._ais[bid] = ais
+        if self.model.active_sketch:
+            self.context.SetTransparency(ais, 0.8, False)
         if update:
             self.context.UpdateCurrentViewer()
 
@@ -372,6 +429,307 @@ class OccViewport(QWidget):
             ctx.Deactivate(label)
             self._datum_ais.append(label)
 
+    # ---- sketches -------------------------------------------------------
+    def _show_sketches(self) -> None:
+        """Draw the open sketch (white: still free, green: fully defined,
+        dashed blue: construction, orange: selected) with its sizes and
+        constraint marks, and the other sketches not yet used by a feature
+        as thin orange curves. Never pickable: sketch mode finds what is
+        under the mouse itself, in the sketch plane."""
+        ctx = self.context
+        for ais in self._sketch_ais:
+            ctx.Remove(ais, False)
+        self._sketch_ais = []
+        m = self.model
+        active = m.sketches.get(m.active_sketch) if m.active_sketch else None
+        for sk in m.sketches.values():
+            if sk is active or sk.used_by:
+                continue
+            self._draw_sketch(sk, faint=True)
+        if active is not None:
+            preview = getattr(self.sketcher, "preview", None) if self.sketcher else None
+            self._draw_sketch(preview.sketch if preview is not None and preview.sketch is not None else active)
+        if m.active_sketch != self._shown_active and not self._mode_pending:
+            # entering or leaving sketch mode: wait until the command (or a whole
+            # history replay, which opens and closes many sketches) is done
+            from PySide6.QtCore import QTimer
+
+            self._mode_pending = True
+            QTimer.singleShot(0, self._sketch_mode_changed)
+
+    def _sketch_mode_changed(self) -> None:
+        self._mode_pending = False
+        m = self.model
+        if m.active_sketch == self._shown_active:
+            return
+        self._shown_active = m.active_sketch
+        active = m.sketches.get(m.active_sketch) if m.active_sketch else None
+        self._dim_bodies(active is not None)
+        if active is not None:
+            self.turn_to(active.frame)
+        if self.sketcher is not None:
+            self.sketcher.reset()
+        self.set_preview(None)
+
+    def _dim_bodies(self, on: bool) -> None:
+        """See-through bodies while sketching, so the sketch reads on any face."""
+        for ais in self._ais.values():
+            self.context.SetTransparency(ais, 0.8 if on else 0.0, False)
+        self._sync_selection()
+
+    def _draw_sketch(self, sk, faint: bool = False) -> None:
+        from OCP.AIS import AIS_TextLabel
+        from OCP.Aspect import Aspect_TypeOfLine, Aspect_TypeOfMarker
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+        from OCP.gp import gp_Pnt
+        from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
+        from OCP.TCollection import TCollection_ExtendedString
+        from OCP.TopoDS import TopoDS_Compound
+
+        from ..gui.sketch_tools import dimension_geometry
+        from ..sketch import profile as prof
+
+        ctx = self.context
+        sel = set(self.model.sketch_selection) if not faint else set()
+        groups: dict[tuple, list] = {}
+        points: dict[tuple, list] = {}
+        for g in sk.geos.values():
+            done = sk.fully_defined(g)
+            if faint:
+                style = ("faint",)
+            elif str(g.n) in sel:
+                style = ("sel",)
+            elif g.construction:
+                style = ("constr",)
+            else:
+                style = ("done",) if done else ("free",)
+            if g.kind != "POINT":
+                groups.setdefault(style, []).append(prof.edge(sk, g))
+            if not faint:
+                for role, i in g.pts.items():
+                    name = str(g.n) if g.kind == "POINT" else f"{g.n}.{role}"
+                    key = ("sel",) if name in sel or (g.kind == "POINT" and str(g.n) in sel) else (
+                        ("done",) if done else ("free",))
+                    points.setdefault(key, []).append(sk.frame.point(*sk.pt(i)))
+        colors = {"sel": _rgb(1.0, 0.55, 0.0), "constr": _rgb(0.45, 0.7, 1.0), "done": _rgb(0.3, 0.95, 0.45),
+                  "free": _rgb(0.97, 0.97, 0.97), "faint": _rgb(1.0, 0.62, 0.15)}
+        b = BRep_Builder()
+        for (style,), edges in groups.items():
+            comp = TopoDS_Compound()
+            b.MakeCompound(comp)
+            for e in edges:
+                b.Add(comp, e)
+            ais = AIS_Shape(comp)
+            width = 1.2 if style == "faint" else (3.0 if style == "sel" else 2.2)
+            kind = Aspect_TypeOfLine.Aspect_TOL_DASH if style == "constr" else Aspect_TypeOfLine.Aspect_TOL_SOLID
+            asp = Prs3d_LineAspect(colors[style], kind, width)
+            dr = ais.Attributes()
+            dr.SetWireAspect(asp)
+            dr.SetFreeBoundaryAspect(asp)
+            dr.SetUnFreeBoundaryAspect(asp)
+            dr.SetLineAspect(asp)
+            ais.SetColor(colors[style])
+            ais.SetWidth(width)
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._sketch_ais.append(ais)
+        for (style,), pts in points.items():
+            comp = TopoDS_Compound()
+            b.MakeCompound(comp)
+            for q in pts:
+                b.Add(comp, BRepBuilderAPI_MakeVertex(gp_Pnt(*q)).Vertex())
+            ais = AIS_Shape(comp)
+            ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_O_POINT, colors[style], 1.6))
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._sketch_ais.append(ais)
+        if faint:
+            return
+        # the sketch's own axes through its origin (ORIGIN, H and V in commands)
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge as _Edge
+
+        from ..gui.sketch_tools import _bounds
+
+        lo_u, lo_v, hi_u, hi_v = _bounds(sk)
+        pad = 0.15 * sk.extent()
+        axes = TopoDS_Compound()
+        b.MakeCompound(axes)
+        for a, e in (((min(lo_u, 0) - pad, 0.0), (max(hi_u, 0) + pad, 0.0)),
+                     ((0.0, min(lo_v, 0) - pad), (0.0, max(hi_v, 0) + pad))):
+            b.Add(axes, _Edge(gp_Pnt(*sk.frame.point(*a)), gp_Pnt(*sk.frame.point(*e))).Edge())
+        ais = AIS_Shape(axes)
+        asp = Prs3d_LineAspect(_rgb(0.55, 0.6, 0.7), Aspect_TypeOfLine.Aspect_TOL_DOTDASH, 1.0)
+        ais.Attributes().SetWireAspect(asp)
+        ais.Attributes().SetLineAspect(asp)
+        ais.SetColor(_rgb(0.55, 0.6, 0.7))
+        ctx.Display(ais, 0, 0, False)
+        _on_top(ctx, ais)
+        ctx.Deactivate(ais)
+        self._sketch_ais.append(ais)
+        # sizes and constraint marks
+        marks = {"HORIZONTAL": "H", "VERTICAL": "V", "PARALLEL": "\u2225", "PERPENDICULAR": "\u22a5", "EQUAL": "=",
+                 "TANGENT": "T", "CONCENTRIC": "\u25ce", "MIDPOINT": "M", "SYMMETRIC": "S", "FIX": "\u2693"}
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+
+        dim_lines = TopoDS_Compound()
+        b.MakeCompound(dim_lines)
+        n_dim = 0
+        for c in sk.cons.values():
+            if c.is_dim:
+                segs, at = dimension_geometry(sk, c)
+                for a, e in segs:
+                    if (a[0] - e[0]) ** 2 + (a[1] - e[1]) ** 2 > 1e-18:
+                        b.Add(dim_lines, BRepBuilderAPI_MakeEdge(gp_Pnt(*sk.frame.point(*a)),
+                                                                  gp_Pnt(*sk.frame.point(*e))).Edge())
+                        n_dim += 1
+                text = {"DIAMETER": "\u2300", "RADIUS": "R"}.get(c.kind, "") + _num(c.value) + (
+                    "\u00b0" if c.kind == "ANGLE" else "")
+                color = colors["sel"] if c.label in sel else _rgb(1.0, 0.9, 0.35)
+                height = 15
+            elif c.kind in marks and not c.auto:
+                at = _mark_position(sk, c)
+                if at is None:
+                    continue
+                text, color, height = marks[c.kind], _rgb(0.75, 0.85, 1.0), 12
+            else:
+                continue
+            label = AIS_TextLabel()
+            label.SetText(TCollection_ExtendedString(text, True))
+            label.SetPosition(gp_Pnt(*sk.frame.point(*at)))
+            label.SetColor(color)
+            label.SetHeight(height)
+            ctx.Display(label, False)
+            _on_top(ctx, label)
+            ctx.Deactivate(label)
+            self._sketch_ais.append(label)
+        if n_dim:
+            ais = AIS_Shape(dim_lines)
+            asp = Prs3d_LineAspect(_rgb(1.0, 0.85, 0.25), Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.0)
+            ais.Attributes().SetWireAspect(asp)
+            ais.Attributes().SetFreeBoundaryAspect(asp)
+            ais.Attributes().SetLineAspect(asp)
+            ais.SetColor(_rgb(1.0, 0.9, 0.35))
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._sketch_ais.append(ais)
+
+    def turn_to(self, frame) -> None:
+        """Look straight at a plane, its Y up (entering a sketch)."""
+        if not self._initialized:
+            return
+        from OCP.gp import gp_Dir
+
+        self._sync_size()
+        cam = self.view.Camera()
+        cam.SetDirection(gp_Dir(*(-c for c in frame.z)))  # from the eye towards the plane
+        cam.SetUp(gp_Dir(*frame.y))
+        self.view.FitAll(0.1, False)
+        self.view.Redraw()
+
+    def set_preview(self, pv) -> None:
+        """Draw what a sketch tool is making (dashed), and the point it snaps to."""
+        if not self._initialized:
+            return
+        from OCP.Aspect import Aspect_TypeOfLine, Aspect_TypeOfMarker
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeVertex
+        from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
+        from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
+        from OCP.TopoDS import TopoDS_Compound
+
+        ctx = self.context
+        for ais in self._preview_ais:
+            ctx.Remove(ais, False)
+        self._preview_ais = []
+        m = self.model
+        sk = m.sketches.get(m.active_sketch) if m.active_sketch else None
+        if pv is not None and sk is not None:
+            if pv.sketch is not None:  # dragging: redraw the moved copy
+                self._show_sketches()
+            f = sk.frame
+            comp = TopoDS_Compound()
+            b = BRep_Builder()
+            b.MakeCompound(comp)
+            n = 0
+            for a, c in pv.lines:
+                if (a[0] - c[0]) ** 2 + (a[1] - c[1]) ** 2 > 1e-18:
+                    b.Add(comp, BRepBuilderAPI_MakeEdge(gp_Pnt(*f.point(*a)), gp_Pnt(*f.point(*c))).Edge())
+                    n += 1
+            for c, r in pv.circles:
+                if r > 1e-9:
+                    circ = gp_Circ(gp_Ax2(gp_Pnt(*f.point(*c)), gp_Dir(*f.z), gp_Dir(*f.x)), r)
+                    b.Add(comp, BRepBuilderAPI_MakeEdge(circ).Edge())
+                    n += 1
+            for pts in pv.arcs:
+                poly = BRepBuilderAPI_MakePolygon()
+                for q in pts:
+                    poly.Add(gp_Pnt(*f.point(*q)))
+                if poly.IsDone():
+                    b.Add(comp, poly.Wire())
+                    n += 1
+            if n:
+                ais = AIS_Shape(comp)
+                asp = Prs3d_LineAspect(_rgb(0.4, 0.9, 1.0), Aspect_TypeOfLine.Aspect_TOL_DOT, 1.8)
+                ais.Attributes().SetWireAspect(asp)
+                ais.Attributes().SetFreeBoundaryAspect(asp)
+                ais.Attributes().SetLineAspect(asp)
+                ais.SetColor(_rgb(0.4, 0.9, 1.0))
+                ctx.Display(ais, 0, 0, False)
+                _on_top(ctx, ais)
+                ctx.Deactivate(ais)
+                self._preview_ais.append(ais)
+            if pv.snap is not None:
+                v = BRepBuilderAPI_MakeVertex(gp_Pnt(*f.point(*pv.snap))).Vertex()
+                ais = AIS_Shape(v)
+                ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_RING1,
+                                                                  _rgb(1.0, 0.3, 0.9), 2.5))
+                ctx.Display(ais, 0, 0, False)
+                _on_top(ctx, ais)
+                ctx.Deactivate(ais)
+                self._preview_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
+    def plane_point(self, x: int, y: int):
+        """Where device pixel (x, y) hits the open sketch's plane, as (u, v); None if no sketch is open."""
+        m = self.model
+        sk = m.sketches.get(m.active_sketch) if m.active_sketch else None
+        if sk is None or not self._initialized:
+            return None
+        X, Y, Z, vx, vy, vz = self.view.ConvertWithProj(x, y)
+        f = sk.frame
+        n = f.z
+        den = vx * n[0] + vy * n[1] + vz * n[2]
+        if abs(den) < 1e-9:
+            return None
+        t = ((f.origin[0] - X) * n[0] + (f.origin[1] - Y) * n[1] + (f.origin[2] - Z) * n[2]) / den
+        hit = (X + t * vx, Y + t * vy, Z + t * vz)
+        u, v, _ = f.local(hit)
+        return u, v
+
+    def pixel_of(self, u: float, v: float) -> tuple[int, int]:
+        """Device pixel of sketch point (u, v) of the open sketch."""
+        m = self.model
+        sk = m.sketches[m.active_sketch]
+        return self.view.Convert(*sk.frame.point(u, v))
+
+    def _tol(self, x: int, y: int, px: int = 9) -> float:
+        a = self.plane_point(x, y)
+        b = self.plane_point(x + px, y)
+        if a is None or b is None:
+            return 1.0
+        return max(1e-9, ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5)
+
+    def _sketching(self) -> bool:
+        return self.sketcher is not None and bool(self.model.active_sketch)
+
+    def _sketch_commands(self, cmds) -> None:
+        for c in cmds:
+            self.command.emit(c)
+
     # ---- section view ---------------------------------------------------
     def set_section(self, section) -> None:
         """Cut the view open along a plane (SECTION). section = (datum, side) or None."""
@@ -408,7 +766,7 @@ class OccViewport(QWidget):
         ctx.ClearSelected(False)
         m = self.model
         kind = m.selection_kind
-        if m.selection and kind == self.pick_mode:
+        if m.selection and kind == self.pick_mode and not m.active_sketch:  # sketch mode has its own selection
             for gid in m.selection:
                 if kind == "BODY":
                     bid, shape = gid, m.bodies[gid].shape
@@ -466,6 +824,16 @@ class OccViewport(QWidget):
         self._press = e.position().toPoint()
         self._last = self._press
         x, y = self._px(self._press)
+        if self._sketching() and e.button() == Qt.LeftButton:
+            uv = self.plane_point(x, y)
+            if uv is not None and self.sketcher.tool == "SELECT":
+                self.sketcher.press(*uv, self._tol(x, y))
+                if self.sketcher.drag:
+                    self._drag = "sketch"
+                    return
+            if self.sketcher.tool != "SELECT":
+                self._drag = "pan" if e.modifiers() & Qt.ShiftModifier else ""
+                return
         if e.button() == Qt.LeftButton and not (e.modifiers() & Qt.ShiftModifier):
             self._drag = "rotate"
             self.view.StartRotation(x, y)
@@ -477,7 +845,16 @@ class OccViewport(QWidget):
             return
         pos = e.position().toPoint()
         x, y = self._px(pos)
-        if self._press is not None and (pos - self._press).manhattanLength() > _CLICK_TOLERANCE:
+        moved = self._press is not None and (pos - self._press).manhattanLength() > _CLICK_TOLERANCE
+        if self._sketching() and (self._press is None or self._drag == "sketch"):
+            uv = self.plane_point(x, y)
+            if uv is not None:
+                if self._drag != "sketch" or moved:
+                    pv = self.sketcher.move(*uv, self._tol(x, y))
+                    self.set_preview(pv)
+                self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
+            return
+        if moved:
             if self._drag == "rotate":
                 self.view.Rotation(x, y)
             elif self._drag == "pan":
@@ -493,9 +870,50 @@ class OccViewport(QWidget):
         pos = e.position().toPoint()
         moved = (pos - self._press).manhattanLength() > _CLICK_TOLERANCE
         self._press = None
-        self._drag = ""
+        drag, self._drag = self._drag, ""
+        x, y = self._px(pos)
+        if self._sketching():
+            uv = self.plane_point(x, y)
+            if drag == "sketch":
+                cmds = self.sketcher.release(*uv, self._tol(x, y)) if (moved and uv is not None) else []
+                self.sketcher.drag = None
+                if not moved and uv is not None:
+                    cmds = self.sketcher.click(*uv, self._tol(x, y), bool(e.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)))
+                self.set_preview(None)
+                self._sketch_commands(cmds)
+                if not cmds:
+                    self._show_sketches()
+                    self.context.UpdateCurrentViewer()
+                return
+            if not moved and e.button() == Qt.RightButton:
+                self.sketcher.finish()
+                self.set_preview(None)
+                return
+            if not moved and e.button() == Qt.LeftButton and uv is not None:
+                add = bool(e.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier))
+                self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
+                self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
+            return
         if not moved and e.button() == Qt.LeftButton:
-            self.click(*self._px(pos), e.modifiers())
+            self.click(x, y, e.modifiers())
+
+    def mouseDoubleClickEvent(self, e) -> None:
+        if not (self._initialized and self._sketching() and self.sketcher.tool == "SELECT"):
+            return
+        x, y = self._px(e.position().toPoint())
+        uv = self.plane_point(x, y)
+        if uv is None:
+            return
+        name = self.sketcher.hit(*uv, self._tol(x, y))
+        if name and name.startswith("C") and name[1:].isdigit():
+            self.edit_dimension.emit(name)
+
+    def keyPressEvent(self, e) -> None:
+        if self._sketching() and e.key() == Qt.Key_Escape:
+            self.sketcher.finish()
+            self.set_preview(None)
+            return
+        super().keyPressEvent(e)
 
     def wheelEvent(self, e) -> None:
         if not self._initialized:

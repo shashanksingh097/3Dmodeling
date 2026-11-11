@@ -1123,8 +1123,10 @@ def fit(p: Processor):
         p.view.fit()
 
 
-@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, SETS, DATUMS"), logged=False,
-         help="List bodies, parameters, macros, named sets and the selection.")
+@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, SETS, DATUMS, SKETCHES, SKETCH"),
+         logged=False,
+         help="List bodies, parameters, macros, named sets and the selection. LIST, SKETCH shows every curve and "
+              "constraint of the open sketch (or LIST, SKETCH, name).")
 def list_(p: Processor, what):
     m = p.model
     lines = []
@@ -1151,11 +1153,21 @@ def list_(p: Processor, what):
             lines.append(f"  {d.kind.lower()} {d.name} {where}")
     if what in ("ALL", "DATUMS") and m.workplane is not None:
         lines.append(f"work plane: {m.workplane.name}")
+    if what in ("ALL", "SKETCHES") and m.sketches:
+        lines.append("sketches:")
+        for sk in m.sketches.values():
+            state = "open" if m.active_sketch == sk.name.upper() else ("used by " + ", ".join(sk.used_by)
+                                                                         if sk.used_by else "closed")
+            lines.append(f"  {sk.status()} ({state})")
+    if what == "SKETCH":
+        from .sketch_handlers import sketch_listing
+
+        lines += sketch_listing(p)
     if what == "ALL":
         lines.append(_describe_selection(p))
     if not lines:
-        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "SETS", "DATUMS"):
-            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, SETS or DATUMS")
+        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "SETS", "DATUMS", "SKETCHES"):
+            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, SETS, DATUMS, SKETCHES or SKETCH")
         lines.append(f"no {what.lower()}")
     return "\n".join(lines)
 

@@ -85,11 +85,15 @@ python -m modeler scripts/flange.cmd                   # GUI with a parametric f
 python -m modeler run scripts/flange.cmd -D N_BOLTS=8  # same script, headless
 ```
 
-Status: M0 (viewer and picking, [docs/M0.md](docs/M0.md)) and M1 (command
-core, [docs/M1.md](docs/M1.md)) are in.
+Status: M0 (viewer and picking, [docs/M0.md](docs/M0.md)), M1 (command
+core, [docs/M1.md](docs/M1.md)) and M2 (shapes on curves,
+[docs/M2.md](docs/M2.md)) are in. M3 so far: datums and part features
+([docs/M3.md](docs/M3.md)) and the sketcher with `EXTRUDE` and `REVOLVE`
+([docs/M3-sketcher.md](docs/M3-sketcher.md)).
 
 ## Requirements
 
 - Python 3.10+
 - PySide6
 - OCP (`cadquery-ocp`, the Open CASCADE kernel; installs with pip)
+- numpy (the sketch solver)

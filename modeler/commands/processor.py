@@ -198,6 +198,7 @@ class Processor:
         self._trace: list[str] = []
         self._warnings: list[str] = []
         self.refs: RefLog | None = None  # the running entry's pick fingerprints
+        self.entry_uid = 0  # uid of the running history entry
         self._quiet = True
 
         from . import queries  # registers the model query functions
@@ -530,6 +531,7 @@ class Processor:
             entry.uid = self._uid
         pins = IdPins(entry.pins, entry.uid)
         self.model.pins = pins
+        self.entry_uid = entry.uid  # which step is running (sketch constraints remember it)
         self.refs = refs = RefLog(entry.refs)
         single = len(stmts) == 1 and isinstance(stmts[0], (Cmd, Assign))
         self._quiet = single
