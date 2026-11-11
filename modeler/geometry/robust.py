@@ -250,10 +250,14 @@ def merge_faces(shape: TopoDS_Shape, first=None):
     return out, _Unified(first, u.History()), removed
 
 
-def largest_working(build, wanted: float, budget: float = 1.5) -> float | None:
+def largest_working(build, wanted: float, budget: float = 6.0) -> float | None:
     """The largest size below ``wanted`` for which ``build(size)`` gives a
-    valid shape, found by trying sizes in between (for at most ``budget``
-    seconds). None when even a tiny size fails."""
+    valid shape, found by trying sizes in between until the answer is within
+    2%. None when even a tiny size fails.
+
+    ``budget`` (seconds) is only a guard against a pathological part: the
+    answer must not depend on how fast the machine is (a 1.5 s budget gave
+    4.5 instead of 4.9 on a slow CI runner)."""
 
     def works(size: float) -> bool:
         try:
