@@ -117,3 +117,60 @@ def test_help_covers_every_command(p):
     for name in REGISTRY:
         assert name in text
         assert run_ok(p, f"HELP, {name}").message.startswith(name)
+
+
+def volume(p, bid):
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    g = GProp_GProps()
+    BRepGProp.VolumeProperties_s(p.model.bodies[bid].shape, g)
+    return g.Mass()
+
+
+def test_booleans_consume_inputs_and_make_new_body(p):
+    run_ok(p, "BLOCK, 0,0,0, 10,10,10")
+    run_ok(p, "BLOCK, 5,0,0, 10,10,10")
+    run_ok(p, "UNION, 1, 2")
+    assert sorted(p.model.bodies) == [3]
+    assert volume(p, 3) == pytest.approx(1500)
+    run_ok(p, "CYL, 5,5,-1, 2, 12")
+    run_ok(p, "CYL, 10,5,-1, 1, 12")
+    run_ok(p, "SUBTRACT, 3, 4, 5")
+    assert sorted(p.model.bodies) == [6]
+    assert volume(p, 6) == pytest.approx(1500 - 3.14159265 * 50, rel=1e-6)
+    run_ok(p, "SPHERE, 0,0,0, 5")
+    run_ok(p, "INTERSECT, 6, 7")
+    assert volume(p, 8) == pytest.approx(4 / 3 * 3.14159265 * 125 / 8, rel=1e-6)
+    assert not p.run("UNION, 8, 99").ok
+    assert not p.run("UNION, 8, 8").ok
+    assert not p.run("UNION, 8").ok
+
+
+def test_fillet_and_chamfer_selected_edges(p):
+    run_ok(p, "BLOCK, 0,0,0, 10,10,10")
+    assert "select edges" in p.run("FILLET, 1").message
+    run_ok(p, "PICK, EDGE, 1")
+    r = run_ok(p, "FILLET, 2")
+    assert "1 edges of body 1 -> body 2" in r.message
+    assert volume(p, 2) == pytest.approx(1000 - (4 - 3.14159265) * 10, rel=1e-6)
+    run_ok(p, "PICK, BODY, 2")
+    run_ok(p, "CHAMFER, 0.5")
+    assert sorted(p.model.bodies) == [3]
+    assert not p.run("PICK, EDGE, 1").ok  # IDs of consumed bodies are gone
+
+
+def test_cone_and_torus(p):
+    run_ok(p, "CONE, 0,0,0, 5, 0, 10")
+    run_ok(p, "TORUS, 0,0,0, 10, 2")
+    assert volume(p, 2) == pytest.approx(2 * 3.14159265**2 * 10 * 4, rel=1e-6)
+    assert not p.run("TORUS, 0,0,0, 2, 5").ok
+
+
+def test_flange_example_script():
+    p = Processor()
+    with open("scripts/flange.cmd", encoding="utf-8") as f:
+        results = p.run_script(f.read())
+    assert all(r.ok for r in results), [r for r in results if not r.ok]
+    assert sorted(p.model.bodies) == [14, 17]
+    assert p.model.selection == [78]

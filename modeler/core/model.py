@@ -100,7 +100,7 @@ class Model:
         return body
 
     def remove_body(self, bid: int) -> None:
-        body = self._body(bid)
+        body = self.body(bid)
         for kind in ENTITY_KINDS:
             for gid in body.entity_ids[kind]:
                 self._entities[kind].pop(gid, None)
@@ -113,7 +113,7 @@ class Model:
         self._reset()
         self._emit(Event("cleared"))
 
-    def _body(self, bid: int) -> Body:
+    def body(self, bid: int) -> Body:
         try:
             return self.bodies[bid]
         except KeyError:
@@ -137,7 +137,7 @@ class Model:
 
     def find_entity(self, bid: int, kind: str, sub_shape: TopoDS_Shape) -> int:
         """Global ID of ``sub_shape`` (a face/edge/vertex) inside body ``bid``."""
-        body = self._body(bid)
+        body = self.body(bid)
         kind = _check_kind(kind, ENTITY_KINDS)
         idx = body.maps[kind].FindIndex(sub_shape)
         if idx == 0:
@@ -154,7 +154,7 @@ class Model:
         kind = _check_kind(kind, SELECT_KINDS)
         for i in ids:
             if kind == "BODY":
-                self._body(i)
+                self.body(i)
             else:
                 self.entity_owner(kind, i)
         if mode == "S" or kind != self.selection_kind:

@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
+from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
 from OCP.BRepPrimAPI import (
     BRepPrimAPI_MakeBox,
+    BRepPrimAPI_MakeCone,
     BRepPrimAPI_MakeCylinder,
     BRepPrimAPI_MakeSphere,
+    BRepPrimAPI_MakeTorus,
 )
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+from OCP.TopoDS import TopoDS
+
+# OCP 7.x names static methods with a "_s" suffix; OCP 8 dropped it.
+_as_edge = getattr(TopoDS, "Edge_s", None) or TopoDS.Edge
 
 from ..core.model import ENTITY_KINDS, SELECT_KINDS
 from .processor import REGISTRY, Arg, CommandError, Processor, command
@@ -49,6 +57,113 @@ def sphere(p: Processor, x, y, z, r):
     if r <= 0:
         raise CommandError("SPHERE: radius must be positive")
     return _added(p, BRepPrimAPI_MakeSphere(gp_Pnt(x, y, z), r).Shape(), "SPHERE")
+
+
+@command(
+    "CONE",
+    Arg("x"), Arg("y"), Arg("z"), Arg("r1"), Arg("r2"), Arg("h"),
+    help="Cone along +Z: base center (x,y,z), base radius r1, top radius r2, height h.",
+)
+def cone(p: Processor, x, y, z, r1, r2, h):
+    if r1 < 0 or r2 < 0 or r1 == r2 == 0 or h <= 0:
+        raise CommandError("CONE: radii must be >= 0 (not both 0) and height positive")
+    ax = gp_Ax2(gp_Pnt(x, y, z), gp_Dir(0, 0, 1))
+    return _added(p, BRepPrimAPI_MakeCone(ax, r1, r2, h).Shape(), "CONE")
+
+
+@command(
+    "TORUS",
+    Arg("x"), Arg("y"), Arg("z"), Arg("r1", help="ring radius"), Arg("r2", help="tube radius"),
+    help="Torus in the XY plane, centered at (x,y,z).",
+)
+def torus(p: Processor, x, y, z, r1, r2):
+    if r2 <= 0 or r1 <= r2:
+        raise CommandError("TORUS: need ring radius > tube radius > 0")
+    ax = gp_Ax2(gp_Pnt(x, y, z), gp_Dir(0, 0, 1))
+    return _added(p, BRepPrimAPI_MakeTorus(ax, r1, r2).Shape(), "TORUS")
+
+
+# ---- booleans ---------------------------------------------------------------
+# For now the input bodies are consumed. Keeping them (KEEP, ON) comes in M2.
+
+_TOOLS = [Arg(f"t{i}", int, 0) for i in range(2, 9)]
+
+
+def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
+    tools = [t for t in tools if t]
+    if not tools:
+        raise CommandError(f"{name}: give a base body and at least one tool body")
+    m = p.model
+    shape = m.body(a).shape
+    for t in tools:
+        if t == a:
+            raise CommandError(f"{name}: body {a} cannot be its own tool")
+        tool = m.body(t).shape
+        algo = op(shape, tool)
+        if not algo.IsDone():
+            raise CommandError(f"{name}: kernel failed with body {t}")
+        shape = algo.Shape()
+    for bid in [a] + tools:
+        m.remove_body(bid)
+    return _added(p, shape, f"{name} of {', '.join(map(str, [a] + tools))}")
+
+
+@command("UNION", Arg("a", int), Arg("b", int), *_TOOLS,
+         help="Fuse bodies into one new body: UNION, a, b [, c ...] (up to 8).")
+def union(p: Processor, a, b, **more):
+    return _boolean(p, "UNION", BRepAlgoAPI_Fuse, a, [b, *more.values()])
+
+
+@command("SUBTRACT", Arg("a", int), Arg("b", int), *_TOOLS,
+         help="Cut tool bodies b, c ... from body a: SUBTRACT, a, b [, c ...].")
+def subtract(p: Processor, a, b, **more):
+    return _boolean(p, "SUBTRACT", BRepAlgoAPI_Cut, a, [b, *more.values()])
+
+
+@command("INTERSECT", Arg("a", int), Arg("b", int), *_TOOLS,
+         help="Keep only the common volume: INTERSECT, a, b [, c ...].")
+def intersect(p: Processor, a, b, **more):
+    return _boolean(p, "INTERSECT", BRepAlgoAPI_Common, a, [b, *more.values()])
+
+
+# ---- edge blends ------------------------------------------------------------
+def _blend(p: Processor, name: str, size: float) -> str:
+    """Round or bevel the selected edges (all on one body), or every edge of
+    the selected bodies."""
+    m = p.model
+    if size <= 0:
+        raise CommandError(f"{name}: size must be positive")
+    if not m.selection or m.selection_kind not in ("EDGE", "BODY"):
+        raise CommandError(f"{name}: select edges (PICKMODE, EDGE) or a body first")
+    if m.selection_kind == "BODY":
+        groups = {bid: list(m.bodies[bid].entity_ids["EDGE"]) for bid in m.selection}
+    else:
+        groups = {}
+        for gid in m.selection:
+            groups.setdefault(m.entity_owner("EDGE", gid)[0], []).append(gid)
+    msgs = []
+    for bid, edges in groups.items():
+        maker_cls = BRepFilletAPI_MakeFillet if name == "FILLET" else BRepFilletAPI_MakeChamfer
+        mk = maker_cls(m.bodies[bid].shape)
+        for gid in edges:
+            mk.Add(size, _as_edge(m.entity_shape("EDGE", gid)))
+        mk.Build()
+        if not mk.IsDone():
+            raise CommandError(f"{name}: kernel failed on body {bid} (size too large?)")
+        shape = mk.Shape()
+        m.remove_body(bid)
+        msgs.append(_added(p, shape, f"{name} {size:g} on {len(edges)} edges of body {bid}"))
+    return "\n".join(msgs)
+
+
+@command("FILLET", Arg("r"), help="Round the selected edges (or all edges of selected bodies) with radius r.")
+def fillet(p: Processor, r):
+    return _blend(p, "FILLET", r)
+
+
+@command("CHAMFER", Arg("d"), help="Bevel the selected edges (or all edges of selected bodies) by distance d.")
+def chamfer(p: Processor, d):
+    return _blend(p, "CHAMFER", d)
 
 
 @command(
