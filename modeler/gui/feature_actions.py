@@ -21,6 +21,7 @@ def _r(v: float) -> str:
 
 def free_name(p: Processor, prefix: str) -> str:
     taken = {k.upper() for k in p.model.datums} | {b.name.upper() for b in p.model.bodies.values()} | set(p.params)
+    taken |= {k.upper() for k in p.model.sketches}
     i = 1
     while f"{prefix}{i}".upper() in taken:
         i += 1

@@ -248,6 +248,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
+| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
+| Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
@@ -260,7 +262,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Files | `EXPORT, STEP/BREP/STL, file [, body]` · `IMPORT, STEP/IGES/BREP/STL, file [, name]` · `RUN, file` |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
-| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS]` · `ECHO, expr` · `HELP [, name]` |
+| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH]` · `ECHO, expr` · `HELP [, name]` |
 
 ## 8. Running scripts without the GUI
 
@@ -588,3 +590,134 @@ press **Shell** or **Draft**; select two things and press **Distance** or
 command in the output and in the history.
 
 See `scripts/bracket_features.cmd`.
+
+## 16. Sketches, EXTRUDE and REVOLVE
+
+A sketch is a flat drawing on a plane: lines, arcs and circles held in place
+by constraints (level, upright, tangent ...) and dimensions (a length, a
+radius, a distance). Its closed loops become a solid with `EXTRUDE` or
+`REVOLVE`. Every step of a sketch is its own history entry, so a dimension
+is changed by editing its entry, and everything after it runs again.
+
+```text
+W = 80
+SKETCH, s1, XY                ! or a datum plane, or FACE, 6 / FACE, SEL
+SRECT, 0, 0, W, 40
+SCON, COINCIDENT, 1.S, ORIGIN
+SDIM, LENGTH, 1, W
+SDIM, LENGTH, 2, 40
+SCIRCLE, 20, 20, 5
+SDIM, DIAMETER, 5, 10
+SDIM, HDIST, ORIGIN, 5.C, 20
+SDIM, VDIST, ORIGIN, 5.C, 20  ! now fully defined
+ENDSKETCH
+EXTRUDE, s1, 10               ! a plate with a hole
+```
+
+### Where a sketch lies
+
+`SKETCH, name` opens a sketch on the work plane (or XY). `SKETCH, name, XY`
+(or `YZ`, `ZX`, or a datum plane's name) puts it on that plane, and
+`SKETCH, name, FACE, 6` on a flat face; `FACE, SEL` uses the picked face. A
+sketch on a face remembers its body, which is where `EXTRUDE ... ADD` and
+`CUT` go by default. In-sketch positions are `u, v` on the plane; `LIST,
+SKETCH` shows which world directions they run along. `ENDSKETCH` closes the
+sketch; using it in `EXTRUDE` or `REVOLVE` closes it too. `SKETCH, name,
+DELETE` removes a sketch nothing uses yet.
+
+### Drawing
+
+| Command | Draws |
+|---------|-------|
+| `SLINE, p1, p2 [, H/V] [, CONSTR]` | a line; `H` or `V` makes it level or upright |
+| `SPOLY, p1, p2, ... [, CLOSE]` | joined lines |
+| `SRECT, p1, p2` | a rectangle from two corners, held square |
+| `SCIRCLE, centre, r` | a circle |
+| `SARC, centre, r, a1, a2` · `SARC3, start, through, end` | an arc (degrees, counter-clockwise) or an arc through three points |
+| `SSLOT, c1, c2, r` | a slot: two half circles joined by tangent lines |
+| `SPOINT, p` | a lone point |
+
+A point is `u, v`, a point value `(u, v)`, or the name of a point already in
+the sketch. Giving a name ties the new geometry there:
+`SLINE, 1.E, 40, 20` starts at the end of line 1 and stays joined to it.
+`CONSTR` at the end makes construction geometry: it helps place things
+(and can be a `REVOLVE` axis) but is not part of a profile.
+
+### Names in a sketch
+
+| Name | Is |
+|------|----|
+| `3` | geometry 3 (the numbers the drawing commands print) |
+| `3.S`, `3.E`, `3.C` | its start, end, centre; `3.P` a lone point |
+| `ORIGIN` (or `O`) | the sketch origin |
+| `H`, `V` | the sketch's horizontal and vertical axes |
+| `C4` | constraint or dimension 4 |
+
+### Constraints and dimensions
+
+`SCON, kind, things` holds geometry without a size: `COINCIDENT` (two
+points; a point and a curve means `ON`), `ON`, `HORIZONTAL`, `VERTICAL`
+(a line, or two points), `PARALLEL`, `PERPENDICULAR`, `TANGENT`, `EQUAL`,
+`MIDPOINT` (a point and a line), `SYMMETRIC` (two points about a line or
+`H`/`V`), `CONCENTRIC`, `FIX`.
+
+`SDIM, kind, things, size` gives a size; the size is any expression, so it
+can be a parameter: `LENGTH`, `DIST` (two points, or a point and a line),
+`HDIST`, `VDIST`, `RADIUS`, `DIAMETER`, `ANGLE` (degrees between two lines,
+or from `H` with one line).
+
+After each step the sketch says how many degrees of freedom are left. At 0
+it is fully defined, and the GUI draws it green. A constraint that cannot
+hold with the others is refused and names the ones it fights, so the sketch
+is never left half broken. One that adds nothing new is kept but reported.
+
+`SDEL, 3` deletes geometry with its constraints, `SDEL, C4` one constraint.
+`SMOVE, 3.E, u, v` drags a point (what is held stays held).
+`SCONSTRUCT, 3 [, ON/OFF]` toggles construction.
+
+### Profiles
+
+The closed loops of the non-construction curves are the profile. A loop
+inside another is a hole, a loop inside a hole is a new island. An open end,
+or three curves meeting at a point, is an error that says where, so you can
+fix it or make the extra curve construction.
+
+### EXTRUDE and REVOLVE
+
+| Command | Makes |
+|---------|-------|
+| `EXTRUDE, s1, 20` | a new body, 20 along the sketch normal (negative: the other way) |
+| `EXTRUDE, s1, 20, NEW, , 5` | also 5 the other way |
+| `EXTRUDE, s1, 5, ADD [, b]` | a boss, fused into body `b` (default: the body the sketch is on) |
+| `EXTRUDE, s1, -8, CUT [, b]` | a pocket; `0` with `CUT` goes through everything |
+| `REVOLVE, s1, V` | a full turn about the sketch's vertical axis |
+| `REVOLVE, s1, 5, 90` | a quarter turn about line 5 (often a construction line) |
+| `REVOLVE, s1, Z, 360, CUT, part` | about a world or datum axis, cut from `part` |
+
+The result is checked like every other feature: a cut that misses or an add
+that changes nothing says so.
+
+### In the GUI
+
+Press **Sketch** on the Features toolbar (with a flat face picked, the
+sketch goes on that face; otherwise you choose a plane). The view turns to
+face the sketch, bodies go see-through, and the **Sketch** toolbar appears:
+
+* Drawing tools: Select (S), Line (L), Rectangle (R), Circle (C), Arc (A),
+  Point (P). Clicks snap to points, line middles, curves and the axes, and
+  round to a step that suits the zoom. A line tool click on the first point
+  closes the shape; Esc or a double click ends a chain.
+* Click geometry to select it (Shift adds), then press a constraint button,
+  or **Size…**, **Across…** or **Up…** for a length, radius, angle or a
+  horizontal or vertical distance. Double click a size on the drawing to
+  change it. Drag a point to move it.
+* **Construction**, **Delete**, **Finish sketch** and **Extrude…**.
+  **Extrude…** and **Revolve…** open a form that shows the command it will
+  run.
+* In the History panel, right click a sketch step and choose **Sizes of
+  sketch …** for a table of every size; changing one re-runs the model.
+
+Every button and click only builds a command and runs it, so the output and
+the history show exactly what happened, and a script can do the same.
+
+See `scripts/sketch_bracket.cmd`.

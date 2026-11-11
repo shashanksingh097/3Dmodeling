@@ -186,8 +186,16 @@ class HistoryPanel(QTableWidget):
         grey = QBrush(QColor(140, 140, 140))
         red = QBrush(QColor(200, 40, 40))
         amber = QBrush(QColor(176, 108, 0))
+        inside = False
         for i, e in enumerate(p.history):
             label = e.label + ("  …" if "\n" in e.text.strip() and not e.text.strip().startswith("!") else "")
+            word = e.label.split(",")[0].strip().upper()
+            if inside and word not in ("SKETCH", "EXTRUDE", "REVOLVE"):
+                label = "    " + label  # a step inside the sketch above
+            if word == "SKETCH" and e.ok and not e.suppressed and "DELETE" not in e.label.upper():
+                inside = True
+            elif word in ("ENDSKETCH", "EXTRUDE", "REVOLVE") or (word == "SKETCH" and not e.ok):
+                inside = False
             first = (e.message or "").splitlines()[-1] if e.message else ""
             status = "suppressed" if e.suppressed else ("ERROR: " + first if not e.ok else first)
             if e.ok and e.warning and not e.suppressed:
@@ -218,6 +226,9 @@ class HistoryPanel(QTableWidget):
             menu.addAction("Resume" if e.suppressed else "Suppress",
                            lambda: self.win.execute(hist_command("RESUME" if e.suppressed else "SUPPRESS", n)))
             menu.addAction("Delete", lambda: self.win.execute(hist_command("DELETE", n)))
+            sk = self._sketch_of(row)
+            if sk:
+                menu.addAction(f"Sizes of sketch {sk}…", lambda: self.win.sketch_ui.edit_sizes(sk))
             menu.addSeparator()
             back = p.cursor - n
             if back:
@@ -228,6 +239,22 @@ class HistoryPanel(QTableWidget):
         menu.addAction("Add at the end…", lambda: self._insert(p.cursor + 1))
         menu.addAction("Replay all", lambda: self.win.execute("HIST, REPLAY"))
         menu.exec(self.viewport().mapToGlobal(pos))
+
+    def _sketch_of(self, row: int) -> str | None:
+        """The sketch a history row belongs to (its SKETCH line or a step inside it)."""
+        p = self.win.processor
+        for i in range(row, -1, -1):
+            word = p.history[i].label.split(",")
+            head = word[0].strip().upper()
+            if head == "SKETCH" and len(word) > 1:
+                name = word[1].strip()
+                return name if name.upper() in p.model.sketches else None
+            if head == "ENDSKETCH" and i != row:
+                return None
+            if head in ("EXTRUDE", "REVOLVE") and len(word) > 1:
+                name = word[1].strip()
+                return name if name.upper() in p.model.sketches else None
+        return None
 
     def edit_row(self, row: int) -> None:
         p = self.win.processor
@@ -344,6 +371,9 @@ class MainWindow(QMainWindow):
         self.processor.listeners.append(self._on_result)
         self.processor.history_listeners.append(self._on_history)
         self._build_toolbar()
+        from .sketch_ui import SketchUI
+
+        self.sketch_ui = SketchUI(self)
         self.statusBar().showMessage(
             "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
         )
@@ -438,6 +468,14 @@ class MainWindow(QMainWindow):
             return v
 
         p = self.processor
+        act("Sketch", "Start a 2D sketch on the picked flat face, or on a plane you choose\n"
+                      "Runs: SKETCH, name, FACE, id / SKETCH, name, plane",
+            lambda: self.sketch_ui.new_sketch() or [])
+        act("Extrude…", "Push a sketch into a solid: a new body, or added to / cut from a body\n"
+                        "Runs: EXTRUDE, sketch, d [, ADD/CUT, body]", lambda: self.sketch_ui.extrude() or [])
+        act("Revolve…", "Turn a sketch about an axis into a solid\nRuns: REVOLVE, sketch, axis, angle",
+            lambda: self.sketch_ui.revolve() or [])
+        tb.addSeparator()
         act("Plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id", lambda: fa.plane_on_face(p))
         act("Work plane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
                           "Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1", lambda: fa.workplane_on_face(p))

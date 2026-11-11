@@ -145,6 +145,12 @@ class Model:
         # datum planes, axes and points by upper-case name (see core/datum.py)
         self.datums: dict[str, Datum] = {}
         self.workplane: Datum | None = None  # WORKPLANE: where new shapes are drawn
+        # 2D sketches by upper-case name (see sketch/sketch.py). A sketch is
+        # never changed in place: edit_sketch() swaps in a copy, so snapshots
+        # can share them.
+        self.sketches: dict = {}
+        self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
+        self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
     # ---- listeners -------------------------------------------------------
     def subscribe(self, fn: Callable[[Event], None]) -> None:
@@ -178,6 +184,8 @@ class Model:
             "keep": self.keep,
             "datums": dict(self.datums),
             "workplane": self.workplane,
+            "sketches": dict(self.sketches),
+            "active_sketch": self.active_sketch,
         }
 
     def restore(self, snap: dict) -> None:
@@ -195,6 +203,9 @@ class Model:
         self.keep = snap.get("keep", False)
         self.datums = dict(snap.get("datums", {}))
         self.workplane = snap.get("workplane")
+        self.sketches = dict(snap.get("sketches", {}))
+        self.active_sketch = snap.get("active_sketch")
+        self.sketch_selection = []
         self._emit(Event("restored"))
 
     # ---- IDs ---------------------------------------------------------------
@@ -315,6 +326,8 @@ class Model:
             raise ModelError(f"name {name!r} is already used by body {other.id}")
         if name.upper() in self.datums:
             raise ModelError(f"name {name!r} is already used by datum {self.datums[name.upper()].kind.lower()} {name}")
+        if name.upper() in self.sketches:
+            raise ModelError(f"name {name!r} is already used by sketch {self.sketches[name.upper()].name}")
 
     def rename(self, bid: int, name: str) -> None:
         body = self.body(bid)
@@ -425,6 +438,35 @@ class Model:
     def set_workplane(self, d: Datum | None) -> None:
         self.workplane = d
         self._emit(Event("datums"))
+
+    # ---- sketches ----------------------------------------------------------
+    def sketch(self, name: str):
+        sk = self.sketches.get(name.strip().upper())
+        if sk is None:
+            have = ", ".join(s.name for s in self.sketches.values())
+            raise ModelError(f"no sketch named {name.strip()!r}" + (f" (sketches: {have})" if have else ""))
+        return sk
+
+    def put_sketch(self, sk) -> None:
+        """Store a (new or changed) sketch object and tell the views."""
+        self.sketches[sk.name.upper()] = sk
+        self._emit(Event("sketch"))
+
+    def edit_sketch(self, name: str):
+        """A copy of the sketch to change; store it back with put_sketch()."""
+        return self.sketch(name).copy()
+
+    def remove_sketch(self, name: str):
+        sk = self.sketch(name)
+        del self.sketches[sk.name.upper()]
+        if self.active_sketch == sk.name.upper():
+            self.active_sketch = None
+        self._emit(Event("sketch"))
+        return sk
+
+    def set_active_sketch(self, name: str | None) -> None:
+        self.active_sketch = name.upper() if name else None
+        self._emit(Event("sketch"))
 
     # ---- named sets --------------------------------------------------------
     def save_set(self, name: str, kind: str, ids: list[int]) -> None:
