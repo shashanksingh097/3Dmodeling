@@ -194,10 +194,12 @@ language can't express. It is off by default for scripts from others.
 
 | Family | Commands |
 |--------|----------|
-| Points/curves | `K` (keypoint), `LINE`, `ARC`, `CIRCLE`, `ELLIPSE`, `POLYLINE`, `SPLINE` (interpolate), `NURBSCRV` (control points, weights, knots), `HELIX`, `CURVE, PARAM, x(t), y(t), z(t), t0, t1` |
+| Points/curves | `K` (keypoint), `LINE`, `ARC`, `POLYLINE`, `SPLINE` (interpolate), `NURBSCRV` (control points, weights, knots), `HELIX`, `CURVE, PARAM, x(t), y(t), z(t), t0, t1`, `JOIN` |
+| Profiles | `CIRCLE`, `ELLIPSE`, `RECT`, `POLYGON`, `SLOT`, `STAR`, `AIRFOIL` (NACA 4-digit), each on any plane |
 | Sketch | `SKETCH, plane` ... `ENDSKETCH`, `RECT`, `POLYGON`, `SLOT`, `TEXT`, constraints `CON, COINCIDENT/PARALLEL/TANGENT/DIST/ANGLE/RADIUS ...`, `TRIM`, `OFFSET2D` |
 | Primitives | `BLOCK`, `CYL`, `CONE`, `SPHERE`, `TORUS`, `WEDGE`, `PRISM`, `PYRAMID`, `TUBE`, `CAPSULE` |
-| Sketch-based features | `EXTRUDE`, `REVOLVE`, `SWEEP`, `LOFT`, `HOLE`, `RIB`, `THREAD` |
+| Sketch-based features | `EXTRUDE`, `REVOLVE`, `HOLE`, `RIB`, `THREAD` |
+| Shapes on curves | `LOFT`, `SWEEP` (with twist/scale/offset laws, several profiles to morph, rails), `PIPE`, `SWEEPVOL`, `FLOW`, `BEND`, `TWIST`, `TAPER` (see 5.2) |
 | Surfaces | `NURBSSRF` (control net), `SURF, PARAM, x(u,v), y(u,v), z(u,v)`, `LOFTSRF`, `NETWORK` (curve network), `PATCH` (fill boundary), `BLENDSRF`, `PIPE`, `OFFSETSRF`, `EXTENDSRF`, `SEW` (surfaces to solid), `REBUILD` |
 | Implicit / equations | `IMPLICIT, f(x,y,z), bbox, res` (shape is where f ≤ 0), `GYROID`, `LATTICE`, smooth booleans `SUNION`/`SSUBTRACT` with blend radius |
 | Booleans | `UNION` (`VADD`), `SUBTRACT` (`VSBV`), `INTERSECT` (`VINV`), `SPLIT` (body by plane/surface/body), `IMPRINT`, `GLUE` |
@@ -240,36 +242,104 @@ Grouped by what the user asked for. `[M#]` is the milestone that delivers it.
 ### 5.1 Basic and complex shapes
 - Primitives with full parameters and placement `[M1]`
 - 2D sketches with constraints, then extrude/revolve `[M3]`
-- Sweep along path (with twist/scale), loft through sections, helix and threads `[M4]`
+- Sweeps, lofts, pipes and helices, with shapes that change along the path: see 5.2 `[M2]`/`[M4]`/`[M5]`
 - Text and logos (font outlines to sketches) `[M4]`
 
-### 5.2 NURBS and freeform
+### 5.2 Shapes on curves: sweeps, lofts and morphing
+
+The idea: take a section (a profile), move it along a curve, and let it
+change on the way: turn, grow, shrink, stretch, or turn into a different
+shape. Every one of these is a command, so a blade, a horn, a handrail or a
+spring is a short script whose numbers you can change later.
+
+**Curves to sweep along (paths)** `[M2]`
+- `LINE`, `ARC` (3 points or center/angle), `POLYLINE`, `SPLINE` through points (with optional end tangents)
+- `HELIX`: radius, pitch, turns, left/right hand, taper angle, and a pitch law for springs with closer coils at the ends
+- `CURVE, PARAM, x(t), y(t), z(t), t0, t1`: any equation, fitted to an exact B-spline
+- `JOIN` curves into one path; `EDGE` of a body as a path (sweep along a model edge)
+
+**Profiles (the moving shape)** `[M2]`
+- `CIRCLE`, `ELLIPSE`, `RECT` (with corner radius), `POLYGON` (n sides), `SLOT`, `STAR`, `AIRFOIL` (NACA 4-digit: chord, camber, thickness)
+- Each one is placed on any plane (origin, normal, and an X direction), and a closed `POLYLINE`/`SPLINE` is a profile too
+- Later: any sketch from the sketcher `[M3]`, text outlines `[M4]`
+
+**Loft: a smooth shape through sections** `[M2]`
+- `LOFT` through 2 or more sections: smooth (one B-spline surface) or ruled (straight between sections)
+- Closed lofts that loop back to the first section (a ring with a changing section)
+- Sections with different shapes and point counts (circle to square to star); start points matched so the surface does not twist by accident
+- Solid or open surface; caps on or off
+- Loft along a spine curve, so the sections follow a curved center line `[M4]`
+- Loft with guide curves that the side of the shape must pass through `[M5]`
+
+**Sweep: drag a profile along a path** `[M2]`
+- `SWEEP, profile, path`: exact sweep of one profile
+- Orientation modes: follow the curve (Frenet), minimal twist (the default; no flips on 3D curves), fixed direction, keep a chosen "up" direction (binormal), and follow a surface's normal `[M5]`
+- Sharp or rounded corners on polyline paths
+- Solid or open (a surface), and keep the profile perpendicular to the path or as placed
+
+**Laws: how the profile changes along the path** `[M2]`
+- A law is an expression in `t`, where `t` goes from 0 at the start of the path to 1 at the end, so it can use parameters and any math:
+  - twist: `"40 - 32*t"` degrees
+  - scale: `"1 - 0.5*t**2"`, or separate X and Y scales to stretch the section
+  - offset: slide the profile off the path (a cam track, an S-shaped duct)
+- Laws can also be a table of stations (`t, value` pairs), interpolated smoothly; this is what the GUI edits `[M3]`
+- Laws work in `SWEEP`, `PIPE`, `HELIX` (pitch) and `ARRAY, PATH` (spacing, scale, turn)
+
+**Morph: the profile turns into other shapes on the way** `[M2]`
+- `SWEEP` with several profiles placed at stations along the path: a round duct that turns square, then flat; a blade root that turns into an airfoil
+- Laws (twist, scale) apply on top of the morph
+
+**Rails: curves that steer the shape** `[M4]`
+- One guide rail: the profile turns so a chosen point always touches the rail (a twisted handrail, a ribbon)
+- Two rails: the profile is turned and scaled so it spans both rails (a wing between its leading and trailing edges, a ship hull, a guitar neck)
+- Rails and laws combine: rails set the size, a law adds thickness change
+
+**Pipes, springs and threads**
+- `PIPE, path, r`: round tube along any curve, solid or hollow (wall), with a radius law `[M2]`
+- Springs: `HELIX` + `PIPE`, variable pitch, ground ends `[M4]`
+- Threads: a thread profile swept on a helix, added or cut, standard metric sizes `[M4]`
+
+**Shape follows a curve (deformers)** `[M5]`
+- `FLOW`: bend an existing body so it follows a curve (a straight text or pattern wrapped onto a path)
+- `BEND`, `TWIST`, `TAPER`, `STRETCH` of whole bodies, with laws; exact on B-rep where OCCT allows, through NURBS approximation otherwise; meshes always
+- `SWEEPVOL`: the volume a moving tool body sweeps through (a cutter path, a keyway), so it can be cut away with `SUBTRACT`
+
+**Patterns along a path** `[M2]`
+- `ARRAY, PATH`: copies along a curve, keeping their orientation to the curve, with count or spacing, and laws for scale and turn (chain links, a spiral staircase, beads)
+
+**Working with it in the GUI** `[M3]`
+- Pick the profile and path in the viewport, and a preview appears
+- A slider moves a "ghost" section along the path, showing what it looks like at that `t`
+- Handles at stations set twist and scale by dragging; each drag edits the law table through `HIST, EDIT`, so the command stays the source of truth
+- A small graph shows each law over `t`
+
+### 5.3 NURBS and freeform
 - NURBS curves: control points, degree, weights, knot editing; interpolate through points `[M5]`
 - NURBS surfaces: from control net, loft, network of curves, patch/fill, blend between surfaces with G1/G2 continuity, extend, offset, trim by curves `[M5]`
 - Control-point editing in the viewport (drag points, each drag is a `MOVEPT` command) `[M5]`
 - Rebuild/reparameterize, sew surfaces into solids `[M5]`
 - Analysis: zebra stripes, Gaussian/mean curvature map, draft angle `[M5]`
 
-### 5.3 Equation-based geometry
+### 5.4 Equation-based geometry
 - Parametric curves `x(t), y(t), z(t)` and surfaces `x(u,v), y(u,v), z(u,v)`, fitted to NURBS so they become exact geometry usable in booleans `[M4]`
 - Implicit shapes `f(x,y,z) ≤ 0` (gyroids, metaballs, superquadrics), meshed by marching cubes; smooth blends between them `[M6]`
 - Lattice infill of a solid (gyroid, cubic, octet) `[M6]`
 - Driven dimensions: any number in any command can be an expression of parameters `[M2]`
 
-### 5.4 Reuse and operations
+### 5.5 Reuse and operations
 - Bodies kept and reusable after booleans (`KEEP`) `[M2]`
 - Parts with parameters, instances that follow the definition, part library across projects `[M4]`
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
 - Direct editing: push/pull a face, move/delete faces (great on imported STEP) `[M4]`
 - Patterns: linear, polar, along a path `[M2]`
 
-### 5.5 Freehand
+### 5.6 Freehand
 - **Knife**: draw a stroke on screen, it is projected through the view and cuts or splits the body (`KNIFE`) `[M6]`
 - **Freehand sketch**: draw a closed stroke on a face or plane, it is fitted to a spline, then extruded as cut or boss `[M6]`
 - **Sculpt mode** on mesh bodies: draw, clay, inflate, smooth, flatten, crease, grab, mask; symmetry; remesh/dynamic resolution `[M7]`
 - Every brush stroke is logged as `SCULPT, brush, radius, strength, stroke-file-ref`, so sculpting is replayable too (stroke points saved in the project zip)
 
-### 5.6 Productivity and real-life use
+### 5.7 Productivity and real-life use
 - Units (mm, cm, m, in) and tolerances `[M1]`
 - Snap (grid, endpoints, midpoints, centers), work planes, measure tools `[M3]`
 - Layers, colors, materials, mass properties `[M3]`
@@ -278,7 +348,7 @@ Grouped by what the user asked for. `[M#]` is the milestone that delivers it.
 - Autosave and crash recovery from the log `[M2]`
 - Model validity check and auto-heal for imports `[M4]`
 
-### 5.7 AI assistant (last)
+### 5.8 AI assistant (last)
 - Chat panel that explains any command, turns plain language into a command script, explains errors, and can read the current model state through query commands `[M9]`
 - The AI never edits the model directly; it proposes commands, the user sees and accepts them, and they run through the same processor and log.
 
@@ -343,10 +413,10 @@ Each milestone ends with something a person can use, plus tests.
 |---|-----------|----------|---------------|
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
-| **M2** | Usable shell | Main window, command line with autocomplete, log panel, viewport, parameters & expressions, booleans with `KEEP`, transforms, patterns, selection commands + picking, STEP/STL import/export, save/open, autosave | Model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Sketcher with constraints, extrude/revolve, fillet/chamfer/shell/draft/offset, snaps, work planes, measure, layers, section view | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs |
-| **M4** | Advanced solids & reuse | Sweep, loft, helix/threads, text, parametric curves/surfaces, parts and instances, part library, direct face editing, heal imports, `*DO`/`*IF`/`*MACRO` | A parametric bolt part placed 8 times by script; changing `D` updates all instances |
-| **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, control-point editing, sew to solid, zebra/curvature analysis | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm |
+| **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
+| **M3** | Sketch & features | Sketcher with constraints, extrude/revolve, fillet/chamfer/shell/draft/offset, snaps, work planes, measure, layers, section view; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
+| **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
 | **M7** | Sculpt mode | Brushes, symmetry, masking, remesh, stroke logging, mesh ↔ solid conversion | Sculpt a character head at 1M triangles at interactive speed |
 | **M8** | Polish & release | Preferences, themes, help browser from command metadata, 2D drawing export, installers | Installable app with docs and example library |
@@ -373,6 +443,7 @@ any order the user prefers.
 
 ## Next step
 
-Start M0: a small spike branch that installs OCP and build123d, embeds the
-OCCT viewer in a PySide6 window, and picks faces. Its result decides the
-binding before any command code is written.
+M0 and M1 are done. M2 starts with shapes on curves (5.2): curves, profiles,
+`LOFT`, `SWEEP` with laws and morphing, `PIPE` and `HELIX`, so the example
+blade becomes one smooth sweep instead of stacked slices. The rest of M2
+(the usable shell) follows.
