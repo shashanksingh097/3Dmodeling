@@ -1,4 +1,4 @@
 from . import handlers  # noqa: F401  (registers the commands)
-from .processor import REGISTRY, CommandError, Processor, Result
+from .processor import REGISTRY, CommandError, Entry, Processor, Result
 
-__all__ = ["Processor", "Result", "CommandError", "REGISTRY"]
+__all__ = ["Processor", "Result", "Entry", "CommandError", "REGISTRY"]

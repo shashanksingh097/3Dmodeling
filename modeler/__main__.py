@@ -2,7 +2,10 @@
 
     python -m modeler                 open the GUI
     python -m modeler script.cmd      open the GUI and run a script
-    python -m modeler run script.cmd  run a script headless and print the log
+    python -m modeler run script.cmd [-D NAME=value ...] [-q]
+                                      run a script headless; -D fixes a parameter
+                                      (the script's own NAME = ... keeps that value),
+                                      -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
 """
 
@@ -12,17 +15,45 @@ import os
 import sys
 
 
-def _run_headless(path: str) -> int:
+def _run_headless(args: list[str]) -> int:
     from .commands import Processor
+    from .lang.expr import Evaluator, ExprError
 
-    p = Processor()
+    path, overrides, quiet = None, {}, False
+    it = iter(args)
+    for a in it:
+        if a == "-D" or a.startswith("-D"):
+            spec = a[2:] or next(it, "")
+            name, _, value = spec.partition("=")
+            if not name or not value:
+                print(f"bad -D {spec!r}: use -D NAME=value")
+                return 2
+            try:
+                overrides[name] = Evaluator(lambda k: (_ for _ in ()).throw(KeyError(k))).eval(value)
+            except ExprError as exc:
+                print(f"bad -D {spec!r}: {exc}")
+                return 2
+        elif a == "-q":
+            quiet = True
+        elif path is None:
+            path = a
+        else:
+            print(__doc__)
+            return 2
+    if path is None:
+        print(__doc__)
+        return 2
+    p = Processor(overrides=overrides)
     with open(path, encoding="utf-8") as f:
         results = p.run_script(f.read())
     for r in results:
-        print(f"> {r.line}")
-        if r.message:
+        if not quiet or not r.ok:
+            print(f"> {r.line}")
+        if r.message and (not quiet or not r.ok or r.line.lstrip().upper().startswith("*MSG")):
             print(("" if r.ok else "ERROR: ") + r.message)
-    return 0 if all(r.ok for r in results) else 1
+    ok = all(r.ok for r in results)
+    print(f"{'done' if ok else 'FAILED'}: {len(p.history)} history entries, {len(p.model.bodies)} bodies")
+    return 0 if ok else 1
 
 
 def _check() -> int:
@@ -64,8 +95,8 @@ def _gui(script: str | None) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if args[:1] == ["run"] and len(args) == 2:
-        return _run_headless(args[1])
+    if args[:1] == ["run"] and len(args) >= 2:
+        return _run_headless(args[1:])
     if args[:1] == ["check"]:
         return _check()
     if len(args) > 1 or (args and args[0].startswith("-")):

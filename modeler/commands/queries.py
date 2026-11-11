@@ -1,0 +1,149 @@
+"""Model queries usable inside expressions: ``VOL(3)``, ``CENT(3).z``, ``NSEL()`` ...
+
+Each takes IDs (or body names) and returns a number, a point or a record.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable
+
+from OCP.Bnd import Bnd_Box
+from OCP.BRep import BRep_Tool
+from OCP.BRepBndLib import BRepBndLib
+from OCP.BRepGProp import BRepGProp
+from OCP.GProp import GProp_GProps
+
+from ..core.model import ModelError, check_kind
+from ..lang.expr import ExprError, Record, Vec
+
+if TYPE_CHECKING:
+    from .processor import Processor
+
+try:
+    from OCP.TopoDS import TopoDS
+
+    _as_vertex = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+except ImportError:  # pragma: no cover
+    _as_vertex = None
+
+
+def props(kind: str, shape) -> GProp_GProps:
+    g = GProp_GProps()
+    if kind == "BODY":
+        BRepGProp.VolumeProperties_s(shape, g)
+    elif kind == "FACE":
+        BRepGProp.SurfaceProperties_s(shape, g)
+    elif kind == "EDGE":
+        BRepGProp.LinearProperties_s(shape, g)
+    return g
+
+
+def centre(kind: str, shape) -> Vec:
+    if kind == "VERTEX":
+        p = BRep_Tool.Pnt_s(_as_vertex(shape))
+    else:
+        p = props(kind, shape).CentreOfMass()
+    return Vec((p.X(), p.Y(), p.Z()))
+
+
+def bbox(shape) -> tuple[float, ...]:
+    box = Bnd_Box()
+    BRepBndLib.AddOptimal_s(shape, box, False, False)  # tight box, no tolerance gap
+    lo, hi = box.CornerMin(), box.CornerMax()
+    return lo.X(), lo.Y(), lo.Z(), hi.X(), hi.Y(), hi.Z()
+
+
+def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
+    m = p.model
+
+    def body_id(v, fn: str) -> int:
+        if isinstance(v, str):
+            b = m.body_by_name(v)
+            if b is None:
+                raise ExprError(f"{fn}(): no body named {v!r}")
+            return b.id
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not float(v).is_integer():
+            raise ExprError(f"{fn}() needs a body ID or name")
+        return int(v)
+
+    def shape_of(fn: str, ident, kind="BODY"):
+        if not isinstance(kind, str):
+            raise ExprError(f"{fn}(): the kind must be text such as \"FACE\"")
+        try:
+            k = check_kind(kind)
+            gid = body_id(ident, fn) if k == "BODY" else int(ident)
+            return k, m.entity_shape(k, gid)
+        except ModelError as exc:
+            raise ExprError(f"{fn}(): {exc}") from None
+
+    def vol(b):
+        return props("BODY", shape_of("VOL", b)[1]).Mass()
+
+    def area(i, kind="FACE"):
+        k, s = shape_of("AREA", i, kind)
+        return props("FACE", s).Mass()
+
+    def length(i):
+        return props("EDGE", shape_of("LENGTH", i, "EDGE")[1]).Mass()
+
+    def cent(i, kind="BODY"):
+        k, s = shape_of("CENT", i, kind)
+        return centre(k, s)
+
+    def box(i, kind="BODY"):
+        _, s = shape_of("BBOX", i, kind)
+        x0, y0, z0, x1, y1, z1 = bbox(s)
+        return Record("BBOX", xmin=x0, ymin=y0, zmin=z0, xmax=x1, ymax=y1, zmax=z1, dx=x1 - x0, dy=y1 - y0, dz=z1 - z0)
+
+    def nsel(kind=None):
+        if kind is not None and check_kind(str(kind)) != m.selection_kind:
+            return 0
+        return len(m.selection)
+
+    def selid(n=1):
+        n = int(n)
+        if not 1 <= n <= len(m.selection):
+            raise ExprError(f"SELID({n}): only {len(m.selection)} selected")
+        return m.selection[n - 1]
+
+    def count(kind="BODY"):
+        return len(m.entity_ids(check_kind(str(kind))))
+
+    def body(name):
+        return body_id(name, "BODY")
+
+    def owner(i, kind="FACE"):
+        try:
+            return m.entity_owner(check_kind(str(kind)), int(i))[0]
+        except ModelError as exc:
+            raise ExprError(f"OWNER(): {exc}") from None
+
+    def exists(i, kind="BODY"):
+        try:
+            shape_of("EXISTS", i, kind)
+            return 1
+        except ExprError:
+            return 0
+
+    def param(name, default=None):
+        try:
+            return p._lookup(str(name).upper())
+        except KeyError:
+            if default is None:
+                raise ExprError(f"PARAM(): no parameter {name!r}") from None
+            return default
+
+    return {
+        "VOL": vol,
+        "AREA": area,
+        "LENGTH": length,
+        "CENT": cent,
+        "BBOX": box,
+        "NSEL": nsel,
+        "SELID": selid,
+        "COUNT": count,
+        "BODY": body,
+        "OWNER": owner,
+        "EXISTS": exists,
+        "PARAM": param,
+    }

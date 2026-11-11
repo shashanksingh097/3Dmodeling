@@ -175,12 +175,23 @@ class OccViewport(QWidget):
     # ---- painting and resizing -----------------------------------------
     def paintEvent(self, event) -> None:
         if self._initialized:
+            self._sync_size()
             self.view.Redraw()
+
+    def _sync_size(self) -> None:
+        """Tell OCCT when the native window changed size (a resize can land
+        before the view exists, e.g. while docks are laid out)."""
+        size = self._window.Size()
+        if size != getattr(self, "_known_size", None):
+            self._known_size = size
+            self._window.DoResize()
+            self.view.MustBeResized()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         if self._initialized:
-            self.view.MustBeResized()
+            self._sync_size()
+            self.view.Redraw()
 
     def _px(self, pos) -> tuple[int, int]:
         """Qt logical coordinates -> OCCT device pixels (HiDPI aware)."""
@@ -190,12 +201,14 @@ class OccViewport(QWidget):
     # ---- ViewHooks used by view commands ------------------------------
     def set_view(self, name: str) -> None:
         if self._initialized:
+            self._sync_size()
             self.view.SetProj(_VIEWS[name])
             self.view.FitAll(0.1, False)
             self.view.Redraw()
 
     def fit(self) -> None:
         if self._initialized:
+            self._sync_size()
             self.view.FitAll(0.1, False)
             self.view.Redraw()
 
@@ -234,6 +247,13 @@ class OccViewport(QWidget):
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
             self._ais.clear()
+        elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
+            self.context.RemoveAll(False)
+            self._ais.clear()
+            for bid in self.model.bodies:
+                self._display_body(bid, update=False)
+            self._sync_selection()
+            return
         elif ev.kind == "selection":
             self._sync_selection()
             return
