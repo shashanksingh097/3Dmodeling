@@ -95,6 +95,8 @@ class OccViewport(QWidget):
         self.model = model
         self.pick_mode = "FACE"
         self._ais: dict[int, AIS_Shape] = {}
+        self._datum_ais: list = []  # datum planes, axes, points and their labels (never pickable)
+        self._clip = None  # the SECTION clip plane, if any
         self._initialized = False
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan"
@@ -144,9 +146,12 @@ class OccViewport(QWidget):
         self.view.SetProj(_VIEWS["ISO"])
         self.view.MustBeResized()
         self._initialized = True
+        if getattr(self, "_pending_section", None) is not None:
+            self.set_section(self._pending_section)
 
         for body in self.model.bodies.values():
             self._display_body(body.id, update=False)
+        self._show_datums()
         self._sync_selection()
         self.view.FitAll(0.1, False)
         self.view.Redraw()
@@ -239,6 +244,7 @@ class OccViewport(QWidget):
             first = not self._ais
             self._display_body(ev.body_id, update=False)
             if first:
+                self._show_datums()  # their size follows the model's
                 self.view.FitAll(0.1, False)
         elif ev.kind == "body_removed":
             ais = self._ais.pop(ev.body_id, None)
@@ -247,13 +253,18 @@ class OccViewport(QWidget):
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
             self._ais.clear()
+            self._datum_ais.clear()
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._ais.clear()
+            self._datum_ais.clear()
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
+            self._show_datums()
             self._sync_selection()
             return
+        elif ev.kind == "datums":
+            self._show_datums()
         elif ev.kind == "selection":
             self._sync_selection()
             return
@@ -283,6 +294,106 @@ class OccViewport(QWidget):
         self._ais[bid] = ais
         if update:
             self.context.UpdateCurrentViewer()
+
+    # ---- datums ---------------------------------------------------------
+    def _show_datums(self) -> None:
+        """Draw every datum: planes as see-through squares, axes as long thin
+        lines, points as stars, each with its name. They are references, not
+        bodies, so they are never pickable (a click goes through them)."""
+        from OCP.AIS import AIS_TextLabel
+        from OCP.TCollection import TCollection_ExtendedString
+
+        from ..core import datum as dt
+        from ..geometry import features as ft
+
+        ctx = self.context
+        for ais in self._datum_ais:
+            ctx.Remove(ais, False)
+        self._datum_ais = []
+        m = self.model
+        items = list(m.datums.values())
+        wp = m.workplane
+        if wp is not None and wp.name.upper() not in m.datums:
+            items.append(wp)
+        if not items:
+            return
+        # size: a little bigger than the model, around its middle
+        shapes = [b.shape for i, b in m.bodies.items() if i not in m.hidden]
+        mid, size = (0.0, 0.0, 0.0), 20.0
+        if shapes:
+            from ..commands.queries import bbox
+
+            boxes = [bbox(s) for s in shapes]
+            lo = [min(b[i] for b in boxes) for i in range(3)]
+            hi = [max(b[i + 3] for b in boxes) for i in range(3)]
+            mid = tuple((lo[i] + hi[i]) / 2 for i in range(3))
+            size = max(8.0, 0.4 * dt.norm(dt.sub(hi, lo)))
+        for d in items:
+            is_wp = wp is not None and d.name.upper() == wp.name.upper()
+            if d.kind == "PLANE":
+                shape = ft.plane_face(d, mid, size)
+                ais = AIS_Shape(shape)
+                ais.SetColor(_rgb(0.35, 0.85, 0.45) if is_wp else _rgb(0.35, 0.6, 1.0))
+                ais.SetTransparency(0.82)
+                ais.Attributes().SetFaceBoundaryDraw(True)
+                u, v, _ = d.local(mid)
+                at = d.point(u - size * 0.95, v + size * 0.95)
+            elif d.kind == "AXIS":
+                t = dt.dot(dt.sub(mid, d.origin), d.z)
+                c = dt.add(d.origin, dt.mul(d.z, t))
+                from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+                from OCP.gp import gp_Pnt
+
+                p0, p1 = dt.add(c, dt.mul(d.z, -1.3 * size)), dt.add(c, dt.mul(d.z, 1.3 * size))
+                shape = BRepBuilderAPI_MakeEdge(gp_Pnt(*p0), gp_Pnt(*p1)).Edge()
+                ais = AIS_Shape(shape)
+                ais.SetColor(_rgb(1.0, 0.85, 0.2))
+                ais.SetWidth(1.5)
+                at = p1
+            else:
+                from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+                from OCP.gp import gp_Pnt
+
+                shape = BRepBuilderAPI_MakeVertex(gp_Pnt(*d.origin)).Vertex()
+                ais = AIS_Shape(shape)
+                ais.SetColor(_rgb(1.0, 0.4, 0.8))
+                at = d.origin
+            ctx.Display(ais, 1, 0, False)
+            ctx.Deactivate(ais)
+            self._datum_ais.append(ais)
+            label = AIS_TextLabel()
+            label.SetText(TCollection_ExtendedString(d.name + ("  (work plane)" if is_wp else "")))
+            from OCP.gp import gp_Pnt
+
+            label.SetPosition(gp_Pnt(*at))
+            label.SetColor(_rgb(1, 1, 1))
+            label.SetHeight(14)
+            ctx.Display(label, False)
+            ctx.Deactivate(label)
+            self._datum_ais.append(label)
+
+    # ---- section view ---------------------------------------------------
+    def set_section(self, section) -> None:
+        """Cut the view open along a plane (SECTION). section = (datum, side) or None."""
+        if not self._initialized:
+            self._pending_section = section
+            return
+        from OCP.Graphic3d import Graphic3d_ClipPlane
+        from OCP.gp import gp_Dir, gp_Pln, gp_Pnt
+
+        if self._clip is not None:
+            self.view.RemoveClipPlane(self._clip)
+            self._clip = None
+        if section is not None:
+            d, side = section
+            keep = d.z if side == "ABOVE" else tuple(-c for c in d.z)  # towards the half that stays
+            clip = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*d.origin), gp_Dir(*keep)))
+            clip.SetCapping(True)
+            clip.SetCappingColor(_rgb(0.85, 0.35, 0.3))
+            clip.SetOn(True)
+            self.view.AddClipPlane(clip)
+            self._clip = clip
+        self.view.Redraw()
 
     def _sync_selection(self) -> None:
         """Make the highlighted entities match model.selection.

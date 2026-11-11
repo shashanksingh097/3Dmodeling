@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -38,6 +39,7 @@ from ..lang.expr import format_value
 from ..lang.script import strip_comment
 from ..viewport.occ_view import OccViewport
 from . import assist
+from . import feature_actions as fa
 
 
 def _mono() -> QFont:
@@ -412,6 +414,58 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         dlg_action("Save log…", "Save the history as a script that rebuilds this model", self._save_log)
         dlg_action("Run script…", "Run a .cmd script\nRuns: RUN, file", self._run_file)
+        self._build_feature_toolbar()
+
+    def _build_feature_toolbar(self) -> None:
+        """Datums, features and measuring. Each button reads the selection,
+        builds the command text and runs it, exactly as if it were typed."""
+        self.addToolBarBreak()
+        tb = QToolBar("Features", self)
+        tb.setObjectName("features")
+        self.addToolBar(tb)
+
+        def act(label: str, tip: str, build) -> QAction:
+            a = QAction(label, self)
+            a.setToolTip(tip)
+            a.triggered.connect(lambda _=False, b=build: self.run_feature(b))
+            tb.addAction(a)
+            return a
+
+        def ask(title: str, label: str, value: float, lo: float = 0.0, hi: float = 1e6):
+            v, ok = QInputDialog.getDouble(self, title, label, value, lo, hi, 3)
+            if not ok:
+                raise fa.NeedInput("")
+            return v
+
+        p = self.processor
+        act("Plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id", lambda: fa.plane_on_face(p))
+        act("Work plane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
+                          "Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1", lambda: fa.workplane_on_face(p))
+        tb.addSeparator()
+        act("Hole…", "Through hole at the middle of the picked flat face\nRuns: HOLE, body, x,y,z, d",
+            lambda: fa.hole_on_face(p, ask("Hole", "Diameter:", 6.0, 0.001)))
+        act("Shell…", "Hollow the part, open at the selected faces (or closed, for selected bodies)\nRuns: SHELL, t",
+            lambda: fa.faces_selected(p, "SHELL", ask("Shell", "Wall thickness:", 2.0, 0.001)))
+        act("Draft…", "Tilt the selected side faces for moulding\nRuns: DRAFT, angle",
+            lambda: fa.faces_selected(p, "DRAFT", ask("Draft", "Angle (degrees):", 3.0, -89, 89)))
+        tb.addSeparator()
+        act("Distance", "Shortest distance between the two selected things\nRuns: DIST", lambda: fa.two_selected(p, "DIST"))
+        act("Angle", "Angle between the two selected faces or edges\nRuns: ANGLE", lambda: fa.two_selected(p, "ANGLE"))
+        act("Mass", "Volume, centre and inertia of the bodies\nRuns: MASSPROP", lambda: ["MASSPROP"])
+        act("Clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
+        act("Section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
+                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+
+    def run_feature(self, build) -> None:
+        try:
+            lines = build()
+        except fa.NeedInput as exc:
+            if str(exc):
+                self.statusBar().showMessage(str(exc), 6000)
+            return
+        for line in lines:
+            if not self.execute(line).ok:
+                break
 
     # ---- running commands --------------------------------------------------
     def execute(self, text: str) -> Result:

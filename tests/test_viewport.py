@@ -206,3 +206,35 @@ def test_autosave_and_recover(app, tmp_path):
     assert w2.execute("OPEN, AUTOSAVE").ok
     assert len(w2.processor.model.bodies) == 1
     w2.close()
+
+
+def test_datums_are_drawn_but_never_block_a_pick(win, app):
+    vp = win.viewport
+    win.execute("PLANE, front, PN, 0,-5,0, 0,1,0")  # a plane right in front of the block
+    win.execute("AXIS, up, Z")
+    win.execute("POINT, here, XYZ, 1, 2, 3")
+    app.processEvents()
+    assert len(vp._datum_ais) == 6  # three datums, each with its label
+    assert vp.click(*to_px(win, *face_centre(win, 6))) == "PICK, FACE, 6"
+    win.execute("DATUM, DELETE, up")
+    assert len(vp._datum_ais) == 4
+    win.execute("UNDO")
+    assert len(vp._datum_ais) == 6
+
+
+def test_section_view_adds_a_clip_plane(win):
+    vp = win.viewport
+    win.execute("SECTION, XY")
+    assert vp._clip is not None and vp.view.ClipPlanes().Size() == 1
+    win.execute("SECTION, OFF")
+    assert vp._clip is None and vp.view.ClipPlanes().Size() == 0
+
+
+def test_feature_toolbar_sends_commands(win):
+    from modeler.gui import feature_actions as fa
+
+    win.execute("PICK, FACE, 6")
+    win.run_feature(lambda: fa.hole_on_face(win.processor, 4))
+    assert win.processor.log[-1] == "HOLE, 1, 10, 5, 5, 4"
+    win.run_feature(lambda: fa.two_selected(win.processor, "DIST"))  # nothing selected: no command
+    assert win.processor.log[-1] == "HOLE, 1, 10, 5, 5, 4"

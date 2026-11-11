@@ -22,7 +22,7 @@ CYL, 0,0,-H_HUB/2, R_HUB, H_HUB
 UNION, rotor, LAST
 
 ! one airfoil section at radius x, thickness dx along the span
-*MACRO, section, x, dx, chord, pitch
+*MACRO, station, x, dx, chord, pitch
   T = T_RATIO * chord
   RC = (chord**2/4 + T**2/4) / T       ! radius of the arcs
   CYL, x, 0, -(RC - T/2), RC, dx, 1,0,0
@@ -34,7 +34,7 @@ UNION, rotor, LAST
 DS = SPAN / N
 *DO, i, 0, N - 1
   F = (i + 0.5) / N                     ! 0 at root, 1 at tip
-  section, R_HUB - 2 + i*DS, DS + 0.01, CHORD_ROOT + (CHORD_TIP - CHORD_ROOT)*F, TWIST_ROOT + (TWIST_TIP - TWIST_ROOT)*F
+  station, R_HUB - 2 + i*DS, DS + 0.01, CHORD_ROOT + (CHORD_TIP - CHORD_ROOT)*F, TWIST_ROOT + (TWIST_TIP - TWIST_ROOT)*F
   *IF, i, EQ, 0
     NAME, LAST, blade
   *ELSE

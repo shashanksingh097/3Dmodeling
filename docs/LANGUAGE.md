@@ -83,6 +83,8 @@ Every numeric argument of every command is an expression.
 | `COUNT("FACE")` | how many faces (bodies, edges ...) exist |
 | `BODY("name")`, `OWNER(f, "FACE")` | body ID by name, body that owns an entity |
 | `EXISTS(id, "FACE")`, `PARAM("W", default)` | 1/0, a parameter with a fallback |
+| `ORIGIN("top")`, `DIR("top")` | a datum's origin, and its normal (plane) or direction (axis), as points |
+| `GAP(a, b)` | shortest distance between two bodies (0 when they touch or overlap) |
 
 `ECHO, VOL(flange) / 1000` prints a value without changing anything.
 
@@ -117,7 +119,7 @@ Blocks nest. A loop runs at most 100 000 times, which stops a mistake like
 ## 4. Macros: your own commands
 
 ```text
-*MACRO, hole, x, y, d=6, depth=20     ! arguments, with optional defaults
+*MACRO, drill, x, y, d=6, depth=20     ! arguments, with optional defaults
   CYL, x, y, -1, d/2, depth + 2
   SUBTRACT, base, LAST
   *IF, d > 10
@@ -125,15 +127,16 @@ Blocks nest. A loop runs at most 100 000 times, which stops a mistake like
   *ENDIF
 *END
 
-hole, 10, 10                           ! called like any command
-hole, 30, 10, 4
+drill, 10, 10                           ! called like any command
+drill, 30, 10, 4
 ```
 
 * Arguments and parameters set inside a macro are local to that call; the
   macro can read the global parameters.
 * A bare word that is not a known name is passed as text: `pickall, EDGE`.
-* A macro cannot take the name of a built-in command. `HELP, HOLE` shows its
-  arguments.
+* A macro cannot take the name of a built-in command (so a macro once called
+  `hole` must be renamed now that `HOLE` is a command). `HELP, DRILL` shows
+  its arguments.
 
 ## 5. History, undo and editing old steps
 
@@ -244,6 +247,9 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original |
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
+| Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
+| Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
+| Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
@@ -254,7 +260,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Files | `EXPORT, STEP/BREP/STL, file [, body]` · `IMPORT, STEP/IGES/BREP/STL, file [, name]` · `RUN, file` |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
-| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS]` · `ECHO, expr` · `HELP [, name]` |
+| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS]` · `ECHO, expr` · `HELP [, name]` |
 
 ## 8. Running scripts without the GUI
 
@@ -453,3 +459,132 @@ CLEAN, housing        ! join neighbouring faces on the same surface (seams from 
 history entries; the body keeps its ID and name, and its faces keep their
 IDs where they survive. `HEAL` refuses, and changes nothing, when the repair
 does not give a valid body (a missing face cannot be invented).
+
+## 13. Datums: planes, axes and points to build on
+
+A datum is a named reference, not a body: it has no faces to pick, takes no
+part in booleans or exports, and is drawn see-through in the view (planes
+blue, the work plane green, axes yellow, points pink, each with its name).
+Datums are history entries like everything else, so when an earlier step
+changes, a plane made on a face moves with the face.
+
+| Command | Makes |
+|---------|-------|
+| `PLANE, name, XY [, offset]` (also `YZ`, `ZX`) | a world plane, moved along its normal |
+| `PLANE, name, PN, x,y,z, nx,ny,nz [, angle]` | through a point with a normal |
+| `PLANE, name, 3P, p1, p2, p3` | through three points (X towards the second) |
+| `PLANE, name, FACE, id [, offset]` | on a flat face, normal pointing out of the body |
+| `PLANE, name, OFFSET, plane, d` | parallel to another plane |
+| `PLANE, name, ANGLE, plane, axis, degrees` | another plane turned about an axis that lies in it |
+| `PLANE, name, MID, face1, face2` | half way between two parallel flat faces |
+| `PLANE, name, NORMAL, edge [, t]` | across an edge at fraction `t` (0 start, 1 end): where a sweep profile goes |
+| `AXIS, name, X` (also `Y`, `Z`) | a world axis |
+| `AXIS, name, PD, x,y,z, dx,dy,dz` · `AXIS, name, 2P, p1, p2` | from a point and direction, or two points |
+| `AXIS, name, EDGE, id` | along a straight edge, or the axis of a round one |
+| `AXIS, name, FACE, id` | the axis of a cylinder or cone, or the normal through a flat face's middle |
+| `AXIS, name, PLANES, plane1, plane2` | where two planes meet |
+| `POINT, name, XYZ, x,y,z` · `POINT, name, VERTEX, id` | at coordinates, or on a vertex |
+| `POINT, name, CENTER, kind, id` | centre of a round edge, or the middle of a face, edge or body |
+| `POINT, name, ON, edge, t` | at fraction `t` along an edge |
+| `DATUM, DELETE, name` · `LIST, DATUMS` | remove one, list them |
+
+Where a command expects an entity ID, `SEL` takes the first selected one:
+`PICK, FACE, 6` then `PLANE, top, FACE, SEL`. Wherever a plane is asked for
+(`SPLIT`, `DRAFT`, `SECTION`, `WORKPLANE`, `PLANE ... OFFSET`), you can give a
+datum plane's name or `XY`, `YZ`, `ZX`. A datum's name cannot also be a
+body's or a parameter's name.
+
+Every plane has its own X and Y: on a +Z normal, X is world X; otherwise X
+is level and Y points as far up as the plane allows (the same rule as the
+profiles in section 9).
+
+### Work planes
+
+```text
+PLANE, top, FACE, 6
+WORKPLANE, top          ! from here, x and y run along the top face, z out of it
+CYL, 0, 0, 0, 4, 10     ! a boss standing on the middle of the top face
+RECT, 0, 0, 0, 20, 10   ! a profile lying on it
+HOLE, part, 15, 0, 0, 5 ! a hole in it, 15 along the face's X
+WORKPLANE, OFF          ! back to world X, Y, Z
+```
+
+`WORKPLANE` changes where the commands that make shapes from typed numbers
+put them: the primitives, the curves and profiles of section 9, and `HOLE`.
+Selection, transforms, datums and measuring always use world coordinates.
+
+## 14. Part features: HOLE, SPLIT, SHELL, DRAFT, OFFSET
+
+These change a body in place: it keeps its ID and name, and the faces that
+survive keep their IDs, like after a fillet. Each result is checked; a step
+that would give a broken body is an error, with the model left as it was.
+
+### HOLE
+
+`HOLE, body, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` drills at a
+point on the body's surface. With no direction it goes straight into the
+flat face the point is on.
+
+| | |
+|-|-|
+| `HOLE, plate, 20,10,5, 6` | 6 mm, through everything |
+| `HOLE, plate, 20,10,5, 6, 12` | 12 deep, flat bottom |
+| `HOLE, plate, 20,10,5, 6, 12, SIMPLE, , , 118` | with a 118 degree drill point |
+| `HOLE, plate, 20,10,5, 6, 0, CBORE, 11, 4` | counterbore 11 wide, 4 deep |
+| `HOLE, plate, 20,10,5, 6, 0, CSINK, 12 [, 90]` | countersink 12 wide at the top, 90 degrees |
+| `HOLE, plate, 0,10,2, 3, 0, SIMPLE, , , , 1,0,0` | sideways, along +X |
+
+### SPLIT
+
+`SPLIT, body, plane` cuts a body in two along a plane. The piece on the
+plane's normal side keeps the body's ID and name; the others are new bodies.
+`ABOVE` or `BELOW` keeps only one side. `SPLIT, body, other` cuts it with the
+faces of another body (which stays as it is); the biggest piece keeps the name.
+
+### SHELL
+
+Select the faces to open, then `SHELL, thickness`: the part is hollowed out
+with walls of that thickness, open where the faces were. Select bodies
+instead to make them hollow and closed. `OUT` grows the walls outwards. If
+the wall does not fit, the error names the thickest wall that does.
+
+```text
+SEL, S, FACE, NORMAL, 0,0,-1     ! the bottom
+SHELL, 2.5                        ! an open box with 2.5 mm walls
+```
+
+### DRAFT
+
+Select side faces, then `DRAFT, angle [, plane [, dx,dy,dz]]`: the faces tilt
+so a moulded or cast part comes out of its mould. They keep their size where
+they cross the neutral plane (default: the work plane, or XY), and a positive
+angle makes the part narrower along the pull direction (default: the plane's
+normal).
+
+### OFFSET
+
+`OFFSET, body, d` grows (`d` > 0) or shrinks the whole body. Corners round
+off when growing; `SHARP` keeps them square.
+
+## 15. Measuring
+
+These print what they find and change nothing, so they are not history.
+`DIST` and `ANGLE` take two things, each as a kind and an ID (`FACE, 6`,
+`BODY, plate`, `DATUM, mid`, or a world plane `XY`), or no arguments to use
+the two selected things.
+
+| Command | Prints |
+|---------|--------|
+| `DIST, FACE, 6, VERTEX, 3` | the shortest distance, the two closest points, and the gap in X, Y and Z |
+| `ANGLE, FACE, 1, FACE, 3` | the angle between flat faces, straight or round edges, axes and planes |
+| `MASSPROP [, body [, density]]` | volume, area, centre of mass and principal moments of inertia; with a density in kg/m3 (7850 for steel) also the mass in kg and inertia in kg.mm2. No body: the selected bodies, or all |
+| `CLASH [, a, b]` | whether bodies overlap, by how much, or how far apart they are; alone, every pair of shown bodies |
+| `SECTION, plane [, BELOW/ABOVE]` | cuts the view open along a plane to look inside; the cut faces are drawn red. `SECTION, OFF` closes it |
+
+In the GUI the **Features** toolbar runs these from the selection: pick a
+flat face and press **Plane**, **Work plane** or **Hole**; select faces and
+press **Shell** or **Draft**; select two things and press **Distance** or
+**Angle**. Each button only builds the command and runs it, so you see the
+command in the output and in the history.
+
+See `scripts/bracket_features.cmd`.
