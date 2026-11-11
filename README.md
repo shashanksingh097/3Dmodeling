@@ -52,6 +52,10 @@ VIEW, ISO
 
 ## Roadmap
 
+The full product and technical plan (kernel choice, command language,
+feature catalogue, milestones) is in [docs/PLAN.md](docs/PLAN.md).
+Short version:
+
 1. Command parser, registry, and processor with logging
 2. Minimal model: points, primitives (block, cylinder, sphere), entity IDs
 3. PySide6 window with command line, log panel, and 3D viewport
