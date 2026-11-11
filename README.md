@@ -5,7 +5,7 @@ A PySide6 desktop application for 3D modeling where **every action is a command*
 Anything you do in the GUI (creating a block, selecting a face, moving a node,
 deleting an entity, changing the view) is turned into a plain-text command and
 executed by a single command processor. That means anything you can click, you
-can also type or script.
+can also type or script, in the same spirit as APDL in ANSYS.
 
 ## Core idea
 
