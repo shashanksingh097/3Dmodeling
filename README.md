@@ -5,7 +5,7 @@ A PySide6 desktop application for 3D modeling where **every action is a command*
 Anything you do in the GUI (creating a block, selecting a face, moving a node,
 deleting an entity, changing the view) is turned into a plain-text command and
 executed by a single command processor. That means anything you can click, you
-can also type or script, in the same spirit as APDL in ANSYS.
+can also type or script.
 
 ## Core idea
 
@@ -64,7 +64,19 @@ Short version:
 6. Save/load as command scripts
 7. AI chat box that explains commands and drafts scripts from plain language
 
+## Quick start (M0 spike)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e ".[test]"
+python -m modeler scripts/m0_demo.cmd
+```
+
+See [docs/M0.md](docs/M0.md) for what to try and what to check on each OS.
+
 ## Requirements
 
 - Python 3.10+
 - PySide6
+- OCP (`cadquery-ocp`, the Open CASCADE kernel; installs with pip)
