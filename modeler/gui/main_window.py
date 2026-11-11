@@ -183,10 +183,13 @@ class HistoryPanel(QTableWidget):
         self.setRowCount(len(p.history))
         grey = QBrush(QColor(140, 140, 140))
         red = QBrush(QColor(200, 40, 40))
+        amber = QBrush(QColor(176, 108, 0))
         for i, e in enumerate(p.history):
             label = e.label + ("  …" if "\n" in e.text.strip() and not e.text.strip().startswith("!") else "")
             first = (e.message or "").splitlines()[-1] if e.message else ""
             status = "suppressed" if e.suppressed else ("ERROR: " + first if not e.ok else first)
+            if e.ok and e.warning and not e.suppressed:
+                status = "CHECK: " + e.warning.splitlines()[0]
             cells = [str(i + 1), label, status]
             for c, text in enumerate(cells):
                 item = QTableWidgetItem(text)
@@ -195,6 +198,8 @@ class HistoryPanel(QTableWidget):
                     item.setForeground(grey)
                 elif not e.ok:
                     item.setForeground(red)
+                elif e.warning:
+                    item.setForeground(amber)
                 self.setItem(i, c, item)
         if p.cursor:
             self.scrollToItem(self.item(p.cursor - 1, 0))

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 
 from OCP.BRep import BRep_Builder
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
@@ -38,11 +39,13 @@ try:  # OCP 7.x
 except ImportError:  # OCP 8.x
     from OCP.collections import List_TopoDS_Shape as TopTools_ListOfShape  # type: ignore[no-redef]
 
+from ..core import refs
+from ..geometry import robust
 from ..core.model import ENTITY_KINDS, SELECT_KINDS, UNITS, ModelError, check_kind
 from ..lang.expr import ExprError, Vec, fmt_num, format_value
 from ..lang.script import COMPARE_WORDS, first_code_line, is_ident
 from . import queries
-from .processor import REGISTRY, Arg, BodyRef, CommandError, Path, Processor, Raw, Text, command
+from .processor import REGISTRY, SELECTED, Arg, BodyRef, CommandError, Path, Processor, Raw, Text, command
 
 
 def _static(cls, name):
@@ -190,26 +193,120 @@ def _shape_list(shapes) -> TopTools_ListOfShape:
     return lst
 
 
+_EMPTY = {
+    "SUBTRACT": "nothing is left: the tool bodies remove all of body {a}",
+    "INTERSECT": "the bodies have no volume in common, so nothing is left",
+    "UNION": "the result is empty",
+}
+
+
+def combine(p: Processor, name: str, op, base, tool_shapes, a: int, merge: bool = False):
+    """Run one boolean and make sure the result can be trusted.
+
+    Returns ``(shape, maker)``. Raises CommandError when the result is empty
+    or not a valid shape even after a retry with a small tolerance and a
+    repair pass. Things the user should know about (a retry was needed, the
+    result is in separate pieces) are added to the entry as warnings.
+    """
+    m = p.model
+    had_solids = bool(robust.solids(base))
+    # a solid result must be closed, if what went in was closed
+    closed = had_solids and all(robust.solids(t) for t in tool_shapes) and not robust.open_edges(base)
+    size = robust.diagonal(base)
+
+    def run(fuzzy: float):
+        algo = op()
+        algo.SetArguments(_shape_list([base]))
+        algo.SetTools(_shape_list(tool_shapes))
+        if fuzzy > 0:
+            algo.SetFuzzyValue(fuzzy)
+        start = time.perf_counter()
+        try:
+            algo.Build()
+        except Exception:
+            return None, None
+        finally:
+            robust.BUDGET.work += time.perf_counter() - start
+        if not algo.IsDone():
+            return None, None
+        return algo, algo.Shape()
+
+    def good(shape) -> bool:
+        if shape is None:
+            return False
+        if robust.is_empty(shape) or (had_solids and not robust.solids(shape)):
+            return True  # nothing left: reported below, a retry would not help
+        return robust.checked_ok(shape, closed)
+
+    algo, shape = run(m.tolerance)
+    if not good(shape):
+        if shape is not None and not robust.is_valid(base):
+            # not this step's fault: say so instead of blaming it
+            p.warn(f"{name}: body {a} was already not a valid shape before this step; run CHECK, and HEAL it")
+        else:
+            for factor in (1e-7, 1e-5):
+                fuzzy = max(m.tolerance * 10, factor * size)
+                algo2, shape2 = run(fuzzy)
+                if shape2 is not None and not robust.is_empty(shape2) and good(shape2):
+                    algo, shape = algo2, shape2
+                    p.warn(f"{name}: the exact result was not a valid shape; a tolerance of {fuzzy:.2g} was needed. "
+                           "The bodies probably touch or nearly touch; make them overlap clearly if you can.")
+                    break
+            else:
+                if shape is None:
+                    raise CommandError(f"{name}: the kernel could not combine the bodies")
+                fixed = robust.heal(shape)
+                if not robust.is_valid(fixed) or not robust.quick_ok(fixed, closed):
+                    raise CommandError(
+                        f"{name}: the result is not a valid shape, and repairing it did not help. "
+                        "Bodies that only just touch are the usual cause: make them overlap clearly, or set /TOL."
+                    )
+                algo, shape = _NoHistory(), fixed
+                p.warn(f"{name}: the result was not a valid shape and was repaired; check it")
+    if robust.is_empty(shape) or (had_solids and not robust.solids(shape)):
+        raise CommandError(f"{name}: " + _EMPTY[name].format(a=a))
+    maker = algo
+    if merge:
+        shape, maker, _ = robust.merge_faces(shape, algo)
+    if name == "UNION" and had_solids:
+        pieces = len(robust.solids(shape))
+        if pieces > 1:
+            p.warn(f"UNION: the bodies do not all touch, so the result is one body made of {pieces} separate pieces")
+    return robust.unwrap(shape), maker
+
+
+class _NoHistory:
+    """A maker that knows nothing: IDs are then carried over by geometry."""
+
+    def IsDeleted(self, _old) -> bool:
+        return False
+
+    def Modified(self, _old) -> list:
+        return []
+
+
 def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
+    m = p.model
+    if a == SELECTED:
+        raise CommandError(f"{name}: SEL can stand for the tool bodies, not for the first body")
+    if SELECTED in tools:  # SEL: every selected body (many tools in one kernel call is far faster than one by one)
+        if m.selection_kind != "BODY" or not m.selection:
+            raise CommandError(f"{name}: SEL needs bodies selected first, e.g. SEL, S, BODY, SIZE, LT, 100")
+        picked = [b for b in m.selection if b != a]
+        tools = [t for t in tools if t and t != SELECTED]
+        tools += [b for b in picked if b not in tools]
     tools = [t for t in tools if t]
     if not tools:
         raise CommandError(f"{name}: give a base body and at least one tool body")
-    m = p.model
     if a in tools or len(set(tools)) != len(tools):
         raise CommandError(f"{name}: a body cannot be used twice")
     base = m.body(a).shape
     tool_shapes = [m.body(t).shape for t in tools]
-    algo = op()
-    algo.SetArguments(_shape_list([base]))
-    algo.SetTools(_shape_list(tool_shapes))
-    if m.tolerance > 0:
-        algo.SetFuzzyValue(m.tolerance)
-    algo.Build()
-    if not algo.IsDone():
-        raise CommandError(f"{name}: the kernel could not combine bodies {', '.join(map(str, [a] + tools))}")
+    shape, maker = combine(p, name, op, base, tool_shapes, a, merge=name == "UNION")
     kept = [(m.body(b).shape, m.body(b).name if b != a else "") for b in [a] + tools] if m.keep else []
-    body = m.replace([a] + tools, algo.Shape(), algo)
-    msg = _added(p, body, f"{name} of {', '.join(map(str, [a] + tools))}")
+    body = m.replace([a] + tools, shape, maker)
+    shown = ", ".join(map(str, [a] + tools)) if len(tools) <= 8 else f"{a} and {len(tools)} tool bodies"
+    msg = _added(p, body, f"{name} of {shown}")
     if kept:
         # the inputs come back as new hidden bodies (fresh IDs: the result
         # carries the old face and edge IDs), ready to be used again. Tools
@@ -225,13 +322,14 @@ def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
 
 
 @command("UNION", Arg("a", BodyRef), Arg("b", BodyRef), *_TOOLS,
-         help="Fuse bodies into one new body: UNION, a, b [, c ...] (up to 8; IDs or names).")
+         help="Fuse bodies into one new body: UNION, a, b [, c ...] (up to 8; IDs or names). UNION, a, SEL adds every selected body.")
 def union(p: Processor, a, b, **more):
     return _boolean(p, "UNION", BRepAlgoAPI_Fuse, a, [b, *more.values()])
 
 
 @command("SUBTRACT", Arg("a", BodyRef), Arg("b", BodyRef), *_TOOLS,
-         help="Cut tool bodies b, c ... from body a: SUBTRACT, a, b [, c ...].")
+         help="Cut tool bodies b, c ... from body a: SUBTRACT, a, b [, c ...]. SUBTRACT, a, SEL cuts every selected body "
+              "in one step (much faster than one at a time).")
 def subtract(p: Processor, a, b, **more):
     return _boolean(p, "SUBTRACT", BRepAlgoAPI_Cut, a, [b, *more.values()])
 
@@ -256,20 +354,44 @@ def _blend(p: Processor, name: str, size: float) -> str:
         for gid in m.selection:
             groups.setdefault(m.entity_owner("EDGE", gid)[0], []).append(gid)
     msgs = []
+    maker_cls = BRepFilletAPI_MakeFillet if name == "FILLET" else BRepFilletAPI_MakeChamfer
     for bid, edges in groups.items():
-        maker_cls = BRepFilletAPI_MakeFillet if name == "FILLET" else BRepFilletAPI_MakeChamfer
-        mk = maker_cls(m.bodies[bid].shape)
-        for gid in edges:
-            mk.Add(size, _as_edge(m.entity_shape("EDGE", gid)))
-        try:
+        source = m.bodies[bid].shape
+        edge_shapes = [_as_edge(m.entity_shape("EDGE", gid)) for gid in edges]
+
+        def build(value: float, source=source, edge_shapes=edge_shapes):
+            mk = maker_cls(source)
+            for e in edge_shapes:
+                mk.Add(value, e)
             mk.Build()
+            return mk if mk.IsDone() else None
+
+        try:
+            mk = build(size)
         except Exception:
             mk = None
-        if mk is None or not mk.IsDone():
-            raise CommandError(f"{name}: the kernel failed on body {bid} (size too large?)")
-        body = m.replace([bid], mk.Shape(), mk)
+        # the kernel can report success for a blend that folds over itself,
+        # so the result is always checked
+        if mk is None or robust.is_empty(mk.Shape()) or not robust.is_valid(mk.Shape()):
+            limit = robust.largest_working(lambda v: (lambda k: k.Shape() if k else None)(build(v)), size)
+            what = "radius" if name == "FILLET" else "distance"
+            if limit is None:
+                raise CommandError(f"{name}: these edges of body {bid} cannot be blended, even with a very small {what}")
+            raise CommandError(
+                f"{name}: {what} {size:g} is too large for these edges of body {bid}: neighbouring blends would "
+                f"run into each other. The largest {what} that works here is about {_sig(limit)}."
+            )
+        body = m.replace([bid], robust.unwrap(mk.Shape()), mk)
         msgs.append(_added(p, body, f"{name} {size:g} on {len(edges)} edges of body {bid}"))
     return "\n".join(msgs)
+
+
+def _sig(v: float) -> str:
+    """A size rounded down to 2 significant digits (so that it really works)."""
+    if v <= 0:
+        return "0"
+    step = 10 ** (math.floor(math.log10(v)) - 1)
+    return f"{math.floor(v / step) * step:g}"
 
 
 @command("FILLET", Arg("r"), help="Round the selected edges (or all edges of selected bodies) with radius r.")
@@ -280,6 +402,79 @@ def fillet(p: Processor, r):
 @command("CHAMFER", Arg("d"), help="Bevel the selected edges (or all edges of selected bodies) by distance d.")
 def chamfer(p: Processor, d):
     return _blend(p, "CHAMFER", d)
+
+
+# =============================================================================
+# Checking and repairing
+# =============================================================================
+
+
+def _check_line(p: Processor, body) -> tuple[bool, str]:
+    r = robust.report(body.shape)
+    name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
+    if not r["faces"]:
+        return True, f"body {body.id}{name}: curve ({r['edges']} edges)"
+    kind = (f"{r['solids']} solid{'s' if r['solids'] != 1 else ''}" if r["solids"] else "surface (not a solid)")
+    facts = f"{kind}, {r['faces']} faces"
+    problems = []
+    if not r["valid"]:
+        problems.append("the shape is not valid (faces overlap or do not join up)")
+    if r["solids"] and r["open_edges"]:
+        problems.append(f"{r['open_edges']} open edges (the skin is not closed)")
+    if r["solids"] and r["volume"] <= 0:
+        problems.append("the volume is not positive (inside out)")
+    if problems:
+        return False, f"body {body.id}{name}: PROBLEM: " + "; ".join(problems) + f" ({facts}). Try HEAL, {body.id}"
+    return True, f"body {body.id}{name}: OK ({facts})"
+
+
+@command("CHECK", Arg("b", BodyRef, 0, "body to check (default: all bodies)"), logged=False,
+         help="Check that bodies are valid, closed solids: CHECK [, body]. Reports what is wrong and what to try.")
+def check(p: Processor, b):
+    m = p.model
+    bodies = [m.body(b)] if b else list(m.bodies.values())
+    if not bodies:
+        return "there are no bodies"
+    results = [_check_line(p, body) for body in bodies]
+    bad = sum(1 for ok, _ in results if not ok)
+    lines = [text for _, text in results]
+    if len(bodies) > 1:
+        lines.append(f"{len(bodies)} bodies checked, " + (f"{bad} with problems" if bad else "all OK"))
+    return "\n".join(lines)
+
+
+@command("HEAL", Arg("b", BodyRef), Arg("tol", float, 0.0, "close gaps up to this size (default: the kernel's own)"),
+         help="Repair a body that CHECK reports as broken (after an import, say): HEAL, body [, tolerance].")
+def heal(p: Processor, b, tol):
+    m = p.model
+    body = m.body(b)
+    if tol < 0:
+        raise CommandError("HEAL: the tolerance cannot be negative")
+    before = robust.report(body.shape)
+    fixed = robust.unwrap(robust.heal(body.shape, tol))
+    if robust.is_empty(fixed):
+        raise CommandError(f"HEAL: the repair left nothing of body {b}")
+    after = robust.report(fixed)
+    if before["ok"] and after["ok"]:
+        return f"body {b} is already OK; nothing to repair"
+    if not after["ok"]:
+        raise CommandError(f"HEAL: body {b} could not be repaired" + ("" if tol else "; try a tolerance: HEAL, body, 0.01"))
+    m.replace([b], fixed, _NoHistory(), same_id=True)
+    return f"repaired body {b}: now a valid shape ({after['solids']} solids, {after['faces']} faces)"
+
+
+@command("CLEAN", Arg("b", BodyRef),
+         help="Join neighbouring faces that lie on the same surface (seams left by booleans and imports): CLEAN, body.")
+def clean(p: Processor, b):
+    m = p.model
+    body = m.body(b)
+    shape, maker, removed = robust.merge_faces(body.shape)
+    if not removed:
+        return f"body {b} has no faces to join"
+    if not robust.is_valid(shape):
+        raise CommandError(f"CLEAN: joining the faces of body {b} did not give a valid shape; it is left as it was")
+    new = m.replace([b], robust.unwrap(shape), maker, same_id=True)
+    return f"joined faces of body {b}: {removed} fewer ({len(new.entity_ids['FACE'])} faces now)"
 
 
 # =============================================================================
@@ -407,7 +602,40 @@ def clear(p: Processor):
     help="What a viewport click emits: select one entity by its ID.",
 )
 def pick(p: Processor, kind, id, mode):
-    p.model.select(kind, [id], mode)
+    m = p.model
+    k = check_kind(kind)
+    target = id
+    old = p.refs.take() if p.refs else None
+    if old and old.get("kind") == k:
+        exists = m._in_use(k, id)
+        last = old.get("id", id)  # where this pick really pointed last time (differs after a repair)
+        if m._in_use(k, last) and refs.same_entity(m, k, last, old):
+            target = last
+        else:
+            # the ID is gone, or now belongs to something made by another
+            # step: find what was picked by its fingerprint instead
+            target, how = refs.find(m, old)
+            if target is None:
+                state = "is now a different entity" if exists else "no longer exists"
+                raise CommandError(f"PICK: {k} {id} {state}, and what was picked could not be found again: {how}. "
+                                   "Pick it again and edit this entry.")
+            old = dict(old, how=how)
+        if target != id:
+            where = ("in the same place" if old.get("how") == "same place"
+                     else "the only one with the same shape, size and direction")
+            state = "is now a different entity" if exists else "no longer exists"
+            p.warn(f"{k} {id} {state}; picked {k} {target} instead ({where}). Check it, then edit this entry.")
+    try:
+        m.select(k, [target], mode)
+    except ModelError:
+        if p.refs:
+            p.refs.record(old)
+        raise
+    if p.refs:
+        fp = refs.fingerprint(m, k, target)
+        if target != id and old:
+            fp["how"] = old.get("how", "same place")
+        p.refs.record(fp)
     return _describe_selection(p)
 
 
@@ -850,7 +1078,7 @@ def _history_text(p: Processor) -> str:
         return "history is empty"
     lines = []
     for i, e in enumerate(p.history, 1):
-        mark = "x" if not e.ok else "-" if e.suppressed else " "
+        mark = "x" if not e.ok else "-" if e.suppressed else "!" if e.warning else " "
         undone = "  (undone)" if i > p.cursor else ""
         lines.append(f"{i:>4} {mark} {e.label}{undone}")
     return "\n".join(lines)

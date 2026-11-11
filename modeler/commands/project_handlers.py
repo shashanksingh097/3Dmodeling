@@ -158,6 +158,13 @@ def save_project(p: Processor, path: str) -> int:
                 stored = f"files/{i}_{os.path.basename(name)}"
                 z.write(real, stored)
                 files[name] = stored
+        # what each entry remembers: the IDs it handed out and its pick
+        # fingerprints, so the reopened model is numbered exactly as it is now
+        history = [
+            {"text": e.text, "uid": e.uid, "pins": e.pins, "refs": e.refs}
+            for e in p.history[: p.cursor]
+            if not e.suppressed
+        ]
         meta = {
             "version": PROJECT_VERSION,
             "app": "3Dmodeling",
@@ -165,6 +172,7 @@ def save_project(p: Processor, path: str) -> int:
             "units": p.model.units,
             "entries": p.cursor,
             "files": files,
+            "history": history,
         }
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
@@ -192,7 +200,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
             mapping[name] = os.path.join(tmpdir, stored)
     p.reset()
     p.file_map = mapping
-    results = p.run_script(script)
+    results = p.run_script(script, meta.get("history"))
     errors = [f"'{first_code_line(r.line)}': {r.message}" for r in results if not r.ok]
     return len([r for r in results if r.ok]), errors
 

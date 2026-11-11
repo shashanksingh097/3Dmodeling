@@ -122,20 +122,38 @@ by default, hides (not deletes) its inputs, so the inputs stay reusable.
 
 ### 3.2 IDs and the "topological naming" problem
 
-Scripts refer to entities by number (`SEL, S, FACE, , 12`). In
-history-based CAD, numbers shift when an earlier step changes. That breaks
-scripts. Our rules:
+Scripts refer to entities by number (`PICK, FACE, 12`). In history-based
+CAD, numbers shift when an earlier step changes, and a reference that
+silently moves to another face is the worst failure a modeler can have.
+Our rules (the first five are built):
 
-1. Bodies get permanent IDs that are never reused within a session.
-2. After every operation, sub-shape IDs are carried forward using OCCT's
-   history (`Modified`, `Generated`, `IsDeleted` on the BRep builders). A face
-   that was split keeps its ID on the largest piece; the rest get new IDs.
-3. Scripts should prefer **geometric selection** over raw numbers, and the
-   GUI records picks that way when it can:
-   `SEL, S, FACE, NORMAL, 0,0,1` or `SEL, S, FACE, LOC, Z, 2` or
-   `SEL, S, EDGE, BOUNDARY, FACE, sel`. Raw IDs remain available.
-4. Named selections (`CM, top_faces, FACE`) give stable handles a script can
+1. Bodies and entities get IDs that are stable through operations: after
+   every operation, sub-shape IDs are carried forward using OCCT's history
+   (`Modified`, `IsDeleted`), with a match by geometry where a builder
+   reports nothing. A face that was split keeps its ID on the largest
+   piece; faces that were merged keep the first one's ID.
+2. Each history entry remembers the IDs it handed out and asks for them
+   again on replay, including the ones a shorter run (a smaller loop count)
+   did not reach. Project files store them, so open = the model as saved.
+3. Every entity knows which history entry made it. A pick stores that with
+   a fingerprint (type, place, size, direction). If the ID is gone, or now
+   belongs to another entry's work, the pick is repaired from the
+   fingerprint only when exactly one entity fits, and the entry is marked
+   with a warning. It never guesses between look-alikes; it fails instead.
+4. Scripts should prefer **geometric selection** over raw numbers:
+   `SEL, S, FACE, NORMAL, 0,0,1`, `SEL, S, FACE, LOC, Z, 2`,
+   `SEL, S, EDGE, OF, FACE`. Raw IDs remain available.
+5. Named selections (`CM, top_faces, FACE`) give stable handles a script can
    reuse.
+
+Still to do:
+
+6. Name faces made by an operation by their parents ("the wall between
+   face 6 of the plate and the side of hole 3"), so new faces of a boolean
+   are found again even when the kernel returns them in another order. `[M3]`
+7. Fingerprints for `SEL ..., ID` lists and named sets, and an option for
+   the GUI to write a click as a geometric criterion when one identifies
+   the entity uniquely (so plain scripts carry no raw IDs). `[M3]`
 
 ### 3.3 History = the command log
 
@@ -330,6 +348,8 @@ spring is a short script whose numbers you can change later.
 - Bodies kept and reusable after booleans (`KEEP`) `[M2]`
 - Parts with parameters, instances that follow the definition, part library across projects `[M4]`
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
+- `SPLIT` (by plane, face or body), `HOLE` (simple, counterbore, countersink, threaded; one command instead of cylinder plus subtract), variable-radius and face fillets `[M3]`
+- Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call `[done]`; `ARRAY ... CUT`; patterns of features (repeat the last steps, not just a body) `[M3]`
 - Direct editing: push/pull a face, move/delete faces (great on imported STEP) `[M4]`
 - Patterns: linear, polar, along a path `[M2]`
 
@@ -342,11 +362,20 @@ spring is a short script whose numbers you can change later.
 ### 5.7 Productivity and real-life use
 - Units (mm, cm, m, in) and tolerances `[M1]`
 - Snap (grid, endpoints, midpoints, centers), work planes, measure tools `[M3]`
+- **Datum geometry**: work planes, axes, points and local coordinate systems as named objects (`PLANE`, `AXIS`, `POINT`, `CSYS`), from numbers or from picked faces and edges; every sketch and profile can sit on one. Needed before the sketcher. `[M3, first]`
+- **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), minimum wall thickness, clearance and interference between bodies `[M3]`
 - Layers, colors, materials, mass properties `[M3]`
 - Section view, hide/show/isolate `[M3]`
 - Import/export STEP, IGES, STL, OBJ, 3MF, glTF; drawings (2D projection to DXF/SVG) later `[M2]`/`[M8]`
 - Autosave and crash recovery from the log `[M2]`
-- Model validity check and auto-heal for imports `[M4]`
+- Results checked after every boolean and blend, `CHECK`, `HEAL`, `CLEAN` `[done]`; auto-heal on import, sewing with a tolerance, defeaturing (remove small holes and fillets) `[M4]`
+- History that stays fast: skip entries whose inputs did not change (dependency tracking), rebuild on a worker thread with progress and cancel, so the window never freezes `[M3]`
+- Undo for history edits themselves (`HIST, EDIT/DELETE/MOVE` are not yet undoable) `[M3]`
+- Warning state for history entries (ran, but needs a look) `[done]`
+- Separate namespaces, or a clear error, when a parameter and a body share a name `[M3]`
+- Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[M4]`
+- Regression corpus: example scripts whose volumes, face counts and validity are checked in CI, so a kernel upgrade cannot change models unnoticed `[M3]`
+- Configurations: named sets of parameter values for one model (sizes of a family of parts), switchable from the Parameters panel and from the batch runner `[M4]`
 
 ### 5.8 AI assistant (last)
 - Chat panel that explains any command, turns plain language into a command script, explains errors, and can read the current model state through query commands `[M9]`
@@ -414,7 +443,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
 | **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Sketcher with constraints, extrude/revolve, fillet/chamfer/shell/draft/offset, snaps, work planes, measure, layers, section view; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M3** | Sketch & features | Datum planes, axes and coordinate systems first; sketcher with constraints, extrude/revolve, fillet/chamfer/shell/draft/offset, snaps, work planes, measure, layers, section view; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
 | **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
 | **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
@@ -430,14 +459,19 @@ any order the user prefers.
 
 ## 8. Risks
 
-| Risk | Mitigation |
-|------|-----------|
-| Embedding the OCCT viewer in PySide6 is fiddly (HiDPI, Wayland, macOS) | M0 spike tests all three OSes first; pythonocc-core's ready viewer is the fallback |
-| Topological naming breaks old scripts | Carry IDs with OCCT history; record picks as geometric criteria; named sets |
-| OCCT booleans/fillets fail on bad geometry | `CHECK`/`HEAL` commands, fuzzy boolean tolerance option, clear error messages that say which input failed |
-| Sculpting performance in Python | numpy/numba for brush kernels; dedicated OpenGL renderer if AIS is too slow (measured in M7) |
-| Re-running long histories is slow | Shape snapshots every N commands; only re-run from the edited command |
-| Scope is huge | Each milestone is usable alone; features after M2 are ordered by the user and can be reordered |
+Ranked by how much each one decides whether the app can be trusted for real
+work. Numbers were measured in November 2026 on the code after M2.
+
+| # | Risk | State | What is built | What is left |
+|---|------|-------|---------------|--------------|
+| 1 | **References break when history is edited** (the topological naming problem). A pick that silently moves to another face makes every edited model suspect. | Much reduced | IDs carried through operations; IDs kept per entry, also when a loop shrinks and grows; IDs saved in project files; picks know which step made the entity and are repaired by fingerprint only when the match is unique, with a warning | Parent-based names for faces made by booleans; fingerprints for ID lists and named sets; GUI picks written as criteria (3.2, items 6 and 7) |
+| 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN` | Same checks for `LOFT`/`SWEEP`/`PIPE` and the M3 features (shell, draft, offset); a corpus of hard cases in CI |
+| 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 13 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Partly reduced | Snapshot after every entry, so only entries from the edit onwards re-run; `SUBTRACT, a, SEL` cuts all selected bodies in one kernel call (the 300 holes: 0.4 s instead of 13 s) | `ARRAY ... CUT` and feature patterns that use the same one-call route; skip entries whose inputs did not change; rebuild on a worker thread with progress and cancel |
+| 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Not started | | Spike first: an existing solver (planegcs, SolveSpace's solver) against writing our own; decide before M3 |
+| 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
+| 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Not started | STL import sews to a solid when closed | Mesh bodies with `manifold3d` booleans (M6) |
+| 7 | Sculpting performance in Python | Not started | | numpy/numba brush kernels; a dedicated renderer if needed (measured in M7) |
+| 8 | Scope is huge | Managed | Each milestone is usable alone | Features after M2 are ordered by the user |
 
 ---
 
@@ -447,3 +481,8 @@ M0 and M1 are done. M2 starts with shapes on curves (5.2): curves, profiles,
 `LOFT`, `SWEEP` with laws and morphing, `PIPE` and `HELIX`, so the example
 blade becomes one smooth sweep instead of stacked slices. The rest of M2
 (the usable shell) follows.
+
+Hardening runs alongside the milestones. Risks 1 and 2 above have had their
+first round. The next round is rebuild speed (risk 3) and datum geometry,
+which the sketcher needs; the sketcher's solver gets a spike before M3
+starts.

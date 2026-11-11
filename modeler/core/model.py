@@ -86,7 +86,8 @@ class IdPins:
     Whatever it actually hands out is recorded in ``used`` for next time.
     """
 
-    def __init__(self, previous: dict[str, list[int]] | None = None) -> None:
+    def __init__(self, previous: dict[str, list[int]] | None = None, owner: int = 0) -> None:
+        self.owner = owner  # the history entry these IDs belong to (its uid)
         self.previous = {k: list(v) for k, v in (previous or {}).items()}
         self._pos = {k: 0 for k in ID_KINDS}
         self.used: dict[str, list[int]] = {k: [] for k in ID_KINDS}
@@ -98,6 +99,18 @@ class IdPins:
             self._pos[kind] = i + 1
             return seq[i]
         return None
+
+    def merged(self) -> dict[str, list[int]]:
+        """What to remember for next time: the IDs this run handed out, then
+        the older ones it did not reach. A run that makes fewer entities (a
+        loop count went down) must not forget the IDs of the longer run, or
+        they could not come back when the count goes up again."""
+        out = {}
+        for kind in ID_KINDS:
+            used = self.used[kind]
+            seen = set(used)
+            out[kind] = used + [i for i in self.previous.get(kind, [])[len(used):] if i not in seen]
+        return out
 
 
 class Model:
@@ -115,6 +128,10 @@ class Model:
         self._next = {k: 1 for k in ID_KINDS}
         # global entity id -> (body id, 1-based index in that body's map)
         self._entities: dict[str, dict[int, tuple[int, int]]] = {k: {} for k in ENTITY_KINDS}
+        # ID -> uid of the history entry that handed it out. Two entities with
+        # the same ID but different makers are not the same thing: that is
+        # how a pick notices that "its" ID now belongs to something else.
+        self._origin: dict[str, dict[int, int]] = {k: {} for k in ID_KINDS}
         self.selection_kind: str = "FACE"
         self.selection: list[int] = []  # body IDs or entity IDs of selection_kind
         self.named_sets: dict[str, tuple[str, list[int]]] = {}  # NAME -> (kind, ids)
@@ -145,6 +162,7 @@ class Model:
             "bodies": dict(self.bodies),
             "next": dict(self._next),
             "entities": {k: dict(v) for k, v in self._entities.items()},
+            "origin": {k: dict(v) for k, v in self._origin.items()},
             "selection_kind": self.selection_kind,
             "selection": list(self.selection),
             "named_sets": copy.deepcopy(self.named_sets),
@@ -159,6 +177,7 @@ class Model:
         self.bodies = dict(snap["bodies"])
         self._next = dict(snap["next"])
         self._entities = {k: dict(v) for k, v in snap["entities"].items()}
+        self._origin = {k: dict(snap.get("origin", {}).get(k, {})) for k in ID_KINDS}
         self.selection_kind = snap["selection_kind"]
         self.selection = list(snap["selection"])
         self.named_sets = copy.deepcopy(snap["named_sets"])
@@ -184,7 +203,12 @@ class Model:
         self._next[kind] = max(self._next[kind], gid + 1)
         if self.pins:
             self.pins.used[kind].append(gid)
+        self._origin[kind][gid] = self.pins.owner if self.pins else 0
         return gid
+
+    def origin(self, kind: str, gid: int) -> int:
+        """uid of the history entry that made this entity (0: made outside the history)."""
+        return self._origin[kind].get(gid, 0)
 
     # ---- bodies ----------------------------------------------------------
     def add_body(self, shape: TopoDS_Shape, name: str = "", made_from=None, keep_id: int | None = None) -> Body:
