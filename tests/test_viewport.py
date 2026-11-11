@@ -20,6 +20,7 @@ from OCP.BRepGProp import BRepGProp  # noqa: E402
 from OCP.GProp import GProp_GProps  # noqa: E402
 from OCP.TopoDS import TopoDS  # noqa: E402
 from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from modeler.gui.main_window import MainWindow  # noqa: E402
@@ -176,3 +177,32 @@ def test_curves_show_and_hidden_bodies_are_not_drawn(win):
     assert ids[0] not in win.viewport._ais
     assert win.execute("SHOW").ok
     assert ids[0] in win.viewport._ais
+
+
+def test_command_line_completion_and_hint(win, app):
+    cl = win.cmdline
+    cl.setFocus()
+    cl.setText("")
+    QTest.keyClicks(cl, "SWE")
+    app.processEvents()
+    assert cl.completer.popup().isVisible()
+    QTest.keyClick(cl, Qt.Key_Tab)
+    assert cl.text() == "SWEEP"
+    QTest.keyClicks(cl, ", ")
+    app.processEvents()
+    assert "<u>profile</u>" in cl.hint.text()
+    cl.setText("")
+
+
+def test_autosave_and_recover(app, tmp_path):
+    path = str(tmp_path / "auto.m3d")
+    w = MainWindow(autosave=path)
+    w.execute("BLOCK, 0,0,0, 3,3,3")
+    w.autosave_now()  # the timer would do this a moment later
+    assert os.path.isfile(path)
+    w.close()
+    w2 = MainWindow(autosave=path)  # next session: the old autosave is kept aside
+    assert w2.recover_action.isVisible()
+    assert w2.execute("OPEN, AUTOSAVE").ok
+    assert len(w2.processor.model.bodies) == 1
+    w2.close()

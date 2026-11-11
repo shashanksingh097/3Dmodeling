@@ -8,10 +8,13 @@ what the processor holds; they never change the model themselves.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import os
+
+from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QBrush, QColor, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCompleter,
     QDialog,
     QDialogButtonBox,
     QDockWidget,
@@ -34,6 +37,7 @@ from ..commands import Processor, Result
 from ..lang.expr import format_value
 from ..lang.script import strip_comment
 from ..viewport.occ_view import OccViewport
+from . import assist
 
 
 def _mono() -> QFont:
@@ -48,20 +52,75 @@ def hist_command(action: str, n: int, text: str | None = None) -> str:
 
 
 class CommandLine(QLineEdit):
-    """Single-line command entry with Up/Down history."""
+    """Single-line command entry with Up/Down history, completion and argument hints.
 
-    def __init__(self, parent=None) -> None:
+    Completion offers the words that fit where the cursor is: command names
+    at the start of a line, keywords for the argument being typed, and
+    parameter and body names. Tab or Enter in the list takes a word.
+    """
+
+    def __init__(self, processor: Processor | None = None, parent=None) -> None:
         super().__init__(parent)
         self.setPlaceholderText("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP")
         self.history: list[str] = []
         self._pos = 0
+        self.processor = processor
+        self.hint = QLabel()
+        self.hint.setTextFormat(Qt.RichText)
+        self._model = QStringListModel(self)
+        self.completer = QCompleter(self._model, self)
+        self.completer.setWidget(self)
+        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.completer.setCompletionMode(QCompleter.PopupCompletion)
+        self.completer.activated.connect(self.insert_completion)
+        self.textEdited.connect(self._update_assist)
+        self.cursorPositionChanged.connect(lambda *_: self._update_hint())
 
     def remember(self, text: str) -> None:
         if text and (not self.history or self.history[-1] != text):
             self.history.append(text)
         self._pos = len(self.history)
 
+    # ---- completion -------------------------------------------------------
+    def _update_hint(self) -> None:
+        if self.processor is not None:
+            self.hint.setText(assist.signature(self.processor, self.text(), self.cursorPosition()))
+
+    def _update_assist(self, *_):
+        self._update_hint()
+        if self.processor is None:
+            return
+        words = assist.completions(self.processor, self.text(), self.cursorPosition())
+        ctx = assist.context(self.text(), self.cursorPosition())
+        if not words or not ctx.prefix:
+            self.completer.popup().hide()
+            return
+        self._model.setStringList(words)
+        self.completer.setCompletionPrefix("")
+        rect = self.cursorRect()
+        rect.setWidth(max(160, self.completer.popup().sizeHintForColumn(0) + 30))
+        self.completer.complete(rect)
+
+    def insert_completion(self, word: str) -> None:
+        ctx = assist.context(self.text(), self.cursorPosition())
+        text, pos = self.text(), self.cursorPosition()
+        new = text[: ctx.start] + word + text[pos:]
+        self.setText(new)
+        self.setCursorPosition(ctx.start + len(word))
+        self.completer.popup().hide()
+        self._update_hint()
+
     def keyPressEvent(self, e) -> None:
+        popup = self.completer.popup()
+        if popup.isVisible():
+            if e.key() in (Qt.Key_Tab, Qt.Key_Return, Qt.Key_Enter):
+                idx = popup.currentIndex()
+                word = idx.data() if idx.isValid() else self._model.stringList()[0]
+                self.insert_completion(word)
+                return
+            if e.key() == Qt.Key_Escape:
+                popup.hide()
+                return
         if e.key() == Qt.Key_Up and self.history:
             self._pos = max(0, self._pos - 1)
             self.setText(self.history[self._pos])
@@ -70,6 +129,9 @@ class CommandLine(QLineEdit):
             self.setText(self.history[self._pos] if self._pos < len(self.history) else "")
         else:
             super().keyPressEvent(e)
+
+    def focusNextPrevChild(self, nxt: bool) -> bool:  # keep Tab for completion
+        return False
 
 
 class EntryDialog(QDialog):
@@ -232,7 +294,7 @@ class ParamPanel(QTableWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, processor: Processor | None = None) -> None:
+    def __init__(self, processor: Processor | None = None, autosave: str | None = None) -> None:
         super().__init__()
         self.setWindowTitle("3Dmodeling")
         self.resize(1400, 860)
@@ -246,8 +308,9 @@ class MainWindow(QMainWindow):
         self.output.setFont(_mono())
         self.prompt = QLabel(">")
         self.prompt.setFont(_mono())
-        self.cmdline = CommandLine()
+        self.cmdline = CommandLine(self.processor)
         self.cmdline.setFont(_mono())
+        self.cmdline.hint.setContentsMargins(22, 2, 4, 0)
         self.cmdline.returnPressed.connect(self._on_enter)
 
         central = QWidget()
@@ -258,6 +321,7 @@ class MainWindow(QMainWindow):
         row.setContentsMargins(4, 0, 0, 0)
         row.addWidget(self.prompt)
         row.addWidget(self.cmdline, 1)
+        lay.addWidget(self.cmdline.hint)  # above the line, so the completion list never covers it
         lay.addLayout(row)
         self.setCentralWidget(central)
 
@@ -276,6 +340,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
         )
+        self._setup_autosave(autosave)
         self._on_history()
 
     def _dock(self, title: str, widget: QWidget, area) -> QDockWidget:
@@ -325,16 +390,23 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         cmd_action("Clear", "CLEAR", "Delete every body")
 
-        save = QAction("Save log…", self)
-        save.setShortcut(QKeySequence.Save)
-        save.setToolTip("Save the history as a script that rebuilds this model")
-        save.triggered.connect(self._save_log)
-        tb.addAction(save)
+        def dlg_action(label: str, tip: str, slot, shortcut=None) -> QAction:
+            act = QAction(label, self)
+            act.setToolTip(tip)
+            if shortcut:
+                act.setShortcut(QKeySequence(shortcut))
+            act.triggered.connect(slot)
+            tb.addAction(act)
+            return act
 
-        run = QAction("Run script…", self)
-        run.setShortcut(QKeySequence.Open)
-        run.triggered.connect(self._run_file)
-        tb.addAction(run)
+        dlg_action("Open…", "Open a project (.m3d)\nRuns: OPEN, file", self._open_project, QKeySequence.Open)
+        dlg_action("Save…", "Save the project (.m3d)\nRuns: SAVE, file", self._save_project, QKeySequence.Save)
+        dlg_action("Import…", "Import STEP, IGES, BREP or STL\nRuns: IMPORT, format, file", self._import_file)
+        self.recover_action = cmd_action("Recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
+        self.recover_action.setVisible(False)
+        tb.addSeparator()
+        dlg_action("Save log…", "Save the history as a script that rebuilds this model", self._save_log)
+        dlg_action("Run script…", "Run a .cmd script\nRuns: RUN, file", self._run_file)
 
     # ---- running commands --------------------------------------------------
     def execute(self, text: str) -> Result:
@@ -384,6 +456,60 @@ class MainWindow(QMainWindow):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(self.processor.script())
             self.statusBar().showMessage(f"Saved {self.processor.cursor} history entries to {path}", 5000)
+
+    def _open_project(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Open project", "", "Projects (*.m3d);;All files (*)")
+        if path:
+            self.execute(f'OPEN, "{path}"')
+
+    def _save_project(self) -> None:
+        start = self.processor.project_path or "model.m3d"
+        path, _ = QFileDialog.getSaveFileName(self, "Save project", start, "Projects (*.m3d)")
+        if path:
+            self.execute(f'SAVE, "{path}"')
+
+    def _import_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import", "", "Shapes (*.step *.stp *.iges *.igs *.brep *.stl);;All files (*)")
+        if path:
+            ext = os.path.splitext(path)[1].lower()
+            fmt = {".stp": "STEP", ".step": "STEP", ".igs": "IGES", ".iges": "IGES", ".stl": "STL"}.get(ext, "BREP")
+            self.execute(f'IMPORT, {fmt}, "{path}"')
+
+    # ---- autosave -----------------------------------------------------------
+    def _setup_autosave(self, path: str | None) -> None:
+        """Save the project a moment after every change. The autosave of the
+        last session is moved aside first, so OPEN, AUTOSAVE can bring it back."""
+        if path is None:
+            path = os.environ.get("MODELER_AUTOSAVE") or os.path.join(
+                QStandardPaths.writableLocation(QStandardPaths.AppDataLocation) or os.path.expanduser("~/.modeler3d"),
+                "autosave.m3d")
+        self.autosave_path = path if path != "off" else None
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.setInterval(1500)
+        self._autosave_timer.timeout.connect(self.autosave_now)
+        if not self.autosave_path:
+            return
+        previous = os.path.splitext(self.autosave_path)[0] + "-previous.m3d"
+        if os.path.isfile(self.autosave_path):
+            os.replace(self.autosave_path, previous)
+        if os.path.isfile(previous):
+            self.processor.autosave_path = previous
+            self.recover_action.setVisible(True)
+            self.statusBar().showMessage(
+                "Work from the last session was autosaved: press Recover, or type OPEN, AUTOSAVE", 15000)
+        self.processor.history_listeners.append(self._autosave_timer.start)
+
+    def autosave_now(self) -> None:
+        if not self.autosave_path or self.processor.cursor == 0:
+            return
+        from ..commands.project_handlers import save_project
+
+        try:
+            save_project(self.processor, self.autosave_path)
+        except OSError as exc:
+            self.statusBar().showMessage(f"Autosave failed: {exc}", 5000)
 
     def _run_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Run command script", "", "Command scripts (*.cmd);;All files (*)")

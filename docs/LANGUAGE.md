@@ -210,7 +210,8 @@ Modes: `S` new set, `R` reselect within the current set, `A` add, `U` remove.
 | Group | Commands |
 |-------|----------|
 | Primitives | `BLOCK, x,y,z, dx,dy,dz` · `CYL, x,y,z, r, h [, dx,dy,dz] [, angle]` · `TUBE, x,y,z, ro, ri, h [, axis]` · `CONE, x,y,z, r1, r2, h [, axis]` · `SPHERE, x,y,z, r` · `TORUS, x,y,z, ring_r, tube_r [, axis]` · `WEDGE, x,y,z, dx,dy,dz, ltx` |
-| Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name) |
+| Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
+| Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original |
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -219,7 +220,8 @@ Modes: `S` new set, `R` reselect within the current set, `A` add, `U` remove.
 | Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
-| Files | `EXPORT, STEP/BREP/STL, file [, body]` · `RUN, file` |
+| Files | `EXPORT, STEP/BREP/STL, file [, body]` · `IMPORT, STEP/IGES/BREP/STL, file [, name]` · `RUN, file` |
+| Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS]` · `ECHO, expr` · `HELP [, name]` |
 
@@ -339,4 +341,33 @@ PIPE, LAST, 3                     ! a trefoil knot
 ```
 
 See `scripts/blade_smooth.cmd` and `scripts/sweep_gallery.cmd`.
+
+## 10. Projects, imports and autosave
+
+`SAVE, bracket.m3d` writes a project file: a zip with the history as a
+script, a copy of every file the history imports, and a small description.
+`OPEN, bracket.m3d` replaces the session and replays that history, so every
+step is still there to edit, and imports read the copies inside the project
+(the project still opens when the original STEP file is gone). `SAVE` with
+no file saves back to the last project saved or opened. `NEW` starts an
+empty session. These commands act on the session, so they are not history
+entries and `UNDO` does not undo them.
+
+`IMPORT, STEP, "housing.step", housing` adds each solid in the file as a
+body; the first one gets the name. STL files are sewn into a solid when
+they are closed.
+
+The app autosaves the project a moment after every change. When it starts
+and finds the autosave of the last session, the **Recover** button appears;
+it runs `OPEN, AUTOSAVE`. The autosave lives in the app's data folder; set
+the environment variable `MODELER_AUTOSAVE` to another file, or to `off`.
+
+## 11. Typing help in the command line
+
+While you type, the command line offers the words that fit where the cursor
+is: command and macro names at the start of a line, the choices of a keyword
+argument (`ARRAY, P` offers `POLAR`, `PATH`), and parameter and body names.
+Tab or Enter takes the highlighted word. Above the line, the command's
+arguments are listed with the one you are typing underlined, plus what it
+means and its default.
 
