@@ -28,8 +28,9 @@ from . import feature_actions as fa
 from . import sketch_tools as st
 
 _TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "RECT": "Rectangle", "CIRCLE": "Circle", "ARC": "Arc",
-                "SLOT": "Slot", "POINT": "Point"}
-_TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "SLOT": "", "POINT": "P"}
+                "SLOT": "Slot", "POINT": "Point", "TRIM": "Trim", "EXTEND": "Extend", "FILLET": "Fillet"}
+_TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "SLOT": "", "POINT": "P",
+              "TRIM": "T", "EXTEND": "E", "FILLET": "F"}
 _CONSTRAINTS = [
     ("Coincident", "COINCIDENT", "Join two points, or put a point on a curve\nRuns: SCON, COINCIDENT/ON, ..."),
     ("Horizontal", "HORIZONTAL", "Make lines level (or two points level with each other)\nRuns: SCON, HORIZONTAL, ..."),
@@ -68,6 +69,8 @@ class SketchUI:
         group.setExclusive(True)
         self.tool_actions: dict[str, QAction] = {}
         for tool in st.TOOLS:
+            if tool == "TRIM":
+                tb.addSeparator()
             a = QAction(_TOOL_LABELS[tool], win)
             a.setCheckable(True)
             a.setToolTip(st.HINTS[tool] + (f"\nKey: {_TOOL_KEYS[tool]}" if _TOOL_KEYS[tool] else ""))
@@ -78,6 +81,20 @@ class SketchUI:
             tb.addAction(a)
             self.tool_actions[tool] = a
         self.tool_actions["SELECT"].setChecked(True)
+        self.edit_actions: dict[str, QAction] = {}
+        for label, slot, tip in (
+                ("Offset…", self.offset, "Offset the selected curves (a chain is offset as one)\nRuns: SOFFSET, d, ..."),
+                ("Mirror…", self.mirror, "Mirror the selected geometry about a line (select it too) or H / V\n"
+                                         "Runs: SMIRROR, axis, ..."),
+                ("Pattern…", self.pattern, "Copies of the selected geometry in a row or round a point\n"
+                                           "Runs: SPATTERN, LINEAR/POLAR, ..."),
+                ("Project…", self.project, "Bring body edges into the sketch (the edges or faces picked before "
+                                           "the sketch, or IDs)\nRuns: SPROJECT, ...")):
+            a = QAction(label, win)
+            a.setToolTip(tip)
+            a.triggered.connect(slot)
+            tb.addAction(a)
+            self.edit_actions[label.rstrip("…")] = a
         tb.addSeparator()
         for label, kind, tip in _CONSTRAINTS:
             a = QAction(label, win)
@@ -149,6 +166,48 @@ class SketchUI:
         sk = self.controller.sketch
         if sk is not None:
             self.win.statusBar().showMessage(f"{text}    ·    {sk.status()}    ·    {st.HINTS[self.controller.tool]}")
+
+    # ---- offset, mirror, pattern, project -----------------------------------------
+    def _ask(self, title: str, label: str, text: str = "") -> str | None:
+        got, ok = QInputDialog.getText(self.win, title, label, QLineEdit.Normal, text)
+        return got.strip() if ok and got.strip() else None
+
+    def offset(self) -> None:
+        try:
+            st.offset_command(self.p, "1")
+        except st.NeedSelection as exc:
+            self.win.statusBar().showMessage(str(exc), 6000)
+            return
+        d = self._ask("Offset", "Distance (positive: outwards for a closed chain or a circle):", "2")
+        if d:
+            self.run(lambda: st.offset_command(self.p, d))
+
+    def mirror(self) -> None:
+        axes = st.mirror_axes(self.p)
+        axis, ok = QInputDialog.getItem(self.win, "Mirror", "Mirror about (a selected line, or the axes):", axes, 0, False)
+        if ok:
+            self.run(lambda: st.mirror_command(self.p, axis))
+
+    def pattern(self) -> None:
+        kind, ok = QInputDialog.getItem(self.win, "Pattern", "Copies:", ["In a row (LINEAR)", "Round a point (POLAR)"],
+                                        0, False)
+        if not ok:
+            return
+        if "LINEAR" in kind:
+            vals = self._ask("Pattern in a row", "How many in all, then the step u, v:", "3, 10, 0")
+            if vals:
+                self.run(lambda: st.pattern_command(self.p, "LINEAR", vals))
+        else:
+            vals = self._ask("Pattern round a point", "How many in all, the angle (360: a full ring), the centre "
+                             "(a point like O or 3.C, or u, v):", "6, 360, O")
+            if vals:
+                self.run(lambda: st.pattern_command(self.p, "POLAR", vals))
+
+    def project(self) -> None:
+        ids = self._ask("Project edges", "Edge IDs (or FACE, then face IDs; pick them before opening the sketch, "
+                        "or type them):", st.project_default(self.p))
+        if ids:
+            self.win.execute(f"SPROJECT, {ids}")
 
     # ---- sizes --------------------------------------------------------------
     def add_dimension(self, which: str) -> None:

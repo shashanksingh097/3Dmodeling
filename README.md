@@ -91,7 +91,9 @@ core, [docs/M1.md](docs/M1.md)) and M2 (shapes on curves,
 be made by mouse alone, [docs/M2-forms.md](docs/M2-forms.md)) are in. M3 so far: datums and part features
 ([docs/M3.md](docs/M3.md)) and the sketcher with `EXTRUDE` and `REVOLVE`
 ([docs/M3-sketcher.md](docs/M3-sketcher.md)), and the sweep editor with
-law handles and a live preview ([docs/M3-sweep-editor.md](docs/M3-sweep-editor.md));
+law handles and a live preview ([docs/M3-sweep-editor.md](docs/M3-sweep-editor.md)),
+and sketch editing: trim, extend, fillet, offset, mirror, pattern and
+projected edges ([docs/M3-sketch-tools.md](docs/M3-sketch-tools.md));
 layers are still to come. M4 is done: reusable parts
 placed as instances, and a part library ([docs/M4-parts.md](docs/M4-parts.md)),
 real screw threads and springs ([docs/M4-threads.md](docs/M4-threads.md)),

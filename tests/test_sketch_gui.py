@@ -74,3 +74,43 @@ def test_draw_a_rectangle_by_mouse_and_extrude(app, win):
     assert not win.sketch_ui.toolbar.isVisible()  # using the sketch closed it
     assert win.processor.model.active_sketch is None
     assert len(win.processor.model.bodies) == 1
+
+
+def test_fillet_and_trim_by_mouse_and_offset_from_the_toolbar(app, win, monkeypatch):
+    vp = win.viewport
+    win.execute("SKETCH, s, XY")
+    win.execute("SRECT, -20,-10, 20,10")
+    win.execute("SLINE, 0,-20, 0,20")
+    pump(app, 20)
+    vp.view.SetSize(120)
+    vp.view.Redraw()
+    pump(app)
+
+    def at(u, v):
+        x, y = vp.pixel_of(u, v)
+        r = vp.devicePixelRatioF()
+        return QPoint(int(x / r), int(y / r))
+
+    def click(u, v):
+        q = at(u, v)
+        QTest.mouseMove(vp, q)
+        pump(app, 2)
+        QTest.mouseClick(vp, Qt.LeftButton, Qt.NoModifier, q)
+        pump(app, 3)
+
+    win.sketch_ui.tool_actions["FILLET"].trigger()
+    click(20, 10)  # the top right corner
+    sk = win.processor.model.sketches["S"]
+    assert any(g.kind == "ARC" for g in sk.geos.values())
+    assert win.processor.history[win.processor.cursor - 1].text.startswith("SFILLET, 2.E")
+    win.sketch_ui.tool_actions["TRIM"].trigger()
+    click(0, 16)  # the part of the upright line above the rectangle
+    sk = win.processor.model.sketches["S"]
+    assert abs(sk.pt(sk.geos[5].pts["E"])[1] - 10) < 1e-6
+    win.execute("SSEL, 1, 2, 3, 4, 7")
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("2", True))
+    win.sketch_ui.edit_actions["Offset"].trigger()
+    pump(app, 5)
+    assert win.processor.history[win.processor.cursor - 1].text == "SOFFSET, 2, 1, 2, 3, 4, 7"

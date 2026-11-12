@@ -477,7 +477,10 @@ class Sketch:
                     if blame in self.cons else "that"
                 raise SketchError(f"{what} would shrink {g.kind.lower()} {g.n} to nothing: "
                                   "the sketch is over-constrained there")
-        self.dof, self.free, self.redundant = rep.dof, rep.free, rep.redundant
+        # a repeat among the constraints a tool added itself (a fillet's corner
+        # point ON both lines, ...) is harmless and not the user's to clean up
+        self.dof, self.free = rep.dof, rep.free
+        self.redundant = [n for n in rep.redundant if not (n in self.cons and self.cons[n].auto)]
         return rep
 
     def _fights(self, blame: int) -> list[int]:
@@ -858,6 +861,86 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
             out.append(C(tag, (ri,), lambda v, t=r: [abs(v[0]) - t]))
         else:
             out.append(C(tag, pts(c, sp), lambda v, t=r: [math.hypot(v[2] - v[0], v[3] - v[1]) - t]))
+    elif k == "OFFSET":
+        out += _offset_eqs(sk, con, rs, pts)
+    elif k == "COPY":
+        out += _copy_eqs(sk, con, rs, pts)
+    return out
+
+
+def _offset_eqs(sk: Sketch, con: Con, rs: list[Ref], pts) -> list[solver.Constraint]:
+    """An offset curve (made by SOFFSET) held at its distance from the original.
+
+    A line: both ends at the signed distance k*d from the original's line.
+    An arc or circle: the same centre, radius r0 - k*d. Ends that are not
+    corners (open ends, smooth joints) also stay square across from the
+    original's end, so a smooth joint is placed without asking two touching
+    curves where they meet (which the solver could not tell apart)."""
+    C = solver.Constraint
+    new, orig = rs[0].geo, rs[1].geo
+    tag, k, dist = con.n, con.data["k"], con.value
+    out = []
+    if orig.kind == "LINE":
+        s0, e0 = orig.pts["S"], orig.pts["E"]
+        for role in ("S", "E"):
+            out.append(C(tag, pts(new.pts[role], s0, e0), lambda v, t=k * dist: [_sd(v, 0, 2, 4) - t]))
+        for role in con.data.get("normal", []):
+            def across(v):
+                dx, dy = v[6] - v[4], v[7] - v[5]
+                return [((v[0] - v[2]) * dx + (v[1] - v[3]) * dy) / (math.hypot(dx, dy) or 1e-12)]
+            out.append(C(tag, pts(new.pts[role], orig.pts[role], s0, e0), across))
+        return out
+    c1, c0 = new.pts["C"], orig.pts["C"]
+    out.append(C(tag, pts(c1, c0), lambda v: [v[0] - v[2], v[1] - v[3]]))
+    if orig.kind == "CIRCLE":
+        out.append(C(tag, (new.r, orig.r), lambda v, s=-k * dist: [abs(v[0]) - abs(v[1]) - s]))
+        return out
+    out.append(C(tag, pts(new.pts["S"], c1, orig.pts["S"], c0), lambda v, s=-k * dist: [
+        math.hypot(v[0] - v[2], v[1] - v[3]) - math.hypot(v[4] - v[6], v[5] - v[7]) - s]))
+    for role in con.data.get("normal", []):
+        def ray(v):
+            ax, ay, bx, by = v[0] - v[4], v[1] - v[5], v[2] - v[4], v[3] - v[5]
+            return [(ax * by - ay * bx) / (math.hypot(bx, by) or 1e-12)]
+        out.append(C(tag, pts(new.pts[role], orig.pts[role], c0), ray))
+    return out
+
+
+def _copy_eqs(sk: Sketch, con: Con, rs: list[Ref], pts) -> list[solver.Constraint]:
+    """A copy (SMIRROR, SPATTERN) held as the image of its original: each
+    point where the move puts the original's point (a mirror swaps an arc's
+    ends), and a copied circle keeps the radius."""
+    C = solver.Constraint
+    new, orig = rs[0].geo, rs[1].geo
+    T, tag = con.data["T"], con.n
+    roles = {r: r for r in new.pts}
+    if T == "MIRROR" and new.kind == "ARC":
+        roles = {"C": "C", "S": "E", "E": "S"}
+    out = []
+    for rn, ro in roles.items():
+        p, o = new.pts[rn], orig.pts[ro]
+        if T == "MIRROR":
+            s, e = rs[2].geo.pts["S"], rs[2].geo.pts["E"]
+
+            def mir(v):
+                ax, ay, dx, dy = v[4], v[5], v[6] - v[4], v[7] - v[5]
+                L2 = dx * dx + dy * dy or 1e-24
+                t = ((v[2] - ax) * dx + (v[3] - ay) * dy) / L2
+                fx, fy = ax + t * dx, ay + t * dy
+                return [v[0] - (2 * fx - v[2]), v[1] - (2 * fy - v[3])]
+            out.append(C(tag, pts(p, o, s, e), mir))
+        elif T == "MOVE":
+            out.append(C(tag, pts(p, o), lambda v, du=con.data["du"], dv=con.data["dv"]: [
+                v[0] - v[2] - du, v[1] - v[3] - dv]))
+        else:  # TURN about a point
+            c = rs[2].point
+            ca, sa = math.cos(math.radians(con.data["a"])), math.sin(math.radians(con.data["a"]))
+
+            def turn(v, ca=ca, sa=sa):
+                x, y = v[2] - v[4], v[3] - v[5]
+                return [v[0] - (v[4] + x * ca - y * sa), v[1] - (v[5] + x * sa + y * ca)]
+            out.append(C(tag, pts(p, o, c), turn))
+    if new.kind == "CIRCLE":
+        out.append(C(tag, (new.r, orig.r), lambda v: [abs(v[0]) - abs(v[1])]))
     return out
 
 
