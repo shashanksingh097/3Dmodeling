@@ -329,6 +329,37 @@ A law is any expression in `t`, where `t` is 0 at the start of the path and
 A law can also be quoted: `SWEEP, prof, path, "30*t"`. A law without `t` is
 a constant: `SWEEP, prof, path, 15` turns the whole profile by 15 degrees.
 
+A law can also be a **table** of values at stations along the path, joined
+smoothly: `TABLE(t, t0, v0, t1, v1, ...)`. It passes through every station,
+never overshoots between two of them, and holds the end values outside
+them. This is what the sweep editor writes when you drag its handles:
+
+```text
+SWEEP, root, spanline, TABLE(t, 0, 40, 0.6, 20, 1, 8)    ! twist 40 -> 20 at 60% -> 8
+```
+
+`TABLE` is an ordinary function, so it works in any expression, not only in
+laws: `TABLE(X, 0, 1, 10, 3)`.
+
+### The sweep editor
+
+Right-click a `SWEEP` step in the History panel and choose **Sweep
+editor…** (or press **Sweep editor…** on the Features toolbar, which opens
+the selected step or the last `SWEEP`). It shows:
+
+* a graph of the twist and one of the scale over `t`, with a handle at each
+  station. Drag a handle up or down to change the value there, or sideways
+  to move it along the path; double-click to add one, right-click to remove
+  one. A law written as a formula turns into five handles the first time you
+  drag it;
+* a slider that moves a ghost section (pink) along the path, with the twist
+  and scale at that `t`;
+* a see-through preview of the sweep as it will be.
+
+Nothing changes until **Apply**, which runs `HIST, EDIT` with the new
+`SWEEP` line (laws as `TABLE(t, ...)`, comments kept), so the history stays
+the record of the model and Undo works as for any edit.
+
 ### LOFT
 
 `LOFT, s1, s2, s3, ...` fits one smooth solid through the sections in order.

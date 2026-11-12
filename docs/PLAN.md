@@ -301,7 +301,7 @@ spring is a short script whose numbers you can change later.
   - twist: `"40 - 32*t"` degrees
   - scale: `"1 - 0.5*t**2"`, or separate X and Y scales to stretch the section
   - offset: slide the profile off the path (a cam track, an S-shaped duct)
-- Laws can also be a table of stations (`t, value` pairs), interpolated smoothly; this is what the GUI edits `[M3]`
+- Laws can also be a table of stations (`TABLE(t, t0, v0, t1, v1, ...)`), joined smoothly without overshoot; this is what the GUI edits `[done]`
 - Laws work in `SWEEP`, `PIPE`, `HELIX` (pitch) and `ARRAY, PATH` (spacing, scale, turn)
 
 **Morph: the profile turns into other shapes on the way** `[M2]`
@@ -326,10 +326,10 @@ spring is a short script whose numbers you can change later.
 **Patterns along a path** `[M2]`
 - `ARRAY, PATH`: copies along a curve, keeping their orientation to the curve, with count or spacing, and laws for scale and turn (chain links, a spiral staircase, beads)
 
-**Working with it in the GUI** `[M3]`
+**Working with it in the GUI** `[done]` (the sweep editor, for `SWEEP`)
 - Pick the profile and path in the viewport, and a preview appears
 - A slider moves a "ghost" section along the path, showing what it looks like at that `t`
-- Handles at stations set twist and scale by dragging; each drag edits the law table through `HIST, EDIT`, so the command stays the source of truth
+- Handles at stations set twist and scale by dragging (on the law graphs); Apply edits the law table through `HIST, EDIT`, so the command stays the source of truth. Later: the same editor for `MORPH`, `PIPE` and `RAILSWEEP` laws, and handles in the 3D view
 - A small graph shows each law over `t`
 
 ### 5.3 NURBS and freeform
@@ -444,7 +444,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
 | **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Then the sketcher with constraints and dimensions, `EXTRUDE` and `REVOLVE`, snaps. Still to come: layers; sweep/loft GUI (preview, section slider, law handles and graph) | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Then the sketcher with constraints and dimensions, `EXTRUDE` and `REVOLVE`, snaps. Then the sweep editor (preview, section slider, law handles and graphs). Still to come: layers | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
 | **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
 | **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
@@ -491,10 +491,9 @@ Still open in the milestones already started, in the suggested order:
 1. Done: speed and feature patterns (`ARRAY ... CUT`, `PATTERN`, progress
    and Cancel for long rebuilds; LANGUAGE.md section 21). Left from risk 3:
    skipping entries whose inputs did not change.
-2. The sweep and loft GUI from M3: preview, a slider that moves a ghost
-   section along the path, twist and scale handles that edit the law, and a
-   small graph of each law. The twist handle is the last part of the M3 exit
-   test.
+2. Done: the sweep editor (law graphs with handles, a ghost section on a
+   slider, a live preview, `TABLE` laws; LANGUAGE.md section 9,
+   docs/M3-sweep-editor.md). This meets the last part of the M3 exit test.
 3. Sketch tools: trim, extend, offset, sketch fillet, mirror and pattern in
    the sketch, projecting body edges into a sketch.
 4. Layers (M3).

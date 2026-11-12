@@ -1001,3 +1001,15 @@ def has_form(text: str) -> bool:
     except FormError:
         return False
     return True
+
+
+def replace_code_line(old: str, new: str) -> str:
+    """Put a new command in place of an entry's command line, keeping its comments."""
+    lines = old.splitlines()
+    for i, raw in enumerate(lines):
+        code = strip_comment(raw).strip()
+        if code:
+            comment = raw[len(strip_comment(raw)):].strip()
+            lines[i] = new + (f"    {comment}" if comment else "")
+            return "\n".join(lines)
+    return new

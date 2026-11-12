@@ -141,6 +141,7 @@ class OccViewport(QWidget):
         self._clip = None  # the SECTION clip plane, if any
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
         self._preview_ais: list = []  # what a sketch tool is drawing
+        self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._shown_active: str | None = None  # the open sketch the view last turned to
         self._mode_pending = False
         self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
@@ -691,6 +692,32 @@ class OccViewport(QWidget):
                 _on_top(ctx, ais)
                 ctx.Deactivate(ais)
                 self._preview_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
+    def set_ghosts(self, ghosts) -> None:
+        """Draw shapes that are not bodies: ``(shape, kind)`` with kind "solid"
+        (see-through) or "curve" (bright, drawn on top). Empty clears them."""
+        if not self._initialized:
+            return
+        ctx = self.context
+        for ais in self._ghost_ais:
+            ctx.Remove(ais, False)
+        self._ghost_ais = []
+        for shape, kind in ghosts:
+            if shape is None or shape.IsNull():
+                continue
+            ais = AIS_Shape(shape)
+            if kind == "curve":
+                ais.SetColor(_rgb(1.0, 0.25, 0.85))
+                ais.SetWidth(4.0)
+                ctx.Display(ais, 0, 0, False)
+                _on_top(ctx, ais)
+            else:
+                ais.SetColor(_rgb(0.35, 0.85, 1.0))
+                ctx.Display(ais, 1, 0, False)
+                ctx.SetTransparency(ais, 0.55, False)
+            ctx.Deactivate(ais)
+            self._ghost_ais.append(ais)
         ctx.UpdateCurrentViewer()
 
     def plane_point(self, x: int, y: int):
