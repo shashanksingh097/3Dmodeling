@@ -47,7 +47,7 @@ ASSERT, VALID(flange)
 ASSERT, HOLES(flange, D_BOLT), EQ, N_BOLTS
 ASSERT, HOLES(flange, D_BORE, 1), EQ, 1          ! the bore goes all the way through
 ASSERT, BBOX(flange).dz, EQ, T_FLANGE + H_HUB, 0.001
-ASSERT, SYMMETRIC(flange, "YZ")
+ASSERT, SYMMETRIC(flange, "ZX")             ! true for any number of bolts
 
 *MSG, "flange volume: ", round(VOL(flange)), " mm3"
 VIEW, ISO

@@ -226,3 +226,161 @@ def diff(p: Processor, first, last, fmt):
         return json.dumps(d, separators=(",", ":"))
     head = f"from {'the start' if first == 0 else f'entry {first}'} to {'now' if last == p.cursor else f'entry {last}'}:"
     return head + "\n" + df.diff_text(d)
+
+
+# ---- PROBE, PROFILE, THICK --------------------------------------------------------------
+
+
+def _nums(p: Processor, raws: list[str], n: int, what: str) -> tuple[list[float], int]:
+    """n numbers from the raw arguments (a point fills three), and how many arguments they took."""
+    out: list[float] = []
+    used = 0
+    for r in raws:
+        if len(out) >= n:
+            break
+        used += 1
+        if r.strip() == "":
+            raise CommandError(f"{what}: needs {n} numbers")
+        try:
+            v = p.evaluate(r)
+        except ExprError as exc:
+            raise CommandError(f"{what}: {exc}") from None
+        if isinstance(v, tuple):
+            out.extend(float(c) for c in v)
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            out.append(float(v))
+        else:
+            raise CommandError(f"{what}: give numbers or points")
+    if len(out) < n:
+        raise CommandError(f"{what}: needs {n} numbers")
+    return out[:n], used
+
+
+@command(
+    "PROBE",
+    Arg("how", str, help="RAY or POINT"),
+    *[Arg(f"v{i}", Raw, "") for i in range(1, 8)],
+    logged=False,
+    help=(
+        "Find material without looking: PROBE, RAY, x,y,z, dx,dy,dz [, body] lists every face the ray "
+        "crosses and how much material it passes through (wall thickness along a line, does a hole go "
+        "through) · PROBE, POINT, x,y,z [, body] says whether the point is inside, on or outside, and the "
+        "nearest face"
+    ),
+)
+def probe(p: Processor, how, v1, v2, v3, v4, v5, v6, v7):
+    from ..ai import describe as ds
+    from ..ai import probe as pb
+
+    raws = [v1, v2, v3, v4, v5, v6, v7]
+    try:
+        if how == "RAY":
+            vals, used = _nums(p, raws, 6, "PROBE, RAY")
+            body = raws[used].strip() if used < len(raws) and raws[used].strip() else None
+            out = pb.probe_ray(p, vals[:3], vals[3:], body)
+            lines = [f"ray from {_short(out['from'])} along {_short(out['dir'])}:"]
+            for h in out["hits"]:
+                lines.append(f"  {h['t']:g}: {'enters' if h.get('enters') else 'leaves'} body {h['body']} "
+                             f"at face {h['face']} {_short(h['at'])}")
+            for s in out["material"]:
+                lines.append(f"  material of body {s['body']} from {s['from']:g} to {s['to']:g} ({s['length']:g})")
+            if not out["hits"]:
+                lines.append("  meets nothing")
+            return "\n".join(lines)
+        if how == "POINT":
+            vals, used = _nums(p, raws, 3, "PROBE, POINT")
+            body = raws[used].strip() if used < len(raws) and raws[used].strip() else None
+            row = pb.probe_point(p, [vals], body)["points"][0]
+            if "body" not in row:
+                return f"{_short(row['at'])}: {row['state']}"
+            where = f"face {row['face']}" if "face" in row else "the body"
+            return (f"{_short(row['at'])}: {row['state']} body {row['body']}; nearest {where} at "
+                    f"{_short(row['nearest'])}, distance {row['distance']:g}")
+    except ds.DescribeError as exc:
+        raise CommandError(f"PROBE: {exc}") from None
+    raise CommandError("PROBE: use RAY or POINT")
+
+
+@command(
+    "PROFILE",
+    Arg("b", Raw, help="the body"),
+    Arg("plane", Raw, "XY", help="XY, YZ, ZX or a datum plane"),
+    Arg("offset", float, 0.0, help="move the plane this far along its normal"),
+    Arg("step", float, 0.0, help="for a stack of cuts: the distance between them"),
+    Arg("count", int, 1, help="for a stack of cuts: how many"),
+    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    logged=False,
+    help=(
+        "A cut through a body as text: each loop with its lines, arcs and circles, the area and centre. "
+        "PROFILE, flange, XY, 6 (the cut 6 above XY) · PROFILE, flange, XY, 0, 5, 8 (a cut every 5, eight "
+        "of them: reads like a scan) · PROFILE, part, mid (a datum plane)"
+    ),
+)
+def profile(p: Processor, b, plane, offset, step, count, fmt):
+    from ..ai import describe as ds
+    from ..ai import probe as pb
+    from .feature_handlers import plane_ref
+
+    d = plane_ref(p, plane, "PROFILE")
+    if count < 1:
+        raise CommandError("PROFILE: count is at least 1")
+    offsets = [offset + i * step for i in range(count)] if count > 1 or offset else None
+    if count > 1 and step == 0:
+        raise CommandError("PROFILE: a stack of cuts needs a step")
+    try:
+        out = pb.section_profile(p, b, d, offsets, plane.strip().upper())
+    except ds.DescribeError as exc:
+        raise CommandError(f"PROFILE: {exc}") from None
+    if fmt == "JSON":
+        return json.dumps(out, separators=(",", ":"))
+    head = (f"body {out['body']} cut by {out['plane']['name']} (u along {_short(out['plane']['u'])}, "
+            f"v along {_short(out['plane']['v'])}):")
+    cuts = out.get("cuts") or [out]
+    lines = [head]
+    for c in cuts:
+        pre = f"  at {c['offset']:g}: " if "offset" in c else "  "
+        if "loops" not in c:
+            lines.append(pre + "nothing (the plane misses the body)")
+            continue
+        if "note" in c:
+            lines.append(pre + c["note"])
+            pre = " " * len(pre)
+        lines.append(pre + f"area {c['area']:g}, centre {_short(c['centre'])}")
+        for lp in c["loops"]:
+            kind = "outside" if lp["outer"] else "hole"
+            body_txt = {k: v for k, v in lp.items() if k != "outer"}
+            if "segments" in body_txt:
+                lines.append(f"    {kind}: {len(body_txt['segments'])} segments")
+                for s in body_txt["segments"]:
+                    lines.append("      " + _short(s))
+            else:
+                lines.append(f"    {kind}: " + _short(body_txt))
+    return "\n".join(lines)
+
+
+@command(
+    "THICK",
+    Arg("b", Raw, help="the body"),
+    Arg("below", float, 0.0, help="list every face whose wall is thinner than this (0: the five thinnest)"),
+    logged=False,
+    help=(
+        "Wall thickness, measured straight into the material from points spread over every face: "
+        "THICK, housing (the five thinnest places) · THICK, housing, 2 (everywhere thinner than 2). "
+        "MINWALL(b) gives the thinnest in an expression: ASSERT, MINWALL(housing), GE, 2"
+    ),
+)
+def thick(p: Processor, b, below):
+    from ..ai import describe as ds
+    from ..ai import probe as pb
+
+    try:
+        out = pb.wall_thickness(p, b, below)
+    except ds.DescribeError as exc:
+        raise CommandError(f"THICK: {exc}") from None
+    if not out["thinnest"]:
+        return f"body {out['body']}: " + ("no wall thinner than " + f"{below:g}" if below > 0 else "no walls found")
+    lines = [f"body {out['body']}: thinnest wall {out['min']:g}"]
+    for r in out["thinnest"]:
+        lines.append(f"  {r['t']:g} from face {r['face']} at {_short(r['at'])} to face {r['to_face']} "
+                     f"at {_short(r['to'])}")
+    return "\n".join(lines)
