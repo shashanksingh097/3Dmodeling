@@ -418,7 +418,7 @@ def chamfer(p: Processor, d):
 # =============================================================================
 
 
-def _check_line(p: Processor, body) -> tuple[bool, str]:
+def _check_line(p: Processor, body, deep: bool = False) -> tuple[bool, str]:
     r = robust.report(body.shape)
     name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
     if not r["faces"]:
@@ -434,17 +434,25 @@ def _check_line(p: Processor, body) -> tuple[bool, str]:
         problems.append("the volume is not positive (inside out)")
     if problems:
         return False, f"body {body.id}{name}: PROBLEM: " + "; ".join(problems) + f" ({facts}). Try HEAL, {body.id}"
+    if deep and robust.self_intersects(body.shape):
+        return False, (f"body {body.id}{name}: PROBLEM: faces cut through each other ({facts}). HEAL cannot fix this: "
+                       "change the step that made it (a smaller profile, a gentler bend, sections that line up). "
+                       "Faces that only touch along a seam can also show here; if booleans on it work, it is fine")
     return True, f"body {body.id}{name}: OK ({facts})"
 
 
-@command("CHECK", Arg("b", BodyRef, 0, "body to check (default: all bodies)"), logged=False,
-         help="Check that bodies are valid, closed solids: CHECK [, body]. Reports what is wrong and what to try.")
-def check(p: Processor, b):
+@command("CHECK", Arg("b", BodyRef, 0, "body to check (default: all bodies)"),
+         Arg("what", str, "", "SELF: also look for faces that cut through each other (slower)"), logged=False,
+         help="Check that bodies are valid, closed solids: CHECK [, body [, SELF]]. Reports what is wrong and what to "
+              "try. SELF adds the kernel's self-intersection test (can take seconds on a long sweep).")
+def check(p: Processor, b, what):
     m = p.model
+    if what not in ("", "SELF"):
+        raise CommandError("CHECK: the third argument is SELF, or nothing")
     bodies = [m.body(b)] if b else list(m.bodies.values())
     if not bodies:
         return "there are no bodies"
-    results = [_check_line(p, body) for body in bodies]
+    results = [_check_line(p, body, what == "SELF") for body in bodies]
     bad = sum(1 for ok, _ in results if not ok)
     lines = [text for _, text in results]
     if len(bodies) > 1:

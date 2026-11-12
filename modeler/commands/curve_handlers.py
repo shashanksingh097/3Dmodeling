@@ -15,6 +15,7 @@ import ast
 from typing import Callable
 
 from ..geometry import curves as cv
+from ..geometry import robust
 from ..geometry import sweep as sw
 from ..lang.expr import ExprError, Vec, format_value
 from ..lang.script import is_ident
@@ -30,9 +31,20 @@ _MAX_POINTS = 32
 _POINTS = [Arg(f"p{i}", Raw, "") for i in range(1, _MAX_POINTS + 1)]
 
 
-def _new(p: Processor, shape, what: str) -> str:
+def _new(p: Processor, shape, what: str, solid: bool | None = None) -> str:
+    """Add a shape made from curves, after checking it (see robust.check_made).
+    ``solid``: whether a closed solid was asked for (None: if the shape has one)."""
     from .handlers import _added
 
+    name = what.split()[0]
+    if solid is None:
+        solid = bool(robust.solids(shape))
+    try:
+        shape, notes = robust.check_made(shape, name, solid)
+    except robust.ShapeError as exc:
+        raise CommandError(str(exc)) from None
+    for note in notes:
+        p.warn(note)
     return _added(p, p.model.add_body(shape), what)
 
 
@@ -147,7 +159,7 @@ def _run(what: str, fn: Callable, *a, **kw):
         return fn(*a, **kw)
     except cv.CurveError as exc:
         msg = str(exc)
-        for prefix in ("LOFT: ", "SWEEP: ", "MORPH: ", "SPINELOFT: "):
+        for prefix in ("LOFT: ", "SWEEP: ", "MORPH: ", "SPINELOFT: ", "RAILSWEEP: ", "PIPE: "):
             if msg.startswith(prefix):
                 msg = msg[len(prefix):]
         raise CommandError(f"{what}: {msg}") from None
@@ -353,10 +365,10 @@ def _do_sweep(p: Processor, what: str, profiles: list[int], path: int, twist, sc
     if n < 0:
         raise CommandError(f"{what}: n must be 0 (automatic) or more")
     if len(prof) == 1 and all(plain.values()) and n == 0:
-        shape = _run(what, sw.exact_sweep, prof[0], pw, mode, bool(solid))
+        shape = _run(what, sw.exact_sweep, prof[0], pw, mode, bool(solid), what)
         how = "exact"
     elif len(prof) == 1 and n == 0 and all(v for k, v in plain.items() if k != "scale"):
-        shape = _run(what, sw.law_sweep, prof[0], pw, laws["scale"], mode, bool(solid))
+        shape = _run(what, sw.law_sweep, prof[0], pw, laws["scale"], mode, bool(solid), what)
         how = "exact, scale law"
     else:
         shape, used = _run(what, sw.section_sweep, prof, pw, laws["twist"], laws["scale"], laws["sx"], laws["sy"],
@@ -447,8 +459,8 @@ def pipe(p: Processor, path, r, ri, rlaw, mode):
     def one(radius):
         prof = cv.circle(o, radius, tan)
         if law.is_(1.0):
-            return _run("PIPE", sw.exact_sweep, prof, pw, mode)
-        return _run("PIPE", sw.law_sweep, prof, pw, law, mode)
+            return _run("PIPE", sw.exact_sweep, prof, pw, mode, True, "PIPE")
+        return _run("PIPE", sw.law_sweep, prof, pw, law, mode, True, "PIPE")
 
     shape = one(r)
     if ri > 0:
@@ -457,5 +469,5 @@ def pipe(p: Processor, path, r, ri, rlaw, mode):
         cut = BRepAlgoAPI_Cut(shape, one(ri))
         if not cut.IsDone():
             raise CommandError("PIPE: kernel failed hollowing the pipe")
-        shape = cut.Shape()
-    return _new(p, shape, "PIPE")
+        shape = robust.unwrap(cut.Shape())
+    return _new(p, shape, "PIPE", solid=True)
