@@ -308,7 +308,7 @@ spring is a short script whose numbers you can change later.
 - `SWEEP` with several profiles placed at stations along the path: a round duct that turns square, then flat; a blade root that turns into an airfoil
 - Laws (twist, scale) apply on top of the morph
 
-**Rails: curves that steer the shape** `[M4]`
+**Rails: curves that steer the shape** `[done]` (`RAILSWEEP`)
 - One guide rail: the profile turns so a chosen point always touches the rail (a twisted handrail, a ribbon)
 - Two rails: the profile is turned and scaled so it spans both rails (a wing between its leading and trailing edges, a ship hull, a guitar neck)
 - Rails and laws combine: rails set the size, a law adds thickness change
@@ -492,7 +492,9 @@ Next, in order:
    `EXPLODE`, the part library (`LIB, LOAD`, `LIBSAVE`), and making a part
    from history steps (LANGUAGE.md section 17, docs/M4-parts.md). Then
    real screw threads and springs (`THREAD`, `SPRING`, LANGUAGE.md section
-   18, docs/M4-threads.md). Next in M4: rail sweeps and spine lofts, text.
+   18, docs/M4-threads.md), and sweeps steered by one or two rails
+   (`RAILSWEEP`, LANGUAGE.md section 19, docs/M4-rails.md). Next in M4:
+   spine lofts, text.
 1. Done: the sketcher (solver spike, then `SKETCH ... ENDSKETCH` on any
    plane or face with constraints and dimensions, `EXTRUDE` and `REVOLVE`,
    all by mouse too; LANGUAGE.md section 16, docs/M3-sketcher.md).

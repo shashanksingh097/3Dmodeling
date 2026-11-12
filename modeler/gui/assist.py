@@ -42,6 +42,7 @@ _COMMAND_CHOICES = {
     ("SPLIT", "keep"): ("BOTH", "ABOVE", "BELOW"),
     ("SHELL", "side"): ("IN", "OUT"),
     ("SPRING", "finish"): ("PLAIN", "GROUND"),
+    ("RAILSWEEP", "fit"): ("SCALE", "TURN"),
     ("OFFSET", "corners"): ("ROUND", "SHARP"),
     ("SECTION", "side"): ("ABOVE", "BELOW"),
 }

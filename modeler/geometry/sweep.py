@@ -447,3 +447,169 @@ def section_sweep(
         sections = sections[:-1]
     shape = loft(sections, solid=solid, ruled=False, closed=closed_path)
     return shape, n
+
+
+# ---- rails -------------------------------------------------------------------
+# A rail is a curve the swept shape must follow. At each station along the
+# path, the section plane (square to the path) cuts each rail in one point,
+# and the profile is moved within that plane so the points it had on the rails
+# at the start land on the rails again:
+#
+# * one rail: the profile turns about the path (and, with fit SCALE, grows or
+#   shrinks evenly) so its rail point stays on the rail: a twisted handrail, a
+#   ribbon round a post;
+# * two rails: the profile turns, moves and scales evenly so it spans both
+#   rails: a wing between its leading and trailing edges, a hull between keel
+#   and deck line. A thickness law in t can thin it on top, square to the
+#   line between the rails.
+RAIL_FITS = ("SCALE", "TURN")
+
+
+class _RailCut:
+    """Where a rail crosses the section planes, found by walking along it."""
+
+    def __init__(self, wire: TopoDS_Wire, name: str, samples: int = 600):
+        self.ps = PathSampler(wire)
+        self.name = name
+        self.m = samples
+        self.s = [self.ps.length * i / samples for i in range(samples + 1)]
+        self.pts = [self.ps.at(s)[0] for s in self.s]
+        self.last: int | None = None
+
+    def point(self, f: Frame, t: float):
+        tol = 1e-7 * max(1.0, self.ps.length)
+        d = [dot(sub(q, f.o), f.tan) for q in self.pts]
+        roots = []
+        for i in range(self.m):
+            if abs(d[i]) <= tol:
+                roots.append((i, self.s[i], None))
+            elif d[i] * d[i + 1] < 0:
+                roots.append((i, None, (self.s[i], self.s[i + 1], d[i])))
+        if abs(d[self.m]) <= tol:
+            roots.append((self.m, self.s[self.m], None))
+        if not roots:
+            raise CurveError(f"{self.name} does not reach the section at t = {t:.3g} along the path; "
+                             "make the rails run the whole length of the path")
+        if self.last is None:  # the crossing nearest the path
+            pick = min(roots, key=lambda r: norm(sub(self.pts[r[0]], f.o)))
+        else:  # the crossing that carries on from the last one
+            pick = min(roots, key=lambda r: abs(r[0] - self.last))
+        self.last = pick[0]
+        if pick[1] is not None:
+            return self.ps.at(pick[1])[0]
+        a, b, da = pick[2]
+        for _ in range(50):
+            mid = 0.5 * (a + b)
+            dm = dot(sub(self.ps.at(mid)[0], f.o), f.tan)
+            if (dm < 0) == (da < 0):
+                a, da = mid, dm
+            else:
+                b = mid
+        return self.ps.at(0.5 * (a + b))[0]
+
+
+def _local2(f: Frame, q) -> tuple[float, float]:
+    d = sub(q, f.o)
+    return dot(d, f.side), dot(d, f.up)
+
+
+def _rail_maps(path: PathSampler, fs: list[Frame], rails: list[_RailCut], fit: str, thick: Law):
+    """For each frame: (A, c) with section coords p' = A p + c (2x2, 2-vector),
+    taking the start section's coords to this station's."""
+    pts = [[_local2(f, r.point(f, i / (len(fs) - 1))) for r in rails] for i, f in enumerate(fs)]
+    g0 = pts[0][0]
+    out = []
+    if len(rails) == 1:
+        r0 = math.hypot(*g0)
+        if r0 < 1e-9:
+            raise CurveError("the rail starts on the path itself; it must be off the path to steer the profile")
+        a0 = math.atan2(g0[1], g0[0])
+        for (g,) in pts:
+            r = math.hypot(*g)
+            if r < 1e-9:
+                raise CurveError("the rail touches the path, so the profile cannot follow it there")
+            k = r / r0 if fit == "SCALE" else 1.0
+            th = math.atan2(g[1], g[0]) - a0
+            c, s = math.cos(th), math.sin(th)
+            out.append((((k * c, -k * s), (k * s, k * c)), (0.0, 0.0), k))
+        return out, pts
+    h0 = pts[0][1]
+    e0 = (h0[0] - g0[0], h0[1] - g0[1])
+    l0 = math.hypot(*e0)
+    if l0 < 1e-9:
+        raise CurveError("the two rails start at the same point")
+    u0 = (e0[0] / l0, e0[1] / l0)  # along the line between the rails, at the start
+    n0 = (-u0[1], u0[0])
+    for i, (g, h) in enumerate(pts):
+        e = (h[0] - g[0], h[1] - g[1])
+        ln = math.hypot(*e)
+        if ln < 1e-9:
+            raise CurveError(f"the two rails meet at t = {i / (len(fs) - 1):.3g}; they must stay apart")
+        k = ln / l0
+        th = math.atan2(e[1], e[0]) - math.atan2(e0[1], e0[0])
+        c, s = math.cos(th), math.sin(th)
+        R = ((k * c, -k * s), (k * s, k * c))
+        w = thick(i / (len(fs) - 1))
+        if w <= 1e-9:
+            raise CurveError(f"the thickness law must stay above 0 (it is {w:g} at t = {i / (len(fs) - 1):g})")
+        # S = I + (w - 1) n0 n0^T thins the profile square to the rail line
+        S = ((1 + (w - 1) * n0[0] * n0[0], (w - 1) * n0[0] * n0[1]),
+             ((w - 1) * n0[1] * n0[0], 1 + (w - 1) * n0[1] * n0[1]))
+        A = tuple(tuple(sum(R[r][k2] * S[k2][col] for k2 in range(2)) for col in range(2)) for r in range(2))
+        cvec = (g[0] - (A[0][0] * g0[0] + A[0][1] * g0[1]), g[1] - (A[1][0] * g0[0] + A[1][1] * g0[1]))
+        out.append((A, cvec, k if abs(w - 1) < 1e-12 else None))
+    return out, pts
+
+
+def _affine_station(f0: Frame, fi: Frame, A, cvec, sz: float):
+    """3x3 M and b with world p' = M p + b: section coords at the start, mapped
+    by A and shifted by c, placed in station frame fi."""
+    L = ((A[0][0], A[0][1], 0.0), (A[1][0], A[1][1], 0.0), (0.0, 0.0, sz))
+    Bi = (fi.side, fi.up, fi.tan)
+    B0 = (f0.side, f0.up, f0.tan)
+    M = [[sum(Bi[k][r] * L[k][j] * B0[j][col] for k in range(3) for j in range(3)) for col in range(3)]
+         for r in range(3)]
+    off = add(mul(fi.side, cvec[0]), mul(fi.up, cvec[1]))
+    Mo = [sum(M[r][k] * f0.o[k] for k in range(3)) for r in range(3)]
+    return M, tuple(fi.o[r] + off[r] - Mo[r] for r in range(3))
+
+
+def rail_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, rails: list[TopoDS_Wire], fit: str = "SCALE",
+               thick: Law | None = None, n: int = 0, solid: bool = True) -> tuple[TopoDS_Shape, int]:
+    """Sweep a profile along a path, steered by one or two rails (see above).
+
+    Returns the shape and the number of sections used.
+    """
+    if not 1 <= len(rails) <= 2:
+        raise CurveError("give one or two rails")
+    if fit not in RAIL_FITS:
+        raise CurveError(f"fit must be {' or '.join(RAIL_FITS)}")
+    thick = thick or (lambda t: 1.0)
+    ps = PathSampler(path)
+    names = ["the rail"] if len(rails) == 1 else ["rail 1", "rail 2"]
+    if n <= 0:  # a first look at 40 stations decides how many sections a smooth fit needs
+        cuts = [_RailCut(w, nm) for w, nm in zip(rails, names)]
+        coarse, _ = _rail_maps(ps, frames(ps, 40, "MINTWIST"), cuts, fit, thick)
+        turn = [math.degrees(math.atan2(A[1][0], A[0][0])) for A, _, _ in coarse]
+        size = [math.hypot(A[0][0], A[1][0]) for A, _, _ in coarse]
+
+        def interp(vals):
+            def f(t):
+                x = min(max(t, 0.0), 1.0) * 40
+                i = min(39, int(x))
+                return vals[i] + (vals[i + 1] - vals[i]) * (x - i)
+            return f
+
+        n = auto_sections(ps, interp(turn), (interp(size), thick), 1) + 8
+    if n < 2 or n > 400:
+        raise CurveError("the number of sections must be from 2 to 400")
+    cuts = [_RailCut(w, nm) for w, nm in zip(rails, names)]
+    fs = frames(ps, n, "MINTWIST")
+    maps, _ = _rail_maps(ps, fs, cuts, fit, thick)
+    f0 = fs[0]
+    sections = []
+    for f, (A, cvec, k) in zip(fs, maps):
+        similar = k is not None
+        M, b = _affine_station(f0, f, A, cvec, k if similar else 1.0)
+        sections.append(_as_wire(_apply(profile, M, b, similar)))
+    return loft(sections, solid=solid and profile.Closed(), ruled=False), n

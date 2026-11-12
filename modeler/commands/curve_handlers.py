@@ -362,6 +362,39 @@ def morph(p: Processor, path, twist, scale, mode, **ss):
 
 
 @command(
+    "RAILSWEEP",
+    Arg("profile", BodyRef), Arg("rail1", BodyRef, help="the rail a point of the profile follows"),
+    Arg("rail2", BodyRef, 0, "a second rail: the profile spans both (0 = one rail)"),
+    Arg("path", BodyRef, 0, "the curve the sections stand square to (0 = rail 1)"),
+    Arg("thick", Raw, "1", "two rails: thickness law in t, square to the line between the rails"),
+    Arg("fit", str, "SCALE", "one rail: SCALE (turn and grow to reach the rail) or TURN (turn only)"),
+    Arg("n", int, 0, "number of sections (0 = automatic)"),
+    Arg("solid", int, 1, "1 = solid, 0 = surface only"),
+    help="Sweep steered by rails. Draw the profile where the sweep starts, touching the rails. One rail: the "
+         "profile turns about the path so its point on the rail stays on it. Two rails: it turns, moves and scales "
+         "to span both (a wing between leading and trailing edges): RAILSWEEP, foil, le, te, spine · "
+         "RAILSWEEP, foil, le, te, spine, 1 - 0.3*t (thinner towards the tip).",
+)
+def railsweep(p: Processor, profile, rail1, rail2, path, thick, fit, n, solid):
+    if fit not in sw.RAIL_FITS:
+        raise CommandError(f"RAILSWEEP: fit must be {' or '.join(sw.RAIL_FITS)}")
+    if n < 0:
+        raise CommandError("RAILSWEEP: n must be 0 (automatic) or more")
+    law = _Law(p, thick, "RAILSWEEP thickness", 1.0)
+    if rail2 == 0 and not law.is_(1.0):
+        raise CommandError("RAILSWEEP: a thickness law needs two rails")
+    if rail2 and fit != "SCALE":
+        raise CommandError("RAILSWEEP: with two rails the rails set the size; leave fit out")
+    prof = _wire(p, profile, "the RAILSWEEP profile")
+    rails = [_wire(p, rail1, "rail 1")] + ([_wire(p, rail2, "rail 2")] if rail2 else [])
+    pw = _wire(p, path, "the RAILSWEEP path") if path else rails[0]
+    shape, used = _run("RAILSWEEP", sw.rail_sweep, prof, pw, rails, fit, None if law.is_(1.0) else law, n,
+                       bool(solid))
+    how = "two rails" if rail2 else "one rail" + (", turn only" if fit == "TURN" else "")
+    return _new(p, shape, f"RAILSWEEP ({how}, {used} sections)")
+
+
+@command(
     "PIPE",
     Arg("path", BodyRef), Arg("r"), Arg("ri", float, 0.0, "inner radius for a hollow pipe"),
     Arg("rlaw", Raw, "1", "radius law in t (multiplies both radii)"),

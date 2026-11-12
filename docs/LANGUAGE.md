@@ -875,3 +875,48 @@ SPRING, 80, 0, 0, 6, 3, 8, 1, , , , LEFT          ! left-hand
 
 For a spring with any other pitch law, or a wire that is not round, use
 `HELIX` with a pitch law and `SWEEP` or `PIPE` (sections 9 to 11).
+
+## 19. Sweeps steered by rails
+
+`RAILSWEEP, profile, rail1 [, rail2] [, path] [, thick] [, SCALE|TURN] [, n] [, solid]`
+sweeps a profile along a path while one or two rails steer it. Draw the
+profile where the sweep starts, touching the rails there. At every station
+the section plane, square to the path, cuts each rail in one point, and the
+profile is moved within that plane so the points it had on the rails at the
+start land on the rails again.
+
+* **One rail:** the profile turns about the path so its point on the rail
+  stays on it: a twisted handrail, a strip wound round a post. With `SCALE`
+  (default) it also grows or shrinks evenly when the rail moves away from or
+  towards the path; with `TURN` it keeps its size.
+* **Two rails:** the profile turns, moves and scales evenly so it spans both
+  rails: a wing between its leading and trailing edges, a hull between keel
+  and deck line. Thickness goes with the chord. `thick` is a law in `t` that
+  thins (or thickens) it on top, square to the line between the rails.
+* **The path** is the curve the sections stand square to. Leave it out and
+  rail 1 is used. For a wing, give a straight line along the span, so the
+  sections stay parallel to the root as they are on real wings.
+* The rails must run the whole length of the path: each section plane must
+  cut them. Two rails must stay apart. Rails can be drawn in either
+  direction.
+
+```
+AIRFOIL, 0, 0, 0, 40, 2412, 0, -1, 0, , 0     ! root section, chord along +X
+NAME, LAST, foil
+LINE, 0, 0, 0, 0, 120, 0                         ! the span
+NAME, LAST, spine
+SPLINE, (0, 0, 0), (7, 60, 2), (28, 120, 8)      ! leading edge: swept back, rising
+NAME, LAST, le
+SPLINE, (40, 0, 0), (45, 60, 2), (44, 120, 8)    ! trailing edge: tip chord 16
+NAME, LAST, te
+RAILSWEEP, foil, le, te, spine, 1 - 0.3*t        ! thinner towards the tip
+```
+
+The full example is `scripts/wing_rails.cmd`. One rail:
+
+```
+RECT, 10, 0, 0, 10, 2, 0, 0, 0, 1   ! a strip from x = 5 to 15
+HELIX, 0, 0, 0, 15, 60, 100/60      ! the rail, through the strip's outer edge
+LINE, 0, 0, 0, 0, 0, 100            ! the post's axis
+RAILSWEEP, 1, 2, 0, 3               ! the strip winds round the post
+```
