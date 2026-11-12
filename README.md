@@ -1,6 +1,10 @@
 # 3Dmodeling
 
-A PySide6 desktop application for 3D modeling where **every action is a command**.
+A desktop 3D modeler for solid parts where **every action is a command**.
+
+**Download:** [latest release](https://github.com/shashanksingh097/3Dmodeling/releases) for
+Windows, macOS (Apple silicon) and Linux, no Python needed.
+**Learn it:** the [user guide](docs/USER-GUIDE.md), or **Help > Getting started** in the app.
 
 Anything you do in the GUI (creating a block, selecting a face, moving a node,
 deleting an entity, changing the view) is turned into a plain-text command and
@@ -50,61 +54,52 @@ The language (parameters, expressions, loops, conditions, macros, selection
 by criteria, the editable history) is described in
 [docs/LANGUAGE.md](docs/LANGUAGE.md).
 
-## Planned architecture
+## What it can do (0.1)
 
-| Layer | Responsibility |
-|-------|----------------|
-| `commands/` | Command parser, registry, and one handler per command (`BLOCK`, `SEL`, `MOVE`, ...) |
-| `core/` | Model / geometry kernel, entity IDs, selection sets, undo stack |
-| `gui/` | PySide6 main window, menus, toolbars, command line widget, log panel |
-| `viewport/` | 3D rendering and picking (picks emit commands, never mutate the model) |
-| `scripts/` | Example `.cmd` scripts |
-| `ai/` | *(later)* AI chat assistant that helps users and can generate commands |
+- **Model by mouse or by text.** Toolbars, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
+- **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant.
+- **Sketches** with constraints and sizes, trim, extend, fillet, offset, mirror, pattern; extrude and revolve.
+- **Features:** holes (plain, counterbore, countersink, threaded), fillets, chamfers, shell, draft, offset, split, push/pull and delete faces, patterns of features.
+- **Shapes from curves:** loft, sweep with twist and scale laws (and a graphical sweep editor), morph, pipe, rail sweeps, spine lofts, real ISO threads, springs, text, shapes from equations.
+- **Parts** with parameters, placed many times, and a part library.
+- **Layers, colours, materials**, mass properties, distances, angles, clash checks, section views.
+- **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
+- **Files:** projects (`.m3d`) with autosave and recovery; STEP, IGES, BREP, STL import; STEP, STL, BREP export.
+- **Text tools for an AI assistant** (describe a body, probe it with rays, check expectations), ready for the chat panel in a later release.
 
-## Roadmap
-
-The full product and technical plan (kernel choice, command language,
-feature catalogue, milestones) is in [docs/PLAN.md](docs/PLAN.md).
-Short version:
-
-1. Command parser, registry, and processor with logging
-2. Minimal model: points, primitives (block, cylinder, sphere), entity IDs
-3. PySide6 window with command line, log panel, and 3D viewport
-4. Selection commands and viewport picking
-5. Transform and boolean commands, undo/redo
-6. Save/load as command scripts
-7. AI chat box that explains commands and drafts scripts from plain language
-
-## Quick start
+## Install from source
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[test]"
-python -m modeler scripts/flange.cmd                   # GUI with a parametric flange
+python -m modeler                                      # the app
+python -m modeler scripts/flange.cmd                   # the app with a parametric flange
 python -m modeler run scripts/flange.cmd -D N_BOLTS=8  # same script, headless
+python -m pytest -q                                    # tests
 ```
 
-Status: M0 (viewer and picking, [docs/M0.md](docs/M0.md)), M1 (command
-core, [docs/M1.md](docs/M1.md)) and M2 (shapes on curves,
-[docs/M2.md](docs/M2.md), and a fill-in form for every command so a part can
-be made by mouse alone, [docs/M2-forms.md](docs/M2-forms.md)) are in. M3 so far: datums and part features
-([docs/M3.md](docs/M3.md)) and the sketcher with `EXTRUDE` and `REVOLVE`
-([docs/M3-sketcher.md](docs/M3-sketcher.md)), and the sweep editor with
-law handles and a live preview ([docs/M3-sweep-editor.md](docs/M3-sweep-editor.md)),
-and sketch editing: trim, extend, fillet, offset, mirror, pattern and
-projected edges ([docs/M3-sketch-tools.md](docs/M3-sketch-tools.md));
-layers are still to come. M4 is done: reusable parts
-placed as instances, and a part library ([docs/M4-parts.md](docs/M4-parts.md)),
-real screw threads and springs ([docs/M4-threads.md](docs/M4-threads.md)),
-sweeps steered by rails ([docs/M4-rails.md](docs/M4-rails.md)), and
-text, spine lofts, equation surfaces and push/pull face editing
-([docs/M4-shapes.md](docs/M4-shapes.md)). Feature patterns and fast repeated
-cuts: [docs/speed-patterns.md](docs/speed-patterns.md).
+Requirements: Python 3.10+, PySide6, `cadquery-ocp` (the Open CASCADE
+kernel, installs with pip) and numpy.
 
-## Requirements
+## Code layout
 
-- Python 3.10+
-- PySide6
-- OCP (`cadquery-ocp`, the Open CASCADE kernel; installs with pip)
-- numpy (the sketch solver)
+| Folder | What is in it |
+|--------|----------------|
+| `modeler/lang/` | parser, expressions, scripts |
+| `modeler/commands/` | the processor, history, and one handler per command |
+| `modeler/core/` | model, entity IDs, references that survive edits |
+| `modeler/geometry/` | kernel work: sweeps, checks, features, recognition |
+| `modeler/sketch/` | the 2D sketcher and its constraint solver |
+| `modeler/viewport/` | 3D view and picking (picks emit commands, never change the model) |
+| `modeler/gui/` | main window, forms, panels, menus |
+| `modeler/ai/` | text tools for an AI assistant |
+| `scripts/` | example scripts (also under **File > Open example**) |
+| `packaging/` | the desktop build recipe ([docs/RELEASING.md](docs/RELEASING.md)) |
+
+## Documents
+
+- [User guide](docs/USER-GUIDE.md) and [command language](docs/LANGUAGE.md)
+- [Changelog](CHANGELOG.md) and [how releases are made](docs/RELEASING.md)
+- [Product and technical plan](docs/PLAN.md), with what comes after 0.1
+- Design notes per milestone: [M0](docs/M0.md), [M1](docs/M1.md), [M2](docs/M2.md), [forms](docs/M2-forms.md), [M3](docs/M3.md), [sketcher](docs/M3-sketcher.md), [sketch tools](docs/M3-sketch-tools.md), [sweep editor](docs/M3-sweep-editor.md), [parts](docs/M4-parts.md), [threads](docs/M4-threads.md), [rails](docs/M4-rails.md), [M4 shapes](docs/M4-shapes.md), [speed](docs/speed-patterns.md), [AI tools](docs/M9-ai-tools.md)
