@@ -2,11 +2,13 @@
 
     python -m modeler                 open the GUI
     python -m modeler script.cmd      open the GUI and run a script
+    python -m modeler model.m3d       open the GUI with a saved project
     python -m modeler run script.cmd [-D NAME=value ...] [-q]
                                       run a script headless; -D fixes a parameter
                                       (the script's own NAME = ... keeps that value),
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
+    python -m modeler --version       print the version
     python -m modeler tools           the AI assistant's tool definitions, as JSON
     python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
                                       call one tool headless and print its JSON answer;
@@ -83,14 +85,25 @@ def _gui(script: str | None) -> int:
     if sys.platform.startswith("linux") and os.environ.get("WAYLAND_DISPLAY"):
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
+    from PySide6.QtCore import QSettings
     from PySide6.QtWidgets import QApplication
 
+    from . import __version__
+    from .crash import CrashGuard
     from .gui.main_window import MainWindow
 
+    QApplication.setOrganizationName("3Dmodeling")
+    QApplication.setApplicationName("3Dmodeling")
+    QApplication.setApplicationVersion(__version__)
     app = QApplication(sys.argv)
-    win = MainWindow()
+    guard = CrashGuard()
+    win = MainWindow(settings=QSettings(), guard=guard)
+    app.aboutToQuit.connect(guard.clean_exit)
     win.show()
-    if script:
+    if script and script.lower().endswith(".m3d"):  # a project, e.g. opened from the file manager
+        path = os.path.abspath(script).replace("\\", "/")
+        win.viewport.call_when_ready(lambda: (win.execute(f'OPEN, "{path}"'), win.execute("FIT")))
+    elif script:
         with open(script, encoding="utf-8") as f:
             text = f.read()
         # run after the view exists so FIT/VIEW apply
@@ -129,6 +142,11 @@ def _tool(args: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] in (["--version"], ["-V"]):
+        from . import __version__
+
+        print(f"3Dmodeling {__version__}")
+        return 0
     if args[:1] == ["tools"]:
         import json
 

@@ -1,0 +1,97 @@
+name: Release builds
+
+# Builds the desktop app for Windows, macOS and Linux with PyInstaller.
+# - Run it by hand (Actions > Release builds > Run workflow) to get test
+#   builds as downloadable artifacts.
+# - Push a tag such as v0.1.0 and it also makes a DRAFT GitHub release with
+#   the three downloads attached; publishing the draft is a manual step.
+# See docs/RELEASING.md.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          - os: macos-latest
+            name: macos-arm64
+          - os: ubuntu-22.04  # older glibc, so the build runs on more Linux versions
+            name: linux-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pyinstaller
+      - name: Check the version matches the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          v=$(python -c "import modeler; print(modeler.__version__)")
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "modeler.__version__ is $v but the tag is ${GITHUB_REF_NAME}"; exit 1; }
+      - name: Build
+        run: pyinstaller packaging/3Dmodeling.spec --noconfirm
+      - name: Smoke test (headless)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then dir=dist/3Dmodeling.app/Contents/MacOS; else dir=dist/3Dmodeling; fi
+          "$dir/3Dmodeling-cli" --version
+          "$dir/3Dmodeling-cli" check
+          "$dir/3Dmodeling-cli" run scripts/flange.cmd -q
+          "$dir/3Dmodeling-cli" run scripts/threaded_bolts.cmd -q
+      - name: Pack
+        shell: bash
+        run: |
+          v=$(python -c "import modeler; print(modeler.__version__)")
+          out="3Dmodeling-$v-${{ matrix.name }}"
+          mkdir -p release
+          case "$RUNNER_OS" in
+            Windows) (cd dist && 7z a -tzip "../release/$out.zip" 3Dmodeling >/dev/null) ;;
+            macOS)   ditto -c -k --keepParent dist/3Dmodeling.app "release/$out.zip" ;;
+            Linux)   tar -C dist -czf "release/$out.tar.gz" 3Dmodeling ;;
+          esac
+          ls -l release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3Dmodeling-${{ matrix.name }}
+          path: release/*
+          retention-days: 14
+
+  draft-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## \\[?"v"\\]?" {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md || true
+          test -s notes.md || echo "Release $GITHUB_REF_NAME" > notes.md
+          cat notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: 3Dmodeling ${{ github.ref_name }}
+          body_path: notes.md
+          files: release/*

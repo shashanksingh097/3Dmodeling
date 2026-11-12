@@ -361,7 +361,8 @@ class ParamPanel(QTableWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, processor: Processor | None = None, autosave: str | None = None) -> None:
+    def __init__(self, processor: Processor | None = None, autosave: str | None = None,
+                 settings=None, guard=None) -> None:
         super().__init__()
         self.setWindowTitle("3Dmodeling")
         self.resize(1400, 860)
@@ -417,8 +418,13 @@ class MainWindow(QMainWindow):
 
         self.processor.listeners.append(self._on_result)
         self.processor.history_listeners.append(self._on_history)
+        from .app_shell import AppShell
+
+        self.shell = AppShell(self, settings, guard)
         self._build_toolbar()
+        self.shell.build_file_menu()
         fd.command_menu(self, self.menuBar().addMenu("&Commands"))
+        self.shell.build_help_menu()
         from .sketch_ui import SketchUI
 
         self.sketch_ui = SketchUI(self)
@@ -427,6 +433,12 @@ class MainWindow(QMainWindow):
         )
         self._setup_autosave(autosave)
         self._on_history()
+        self.shell.update_title()
+        self.shell.restore_layout()
+        self.shell.report_last_session()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
+        self.shell.close_event(event)
 
     def _dock(self, title: str, widget: QWidget, area) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -496,9 +508,11 @@ class MainWindow(QMainWindow):
             tb.addAction(act)
             return act
 
-        dlg_action("Open…", "Open a project (.m3d)\nRuns: OPEN, file", self._open_project, QKeySequence.Open)
-        dlg_action("Save…", "Save the project (.m3d)\nRuns: SAVE, file", self._save_project, QKeySequence.Save)
-        dlg_action("Import…", "Import STEP, IGES, BREP or STL\nRuns: IMPORT, format, file", self._import_file)
+        dlg_action("Open…", "Open a project (.m3d) (Ctrl+O)\nRuns: OPEN, file", self._open_project)
+        dlg_action("Save", "Save the project (.m3d) (Ctrl+S)\nRuns: SAVE, file", self._save_project)
+        dlg_action("Import…", "Import STEP, IGES, BREP or STL (Ctrl+I)\nRuns: IMPORT, format, file", self._import_file)
+        dlg_action("Export…", "Export all bodies as STEP, STL or BREP (Ctrl+E)\nRuns: EXPORT, format, file",
+                   lambda: self.shell.export_file())
         self.recover_action = cmd_action("Recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
         self.recover_action.setVisible(False)
         tb.addSeparator()
@@ -644,23 +658,13 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Saved {self.processor.cursor} history entries to {path}", 5000)
 
     def _open_project(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open project", "", "Projects (*.m3d);;All files (*)")
-        if path:
-            self.execute(f'OPEN, "{path}"')
+        self.shell.open()
 
     def _save_project(self) -> None:
-        start = self.processor.project_path or "model.m3d"
-        path, _ = QFileDialog.getSaveFileName(self, "Save project", start, "Projects (*.m3d)")
-        if path:
-            self.execute(f'SAVE, "{path}"')
+        self.shell.save()
 
     def _import_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Import", "", "Shapes (*.step *.stp *.iges *.igs *.brep *.stl);;All files (*)")
-        if path:
-            ext = os.path.splitext(path)[1].lower()
-            fmt = {".stp": "STEP", ".step": "STEP", ".igs": "IGES", ".iges": "IGES", ".stl": "STL"}.get(ext, "BREP")
-            self.execute(f'IMPORT, {fmt}, "{path}"')
+        self.shell.import_file()
 
     # ---- autosave -----------------------------------------------------------
     def _setup_autosave(self, path: str | None) -> None:
@@ -698,6 +702,4 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Autosave failed: {exc}", 5000)
 
     def _run_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Run command script", "", "Command scripts (*.cmd);;All files (*)")
-        if path:
-            self.execute(f'RUN, "{path}"')
+        self.shell.run_script()
