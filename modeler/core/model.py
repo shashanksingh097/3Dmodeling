@@ -27,7 +27,7 @@ IDs are kept stable in three ways:
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 from OCP.BRepGProp import BRepGProp
@@ -70,13 +70,67 @@ class Body:
     maps: dict[str, TopTools_IndexedMapOfShape] = field(default_factory=dict)
     # kind -> global IDs, position i matches map index i+1
     entity_ids: dict[str, list[int]] = field(default_factory=dict)
+    # how the body is organised and drawn (see :class:`Layer`). A body made
+    # from other bodies takes these from its first input.
+    layer: str = "DEFAULT"
+    color: tuple[float, float, float] | None = None  # own colour (0..1 RGB); None: by layer, then material
+    material: str = ""  # upper-case key of Model.materials, or ""
+
+
+DEFAULT_LAYER = "DEFAULT"
+
+
+@dataclass(frozen=True)
+class Layer:
+    """A named group of bodies that is shown, hidden, locked or coloured together.
+
+    Every body is on exactly one layer. New bodies go on the current layer.
+    A locked layer's bodies cannot be changed, used up or deleted.
+    """
+
+    name: str  # as the user wrote it; the key in Model.layers is upper case
+    color: tuple[float, float, float] | None = None
+    visible: bool = True
+    locked: bool = False
+
+
+@dataclass(frozen=True)
+class Material:
+    name: str
+    density: float  # kg/m3
+    color: tuple[float, float, float] | None = None
+
+
+def _rgb255(r: int, g: int, b: int) -> tuple[float, float, float]:
+    return (r / 255.0, g / 255.0, b / 255.0)
+
+
+# Built-in materials: density in kg/m3 and a colour to draw them in.
+MATERIALS: dict[str, Material] = {m.name: m for m in (
+    Material("STEEL", 7850, _rgb255(158, 166, 178)),
+    Material("STAINLESS", 8000, _rgb255(196, 200, 206)),
+    Material("CASTIRON", 7200, _rgb255(92, 96, 102)),
+    Material("ALUMINIUM", 2700, _rgb255(214, 218, 224)),
+    Material("TITANIUM", 4430, _rgb255(150, 146, 140)),
+    Material("COPPER", 8960, _rgb255(196, 112, 72)),
+    Material("BRASS", 8500, _rgb255(212, 175, 90)),
+    Material("ABS", 1050, _rgb255(236, 236, 228)),
+    Material("NYLON", 1150, _rgb255(240, 236, 220)),
+    Material("PLA", 1240, _rgb255(90, 160, 220)),
+    Material("RUBBER", 1100, _rgb255(48, 48, 52)),
+    Material("WOOD", 600, _rgb255(178, 128, 76)),
+    Material("GLASS", 2500, _rgb255(170, 210, 220)),
+)}
+MATERIAL_ALIASES = {"ALUMINUM": "ALUMINIUM", "AL": "ALUMINIUM", "SS": "STAINLESS", "IRON": "CASTIRON",
+                    "CU": "COPPER", "TI": "TITANIUM", "PLASTIC": "ABS"}
 
 
 @dataclass(frozen=True)
 class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
-    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility", "datums"
+    kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility", "datums",
+    #            "style" (one body's layer/colour/material), "layers" (any layer or material changed)
     body_id: int | None = None
 
 
@@ -142,6 +196,11 @@ class Model:
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
         self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
+        # layers by upper-case name; there is always the DEFAULT layer
+        self.layers: dict[str, Layer] = {DEFAULT_LAYER: Layer(DEFAULT_LAYER)}
+        self.current_layer: str = DEFAULT_LAYER
+        # materials by upper-case name: the built-in ones plus any MATERIAL, NEW
+        self.materials: dict[str, Material] = dict(MATERIALS)
         # datum planes, axes and points by upper-case name (see core/datum.py)
         self.datums: dict[str, Datum] = {}
         self.workplane: Datum | None = None  # WORKPLANE: where new shapes are drawn
@@ -185,6 +244,9 @@ class Model:
             "tolerance": self.tolerance,
             "hidden": set(self.hidden),
             "keep": self.keep,
+            "layers": dict(self.layers),
+            "current_layer": self.current_layer,
+            "materials": dict(self.materials),
             "datums": dict(self.datums),
             "workplane": self.workplane,
             "sketches": dict(self.sketches),
@@ -205,6 +267,9 @@ class Model:
         self.tolerance = snap["tolerance"]
         self.hidden = set(snap.get("hidden", ()))
         self.keep = snap.get("keep", False)
+        self.layers = dict(snap.get("layers", {DEFAULT_LAYER: Layer(DEFAULT_LAYER)}))
+        self.current_layer = snap.get("current_layer", DEFAULT_LAYER)
+        self.materials = dict(snap.get("materials", MATERIALS))
         self.datums = dict(snap.get("datums", {}))
         self.workplane = snap.get("workplane")
         self.sketches = dict(snap.get("sketches", {}))
@@ -236,7 +301,8 @@ class Model:
         return self._origin[kind].get(gid, 0)
 
     # ---- bodies ----------------------------------------------------------
-    def add_body(self, shape: TopoDS_Shape, name: str = "", made_from=None, keep_id: int | None = None) -> Body:
+    def add_body(self, shape: TopoDS_Shape, name: str = "", made_from=None, keep_id: int | None = None,
+                 like: Body | None = None) -> Body:
         """Add a body.
 
         made_from: optional ``(maker, [input bodies])``. ``maker`` is the OCCT
@@ -244,11 +310,19 @@ class Model:
         inputs' entity IDs are carried over to the matching new entities.
         The inputs must already have been removed from the model.
         keep_id: reuse this body ID (for operations that change a body in place).
+        like: take layer, colour and material from this body (copies). Without
+        it a body made from others takes them from its first input, and a new
+        body goes on the current layer.
         """
         if name:
             self._check_name_free(name)
         bid = keep_id if keep_id is not None else self._alloc("BODY")
-        body = Body(id=bid, name=name or f"body{bid}", shape=shape)
+        style = like if like is not None else (made_from[1][0] if made_from is not None and made_from[1] else None)
+        if style is not None and style.layer.upper() in self.layers:
+            look = {"layer": style.layer, "color": style.color, "material": style.material}
+        else:
+            look = {"layer": self.layers[self.current_layer].name}
+        body = Body(id=bid, name=name or f"body{bid}", shape=shape, **look)
         for kind in ENTITY_KINDS:
             m = TopTools_IndexedMapOfShape()
             TopExp.MapShapes_s(shape, _TOPABS[kind], m)
@@ -273,6 +347,7 @@ class Model:
 
     def remove_body(self, bid: int, emit: bool = True) -> Body:
         body = self.body(bid)
+        self.check_unlocked(bid)
         for kind in ENTITY_KINDS:
             for gid in body.entity_ids[kind]:
                 self._entities[kind].pop(gid, None)
@@ -291,6 +366,8 @@ class Model:
         at "the same part" as it evolves) and, with ``same_id``, its ID.
         Entity IDs carry over through the maker's history.
         """
+        for b in inputs:  # all or nothing: never use up some inputs and then stop
+            self.check_unlocked(b)
         olds = [self.remove_body(b, emit=False) for b in inputs]
         for b in olds:
             self._emit(Event("body_removed", b.id))
@@ -306,6 +383,117 @@ class Model:
             return
         (self.hidden.add if hidden else self.hidden.discard)(bid)
         self._emit(Event("visibility", bid))
+
+    def is_shown(self, bid: int) -> bool:
+        """Drawn in the viewport: not hidden, and its layer is on."""
+        if bid in self.hidden:
+            return False
+        lay = self.layers.get(self.bodies[bid].layer.upper())
+        return lay is None or lay.visible
+
+    def shown_ids(self) -> list[int]:
+        return [i for i in self.bodies if self.is_shown(i)]
+
+    # ---- layers, colours, materials ------------------------------------------
+    def layer(self, name: str) -> Layer:
+        lay = self.layers.get(name.strip().upper())
+        if lay is None:
+            raise ModelError(f"no layer named {name.strip()!r} (layers: {', '.join(l.name for l in self.layers.values())})")
+        return lay
+
+    def layer_of(self, bid: int) -> Layer:
+        return self.layers.get(self.body(bid).layer.upper()) or Layer(self.body(bid).layer)
+
+    def check_unlocked(self, bid: int) -> None:
+        lay = self.layer_of(bid)
+        if lay.locked:
+            raise ModelError(f"body {bid} is on locked layer {lay.name} (LAYER, {lay.name}, UNLOCK to change it)")
+
+    def put_layer(self, lay: Layer) -> None:
+        """Add a layer or change one (its colour, visibility or lock)."""
+        self.layers[lay.name.upper()] = lay
+        self._emit(Event("layers"))
+
+    def rename_layer(self, old: str, new: str) -> None:
+        lay = self.layer(old)
+        if new.upper() in self.layers and new.upper() != lay.name.upper():
+            raise ModelError(f"layer {new} already exists")
+        if lay.name.upper() == DEFAULT_LAYER:
+            raise ModelError("the DEFAULT layer cannot be renamed")
+        del self.layers[lay.name.upper()]
+        self.layers[new.upper()] = replace(lay, name=new)
+        for bid, b in list(self.bodies.items()):
+            if b.layer.upper() == lay.name.upper():
+                self.bodies[bid] = replace(b, layer=new)
+        if self.current_layer == lay.name.upper():
+            self.current_layer = new.upper()
+        self._emit(Event("layers"))
+
+    def delete_layer(self, name: str) -> int:
+        """Remove a layer; its bodies move to DEFAULT. Returns how many moved."""
+        lay = self.layer(name)
+        if lay.name.upper() == DEFAULT_LAYER:
+            raise ModelError("the DEFAULT layer cannot be deleted")
+        if lay.locked:
+            raise ModelError(f"layer {lay.name} is locked (LAYER, {lay.name}, UNLOCK first)")
+        moved = 0
+        for bid, b in list(self.bodies.items()):
+            if b.layer.upper() == lay.name.upper():
+                self.bodies[bid] = replace(b, layer=DEFAULT_LAYER)
+                moved += 1
+        del self.layers[lay.name.upper()]
+        if self.current_layer == lay.name.upper():
+            self.current_layer = DEFAULT_LAYER
+        self._emit(Event("layers"))
+        return moved
+
+    def set_current_layer(self, name: str) -> None:
+        self.current_layer = self.layer(name).name.upper()
+        self._emit(Event("layers"))
+
+    def set_style(self, bid: int, **changes) -> None:
+        """Change a body's layer, colour or material (keys of :class:`Body`)."""
+        body = self.body(bid)
+        self.check_unlocked(bid)
+        if "layer" in changes:
+            changes["layer"] = self.layer(changes["layer"]).name
+        new = replace(body, **changes)
+        if new != body:
+            self.bodies[bid] = new
+            self._emit(Event("style", bid))
+
+    def material(self, name: str) -> Material:
+        key = name.strip().upper()
+        key = MATERIAL_ALIASES.get(key, key)
+        mat = self.materials.get(key)
+        if mat is None:
+            raise ModelError(f"no material named {name.strip()!r} (materials: {', '.join(self.materials)}; "
+                             "or MATERIAL, NEW, name, density)")
+        return mat
+
+    def put_material(self, mat: Material) -> None:
+        self.materials[mat.name.upper()] = mat
+        self._emit(Event("layers"))  # bodies of that material may change colour
+
+    def display_color(self, bid: int) -> tuple[float, float, float] | None:
+        """The colour a body is drawn in: its own, else its layer's, else its
+        material's; None means the plain default."""
+        body = self.body(bid)
+        if body.color is not None:
+            return body.color
+        lay = self.layers.get(body.layer.upper())
+        if lay is not None and lay.color is not None:
+            return lay.color
+        if body.material:
+            mat = self.materials.get(body.material.upper())
+            if mat is not None:
+                return mat.color
+        return None
+
+    def density(self, bid: int) -> float:
+        """kg/m3 from the body's material, 0 if it has none."""
+        mat = self.materials.get(self.body(bid).material.upper()) if self.body(bid).material else None
+        return mat.density if mat else 0.0
 
     def clear(self) -> None:
         """Remove everything. IDs restart, as in a fresh session."""
@@ -338,7 +526,7 @@ class Model:
     def rename(self, bid: int, name: str) -> None:
         body = self.body(bid)
         self._check_name_free(name, bid)
-        self.bodies[bid] = Body(body.id, name, body.shape, body.maps, body.entity_ids)
+        self.bodies[bid] = replace(body, name=name)
 
     # ---- entities --------------------------------------------------------
     def entity_count(self, kind: str) -> int:

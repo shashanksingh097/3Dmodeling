@@ -41,6 +41,7 @@ from . import assist
 #   bool    a check box that writes 1 or 0
 #   datum   a datum plane or axis (or XY, YZ, ZX, X, Y, Z ...)
 #   sketch  a sketch name
+#   layer   a layer name (the list offers the layers there are)
 
 
 @dataclass
@@ -112,6 +113,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Edit faces", ("PUSHPULL", "DELFACE")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
+    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "CLASH", "SECTION", "ECHO", "LIST")),
@@ -201,6 +203,20 @@ _LABELS = {
 }
 # labels that differ for one command
 _COMMAND_LABELS = {
+    ("LAYER", "name"): "Layer",
+    ("LAYER", "action"): "Do",
+    ("LAYER", "value"): "Colour, bodies or new name",
+    ("LAYER", "g"): "Green (if r, g, b)",
+    ("LAYER", "b"): "Blue (if r, g, b)",
+    ("COLOR", "target"): "Bodies",
+    ("COLOR", "color"): "Colour (name, #rrggbb or red 0..255)",
+    ("COLOR", "g"): "Green (if r, g, b)",
+    ("COLOR", "b"): "Blue (if r, g, b)",
+    ("MATERIAL", "target"): "Bodies",
+    ("MATERIAL", "name"): "Material",
+    ("MATERIAL", "density"): "Density kg/m3 (new material only)",
+    ("MATERIAL", "color"): "Colour (new material only)",
+    ("ISOLATE", "target"): "Bodies or layer",
     ("SPRING", "r"): "Coil radius",
     ("SPRING", "d"): "Wire diameter",
     ("RAILSWEEP", "path"): "Path, empty = along rail 1",
@@ -217,7 +233,11 @@ _COMMAND_LABELS = {
 _EXTRA_CHOICES = {
     ("EXTRUDE", "mode"): ("NEW", "ADD", "CUT"),
     ("REVOLVE", "mode"): ("NEW", "ADD", "CUT"),
-    ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS"),
+    ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "LAYERS", "MATERIALS"),
+    ("MATERIAL", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
+                           "NYLON", "PLA", "RUBBER", "WOOD", "GLASS", "NONE"),
+    ("COLOR", "color"): ("RED", "ORANGE", "YELLOW", "GREEN", "TEAL", "CYAN", "BLUE", "NAVY", "PURPLE", "MAGENTA",
+                         "PINK", "BROWN", "WHITE", "GREY", "BLACK", "DEFAULT"),
 }
 
 # arguments whose plain type would mislead the form
@@ -234,6 +254,10 @@ _KINDS = {
     ("EXTRUDE", "sketch"): "sketch",
     ("REVOLVE", "sketch"): "sketch",
     ("SHOW", "b"): "body",
+    ("COLOR", "target"): "body",
+    ("MATERIAL", "target"): "body",
+    ("ISOLATE", "target"): "body",
+    ("LAYER", "name"): "layer",
     ("NAME", "name"): "word",
     ("CM", "name"): "word",
     ("CMSEL", "name"): "word",
@@ -487,6 +511,9 @@ def _hand() -> dict[str, FormSpec]:
                                                                  "LINE", "CIRCLE", "BSPLINE"))]),
         Variant("BODY", "All of a body", [replace(smode), replace(skind), _F("crit", "", "choice", "BODY", choices=("BODY",)),
                                           _F("b", "Body", "body", required=True, pick="BODY")]),
+        Variant("LAYER", "On a layer", [replace(smode), replace(skind, start="BODY"),
+                                        _F("crit", "", "choice", "LAYER", choices=("LAYER",)),
+                                        _F("lay", "Layer", "layer", required=True)]),
         Variant("OF", "Edges of the selected faces", [replace(smode), _F("kind", "What", "choice", "EDGE", required=True,
                                                                          choices=("EDGE", "VERTEX", "FACE")),
                                                       _F("crit", "", "choice", "OF", choices=("OF",)),
@@ -572,7 +599,13 @@ def options(p: Processor, f: Field, command: str = "") -> list[str]:
             out.append("LAST")
         if command == "SHOW":
             out = ["ALL"] + out
+        if command in ("COLOR", "MATERIAL", "ISOLATE"):
+            out = ["SEL", "ALL"] + out
+            if command == "ISOLATE":
+                out = ["SEL"] + [lay.name for lay in m.layers.values()] + out[2:]
         return out
+    if f.kind == "layer":
+        return [lay.name for lay in m.layers.values()]
     if f.kind == "datum":
         planes = [d.name for d in m.datums.values() if d.kind == "PLANE"]
         axes = [d.name for d in m.datums.values() if d.kind == "AXIS"]
@@ -694,6 +727,10 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
         from .feature_actions import free_name
 
         vals["name"] = free_name(p, prefix)
+    # colour, material, isolate: whatever is picked (bodies, or the bodies of picked faces)
+    if sp.command in ("COLOR", "MATERIAL", "ISOLATE") and m.selection and len(m.selection) > 1 or (
+            sp.command in ("COLOR", "MATERIAL", "ISOLATE") and m.selection and m.selection_kind != "BODY"):
+        vals["target"] = "SEL"
     # HOLE: drill where the picked face is
     if sp.command == "HOLE" and m.selection and m.selection_kind in ("FACE", "VERTEX"):
         vals["x"] = _centre_of_selection(p)

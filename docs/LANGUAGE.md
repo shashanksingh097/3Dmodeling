@@ -260,13 +260,14 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Threads and springs | `THREAD [, pitch] [, length] [, hand]` · `SPRING, x,y,z, r, pitch, turns, d ...` (section 18) |
 | Text and surfaces | `TEXT, text, x,y,z, size [, depth] [, nx,ny,nz [, angle]] [, LEFT/CENTER/RIGHT] [, font] [, style]` · `SURFACE, PARAM, x(u,v), y(u,v), z(u,v), u0, u1, v0, v1 [, nu, nv] [, thick]` (section 20) |
 | Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
-| Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` |
+| Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` · `ISOLATE [, b/SEL/layer]` |
+| Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/BREP/STL, file [, body]` · `IMPORT, STEP/IGES/BREP/STL, file [, name]` · `RUN, file` |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
-| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH]` · `ECHO, expr` · `HELP [, name]` |
+| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
 
 ## 8. Running scripts without the GUI
 
@@ -614,7 +615,7 @@ the two selected things.
 |---------|--------|
 | `DIST, FACE, 6, VERTEX, 3` | the shortest distance, the two closest points, and the gap in X, Y and Z |
 | `ANGLE, FACE, 1, FACE, 3` | the angle between flat faces, straight or round edges, axes and planes |
-| `MASSPROP [, body [, density]]` | volume, area, centre of mass and principal moments of inertia; with a density in kg/m3 (7850 for steel) also the mass in kg and inertia in kg.mm2. No body: the selected bodies, or all |
+| `MASSPROP [, body [, density]]` | volume, area, centre of mass and principal moments of inertia; with a density in kg/m3 (7850 for steel), or when every body has a `MATERIAL` (section 22), also the mass in kg and inertia in kg.mm2. No body: the selected bodies, or all shown |
 | `CLASH [, a, b]` | whether bodies overlap, by how much, or how far apart they are; alone, every pair of shown bodies |
 | `SECTION, plane [, BELOW/ABOVE]` | cuts the view open along a plane to look inside; the cut faces are drawn red. `SECTION, OFF` closes it |
 
@@ -1163,3 +1164,77 @@ re-run, the window shows which step is running, with a **Cancel** button.
 Cancel puts the model and the history back exactly as they were before the
 edit.
 
+## 22. Layers, colours and materials
+
+Every body sits on one **layer**. A model starts with one layer, `DEFAULT`.
+A layer can be switched off (its bodies are not drawn, and `MASSPROP` and
+`CLASH` with no bodies named skip them), **locked** (its bodies cannot be
+changed, used up as a tool, or deleted) and given a colour.
+
+| Command | What it does |
+|---------|--------------|
+| `LAYER, name` | makes the layer if it is new, and puts new bodies on it from now on |
+| `LAYER, name, NEW [, colour]` | makes a layer without switching to it |
+| `LAYER, name, ON` / `OFF` | shows or hides its bodies |
+| `LAYER, name, LOCK` / `UNLOCK` | protects its bodies from changes |
+| `LAYER, name, COLOR, colour` | its colour (`DEFAULT` for none) |
+| `LAYER, name, ADD [, b/SEL/ALL]` | moves bodies onto it (default: the selection) |
+| `LAYER, name, RENAME, new` | renames it (its bodies follow) |
+| `LAYER, name, DELETE` | deletes it; its bodies move to `DEFAULT` |
+| `LAYER, ALL, ON/OFF/LOCK/UNLOCK` | every layer at once |
+| `COLOR, b/SEL/ALL, colour` | a body's own colour (`DEFAULT` to draw it by layer or material) |
+| `MATERIAL, b/SEL/ALL, name` | a material: `MASSPROP` then gives the mass without a density (`NONE` takes it off) |
+| `MATERIAL, b, name, density [, colour]` | makes a material of your own (kg/m3) and gives it to the bodies |
+| `ISOLATE [, b/SEL/layer]` | shows only these bodies; `SHOW, ALL` brings the rest back |
+| `SEL, S, BODY, LAYER, name` · `SEL, S, BODY, MAT, name` | selects by layer or material (any kind: `SEL, S, FACE, LAYER, pipes`) |
+| `LIST, LAYERS` · `LIST, MATERIALS` | what there is, with body counts |
+
+`SEL` in `COLOR`, `MATERIAL`, `LAYER ... ADD` and `ISOLATE` means the
+selected bodies, or the bodies of the selected faces, edges or vertices.
+
+A **colour** is a name (`RED`, `ORANGE`, `YELLOW`, `GREEN`, `TEAL`, `CYAN`,
+`BLUE`, `NAVY`, `PURPLE`, `MAGENTA`, `PINK`, `BROWN`, `WHITE`, `GREY`,
+`BLACK`), a code `#rrggbb` (or `#rgb`), or three numbers from 0 to 255:
+`COLOR, LAST, 255, 128, 0`, or a point parameter `C = (255, 128, 0)`.
+
+Built-in **materials** (kg/m3): `STEEL` 7850, `STAINLESS` 8000, `CASTIRON`
+7200, `ALUMINIUM` 2700 (also `ALUMINUM`), `TITANIUM` 4430, `COPPER` 8960,
+`BRASS` 8500, `ABS` 1050, `NYLON` 1150, `PLA` 1240, `RUBBER` 1100, `WOOD`
+600, `GLASS` 2500. Each has a colour.
+
+How the rules fit together:
+
+* A body is drawn in its own colour; if it has none, in its layer's colour;
+  if that has none, in its material's colour; else in the plain grey.
+* New bodies go on the current layer. A body made **from** other bodies (a
+  boolean, a fillet, `MOVE`, a `HOLE`) keeps the layer, colour and material
+  of its first input, and so do copies (`COPY`, `MIRROR`, `ARRAY`), whatever
+  the current layer is.
+* With mixed materials, `MASSPROP` adds up each body's own mass, so the
+  centre of mass and the inertia are right for the assembly.
+* Inside a `*PART`, bodies on a layer that is off are not part of the
+  instance: a handy place for construction bodies.
+* All of these are history steps like any other: undo, `HIST, EDIT` and
+  saved projects replay them.
+
+```
+LAYER, frame, NEW, #5a6f8a
+LAYER, bolts, NEW, ORANGE
+LAYER, frame
+BLOCK, -40,-25,0, 80,50,8
+MATERIAL, LAST, CASTIRON
+LAYER, bolts
+CYL, 30,17,-4, 3, 16
+MATERIAL, LAST, STEEL
+LAYER, frame, LOCK          ! the frame cannot change by accident now
+MASSPROP                    ! mass of both, from their materials
+```
+
+In the window, the **Layers** panel (a tab next to Parameters) shows one row
+per layer: click the first column to make it current, tick Show and Lock,
+double-click a name to rename it, click the colour to choose one. The
+buttons make a layer, move the selected bodies onto the chosen layer, show
+only that layer, and delete it. Each click runs the matching `LAYER`
+command, so it lands in the history like typed text. `COLOR`, `MATERIAL` and
+`ISOLATE` have forms in the Commands menu under "Layers, colours,
+materials".

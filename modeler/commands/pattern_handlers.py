@@ -91,12 +91,12 @@ def _place(p: Processor, bid: int, trsfs: list[gp_Trsf], fuse: bool, what: str, 
             raise CommandError("ARRAY: the body to cut from cannot be the body that is copied")
         if fuse:
             raise CommandError("ARRAY: give FUSE or CUT, not both")
-        keep = (shape, m.body(bid).name) if m.keep else None
+        keep = (shape, m.body(bid).name, m.body(bid)) if m.keep else None
         cut_shape, maker = combine(p, "SUBTRACT", BRepAlgoAPI_Cut, m.body(cut).shape, [shape] + copies, cut)
         body = m.replace([cut, bid], cut_shape, maker)
         msg = _added(p, body, f"{what}: {len(copies) + 1} copies of body {bid} cut from body {cut} in one step")
         if keep:
-            b = m.add_body(keep[0], "" if keep[1].startswith("body") else keep[1])
+            b = m.add_body(keep[0], "" if keep[1].startswith("body") else keep[1], like=keep[2])
             m.set_hidden(b.id, True)
             m.last_body = body.id
             msg += f"; kept the tool as hidden body {b.id}"
@@ -109,7 +109,8 @@ def _place(p: Processor, bid: int, trsfs: list[gp_Trsf], fuse: bool, what: str, 
         fused, maker = combine(p, "UNION", BRepAlgoAPI_Fuse, shape, copies, bid, merge=True)
         body = m.replace([bid], fused, maker)
         return f"{what}: {len(copies) + 1} copies fused into body {body.id}"
-    ids = [m.add_body(c).id for c in copies]
+    like = m.body(bid)
+    ids = [m.add_body(c, like=like).id for c in copies]
     shown = f"{ids[0]}..{ids[-1]}" if len(ids) > 3 else ", ".join(map(str, ids))
     return f"{what}: body {bid} plus {len(ids)} cop{'y' if len(ids) == 1 else 'ies'} (bodies {shown})"
 

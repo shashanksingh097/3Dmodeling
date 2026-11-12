@@ -85,7 +85,7 @@ class _FieldWidget(QWidget):
             self.values_form = QFormLayout(box)
             self.values_form.setContentsMargins(0, 0, 0, 0)
             lay.addWidget(box, 1)
-        elif f.kind in ("body", "datum", "sketch"):
+        elif f.kind in ("body", "datum", "sketch", "layer"):
             self.combo = QComboBox()
             self.combo.setEditable(True)
             opts = F.options(p, f, dlg.spec.command)

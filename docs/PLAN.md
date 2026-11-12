@@ -365,8 +365,8 @@ spring is a short script whose numbers you can change later.
 - Snap (grid, endpoints, midpoints, centers), work planes, measure tools `[M3]`
 - **Datum geometry**: planes, axes and points as named objects (`PLANE`, `AXIS`, `POINT`), from numbers or from faces and edges, and `WORKPLANE` so primitives, profiles and holes are drawn on any plane `[done]`. Next: let the sketcher sit on them `[M3]`
 - **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), `CLASH` (overlap and clearance between bodies) `[done]`; minimum wall thickness `[M3]`
-- Layers, colors, materials, mass properties `[M3]`
-- Section view (`SECTION`) and hide/show `[done]`; isolate `[M3]`
+- Layers (show, hide, lock, colour, current layer), colours, materials with densities, mass from materials, `ISOLATE` `[done]`
+- Section view (`SECTION`), hide/show and isolate `[done]`
 - Import/export STEP, IGES, STL, OBJ, 3MF, glTF; drawings (2D projection to DXF/SVG) later `[M2]`/`[M8]`
 - Autosave and crash recovery from the log `[M2]`
 - Results checked after every boolean and blend, `CHECK`, `HEAL`, `CLEAN` `[done]`; auto-heal on import, sewing with a tolerance, defeaturing (remove small holes and fillets) `[M4]`
@@ -457,7 +457,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M0** | Spike (1 week) | OCP installed by pip; OCCT view embedded in a PySide6 window; click a face and get its ID | A box shows, orbits, and a face pick prints its ID on Win/Linux/macOS. Decide OCP vs pythonocc-core. |
 | **M1** | Command core | Lexer, parser, registry, processor, log, undo/redo; primitives; units; batch runner | `BLOCK`/`CYL`/`SPHERE`... scripts run headless and export STEP; 100% of handlers tested |
 | **M2** | Usable shell + shapes on curves | First: curves and profiles, `LOFT`, `SWEEP` with laws and morphing, `PIPE`, `HELIX`. Then: main window, command line with autocomplete, log panel, parameters & expressions, booleans with `KEEP`, transforms, patterns (incl. along a path), selection commands + picking, STEP/STL import/export, save/open, autosave | A smooth twisted, tapered blade from one `SWEEP`; model the README bracket entirely by GUI, and the log replays to the same result |
-| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Then the sketcher with constraints and dimensions, `EXTRUDE` and `REVOLVE`, snaps. Then the sweep editor (preview, section slider, law handles and graphs). Still to come: layers | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
+| **M3** | Sketch & features | Done first: datum planes, axes, points, work planes, `HOLE`, `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, measure commands, section view. Then the sketcher with constraints and dimensions, `EXTRUDE` and `REVOLVE`, snaps. Then the sweep editor (preview, section slider, law handles and graphs). Then sketch tools, and layers, colours and materials | Build a flanged pipe fitting by GUI; edit a sketch dimension and the model re-runs; drag a twist handle on a sweep and the law updates |
 | **M4** | Advanced solids & reuse | Sweep rails (one and two), spine lofts, springs and threads, text, parametric surfaces, parts and instances, part library, direct face editing, heal imports | A parametric bolt part (with a real thread) placed 8 times by script; changing `D` updates all instances; a wing swept between two rails |
 | **M5** | NURBS freeform | NURBS curves/surfaces, network/patch/blend, guide-curve lofts, sweep on a surface, control-point editing, sew to solid, zebra/curvature analysis, deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`), `SWEEPVOL` | Model a computer mouse shell from curves, G2 blends, shelled to 2 mm; flow a text along a curve |
 | **M6** | Equations & freehand cuts | Implicit shapes, smooth booleans, lattices, mesh bodies + `manifold3d` booleans, knife and freehand sketch cuts | Gyroid-infilled part; knife a body along a drawn stroke |
@@ -511,7 +511,9 @@ Still open in the milestones already started, in the suggested order:
    `SPATTERN`, `SPROJECT`, with Trim, Extend and Fillet mouse tools;
    LANGUAGE.md section 16, docs/M3-sketch-tools.md). Left: a fillet between
    a line and an arc, and trimming to the sketch axes.
-4. Layers (M3).
+4. Done: layers, colours and materials (`LAYER`, `COLOR`, `MATERIAL`,
+   `ISOLATE`, `SEL ... LAYER/MAT`, the Layers panel, mass from materials;
+   LANGUAGE.md section 22).
 5. The same result checks for `LOFT`/`SWEEP`/`PIPE` as for booleans, and a
    corpus of hard cases in CI (risk 2).
 6. A run of the viewer on a real Windows or macOS desktop (risk 5; needs

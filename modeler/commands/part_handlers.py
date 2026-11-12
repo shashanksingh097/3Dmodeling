@@ -137,7 +137,7 @@ def build(p: Processor, part: PartDef, given: dict) -> TopoDS_Shape:
                    "pass others with INST, part, x,y,z, NAME=value)"
         raise CommandError(f"part {part.name.lower()}, at '{first_code_line(r.line)}': {msg}")
     m = sub.model
-    shown = [b for bid, b in sorted(m.bodies.items()) if bid not in m.hidden]
+    shown = [b for bid, b in sorted(m.bodies.items()) if m.is_shown(bid)]
     if not shown:
         raise CommandError(f"part {part.name.lower()} makes no bodies")
     solid = [b.shape for b in shown if _solids(b.shape)]

@@ -312,6 +312,7 @@ def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
     tool_shapes = [m.body(t).shape for t in tools]
     shape, maker = combine(p, name, op, base, tool_shapes, a, merge=name == "UNION")
     kept = [(m.body(b).shape, m.body(b).name if b != a else "") for b in [a] + tools] if m.keep else []
+    looks = [m.body(b) for b in [a] + tools]
     body = m.replace([a] + tools, shape, maker)
     shown = ", ".join(map(str, [a] + tools)) if len(tools) <= 8 else f"{a} and {len(tools)} tool bodies"
     msg = _added(p, body, f"{name} of {shown}")
@@ -320,8 +321,8 @@ def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
         # carries the old face and edge IDs), ready to be used again. Tools
         # keep their names; the base's name has moved on to the result.
         ids = []
-        for shape, old_name in kept:
-            b = m.add_body(shape, "" if old_name.startswith("body") else old_name)
+        for (shape, old_name), look in zip(kept, looks):
+            b = m.add_body(shape, "" if old_name.startswith("body") else old_name, like=look)
             m.set_hidden(b.id, True)
             ids.append(b.id)
         m.last_body = body.id
@@ -498,7 +499,7 @@ def _transform(p: Processor, bid: int, trsf: gp_Trsf, what: str, copy: bool) -> 
         raise CommandError(f"{what}: kernel failed")
     inst = m.instances.get(bid)  # a moved or copied instance is still one
     if copy:
-        body = m.add_body(mk.Shape())
+        body = m.add_body(mk.Shape(), like=m.body(bid))
         if inst:
             m.instances[body.id] = inst
         return _added(p, body, f"{what} of body {bid}")
@@ -591,7 +592,8 @@ def show(p: Processor, b):
     if b.strip().upper() == "ALL":
         for bid in sorted(p.model.hidden):
             p.model.set_hidden(bid, False)
-        return "showing all bodies"
+        off = [lay.name for lay in p.model.layers.values() if not lay.visible]
+        return "showing all bodies" + (f" (layer {', '.join(off)} is off: LAYER, ALL, ON shows it)" if off else "")
     bid = p._body_arg(REGISTRY["SHOW"], b)
     p.model.set_hidden(bid, False)
     return f"showing body {bid}"
@@ -653,21 +655,22 @@ def pick(p: Processor, kind, id, mode):
     return _describe_selection(p)
 
 
-CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS", "OF", "SET")
+CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS", "OF", "SET", "LAYER", "MAT")
 
 
 @command(
     "SEL",
     Arg("mode", str, help="S new, R reselect, A add, U unselect, ALL, NONE, INVE"),
     Arg("kind", str, "", help="BODY, FACE, EDGE or VERTEX"),
-    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET"),
+    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET, LAYER, MAT"),
     *[Arg(f"v{i}", Raw, "") for i in range(1, 7)],
     help=(
         "Select by criterion. SEL, S, FACE, ID, 3, 6 (IDs 3..6; 'ID' may be left out) · "
         "SEL, S, FACE, NORMAL, 0,0,1 · SEL, R, FACE, LOC, Z, 10 [, 20] · SEL, A, EDGE, SIZE, GT, 10 · "
         "SEL, S, FACE, BOX, x0,y0,z0, x1,y1,z1 · SEL, S, FACE, AT, x,y,z · SEL, S, FACE, TYPE, CYLINDER · "
         "SEL, S, EDGE, RADIUS, EQ, 4 · SEL, S, EDGE, OF, FACE (edges of the selected faces) · "
-        "SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, NONE · SEL, ALL, FACE · SEL, INVE"
+        "SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, S, BODY, LAYER, pipes · SEL, S, BODY, MAT, STEEL · "
+        "SEL, NONE · SEL, ALL, FACE · SEL, INVE"
     ),
 )
 def sel(p: Processor, mode, kind, crit, v1, v2, v3, v4, v5, v6):
@@ -889,6 +892,19 @@ def _match(p: Processor, kind: str, crit: str, vals: list[str]) -> list[int]:
         if best is None or best_d > tol:
             raise CommandError(f"SEL: no {kind} at ({', '.join(fmt_num(v) for v in pt)})")
         return [best]
+    if crit in ("LAYER", "MAT"):
+        want = (vals[0] or "").strip().strip("\"'")
+        if not want:
+            raise CommandError(f"SEL: {crit} needs a {'layer' if crit == 'LAYER' else 'material'} name")
+        if crit == "LAYER":
+            key = m.layer(want).name.upper()
+            owners = {i for i, b in m.bodies.items() if b.layer.upper() == key}
+        else:
+            key = "" if want.upper() == "NONE" else m.material(want).name.upper()
+            owners = {i for i, b in m.bodies.items() if b.material.upper() == key}
+        if kind == "BODY":
+            return sorted(owners)
+        return [i for i in m.entity_ids(kind) if m.entity_owner(kind, i)[0] in owners]
     if crit == "TYPE":
         t = (vals[0] or "").upper()
         table = _SURF if kind == "FACE" else _CURVE if kind == "EDGE" else None
@@ -1151,7 +1167,7 @@ def fit(p: Processor):
         p.view.fit()
 
 
-@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH"),
+@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS, MATERIALS"),
          logged=False,
          help="List bodies, parameters, macros, named sets and the selection. LIST, SKETCH shows every curve and "
               "constraint of the open sketch (or LIST, SKETCH, name).")
@@ -1165,8 +1181,17 @@ def list_(p: Processor, what):
         for b in m.bodies.values():
             n = {k: len(b.entity_ids[k]) for k in ENTITY_KINDS}
             inst = instance_of(p, b.id)
+            look = [f"layer {b.layer}"] if len(m.layers) > 1 or b.layer != "DEFAULT" else []
+            if b.material:
+                look.append(b.material.lower())
+            if b.color is not None:
+                from .layer_handlers import color_text
+
+                look.append(color_text(b.color))
+            if not m.is_shown(b.id):
+                look.append("hidden")
             lines.append(f"  body {b.id} {b.name}: {n['FACE']} faces, {n['EDGE']} edges, {n['VERTEX']} vertices"
-                         + (f"  [instance of {inst}]" if inst else ""))
+                         + (f"  [instance of {inst}]" if inst else "") + (f"  ({', '.join(look)})" if look else ""))
     if what in ("ALL", "PARAMS") and p.params:
         lines.append("parameters:")
         lines += [f"  {k} = {format_value(v)}" for k, v in p.params.items()]
@@ -1196,6 +1221,14 @@ def list_(p: Processor, what):
             state = "open" if m.active_sketch == sk.name.upper() else ("used by " + ", ".join(sk.used_by)
                                                                          if sk.used_by else "closed")
             lines.append(f"  {sk.status()} ({state})")
+    if what == "LAYERS" or (what == "ALL" and len(m.layers) > 1):
+        from .layer_handlers import layers_listing
+
+        lines += layers_listing(p)
+    if what == "MATERIALS":
+        from .layer_handlers import materials_listing
+
+        lines += materials_listing(p)
     if what == "SKETCH":
         from .sketch_handlers import sketch_listing
 
@@ -1204,7 +1237,7 @@ def list_(p: Processor, what):
         lines.append(_describe_selection(p))
     if not lines:
         if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES"):
-            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES or SKETCH")
+            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS or MATERIALS")
         lines.append(f"no {what.lower()}")
     return "\n".join(lines)
 
