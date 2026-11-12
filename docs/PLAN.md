@@ -523,6 +523,23 @@ Still open in the milestones already started, in the suggested order:
 6. A run of the viewer on a real Windows or macOS desktop (risk 5; needs
    the user's machine).
 
-Then M5 (NURBS freeform), M6 (equations and freehand cuts), M7 (sculpt),
-M8 (polish and installers) and M9 (the AI assistant), in the order the user
-prefers.
+**First release (v0.1.0), before any new features:**
+
+1. Done: File and Help menus (new, open, recent, examples, save as, import,
+   export; getting started, command reference, about, report a problem), the
+   file name and an unsaved marker in the title bar, a question before
+   unsaved work is closed or replaced, window layout kept, and errors written
+   to a log with a message instead of the app vanishing (`modeler/crash.py`).
+2. Done: desktop builds for Windows, macOS and Linux with PyInstaller, made
+   by GitHub on a version tag as a draft release (docs/RELEASING.md).
+3. Checked: the closed `LOFT` with a section facing against the ring no
+   longer crashes on OCCT 7.9 (tried 100+ times); it is now in the corpus so
+   CI's OCCT 7.9 job would catch it.
+4. Next: user guide, README for users, changelog and release notes.
+5. A run of a build on a real Windows or macOS desktop (needs the user).
+
+**Second release and later:** M5 (NURBS freeform), M6 (equations and
+freehand cuts), M7 (sculpt), the AI chat panel (M9c), skipping unchanged
+steps on rebuild, a sketch fillet between a line and an arc, trimming to the
+sketch axes, more export formats (OBJ, 3MF, glTF) and 2D drawings, code
+signing, preferences and themes.

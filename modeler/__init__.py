@@ -1,3 +1,7 @@
 """3Dmodeling: a command-driven 3D modeler."""
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
+
+HOME_URL = "https://github.com/shashanksingh097/3Dmodeling"
+USER_GUIDE_URL = HOME_URL + "/blob/main/docs/USER-GUIDE.md"
+ISSUES_URL = HOME_URL + "/issues"
