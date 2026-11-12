@@ -89,6 +89,7 @@ Every numeric argument of every command is an expression.
 | `NFACES(b)`, `NFACES(b, "cylinder")` | how many faces, or faces of one type (plane cylinder cone sphere torus bspline ...) |
 | `HOLES(b)`, `HOLES(b, d)`, `HOLES(b, d, 1)` | round holes in the body: all, of diameter `d`, and only through (1) or only blind (0) holes; section 23 |
 | `SYMMETRIC(b, "YZ")` | 1 if the body is its own mirror image in the plane (a base plane or a datum plane) |
+| `MINWALL(b)` | the thinnest wall of a solid (see `THICK`, section 23) |
 
 `ECHO, VOL(flange) / 1000` prints a value without changing anything.
 
@@ -272,7 +273,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
-| Check and describe | `ASSERT, value [, op, ref [, tol]]` · `DESCRIBE [, b/SEL/FACE, id [, SUMMARY/FACES/EDGES]] [, JSON]` · `SELFOR [, kind, id]` · `LINT [, file]` · `DIFF [, first [, last]] [, JSON]` (section 23) |
+| Check and describe | `PROBE, RAY/POINT, ...` · `PROFILE, b, plane [, offset [, step, count]]` · `THICK, b [, below]` · `ASSERT, value [, op, ref [, tol]]` · `DESCRIBE [, b/SEL/FACE, id [, SUMMARY/FACES/EDGES]] [, JSON]` · `SELFOR [, kind, id]` · `LINT [, file]` · `DIFF [, first [, last]] [, JSON]` (section 23) |
 
 ## 8. Running scripts without the GUI
 
@@ -1363,6 +1364,48 @@ changed (volume, faces added and removed, moved, renamed, layer or
 material), parameters, datums and sketches. `JSON` at the end gives the
 data.
 
+### PROBE: is there material here?
+
+```
+PROBE, RAY, -50,0,5, 1,0,0          ! every face the ray crosses, and the material along it
+PROBE, RAY, (35,0,50), (0,0,-1), flange
+PROBE, POINT, 37, 0, 5               ! inside, on or outside, and the nearest face
+```
+
+A ray lists each crossing (distance along the ray, entering or leaving,
+which body and face, the point) and then the stretches of material: `from
+10 to 16 (6)` is a wall 6 thick. A ray up the middle of a through hole meets
+nothing. Add a body name to look at that body only.
+
+### PROFILE: a cut through a body, as text
+
+`PROFILE, flange, XY, 5` cuts the body with the XY plane moved 5 along its
+normal and lists the loops of the cut: the outside and the holes, each a
+circle, a rectangle, or a list of lines, arcs and curves, in the plane's own
+u and v (printed in the first line). Equal round holes are one line, with
+the circle they sit on:
+
+```
+body 19 cut by XY (u along (1, 0, 0), v along (0, 1, 0)):
+  at 5: area 4272.57, centre (0, 0)
+    outside: circle c (0, 0) r 40
+    hole: circles n 6 r 4 on c (0, 0) r 30 step_deg 60
+    hole: circle c (0, 0) r 12
+```
+
+`PROFILE, flange, XY, 0, 10, 5` makes five cuts 10 apart, like a scan up the
+part. A cut exactly on a flat face shows the cut just beside it, and says so.
+
+### THICK and MINWALL: the thinnest walls
+
+`THICK, housing` measures the wall straight into the material from points
+spread over every face and lists the five thinnest places, with the faces on
+both sides; `THICK, housing, 2` lists every wall thinner than 2.
+`MINWALL(housing)` gives the thinnest in an expression, so
+`ASSERT, MINWALL(housing), GE, 2` keeps a part printable or castable. The
+measurement samples 25 points per face, so a thin spot smaller than that
+spacing can be missed.
+
 ### The same, for the AI assistant
 
 `modeler/ai/tools.py` wraps these (and a sandbox to try scripts in) as a
@@ -1377,6 +1420,11 @@ python -m modeler tool --script scripts/flange.cmd -  < calls.txt   # one "name 
 
 The sandbox is a copy of the model: `run` executes a script there step by
 step and reports what each step changed, `check` tests a list of `ASSERT`
-expectations, `diff` and `sandbox_script` show what was added. Nothing in
+expectations, `diff` and `sandbox_script` show what was added. `vary`
+re-runs the history with other values of a parameter and reports which
+values break a step or a check (it found that the flange's check for
+symmetry about YZ fails with 3 bolts; about ZX it holds for any number).
+`round_trip` makes history edits, edits them back, and checks that every
+ID, volume, the selection and named sets came back. Nothing in
 the sandbox reaches the real model; commands that read or write files are
 refused there.

@@ -215,7 +215,13 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         except ValueError as exc:
             raise ExprError(f"SYMMETRIC(): {exc}") from None
 
+    def minwall(b):
+        from ..ai.probe import min_wall
+
+        return min_wall(shape_body(b, "MINWALL"))
+
     return {
+        "MINWALL": minwall,
         "VALID": valid,
         "PIECES": pieces,
         "NFACES": nfaces,

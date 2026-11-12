@@ -28,10 +28,15 @@ from . import describe as ds
 from . import diff as df
 from . import expect
 from . import lint as ln
+from . import experiments as ex
+from . import probe as pb
 from . import selectors as sl
 from .sandbox import Sandbox, SandboxError
 
 KINDS = ["BODY", "FACE", "EDGE", "VERTEX"]
+_POINT = {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+_BODIES = {"type": "array", "items": {"type": ["string", "integer"]},
+           "description": "bodies to look at (default: every shown body)"}
 _WHERE = {"type": "string", "enum": ["model", "sandbox"],
           "description": "read the user's model (default) or the sandbox"}
 
@@ -156,6 +161,35 @@ class Toolbox:
                  {"first": {"type": "integer"}, "last": {"type": "integer"}, "where": _WHERE}, (), self.diff),
             Tool("sandbox_script", "The commands the sandbox added since it started, as one script.",
                  {}, (), self.sandbox_script),
+            Tool("probe_ray", "Every face a ray crosses (body, face ID, point, distance, enters or leaves) and the "
+                 "stretches of material along it: wall thickness on a line, does a hole go through, how far above "
+                 "the plate a boss sits.",
+                 {"origin": _POINT, "dir": _POINT, "bodies": _BODIES, "where": _WHERE}, ("origin", "dir"),
+                 self.probe_ray),
+            Tool("probe_point", "For each point: inside, on or outside which body, the nearest face and the "
+                 "distance to it.",
+                 {"points": {"type": "array", "items": _POINT}, "bodies": _BODIES, "where": _WHERE}, ("points",),
+                 self.probe_point),
+            Tool("section_profile", "The cut through a body as text: loops (outside or hole) of lines, arcs, "
+                 "circles and rectangles in the plane's u, v coordinates, area and centre. Give offsets for a "
+                 "stack of parallel cuts, which reads like a scan.",
+                 {"body": {"type": ["string", "integer"]},
+                  "plane": {"type": "string", "description": "XY, YZ, ZX or a datum plane name"},
+                  "offsets": {"type": "array", "items": {"type": "number"}}, "where": _WHERE},
+                 ("body", "plane"), self.section_profile),
+            Tool("wall_thickness", "The thinnest walls of a body, measured straight into the material from points "
+                 "over every face: thickness, the two faces and points. With below, every wall thinner than that.",
+                 {"body": {"type": ["string", "integer"]}, "below": {"type": "number"}, "limit": {"type": "integer"},
+                  "where": _WHERE}, ("body",), self.wall_thickness),
+            Tool("vary", "Re-run the history with each value of a parameter (set by a plain 'NAME = value' "
+                 "entry) and report which values make a step fail or an expectation fail. Checks that the model "
+                 "is really parametric. Uses the sandbox when one is open.",
+                 {"param": {"type": "string"}, "values": {"type": "array"},
+                  "expectations": {"type": "array", "items": {"type": "string"}}}, ("param", "values"), self.vary),
+            Tool("round_trip", "Make history edits ({entry, text} or {param, value}), edit them back, and check "
+                 "that every ID, volume, the selection and named sets came back and no step has a new warning. "
+                 "Tests that a script's picks survive history edits. Uses the sandbox when one is open.",
+                 {"edits": {"type": "array", "items": {"type": "object"}}}, ("edits",), self.round_trip),
         ]
 
     # learn the language
@@ -266,10 +300,42 @@ class Toolbox:
             first = self.box.base if where == "sandbox" and self.box else max(0, last - 1)
         return df.diff_entries(p, first, last)
 
+    # probe space
+    def probe_ray(self, origin, dir, bodies=None, where: str = "model"):
+        return pb.probe_ray(self._p(where), origin, dir, bodies)
+
+    def probe_point(self, points, bodies=None, where: str = "model"):
+        return pb.probe_point(self._p(where), points, bodies)
+
+    def section_profile(self, body, plane: str, offsets: list[float] | None = None, where: str = "model"):
+        p = self._p(where)
+        return pb.section_profile(p, body, _plane(p, plane), [float(o) for o in offsets] if offsets else None,
+                                  plane.strip().upper())
+
+    def wall_thickness(self, body, below: float = 0.0, limit: int = 5, where: str = "model"):
+        return pb.wall_thickness(self._p(where), body, float(below), int(limit))
+
+    # experiments
+    def vary(self, param: str, values: list, expectations: list[str] | None = None):
+        return ex.vary(self.box.p if self.box else self.real, param, values, expectations)
+
+    def round_trip(self, edits: list[dict]):
+        return ex.round_trip(self.box.p if self.box else self.real, edits)
+
     def sandbox_script(self) -> dict[str, Any]:
         if self.box is None:
             raise ToolError("no sandbox is open", "call sandbox first")
         return {"script": self.box.script(), "entries": self.box.p.cursor - self.box.base}
+
+
+def _plane(p: Processor, name: str):
+    from ..commands.feature_handlers import plane_ref
+    from ..commands.processor import CommandError
+
+    try:
+        return plane_ref(p, name, "plane")
+    except CommandError as exc:
+        raise ToolError(str(exc)) from None
 
 
 def _type_name(t) -> str:

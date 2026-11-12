@@ -3,8 +3,8 @@
 This is the design of the tools the in-app AI assistant uses to build and
 check models. The summary is in PLAN.md section 5.8.
 
-**Status.** Most of step M9a (section 7) is built: see "What is built" at
-the end. The rest is still a plan.
+**Status.** Most of step M9a and the first part of M9b (section 7) are
+built: see "What is built" at the end. The rest is still a plan.
 
 ## 1. The idea
 
@@ -320,6 +320,15 @@ Measured on the worked example of section 4 (a 100 mm flange, 30 mm bore,
 diff and the final script take 1.5 s of wall time including start-up, and
 the `describe_body` answer for the result is about 200 tokens.
 
+Step M9b, first part:
+
+| Planned | Built as | Notes |
+|---------|----------|-------|
+| `probe_ray`, `probe_point` | `PROBE, RAY` / `PROBE, POINT`; `modeler/geometry/probe.py`, `modeler/ai/probe.py` | crossings merged where a ray passes an edge; stretches of material per body |
+| `section_profile` | `PROFILE` command (the plan called it `SECTION, PROFILE`; `SECTION` stays the view command) | loops as circles, rectangles or lines, arcs and curves; equal holes grouped with their circle; stacks of cuts; a cut on a flat face is moved a hair aside and says so |
+| `wall_thickness`, `MINWALL` | `THICK` command, `MINWALL()` query | inward rays from 5 x 5 points per face; a wall seen from both sides is listed once |
+| `vary`, `round_trip` | `modeler/ai/experiments.py` | in sandbox copies; `round_trip` compares IDs, volumes, selection and named sets |
+
 Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
-`user_context`, `since` on every tool, `vary`, `round_trip`, and everything
-in M9b and M9c.
+`user_context`, `since` on every tool, `outline`, `check_design`, the rest of
+feature recognition (fillets, pockets, bosses), and M9c.
