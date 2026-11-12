@@ -8,7 +8,9 @@ through those commands, exactly as if they were typed.
 
 Tools: SELECT (click to select, drag a point to move it), LINE (a chain of
 lines; click the first point again, or press Esc, to finish), RECT, CIRCLE,
-ARC (start, end, then a point it passes through), SLOT, POINT.
+ARC (start, end, then a point it passes through), SLOT, POINT, and the
+editing tools TRIM (click the piece to cut away), EXTEND (click near an
+end) and FILLET (click a corner).
 """
 
 from __future__ import annotations
@@ -18,9 +20,10 @@ from dataclasses import dataclass, field
 
 from ..commands import Processor
 from ..lang.expr import fmt_num
+from ..sketch import edit as sedit
 from ..sketch.sketch import Sketch, SketchError
 
-TOOLS = ("SELECT", "LINE", "RECT", "CIRCLE", "ARC", "SLOT", "POINT")
+TOOLS = ("SELECT", "LINE", "RECT", "CIRCLE", "ARC", "SLOT", "POINT", "TRIM", "EXTEND", "FILLET")
 HINTS = {
     "SELECT": "Click to select sketch geometry (Ctrl adds); drag a point to move it; double-click a size to change it",
     "LINE": "Click the start, then each next point; click the first point again or press Esc to finish",
@@ -29,6 +32,9 @@ HINTS = {
     "ARC": "Click the start, then the end, then a point the arc passes through",
     "SLOT": "Click the first centre, then the second, then a point on the side",
     "POINT": "Click to place a point",
+    "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it)",
+    "EXTEND": "Click near the end of a line or arc to make it reach the next curve",
+    "FILLET": "Click a corner where two lines meet to round it (double-click the radius to change it)",
 }
 SNAP_ANGLE = 3.0  # degrees: a line this close to level or upright is made horizontal or vertical
 
@@ -172,10 +178,76 @@ class SketchController:
                 pv.sketch = sk
             except SketchError:
                 pass
+        elif self.tool == "TRIM":
+            piece = self.trim_preview(u, v, tol)
+            if piece:
+                pv.arcs.append(piece)
+            pv.snap = None
         elif self.clicks or (self.tool == "LINE" and self.chain_end):
             pv = self._rubber(at, pv)
         self.preview = pv
         return pv
+
+    # ---- trim, extend, fillet ------------------------------------------------------
+    def curve_at(self, u: float, v: float, tol: float) -> int | None:
+        sk = self.sketch
+        if sk is None:
+            return None
+        best, n = None, None
+        for g in sk.geos.values():
+            if g.kind == "POINT":
+                continue
+            d = _distance_to(sk, g, (u, v))
+            if d <= 1.5 * tol and (best is None or d < best):
+                best, n = d, g.n
+        return n
+
+    def trim_preview(self, u: float, v: float, tol: float):
+        """The piece a TRIM click here would cut away, as a polyline."""
+        n = self.curve_at(u, v, tol)
+        if n is None:
+            return None
+        sk = self.sketch
+        g = sk.geos[n]
+        try:
+            lo, hi, _, _ = sedit.trim_piece(sk, n, (u, v))
+        except SketchError:
+            return None
+        if g.kind == "CIRCLE" and hi <= lo:
+            hi += 360.0
+        k = 2 if g.kind == "LINE" else 33
+        return [sedit._point_at(sk, g, lo + (hi - lo) * i / (k - 1)) for i in range(k)]
+
+    def _edit_click(self, u: float, v: float, tol: float) -> list[str]:
+        sk = self.sketch
+        if sk is None:
+            return []
+        t = self.tool
+        if t == "FILLET":
+            _, name = self.snap(u, v, tol)
+            if not name or "." not in name:
+                return []
+            g = sk.ref(name).geo
+            if g is None or g.kind != "LINE":
+                return []
+            try:
+                l1, a, l2, b = sedit._corner(sk, name)
+            except SketchError:
+                return []
+            short = min(math.dist(sk.pt(ln.pts["S"]), sk.pt(ln.pts["E"])) for ln in (l1, l2))
+            step = nice_step(short * 0.25)
+            return [f"SFILLET, {name}, {_r(max(step, round(short * 0.2 / step) * step))}"]
+        n = self.curve_at(u, v, tol)
+        if n is None:
+            return []
+        g = sk.geos[n]
+        if t == "TRIM":
+            return [f"STRIM, {n}, {_uv((u, v))}"]
+        if g.kind == "CIRCLE":
+            return []
+        ends = {r: sk.pt(g.pts[r]) for r in ("S", "E")}
+        role = min(ends, key=lambda r: math.hypot(ends[r][0] - u, ends[r][1] - v))
+        return [f"SEXTEND, {n}.{role}"]
 
     def release(self, u: float, v: float, tol: float) -> list[str]:
         """Left button up after a drag (SELECT): move the point for real."""
@@ -201,6 +273,8 @@ class SketchController:
             return [f"SSEL, {mode}{name}"]
         if t == "POINT":
             return [f"SPOINT, {_snapped(at, snap)}"]
+        if t in ("TRIM", "EXTEND", "FILLET"):
+            return self._edit_click(u, v, tol)
         if t == "LINE":
             return self._line_click(at, snap, tol)
         self.clicks.append((at, snap))
@@ -443,6 +517,53 @@ def dimension_command(kind: str, names: list[str], value_text: str) -> str:
     return f"SDIM, {kind}, {', '.join(names)}, {value_text.strip()}"
 
 
+def _selected_geos(p: Processor, what: str, kinds=("LINE", "ARC", "CIRCLE", "POINT")) -> list[str]:
+    m = p.model
+    sk = m.sketches.get(m.active_sketch) if m.active_sketch else None
+    if sk is None:
+        raise NeedSelection("open a sketch first")
+    out = [s for s in m.sketch_selection if s.isdigit() and int(s) in sk.geos and sk.geos[int(s)].kind in kinds]
+    if not out:
+        raise NeedSelection(f"{what}: select sketch geometry first (click, then Ctrl+click)")
+    return out
+
+
+def offset_command(p: Processor, d_text: str) -> list[str]:
+    geos = _selected_geos(p, "Offset", ("LINE", "ARC", "CIRCLE"))
+    return [f"SOFFSET, {d_text.strip()}, {', '.join(geos)}"]
+
+
+def mirror_axes(p: Processor) -> list[str]:
+    """Lines the selection could be mirrored about: selected lines first, then H and V."""
+    sk = p.model.sketches.get(p.model.active_sketch) if p.model.active_sketch else None
+    sel = [s for s in p.model.sketch_selection if s.isdigit()]
+    lines = [s for s in sel if sk is not None and int(s) in sk.geos and sk.geos[int(s)].kind == "LINE"]
+    return lines[::-1] + ["V", "H"]
+
+
+def mirror_command(p: Processor, axis: str) -> list[str]:
+    geos = [g for g in _selected_geos(p, "Mirror") if g != axis]
+    if not geos:
+        raise NeedSelection("Mirror: select the geometry to mirror as well as the line to mirror about")
+    return [f"SMIRROR, {axis}, {', '.join(geos)}"]
+
+
+def pattern_command(p: Processor, kind: str, values: str) -> list[str]:
+    """values: "n, du, dv" (LINEAR) or "n, angle, centre" (POLAR; centre a point name or u, v)."""
+    geos = _selected_geos(p, "Pattern")
+    return [f"SPATTERN, {kind}, {values.strip()}, {', '.join(geos)}"]
+
+
+def project_default(p: Processor) -> str:
+    """What the Project button offers: the picked edges or faces, as SPROJECT arguments."""
+    m = p.model
+    if m.selection and m.selection_kind == "EDGE":
+        return ", ".join(map(str, m.selection))
+    if m.selection and m.selection_kind == "FACE":
+        return "FACE, " + ", ".join(map(str, m.selection))
+    return ""
+
+
 def delete_command(p: Processor) -> list[str]:
     sel = list(p.model.sketch_selection)
     geos = [s for s in sel if "." not in s and s not in ("ORIGIN", "H", "V")]
@@ -482,13 +603,20 @@ def dimension_edit(p: Processor, uid: int, value_text: str) -> str | None:
         if e.uid != uid:
             continue
         line = e.text.strip()
-        if not line.upper().startswith("SDIM") or "\n" in line:
+        if not _sized(line) or "\n" in line:
             return None
         parts = split_args(line)
         parts[-1] = value_text.strip()
         new = ", ".join(x.strip() for x in parts)
         return f'HIST, EDIT, {i + 1}, "{new}"'
     return None
+
+
+def _sized(line: str) -> bool:
+    """An entry whose last argument is the size of the dimension it made
+    (SDIM, and SFILLET with its radius)."""
+    word = line.split(",", 1)[0].strip().upper()
+    return word in ("SDIM", "SFILLET")
 
 
 def sketch_dimensions(p: Processor, name: str) -> list[tuple[str, str, int, str]]:
@@ -502,7 +630,7 @@ def sketch_dimensions(p: Processor, name: str) -> list[tuple[str, str, int, str]
         if not c.is_dim or c.uid not in by_uid:
             continue
         n, e = by_uid[c.uid]
-        if not e.text.strip().upper().startswith("SDIM"):
+        if not _sized(e.text.strip()):
             continue
         out.append((c.label, f"{c.kind.lower()} {', '.join(c.refs)}", n, split_args(e.text.strip())[-1].strip()))
     return out

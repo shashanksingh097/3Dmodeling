@@ -757,6 +757,56 @@ the history show exactly what happened, and a script can do the same.
 
 See `scripts/sketch_bracket.cmd`.
 
+### Editing sketch geometry
+
+| Command | Does |
+|---------|------|
+| `STRIM, 3, u, v` | cuts away the piece of curve 3 nearest (u, v), between the curves crossing it on either side; a piece in the middle leaves two curves, a circle becomes an arc, a curve nothing crosses is deleted |
+| `SEXTEND, 3.E` | makes line or arc 3 longer at its end until it meets the next curve |
+| `SEXTEND, 3.S, 5` | ... at its start, up to curve 5 (its full line or circle counts) |
+| `SFILLET, 1.E, 4` | rounds the corner where line 1 ends and another line meets it, radius 4 |
+| `SFILLET, 1.E, 2.E, 3.E, 4` | several corners, one radius |
+| `SOFFSET, 3, 1, 2, 3, 4` | curves 3 away from curves 1..4 |
+| `SMIRROR, V, 1, 2` | mirror copies of 1 and 2 about the vertical axis (or about a line: its number) |
+| `SPATTERN, LINEAR, 4, 15, 0, 5` | 4 of circle 5 in all, each 15 to the right of the one before |
+| `SPATTERN, POLAR, 6, 360, O, 5` | 6 round the origin, spread over the full turn (less than 360: the last one at that angle) |
+| `SPROJECT, 12, 13` | body edges 12 and 13, laid flat on the sketch plane and fixed there |
+| `SPROJECT, FACE, 6` | every edge of face 6 (`SEL` takes the picked edges or faces; `CONSTR` at the end makes construction geometry) |
+
+What they leave behind keeps meaning what you asked for:
+
+* A trimmed or extended end stays **on** the curve that cut it, so when
+  that curve moves the end follows. Sizes that measured the part that went
+  (a length, a fix) are dropped, and the output names them.
+* A fillet keeps the corner as a construction point on both lines. A size
+  that went to the corner (a length, a distance) now goes to that point, so
+  a fully sized sketch stays fully sized. The radius is a size like any
+  other: double-click it, or change it in **Sizes of sketch**; that edits
+  the `SFILLET` step.
+* An offset is held to its original: lines stay parallel at the distance,
+  arcs keep the centre and the radius plus the distance. Curves joined end
+  to end are offset as one chain; sharp corners meet again, smooth ones
+  stay smooth. Positive is outwards for a closed chain or a circle, and to
+  the left for an open chain (walking along its lowest-numbered curve from
+  its start). Change a size of the original afterwards and the offset
+  follows.
+* Mirror and pattern copies are held as images of their originals: drag or
+  size an original and every copy moves with it, and a copied circle keeps
+  the same radius.
+* Projected edges are made again from the bodies whenever an earlier step
+  changes, so a sketch drawn round a projected hole follows the hole.
+  Straight edges become lines and circles flat on the sketch become circles
+  or arcs; other curves come in as a chain of short lines. An edge square to
+  the sketch shows as nothing.
+
+In the GUI the Sketch toolbar has **Trim** (T: click the piece to cut
+away; it is shown before you click), **Extend** (E: click near the end),
+**Fillet** (F: click a corner; the radius starts at a fifth of the shorter
+line, then double-click it to change it), and **Offset…**, **Mirror…**,
+**Pattern…** and **Project…**, which work on the selected geometry.
+
+See `scripts/sketch_tools.cmd` for a plate drawn with these.
+
 ## 17. Parts and instances
 
 A part is a reusable shape recipe with parameters. Define it once, place it

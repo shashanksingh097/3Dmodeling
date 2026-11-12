@@ -128,6 +128,8 @@ NO_FORM = {
     # drawn by mouse in sketch mode (Sketch toolbar)
     "ENDSKETCH", "SPOINT", "SLINE", "SPOLY", "SRECT", "SCIRCLE", "SARC", "SARC3", "SSLOT",
     "SCON", "SDIM", "SDEL", "SMOVE", "SCONSTRUCT", "SSEL",
+    # sketch editing: the Trim / Extend / Fillet tools and the Offset, Mirror, Pattern, Project buttons
+    "STRIM", "SEXTEND", "SFILLET", "SOFFSET", "SMIRROR", "SPATTERN", "SPROJECT",
 }
 
 # What a form opens with, so pressing OK on a fresh form already makes something.
