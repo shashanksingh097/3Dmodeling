@@ -20,10 +20,8 @@ of the two overlap. Polygons in the same plane are compared in that plane.
 Separately, :func:`self_crossing` finds a section curve that crosses
 itself (a figure-of-eight), which no loft can make a solid from.
 
-Never divide by zero here, not even inside ``np.errstate``: a division by
-zero leaves the processor's floating-point exception flags set, and some
-OCCT algorithms (``BRepOffsetAPI_ThruSections``) then fail on their next
-run. Every division below has a denominator that cannot be zero.
+Every division below has a denominator that cannot be zero, so no NaN or
+infinity (and no numpy warning) can come out of these tests.
 """
 
 from __future__ import annotations
