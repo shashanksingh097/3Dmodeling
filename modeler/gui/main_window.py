@@ -404,6 +404,13 @@ class MainWindow(QMainWindow):
         out = self._dock("Output", self.output, Qt.BottomDockWidgetArea)
         hist = self._dock("History", self.history_panel, Qt.RightDockWidgetArea)
         params = self._dock("Parameters", self.param_panel, Qt.RightDockWidgetArea)
+        from .layer_panel import LayerPanel
+
+        self.layer_panel = LayerPanel(self)
+        layers = self._dock("Layers", self.layer_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(params, layers)
+        params.raise_()
+        self.layers_dock = layers
         self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)
         self.resizeDocks([hist, params], [520, 260], Qt.Vertical)
         self.resizeDocks([out], [170], Qt.Vertical)

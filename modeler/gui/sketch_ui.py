@@ -333,7 +333,7 @@ class FeatureForm(QDialog):
         self.mode.addItems(["New body", "Add to body", "Cut from body"])
         form.addRow("Result:", self.mode)
         self.body = QComboBox()
-        bodies = [b for b in p.model.bodies.values() if b.id not in p.model.hidden and b.entity_ids["FACE"]]
+        bodies = [b for b in p.model.bodies.values() if p.model.is_shown(b.id) and b.entity_ids["FACE"]]
         self.body.addItems([b.name if not b.name.startswith("body") else str(b.id) for b in bodies][::-1])
         form.addRow("Body:", self.body)
         self.mode.currentIndexChanged.connect(lambda i: self.body.setEnabled(i > 0))

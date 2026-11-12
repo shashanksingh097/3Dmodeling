@@ -8,4 +8,5 @@ __all__ = ["Processor", "Result", "Entry", "CommandError", "REGISTRY"]
 from . import part_handlers  # noqa: F401  (parts, instances, the part library)
 from . import thread_handlers  # noqa: F401  (THREAD, SPRING)
 from . import shape_handlers  # noqa: F401  (TEXT, SURFACE, PUSHPULL, DELFACE)
+from . import layer_handlers  # noqa: F401  (LAYER, COLOR, MATERIAL, ISOLATE)
 from . import sketch_edit_handlers  # noqa: F401  (STRIM, SEXTEND, SFILLET, SOFFSET, SMIRROR, SPATTERN, SPROJECT)

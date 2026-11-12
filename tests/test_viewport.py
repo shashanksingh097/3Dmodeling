@@ -238,3 +238,39 @@ def test_feature_toolbar_sends_commands(win):
     assert win.processor.log[-1] == "HOLE, 1, 10, 5, 5, 4"
     win.run_feature(lambda: fa.two_selected(win.processor, "DIST"))  # nothing selected: no command
     assert win.processor.log[-1] == "HOLE, 1, 10, 5, 5, 4"
+
+
+def test_layers_and_colours_in_the_view_and_the_layers_panel(win, app):
+    from OCP.Image import Image_AlienPixMap
+
+    vp, lp = win.viewport, win.layer_panel
+    assert lp.names() == ["DEFAULT"]
+    # the panel's New button runs LAYER, name; new bodies go there
+    assert win.execute("LAYER, red_parts, NEW, RED").ok
+    assert lp.names() == ["DEFAULT", "red_parts"]
+    assert win.execute("LAYER, red_parts, ADD, 1").ok
+    x, y = to_px(win, *face_centre(win, 6))  # the block's top face
+    r, g, b = _pixel(vp, x, y, Image_AlienPixMap)
+    assert r > g + 0.15 and r > b + 0.15, (r, g, b)  # drawn red
+    # switching the layer off in the panel hides the block
+    row = lp.names().index("red_parts")
+    lp.table.item(row, 1).setCheckState(Qt.Unchecked)
+    app.processEvents()
+    assert win.processor.history[-1].text == "LAYER, red_parts, OFF"
+    assert 1 not in vp._ais and 2 in vp._ais
+    lp.table.item(row, 1).setCheckState(Qt.Checked)
+    app.processEvents()
+    assert 1 in vp._ais
+    # clicking the current-layer column makes it current
+    lp._clicked(row, 0)
+    assert win.processor.model.current_layer == "RED_PARTS"
+    assert lp.table.item(row, 0).text() == "●"
+    # a body's own colour wins over its layer's
+    assert win.execute("COLOR, 1, BLUE").ok
+    r, g, b = _pixel(vp, x, y, Image_AlienPixMap)
+    assert b > r + 0.15, (r, g, b)
+    # lock from the panel: the block cannot be moved
+    lp.table.item(row, 2).setCheckState(Qt.Checked)
+    app.processEvents()
+    assert not win.execute("MOVE, 1, 5").ok
+    assert lp.table.item(row, 5).text() == "1"

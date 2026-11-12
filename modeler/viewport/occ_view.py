@@ -137,6 +137,7 @@ class OccViewport(QWidget):
         self.model = model
         self.pick_mode = "FACE"
         self._ais: dict[int, AIS_Shape] = {}
+        self._drawn_color: dict[int, tuple | None] = {}  # body ID -> colour it was drawn in
         self._datum_ais: list = []  # datum planes, axes, points and their labels (never pickable)
         self._clip = None  # the SECTION clip plane, if any
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
@@ -324,26 +325,38 @@ class OccViewport(QWidget):
         elif ev.kind == "selection":
             self._sync_selection()
             return
-        elif ev.kind == "visibility":
+        elif ev.kind in ("visibility", "style"):  # one body shown, hidden, recoloured or moved to a layer
             ais = self._ais.pop(ev.body_id, None)
             if ais is not None:
                 self.context.Remove(ais, False)
-            if ev.body_id in self.model.bodies and ev.body_id not in self.model.hidden:
+            if ev.body_id in self.model.bodies:
                 self._display_body(ev.body_id, update=False)
+            self._sync_selection()
+        elif ev.kind == "layers":  # a layer switched on or off, or recoloured: redraw what changed
+            for bid in list(self.model.bodies):
+                ais = self._ais.get(bid)
+                if ais is not None and self.model.is_shown(bid) and self._drawn_color.get(bid) == self.model.display_color(bid):
+                    continue
+                if ais is not None:
+                    self.context.Remove(self._ais.pop(bid), False)
+                self._display_body(bid, update=False)
+            self._show_datums()
             self._sync_selection()
         self.context.UpdateCurrentViewer()
 
     def _display_body(self, bid: int, update: bool = True) -> None:
-        if bid in self.model.hidden:
+        if not self.model.is_shown(bid):
             return
         shape = self.model.bodies[bid].shape
         ais = AIS_Shape(shape)
+        col = self.model.display_color(bid)  # own colour, else layer, else material
+        self._drawn_color[bid] = col
         if self.model.bodies[bid].entity_ids["FACE"]:
             ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
-            ais.SetColor(_rgb(0.62, 0.66, 0.72))
+            ais.SetColor(_rgb(*col) if col else _rgb(0.62, 0.66, 0.72))
             ais.Attributes().SetFaceBoundaryDraw(True)
         else:  # a curve (path or profile): draw it bright and a little thicker
-            ais.SetColor(_rgb(1.0, 0.62, 0.15))
+            ais.SetColor(_rgb(*col) if col else _rgb(1.0, 0.62, 0.15))
             ais.SetWidth(2.5)
         self.context.Display(ais, 1, 0, False)
         self._activate(ais)
@@ -376,7 +389,7 @@ class OccViewport(QWidget):
         if not items:
             return
         # size: a little bigger than the model, around its middle
-        shapes = [b.shape for i, b in m.bodies.items() if i not in m.hidden]
+        shapes = [b.shape for i, b in m.bodies.items() if m.is_shown(i)]
         mid, size = (0.0, 0.0, 0.0), 20.0
         if shapes:
             from ..commands.queries import bbox

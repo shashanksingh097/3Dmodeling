@@ -147,10 +147,10 @@ def angle(p: Processor, k1, i1, k2, i2):
 
 
 @command("MASSPROP", Arg("b", BodyRef, 0, "body (default: the selected bodies, or all)"),
-         Arg("density", float, 0.0, "density in kg/m3 (e.g. 7850 for steel) to get mass and inertia"),
+         Arg("density", float, 0.0, "density in kg/m3 (e.g. 7850 for steel); default: each body's MATERIAL"),
          logged=False,
          help="Volume, area, centre of mass, and principal moments of inertia: MASSPROP [, body [, density]]. "
-              "With a density, mass is in kg and inertia in kg.mm2 (or the model's unit).")
+              "With a density, or when every body has a MATERIAL, mass is in kg and inertia in kg.mm2 (or the model's unit).")
 def massprop(p: Processor, b, density):
     m = p.model
     if density < 0:
@@ -160,23 +160,28 @@ def massprop(p: Processor, b, density):
     elif m.selection_kind == "BODY" and m.selection:
         ids = list(m.selection)
     else:
-        ids = [i for i in m.bodies if i not in m.hidden]
+        ids = m.shown_ids()
     ids = [i for i in ids if robust.solids(m.body(i).shape)]
     if not ids:
         raise CommandError("MASSPROP: no solid bodies to measure")
     u = m.units.lower()
     scale = UNITS[m.units] / 1000.0  # model unit in metres
-    rho = density * scale ** 3  # kg per cubic model unit
+    # density per body: the one given, else the body's material
+    dens = {i: density or m.density(i) for i in ids}
+    by_material = not density and all(dens.values())
+    missing = [] if density or by_material else [i for i in ids if not dens[i]]
+    weighted = bool(density) or by_material
     g = GProp_GProps()
-    area = 0.0
+    vol = area = 0.0
     for i in ids:
         gi = GProp_GProps()
         BRepGProp.VolumeProperties_s(m.body(i).shape, gi)
-        g.Add(gi)
+        vol += gi.Mass()
+        # weighted by kg per cubic model unit: the sum is then mass, mass centre and inertia
+        g.Add(gi, dens[i] * scale ** 3 if weighted else 1.0)
         ga = GProp_GProps()
         BRepGProp.SurfaceProperties_s(m.body(i).shape, ga)
         area += ga.Mass()
-    vol = g.Mass()
     c = g.CentreOfMass()
     what = f"body {ids[0]}" if len(ids) == 1 else f"{len(ids)} bodies ({', '.join(map(str, ids[:10]))}{'...' if len(ids) > 10 else ''})"
     lines = [f"{what}:",
@@ -186,10 +191,17 @@ def massprop(p: Processor, b, density):
     i1, i2, i3 = pp.Moments()
     axes = [pp.FirstAxisOfInertia(), pp.SecondAxisOfInertia(), pp.ThirdAxisOfInertia()]
     if density:
-        lines.insert(2, f"  mass {_n(vol * rho)} kg (density {fmt_num(density)} kg/m3)")
-        k, unit = rho, f"kg.{u}2"
+        lines.insert(2, f"  mass {_n(g.Mass())} kg (density {fmt_num(density)} kg/m3)")
+        unit = f"kg.{u}2"
+    elif by_material:
+        mats = sorted({m.body(i).material.lower() for i in ids})
+        lines.insert(2, f"  mass {_n(g.Mass())} kg ({', '.join(mats)})")
+        unit = f"kg.{u}2"
     else:
-        k, unit = 1.0, f"{u}5 (per unit density; give a density for kg.{u}2)"
+        unit = f"{u}5 (per unit density; give a density or a MATERIAL for kg.{u}2)"
+        if len(missing) < len(ids):
+            lines.insert(2, "  no mass: bodies " + ", ".join(map(str, missing[:10])) + " have no material")
+    k = 1.0
     lines.append("  principal moments of inertia about the centre: " + ", ".join(_n(v * k) for v in (i1, i2, i3)) + f" {unit}")
     lines.append("  along " + ", ".join(_fmt((a.X(), a.Y(), a.Z())) for a in axes))
     return "\n".join(lines)
@@ -207,7 +219,7 @@ def clash(p: Processor, a, b):
     elif a or b:
         raise CommandError("CLASH: give two bodies, or none to check every pair")
     else:
-        ids = [i for i in m.bodies if i not in m.hidden and robust.solids(m.bodies[i].shape)]
+        ids = [i for i in m.shown_ids() if robust.solids(m.bodies[i].shape)]
         if len(ids) > 200:
             raise CommandError("CLASH: more than 200 bodies; name the two to check")
         pairs = [(x, y) for k, x in enumerate(ids) for y in ids[k + 1:]]
