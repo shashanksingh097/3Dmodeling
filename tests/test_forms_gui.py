@@ -163,3 +163,31 @@ def test_form_button_reads_the_typed_line(app, win):
     dlg.fields["r2"].set_value("3")
     assert dlg.preview.text() == "TORUS, 0, 0, 5, 12, 3"
     dlg.close()
+
+
+def test_place_a_part_by_form(app, win):
+    p = win.processor
+    win.execute("*PART, peg, D=4, L=10\n  CYL, 0, 0, 0, D/2, L\n*ENDPART")
+    win.execute("*PART, cap, R=5\n  SPHERE, 0, 0, 0, R\n*ENDPART")
+    dlg = form(win, app, "INST")
+    assert dlg.fields["part"].value() == "cap"
+    assert list(dlg.fields["values"].values) == ["R"]
+    dlg.fields["part"].set_value("peg")
+    pump(app)
+    assert list(dlg.fields["values"].values) == ["D", "L"]  # the boxes follow the part
+    dlg.fields["values"].values["L"].setText("25")
+    dlg.fields["x"].set_value("5, 0, 0")
+    assert dlg.preview.text() == "INST, peg, 5, 0, 0, L=25"
+    assert dlg.submit(close=True)
+    assert p.model.instances[p.model.last_body] == ("PEG", (("L", 25),))
+
+
+def test_make_a_part_from_history_steps(app, win):
+    p = win.processor
+    for line in ("W = 30", "BLOCK, 0, 0, 0, W, 20, 4", "NAME, LAST, plate", "HOLE, plate, W/2, 10, 4, 6"):
+        assert win.execute(line).ok
+    before = p.evaluate("VOL(plate)")
+    win.history_panel.make_part(2, 4, "plate_part")
+    assert [e.text.splitlines()[0] for e in p.history] == [
+        "W = 30", "*PART, plate_part, W=30", "INST, plate_part, W=W", "NAME, LAST, plate"]
+    assert p.evaluate("VOL(plate)") == pytest.approx(before)

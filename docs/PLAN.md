@@ -488,6 +488,10 @@ view (see LANGUAGE.md sections 13 to 15).
 
 Next, in order:
 
+0. Started M4 with parts and instances: `*PART ... *ENDPART`, `INST`,
+   `EXPLODE`, the part library (`LIB, LOAD`, `LIBSAVE`), and making a part
+   from history steps (LANGUAGE.md section 17, docs/M4-parts.md). Next in
+   M4: threads and springs, rail sweeps and spine lofts, text.
 1. Done: the sketcher (solver spike, then `SKETCH ... ENDSKETCH` on any
    plane or face with constraints and dimensions, `EXTRUDE` and `REVOLVE`,
    all by mouse too; LANGUAGE.md section 16, docs/M3-sketcher.md).

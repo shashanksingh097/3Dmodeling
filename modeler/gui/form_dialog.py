@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
@@ -58,6 +59,8 @@ class _FieldWidget(QWidget):
         self.check: QCheckBox | None = None
         self.box: QPlainTextEdit | None = None
         self.line: QLineEdit | None = None
+        self.values: dict[str, QLineEdit] = {}  # params: one box per part parameter
+        self.values_form: QFormLayout | None = None
         tip = f.help or ""
         if f.kind in ("flag", "bool"):
             self.check = QCheckBox(f.label if f.kind == "flag" else "")
@@ -71,6 +74,16 @@ class _FieldWidget(QWidget):
             self.combo.addItems(items)
             self.combo.currentTextChanged.connect(dlg.update_preview)
             lay.addWidget(self.combo, 1)
+        elif f.kind == "part":
+            self.combo = QComboBox()
+            self.combo.addItems(F.options(p, f))
+            self.combo.currentTextChanged.connect(dlg.part_changed)
+            lay.addWidget(self.combo, 1)
+        elif f.kind == "params":
+            box = QWidget()
+            self.values_form = QFormLayout(box)
+            self.values_form.setContentsMargins(0, 0, 0, 0)
+            lay.addWidget(box, 1)
         elif f.kind in ("body", "datum", "sketch"):
             self.combo = QComboBox()
             self.combo.setEditable(True)
@@ -120,7 +133,27 @@ class _FieldWidget(QWidget):
         if tip:
             self.setToolTip(tip)
 
+    def show_part(self, name: str) -> None:
+        """params: one box per parameter of this part, its default shown greyed."""
+        assert self.values_form is not None
+        while self.values_form.rowCount():
+            self.values_form.removeRow(0)
+        self.values = {}
+        params = F.part_params(self.dlg.win.processor, name)
+        for pname, default in params:
+            e = QLineEdit()
+            e.setPlaceholderText(default or "(needed)")
+            e.textChanged.connect(self.dlg.update_preview)
+            self.values[pname] = e
+            self.values_form.addRow(pname, e)
+        if not params:
+            self.values_form.addRow(QLabel("this part has no parameters" if name else "no part chosen"))
+        self.values_form.parentWidget().updateGeometry()
+        self.updateGeometry()
+
     def value(self) -> str:
+        if self.f.kind == "params":
+            return ", ".join(f"{k}={e.text().strip()}" for k, e in self.values.items() if e.text().strip())
         if self.check is not None:
             if self.f.kind == "flag":
                 return "1" if self.check.isChecked() else ""
@@ -141,6 +174,18 @@ class _FieldWidget(QWidget):
 
     def set_value(self, v: str) -> None:
         v = v or ""
+        if self.f.kind == "params":
+            for e in self.values.values():
+                e.setText("")
+            try:
+                items = split_args(v) if v.strip() else []
+            except ScriptError:
+                items = []
+            for item in items:
+                k, _eq, val = item.partition("=")
+                if k.strip().upper() in self.values:
+                    self.values[k.strip().upper()].setText(val.strip())
+            return
         if self.check is not None:
             self.check.setChecked(v.lower() in ("1", "true", "yes", "on"))
         elif self.combo is not None:
@@ -165,7 +210,8 @@ class _FieldWidget(QWidget):
             self.line.setText(v)
 
     def mark(self, problem: str) -> None:
-        targets = self.parts or [w for w in (self.combo, self.line, self.box) if w is not None]
+        targets = self.parts or list(self.values.values()) or [
+            w for w in (self.combo, self.line, self.box) if w is not None]
         for w in targets:
             w.setStyleSheet(_BAD if problem else "")
             w.setToolTip(problem or self.f.help)
@@ -203,8 +249,10 @@ class FormDialog(QDialog):
         self.setMinimumWidth(520)
         self.fields: dict[str, _FieldWidget] = {}
         self._hidden: list[_FieldWidget] = []
+        self._filling = False
 
         lay = QVBoxLayout(self)
+        lay.setSizeConstraint(QLayout.SetMinimumSize)  # grows when a part with more values is chosen
         about = QLabel(spec.help)
         about.setWordWrap(True)
         about.setStyleSheet("color: #555;")
@@ -274,9 +322,12 @@ class FormDialog(QDialog):
         self.fields.clear()
         v = self.spec.variant(self.variant)
         vals = values if values is not None else F.initial(self.win.processor, self.spec, self.variant)
+        self._filling = True
         for f in v.fields:
             w = _FieldWidget(self, f)
             self.fields[f.key] = w
+            if f.kind == "params":
+                w.show_part(vals.get("part", ""))
             w.set_value(vals.get(f.key, ""))
             label = "" if f.kind == "flag" else (f.label + ("" if f.required else " (optional)") if f.label else "")
             if f.kind == "choice" and len(f.choices) == 1:
@@ -285,8 +336,18 @@ class FormDialog(QDialog):
                 self._hidden.append(w)
                 continue
             self.form.addRow(label, w)
+        self._filling = False
         self.variant_help.setText(v.help)
         self.variant_help.setVisible(bool(v.help))
+        self.update_preview()
+
+    def part_changed(self, name: str) -> None:
+        """INST: a different part has other parameters."""
+        if self._filling:
+            return
+        for w in self.fields.values():
+            if w.f.kind == "params":
+                w.show_part(name)
         self.update_preview()
 
     def _variant_changed(self, i: int) -> None:
@@ -301,6 +362,8 @@ class FormDialog(QDialog):
         return F.build(self.spec, self.values(), self.variant)
 
     def update_preview(self, *_) -> None:
+        if self._filling:
+            return
         text, problems = F.check(self.win.processor, self.spec, self.values(), self.variant)
         for k, w in self.fields.items():
             w.mark(problems.get(k, ""))

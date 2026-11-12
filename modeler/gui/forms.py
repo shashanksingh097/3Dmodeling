@@ -113,6 +113,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "CLASH", "SECTION", "ECHO", "LIST")),
+    ("Parts", ("INST", "EXPLODE", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT")),
 ]
 
@@ -190,11 +191,12 @@ _LABELS = {
 _EXTRA_CHOICES = {
     ("EXTRUDE", "mode"): ("NEW", "ADD", "CUT"),
     ("REVOLVE", "mode"): ("NEW", "ADD", "CUT"),
-    ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "SETS", "DATUMS"),
+    ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS"),
 }
 
 # arguments whose plain type would mislead the form
 _KINDS = {
+    ("LIBSAVE", "part"): "part",
     ("MIRROR", "copy"): "bool",
     ("SWEEP", "solid"): "bool",
     ("SPLIT", "by"): "datum",
@@ -379,6 +381,17 @@ def _hand() -> dict[str, FormSpec]:
              help="one point per line: x, y, z (or a datum point's name)")
     add("POLYLINE", [Variant("", "", [pts, _F("close", "Closed", "flag", word="CLOSE")])])
     add("SPLINE", [Variant("", "", [replace(pts), _F("close", "Closed loop", "flag", word="CLOSE")])])
+    add("INST", [Variant("", "", [
+        _F("part", "Part", "part", required=True),
+        _F("x", "Position", "point", default="0, 0, 0"),
+        _F("angle", "Turn (degrees)", default="0"),
+        _F("d", "Turn axis", "point", default="0, 0, 1"),
+        _F("values", "Part values", "params",
+           help="the part's parameters for this copy; left empty, they keep the part's defaults"),
+    ])])
+    add("LIB", [Variant("", "", [_F("action", "", "choice", "LOAD", choices=("LOAD",)),
+                                 _F("file", "Part file", "path", required=True,
+                                    help="a part name in the library folder, or a .cmd file")])])
     add("LOFT", [Variant("", "", [_F("s", "Sections", "bodies", required=True, pick="BODY", count=24,
                                      help="the section curves, in order (select them, then press ← Selection)"),
                                   _F("ruled", "Straight between sections", "flag", word="RULED"),
@@ -433,9 +446,13 @@ def _hand() -> dict[str, FormSpec]:
         Variant("INVE", "Invert", [_F("mode", "", "choice", "INVE", choices=("INVE",))]),
     ])
     for sp in specs.values():
-        sp.title = REGISTRY[sp.command].name.title()
+        sp.title = TITLES.get(sp.command, REGISTRY[sp.command].name.title())
     return specs
 
+
+# menu titles where the command name alone says little
+TITLES = {"INST": "Place a part", "EXPLODE": "Explode", "LIB": "Load parts from library",
+          "LIBSAVE": "Save part to library"}
 
 _SPECS: dict[str, FormSpec] | None = None
 
@@ -459,7 +476,8 @@ def specs() -> dict[str, FormSpec]:
                     continue
                 if n not in REGISTRY:
                     continue
-                sp = hand.get(n) or FormSpec(n, n.title(), REGISTRY[n].help, cat, [Variant("", "", _generic(n))])
+                sp = hand.get(n) or FormSpec(n, TITLES.get(n, n.title()), REGISTRY[n].help, cat,
+                                             [Variant("", "", _generic(n))])
                 sp.category = cat
                 for v in sp.variants:  # a fresh form opens with the starting values
                     for f in v.fields:
@@ -522,6 +540,8 @@ def options(p: Processor, f: Field, command: str = "") -> list[str]:
         return base
     if f.kind == "sketch":
         return [sk.name for sk in m.sketches.values()]
+    if f.kind == "part":
+        return [pd.name.lower() for pd in p.parts.values()]
     return []
 
 
@@ -608,6 +628,9 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
                 val = "LAST"
         if f.kind == "ids" and m.selection and (f.pick in ("", "ANY") or m.selection_kind == f.pick):
             val = from_selection(p, f)
+        if f.kind == "part" and not val:
+            names = options(p, f)
+            val = names[-1] if names else ""
         if f.kind == "sketch" and not val:
             names = options(p, f)
             val = names[-1] if names else ""
@@ -719,9 +742,18 @@ def build(sp: FormSpec, values: dict[str, str], variant: str = "") -> str:
     words: list[str] = []
     for f in v.fields:
         val = (values.get(f.key) or "").strip()
+        if f.kind == "choice" and len(f.choices) == 1 and not val:
+            val = f.choices[0]  # the fixed word of this variant
         if f.kind == "flag":
             if val.lower() in ("1", "true", "yes", "on", f.word.lower()):
                 words.append(f.word)
+            continue
+        if f.kind == "params":  # NAME=value: their place does not matter, so they go last
+            for t in _list(val):
+                name, eq, expr = t.partition("=")
+                if not eq or not is_ident(name.strip()) or not expr.strip():
+                    raise FormError(f"{f.label}: write NAME=value, got {t!r}")
+                words.append(f"{name.strip().upper()}={expr.strip()}")
             continue
         if f.required and not val and not (f.kind == "point" and f.default):
             raise FormError(f"{f.label or f.key}: needed")
@@ -808,14 +840,20 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
     v = sp.variant(variant)
     values: dict[str, str] = {}
     words = {f.word.upper(): f for f in v.fields if f.kind == "flag"}
-    plain = []
+    pfield = next((f for f in v.fields if f.kind == "params"), None)
+    plain, pvals = [], []
     for a in args:
+        name, eq, _expr = a.partition("=")
         if a.upper() in words:
             values[words[a.upper()].key] = "1"
+        elif pfield is not None and eq and is_ident(name.strip()):
+            pvals.append(a.strip())
         else:
             plain.append(a)
+    if pfield is not None:
+        values[pfield.key] = ", ".join(pvals)
     i = 0
-    fields = [f for f in v.fields if f.kind != "flag"]
+    fields = [f for f in v.fields if f.kind not in ("flag", "params")]
     for f in fields:
         if f.kind == "point":
             if i < len(plain) and plain[i].startswith("("):
@@ -871,6 +909,15 @@ def check(p: Processor, sp: FormSpec, values: dict[str, str], variant: str = "")
             elif f.kind == "ids":
                 for part in _list(val):
                     p.evaluate(part)
+            elif f.kind == "params":
+                known = {n for n, _ in part_params(p, values.get("part", ""))}
+                for t in _list(val):
+                    name, _eq, expr = t.partition("=")
+                    if known and name.strip().upper() not in known:
+                        raise FormError(f"the part has no {name.strip()} (it has {', '.join(sorted(known))})")
+                    p.evaluate(expr.strip())
+            elif f.kind == "part" and val.upper() not in p.parts:
+                raise FormError(f"no part {val}" + ("" if p.parts else "; define one with *PART or load one"))
         except (ExprError, CommandError, FormError) as exc:
             msg = str(exc)
             problems[f.key] = msg.split(": ", 1)[-1] if msg.startswith(sp.command) else msg
@@ -880,6 +927,12 @@ def check(p: Processor, sp: FormSpec, values: dict[str, str], variant: str = "")
         text = ""
         problems.setdefault("", str(exc))
     return text, problems
+
+
+def part_params(p: Processor, name: str) -> list[tuple[str, str]]:
+    """A part's parameters and their defaults (as written), for its form."""
+    pd = p.parts.get((name or "").strip().upper())
+    return [(n, d or "") for n, d in pd.params] if pd else []
 
 
 def has_form(text: str) -> bool:

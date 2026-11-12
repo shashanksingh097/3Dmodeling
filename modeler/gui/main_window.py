@@ -169,7 +169,7 @@ class HistoryPanel(QTableWidget):
         self.verticalHeader().hide()
         self.setFont(_mono())
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)  # several rows: make a part of them
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         h = self.horizontalHeader()
         h.setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -220,6 +220,11 @@ class HistoryPanel(QTableWidget):
         row = self.rowAt(pos.y())
         p = self.win.processor
         menu = QMenu(self)
+        rows = sorted({i.row() for i in self.selectedIndexes()})
+        if len(rows) > 1 and rows[-1] < p.cursor and rows == list(range(rows[0], rows[-1] + 1)):
+            a, b = rows[0] + 1, rows[-1] + 1
+            menu.addAction(f"Make a part from steps {a} to {b}…", lambda: self.make_part(a, b))
+            menu.addSeparator()
         if 0 <= row < p.cursor:
             n = row + 1
             e = p.history[row]
@@ -243,6 +248,18 @@ class HistoryPanel(QTableWidget):
         menu.addAction("Add at the end…", lambda: self._insert(p.cursor + 1))
         menu.addAction("Replay all", lambda: self.win.execute("HIST, REPLAY"))
         menu.exec(self.viewport().mapToGlobal(pos))
+
+    def make_part(self, first: int, last: int, name: str | None = None) -> None:
+        """Turn history steps into a reusable part, placed once where it was."""
+        if name is None:
+            from .feature_actions import free_name
+
+            suggestion = free_name(self.win.processor, "part")
+            name, ok = QInputDialog.getText(self, "Make a part", f"Steps {first} to {last} become a part named:",
+                                            text=suggestion)
+            if not ok or not name.strip():
+                return
+        self.win.execute(hist_command("PART", first, f"{last}, {name.strip()}"))
 
     def _sketch_of(self, row: int) -> str | None:
         """The sketch a history row belongs to (its SKETCH line or a step inside it)."""

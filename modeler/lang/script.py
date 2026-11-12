@@ -4,7 +4,7 @@ A script is a list of statements, one per line:
 
 * ``NAME, arg, arg, , arg``  a command (or a macro call)
 * ``W = 40``                 a parameter assignment
-* ``*DO`` / ``*IF`` / ``*WHILE`` / ``*MACRO`` ... their closing line: a block
+* ``*DO`` / ``*IF`` / ``*WHILE`` / ``*MACRO`` / ``*PART`` ... their closing line: a block
 * ``! text``                 a comment (``!=`` is "not equal", not a comment)
 
 :func:`parse` turns text into a tree of statements. :func:`split_entries`
@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*$")
 _ASSIGN = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)(.*)$", re.S)
 
-OPENERS = {"*DO": "*ENDDO", "*IF": "*ENDIF", "*WHILE": "*ENDWHILE", "*MACRO": "*END"}
-CLOSERS = {"*ENDDO", "*ENDIF", "*ENDWHILE", "*END", "*ENDMACRO"}
+OPENERS = {"*DO": "*ENDDO", "*IF": "*ENDIF", "*WHILE": "*ENDWHILE", "*MACRO": "*END", "*PART": "*ENDPART"}
+CLOSERS = {"*ENDDO", "*ENDIF", "*ENDWHILE", "*END", "*ENDMACRO", "*ENDPART"}
 MIDDLES = {"*ELSEIF", "*ELSE"}
 SIMPLE = {"*EXIT", "*CYCLE", "*RETURN", "*MSG", "*DEL"}
 
@@ -152,6 +152,19 @@ class MacroDef(Stmt):
 
 
 @dataclass
+class PartDef(Stmt):
+    """``*PART, name, D=8, L=30`` ... ``*ENDPART``: a reusable shape recipe.
+
+    Unlike a macro, a part runs in a model of its own, sees only its own
+    parameters, and its result is placed with ``INST``."""
+
+    name: str
+    params: list[tuple[str, str | None]]  # (NAME, default expr or None)
+    body_text: str  # the lines between the opener and the closer
+    source: str = ""  # the whole block, as written
+
+
+@dataclass
 class Simple(Stmt):
     """*EXIT, *CYCLE, *RETURN, *MSG, *DEL"""
 
@@ -250,6 +263,21 @@ def parse(text: str, first_line: int = 1) -> list[Stmt]:
                 body, _, _, end_line = block({"*END", "*ENDMACRO"}, n, word)
                 src = "\n".join(line for _, line in lines[start:pos])
                 return MacroDef(n, args[0].upper(), params, body, src)
+            if word == "*PART":
+                if not args or not is_ident(args[0]):
+                    raise ScriptError("*PART: write '*PART, name, D=8, L=30' (parameters with their defaults)", n)
+                params = []
+                for a in args[1:]:
+                    name, eq, default = a.partition("=")
+                    name = name.strip()
+                    if not is_ident(name):
+                        raise ScriptError(f"*PART: {a!r} is not a parameter (write NAME=default)", n)
+                    params.append((name.upper(), default.strip() or None if eq else None))
+                start = pos - 1
+                block({"*ENDPART"}, n, word)  # checks the body parses; it runs in the part's own model
+                inner = "\n".join(line for _, line in lines[start + 1:pos - 1])
+                src = "\n".join(line for _, line in lines[start:pos])
+                return PartDef(n, args[0].upper(), params, textwrap.dedent(inner), src)
             if word in SIMPLE:
                 return Simple(n, word, args)
             if word in CLOSERS | MIDDLES:

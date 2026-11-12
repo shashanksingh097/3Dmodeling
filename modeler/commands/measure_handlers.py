@@ -230,7 +230,7 @@ def clash(p: Processor, a, b):
             lines.append(f"bodies {x} and {y} OVERLAP: {_n(overlap)} {m.units.lower()}3 in common")
         elif len(pairs) == 1 or not apart:
             d, _, _ = ft.distance(sx, sy)
-            lines.append(f"bodies {x} and {y} " + (f"touch (no overlap)" if d < 1e-7 else f"are clear: gap {_n(d)}"))
+            lines.append(f"bodies {x} and {y} " + ("touch (no overlap)" if d < 1e-7 else f"are clear: gap {_n(d)}"))
     if len(pairs) > 1:
         lines.append(f"{len(pairs)} pairs checked: " + (f"{hits} overlap" if hits else "no overlaps"))
     return "\n".join(lines)

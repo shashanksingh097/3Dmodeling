@@ -126,7 +126,10 @@ def _imports_in(p: Processor) -> list[str]:
 
     def walk(stmts):
         for st in stmts:
-            if getattr(st, "name", None) == "IMPORT" and len(getattr(st, "args", [])) >= 2:
+            name = getattr(st, "name", None)
+            args = getattr(st, "args", [])
+            if (name == "IMPORT" and len(args) >= 2) or (name == "LIB" and len(args) >= 2
+                                                          and args[0].strip().upper() == "LOAD"):
                 raw = st.args[1].strip()
                 if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
                     raw = raw[1:-1]
@@ -153,7 +156,7 @@ def save_project(p: Processor, path: str) -> int:
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("script.cmd", p.script())
         for i, name in enumerate(_imports_in(p)):
-            real = p.file_map.get(name, name)
+            real = p.file_map.get(name) or p.lib_files.get(name) or name
             if os.path.isfile(real):
                 stored = f"files/{i}_{os.path.basename(name)}"
                 z.write(real, stored)
