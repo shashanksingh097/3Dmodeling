@@ -42,6 +42,7 @@ from ..viewport.occ_view import OccViewport
 from . import assist
 from . import feature_actions as fa
 from . import form_dialog as fd
+from .progress import RebuildProgress
 
 
 def _mono() -> QFont:
@@ -365,6 +366,8 @@ class MainWindow(QMainWindow):
         self.viewport = OccViewport(self.processor.model)
         self.viewport.command.connect(self.execute)
         self.processor.view = self.viewport
+        self.rebuild_progress = RebuildProgress(self)
+        self.processor.progress = self.rebuild_progress
 
         self.output = QPlainTextEdit(readOnly=True)
         self.output.setFont(_mono())
@@ -572,10 +575,13 @@ class MainWindow(QMainWindow):
     def execute(self, text: str) -> Result:
         """The single entry point for GUI actions, clicks and typed text."""
         self.cmdline.remember(text)
-        if "\n" in text and not text.upper().startswith("HIST"):
-            results = self.processor.run_script(text)
-            return results[-1] if results else Result("", True)
-        return self.processor.run(text)
+        try:
+            if "\n" in text and not text.upper().startswith("HIST"):
+                results = self.processor.run_script(text)
+                return results[-1] if results else Result("", True)
+            return self.processor.run(text)
+        finally:
+            self.rebuild_progress.finish()
 
     def _on_enter(self) -> None:
         text = self.cmdline.text()

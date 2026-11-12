@@ -350,7 +350,7 @@ spring is a short script whose numbers you can change later.
 - Parts with parameters, instances that follow the definition, part library across projects `[M4]`
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
 - `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes (`HOLE` then `THREAD`) `[done]`; variable-radius and face fillets `[M3]`
-- Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call `[done]`; `ARRAY ... CUT`; patterns of features (repeat the last steps, not just a body) `[M3]`
+- Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call; `ARRAY ... CUT, target`; patterns of features (`PATTERN` repeats what the last steps did, not just a body) `[done]`
 - Direct editing: push/pull faces (`PUSHPULL`), delete faces and close the gap (`DELFACE`), great on imported STEP `[done]`; move a face by a vector, replace a face `[M5]`
 - Patterns: linear, polar, along a path `[M2]`
 
@@ -467,7 +467,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 |---|------|-------|---------------|--------------|
 | 1 | **References break when history is edited** (the topological naming problem). A pick that silently moves to another face makes every edited model suspect. | Much reduced | IDs carried through operations; IDs kept per entry, also when a loop shrinks and grows; IDs saved in project files; picks know which step made the entity and are repaired by fingerprint only when the match is unique, with a warning | Parent-based names for faces made by booleans; fingerprints for ID lists and named sets; GUI picks written as criteria (3.2, items 6 and 7) |
 | 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN`; `HOLE`, `SPLIT`, `SHELL`, `DRAFT` and `OFFSET` are checked the same way (a shell too thick names the thickest wall that works) | Same checks for `LOFT`/`SWEEP`/`PIPE`; a corpus of hard cases in CI |
-| 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 13 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Partly reduced | Snapshot after every entry, so only entries from the edit onwards re-run; `SUBTRACT, a, SEL` cuts all selected bodies in one kernel call (the 300 holes: 0.4 s instead of 13 s) | `ARRAY ... CUT` and feature patterns that use the same one-call route; skip entries whose inputs did not change; rebuild on a worker thread with progress and cancel |
+| 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 11 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Much reduced | Snapshot after every entry, so only entries from the edit onwards re-run; one kernel call for many cuts: `SUBTRACT, a, SEL`, `ARRAY ... CUT, target` and `PATTERN` (feature patterns): the 300 holes take 0.3 to 0.4 s, and an edit of the patterned hole re-runs in 0.4 s; a progress dialog with Cancel (which puts everything back) for long rebuilds | Skip entries whose inputs did not change (needs each entry to record which bodies and parameters it read); running the rebuild on a worker thread, if the kernel lets go of Python's lock |
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; trim, offset and fillet in sketches; planegcs as a faster back end if big sketches get slow |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
 | 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Not started | STL import sews to a solid when closed | Mesh bodies with `manifold3d` booleans (M6) |
@@ -488,10 +488,9 @@ imports is `HEAL` (section 12).
 
 Still open in the milestones already started, in the suggested order:
 
-1. Speed (risk 3): `ARRAY ... CUT` and feature patterns (repeat the last
-   steps along a line or a circle) through the one-call cut route; skip
-   steps whose inputs did not change; rebuild on a worker thread with
-   progress and cancel.
+1. Done: speed and feature patterns (`ARRAY ... CUT`, `PATTERN`, progress
+   and Cancel for long rebuilds; LANGUAGE.md section 21). Left from risk 3:
+   skipping entries whose inputs did not change.
 2. The sweep and loft GUI from M3: preview, a slider that moves a ghost
    section along the path, twist and scale handles that edit the law, and a
    small graph of each law. The twist handle is the last part of the M3 exit

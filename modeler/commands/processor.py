@@ -146,6 +146,10 @@ class Entry:
         return first_code_line(self.text)
 
 
+class RebuildCancelled(Exception):
+    """The person pressed Cancel while the history was being re-run."""
+
+
 class _Exit(Exception):
     pass
 
@@ -205,6 +209,10 @@ class Processor:
         self._warnings: list[str] = []
         self.refs: RefLog | None = None  # the running entry's pick fingerprints
         self.entry_uid = 0  # uid of the running history entry
+        self.entry_index = 0  # 0-based place of the running entry in the history
+        # called before each entry a rebuild re-runs, with (done, total, label);
+        # returning False cancels the rebuild (the GUI's progress dialog)
+        self.progress: Callable[[int, int, str], bool] | None = None
         self._quiet = True
 
         from . import queries  # registers the model query functions
@@ -298,6 +306,7 @@ class Processor:
             if uid > 0 and all(e.uid != uid for e in self.history):
                 entry.uid = uid
                 self._uid = max(self._uid, uid)
+        self.entry_index = self.cursor
         ok, message = self._run_entry(entry, stmts)
         entry.ok, entry.message = ok, message
         if not ok:
@@ -482,6 +491,8 @@ class Processor:
         try:
             for j in range(start, self.cursor):
                 e = self.history[j]
+                if self.progress is not None and not self.progress(j - start, self.cursor - start, e.label):
+                    raise RebuildCancelled()
                 if e.suppressed:
                     e.ok, e.message, e.warning = True, "suppressed", ""
                 else:
@@ -490,6 +501,7 @@ class Processor:
                     except ScriptError as exc:
                         e.ok, e.message, e.warning = False, str(exc), ""
                     else:
+                        self.entry_index = j
                         e.ok, e.message = self._run_entry(e, stmts)
                     if not e.ok:
                         errors.append(f"entry {j + 1}: {e.message}")
@@ -508,6 +520,29 @@ class Processor:
         if warnings:
             msg += f"\n{len(warnings)} warning{'s' if len(warnings) > 1 else ''}:\n  " + "\n  ".join(warnings)
         return msg
+
+    def history_backup(self) -> dict:
+        """Everything a history edit can change, to put back if it is cancelled."""
+        import copy as _copy
+
+        return {"history": _copy.deepcopy(self.history), "snaps": list(self._snaps), "cursor": self.cursor,
+                "uid": self._uid, "state": self._state()}
+
+    def history_restore(self, saved: dict) -> None:
+        self.history = saved["history"]
+        self._snaps = saved["snaps"]
+        self.cursor = saved["cursor"]
+        self._uid = saved["uid"]
+        self._restore(saved["state"])
+        self._history_changed()
+
+    def state_before(self, steps: int) -> dict:
+        """The saved state from before the last ``steps`` entries (as seen by
+        the running entry)."""
+        k = self.entry_index - steps
+        if steps < 1 or k < 0:
+            raise CommandError(f"there are only {self.entry_index} steps before this one")
+        return self._snaps[k]
 
     def entry_for_param(self, name: str) -> int | None:
         """1-based index of the top-level entry that last assigns ``name``, if it is a plain ``NAME = expr``."""

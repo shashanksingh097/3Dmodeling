@@ -1065,6 +1065,17 @@ def redo(p: Processor, n):
 def hist(p: Processor, action, n, text):
     if action == "LIST":
         return _history_text(p)
+    from .processor import RebuildCancelled
+
+    saved = p.history_backup()
+    try:
+        return _hist(p, action, n, text)
+    except RebuildCancelled:
+        p.history_restore(saved)
+        raise CommandError(f"HIST, {action}: cancelled; the model and the history are as they were") from None
+
+
+def _hist(p: Processor, action, n, text):
     if action == "REPLAY":
         return p.rebuild(0)
     if n <= 0:

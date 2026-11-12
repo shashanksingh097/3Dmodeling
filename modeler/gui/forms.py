@@ -110,7 +110,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Edit faces", ("PUSHPULL", "DELFACE")),
-    ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY")),
+    ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
@@ -387,19 +387,36 @@ def _hand() -> dict[str, FormSpec]:
 
     body = _F("b", "Body", "body", required=True, pick="BODY")
     fuse = _F("fuse", "Fuse into one body", "flag", word="FUSE")
+    cut = _F("cut", "Cut them all from", "body", pick="BODY",
+             help="a body to cut every copy from, the original too, in one step (leave empty to keep the copies)")
     mode = _F("mode", "Frame", "choice", "MINTWIST", choices=("MINTWIST", "FRENET", "FIXED"))
     add("ARRAY", [
         Variant("LINEAR", "In a row (or a grid)", [replace(body), _F("n", "Count", required=True, start="4"),
                                                     _F("d", "Step", "point", required=True, start="20, 0, 0"),
-                                                    _F("n2", "Count 2 (grid)"), _F("d2", "Step 2", "point"), fuse]),
+                                                    _F("n2", "Count 2 (grid)"), _F("d2", "Step 2", "point"), fuse,
+                                                    cut]),
         Variant("POLAR", "Around an axis", [replace(body), _F("n", "Count", required=True, start="6"),
                                             _F("angle", "Total angle", default="360"),
                                             _F("p", "Axis point", "point", default="0, 0, 0"),
-                                            _F("d", "Axis direction", "point", default="0, 0, 1"), fuse]),
+                                            _F("d", "Axis direction", "point", default="0, 0, 1"), fuse,
+                                            replace(cut)]),
         Variant("PATH", "Along a curve", [replace(body), _F("path", "Path", "body", required=True, pick="BODY"),
                                           _F("n", "Count", required=True, start="5"),
                                           _F("twist", "Twist law", "expr", default="0"),
-                                          _F("scale", "Scale law", "expr", default="1"), mode, fuse]),
+                                          _F("scale", "Scale law", "expr", default="1"), mode, fuse,
+                                          replace(cut)]),
+    ], word_slot=0)
+    steps = _F("steps", "Steps that made the feature", required=True, start="1",
+               help="how many of the last history steps made the feature: 1 for a HOLE, 2 for SEL then THREAD ...")
+    pbody = _F("b", "On body", "body", required=True, pick="BODY")
+    add("PATTERN", [
+        Variant("LINEAR", "In a row (or a grid)", [pbody, steps, _F("n", "Count", required=True, start="4"),
+                                                    _F("d", "Step", "point", required=True, start="20, 0, 0"),
+                                                    _F("n2", "Count 2 (grid)"), _F("d2", "Step 2", "point")]),
+        Variant("POLAR", "Around an axis", [replace(pbody), replace(steps), _F("n", "Count", required=True, start="6"),
+                                            _F("angle", "Total angle", default="360"),
+                                            _F("p", "Axis point", "point", default="0, 0, 0"),
+                                            _F("d", "Axis direction", "point", default="0, 0, 1")]),
     ], word_slot=0)
 
     pts = _F("pts", "Points", "points", required=True, pick="VERTEX",
@@ -780,6 +797,10 @@ def build(sp: FormSpec, values: dict[str, str], variant: str = "") -> str:
             if val.lower() in ("1", "true", "yes", "on", f.word.lower()):
                 words.append(f.word)
             continue
+        if f.key == "cut" and sp.command == "ARRAY":  # CUT, target: written with the words at the end
+            if val:
+                words.extend(["CUT", val])
+            continue
         if f.kind == "params":  # NAME=value: their place does not matter, so they go last
             for t in _list(val):
                 name, eq, expr = t.partition("=")
@@ -871,6 +892,12 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
             args = args[:slot] + args[slot + 1:]
     v = sp.variant(variant)
     values: dict[str, str] = {}
+    if sp.command == "ARRAY":
+        up = [a.strip().upper() for a in args]
+        if "CUT" in up:
+            k = up.index("CUT")
+            values["cut"] = args[k + 1] if k + 1 < len(args) else ""
+            args = args[:k] + args[k + 2:]
     words = {f.word.upper(): f for f in v.fields if f.kind == "flag"}
     pfield = next((f for f in v.fields if f.kind == "params"), None)
     plain, pvals = [], []
@@ -885,7 +912,7 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
     if pfield is not None:
         values[pfield.key] = ", ".join(pvals)
     i = 0
-    fields = [f for f in v.fields if f.kind not in ("flag", "params")]
+    fields = [f for f in v.fields if f.kind not in ("flag", "params") and not (f.key == "cut" and sp.command == "ARRAY")]
     for f in fields:
         if f.kind == "point":
             if i < len(plain) and plain[i].startswith("("):

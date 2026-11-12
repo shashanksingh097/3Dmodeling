@@ -244,7 +244,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 |-------|----------|
 | Primitives | `BLOCK, x,y,z, dx,dy,dz` · `CYL, x,y,z, r, h [, dx,dy,dz] [, angle]` · `TUBE, x,y,z, ro, ri, h [, axis]` · `CONE, x,y,z, r1, r2, h [, axis]` · `SPHERE, x,y,z, r` · `TORUS, x,y,z, ring_r, tube_r [, axis]` · `WEDGE, x,y,z, dx,dy,dz, ltx` |
 | Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name; `SEL` in place of the tools means every selected body) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
-| Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original |
+| Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original, or `CUT, target` to cut them all from another body in one step · `PATTERN, LINEAR/POLAR, b, steps, n, ...` repeats a feature (section 21) |
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
@@ -1025,4 +1025,60 @@ DELFACE                           ! ... and now it is gone
 
 The Features toolbar has **Push/Pull…** and **Delete faces** buttons for the
 selected faces. See `scripts/m4_shapes.cmd`.
+
+## 21. Patterns of features, and fast repeated cuts
+
+Cutting holes one at a time makes the kernel rebuild the whole body for each
+cut, so 300 holes take about 11 seconds, and the same again after an edit
+near the start of the history. Two commands do the same work in one kernel
+call:
+
+* `ARRAY, ..., CUT, target` places the copies as `ARRAY` always does, then
+  cuts all of them (the original too) from `target` in one step. The tool
+  body is used up, as with `SUBTRACT` (with `KEEP, ON` it stays, hidden).
+
+  ```
+  BLOCK, 0,0,0, 160,160,10
+  NAME, LAST, plate
+  CYL, 5,5,-1, 2, 12
+  ARRAY, LINEAR, LAST, 15, 10,0,0, 20, 0,8,0, CUT, plate   ! 300 holes in 0.3 s
+  ```
+
+* `PATTERN, kind, b, steps, n, ...` repeats a **feature**: whatever the last
+  `steps` history steps did to body `b`. The material those steps added and
+  the material they took away are copied to each place and put in at once
+  (one fuse and one cut, however many copies). So any feature can be
+  repeated: a `HOLE`, a pocket, a boss with its hole, a `THREAD`, engraved
+  `TEXT`.
+
+  | Kind | Arguments after `steps` |
+  |------|-------------------------|
+  | `LINEAR` | `n, dx,dy,dz [, n2, dx2,dy2,dz2]` (a row, or a grid) |
+  | `POLAR` | `n [, angle [, x,y,z [, dx,dy,dz]]]` (round an axis; 360 by default) |
+
+  ```
+  HOLE, plate, 5,5,10, 4
+  PATTERN, LINEAR, plate, 1, 15, 10,0,0, 20, 0,8,0       ! 300 holes in 0.4 s
+
+  CYL, 0,0,0, 40, 5
+  NAME, LAST, flange
+  CYL, 30,0,5, 3, 4
+  UNION, flange, LAST                  ! a boss ...
+  HOLE, flange, 30,0,9, 2              ! ... with a hole through it
+  PATTERN, POLAR, flange, 3, 6         ! the last 3 steps, 6 times round the axis
+  ```
+
+  `steps` counts history steps, selections included: `SEL ...` then
+  `THREAD` is 2 steps. Edit the feature (`HIST, EDIT` on the `HOLE`) and the
+  pattern follows. As in other modelers, each copy is the same change
+  made at another place, so the shape round the original must be the same
+  where the copies go (a copy that runs off the edge of the body is cut off
+  there, like the original would be).
+
+### Long rebuilds: progress and Cancel
+
+When an edit far back in the history takes more than half a second to
+re-run, the window shows which step is running, with a **Cancel** button.
+Cancel puts the model and the history back exactly as they were before the
+edit.
 
