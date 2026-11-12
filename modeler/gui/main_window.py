@@ -532,6 +532,10 @@ class MainWindow(QMainWindow):
             lambda: fa.faces_selected(p, "SHELL", ask("Shell", "Wall thickness:", 2.0, 0.001)))
         act("Draft…", "Tilt the selected side faces for moulding\nRuns: DRAFT, angle",
             lambda: fa.faces_selected(p, "DRAFT", ask("Draft", "Angle (degrees):", 3.0, -89, 89)))
+        act("Push/Pull…", "Move the selected faces along their normals (+ adds material, - removes it)\n"
+                          "Runs: PUSHPULL, d", lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
+        act("Delete faces", "Remove the selected faces and close the gap (a hole, boss or fillet goes away)\n"
+                            "Runs: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
         tb.addSeparator()
         act("Distance", "Shortest distance between the two selected things\nRuns: DIST", lambda: fa.two_selected(p, "DIST"))
         act("Angle", "Angle between the two selected faces or edges\nRuns: ANGLE", lambda: fa.two_selected(p, "ANGLE"))

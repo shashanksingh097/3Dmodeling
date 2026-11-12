@@ -256,7 +256,10 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
-| Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE]` · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
+| Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE]` · `SPINELOFT, spine, s1, s2, ... [, FRENET/FIXED] [, SURFACE]` (section 20) · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `RAILSWEEP, profile, rail1 [, rail2] ...` (section 19) · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
+| Threads and springs | `THREAD [, pitch] [, length] [, hand]` · `SPRING, x,y,z, r, pitch, turns, d ...` (section 18) |
+| Text and surfaces | `TEXT, text, x,y,z, size [, depth] [, nx,ny,nz [, angle]] [, LEFT/CENTER/RIGHT] [, font] [, style]` · `SURFACE, PARAM, x(u,v), y(u,v), z(u,v), u0, u1, v0, v1 [, nu, nv] [, thick]` (section 20) |
+| Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
 | Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
@@ -920,3 +923,106 @@ HELIX, 0, 0, 0, 15, 60, 100/60      ! the rail, through the strip's outer edge
 LINE, 0, 0, 0, 0, 0, 100            ! the post's axis
 RAILSWEEP, 1, 2, 0, 3               ! the strip winds round the post
 ```
+
+## 20. Text, spine lofts, equation surfaces and face editing
+
+### TEXT
+
+`TEXT, text, x,y,z, size [, depth] [, nx,ny,nz [, angle]] [, align] [, font] [, style]`
+writes letters from a font. The baseline starts at `(x,y,z)` and runs along
+the plane's X (the same plane rule as profiles, section 9); `size` is the
+font size, so capital letters are about 0.7 of it tall.
+
+* `depth` 0 gives flat letters (faces); any other depth gives solid letters
+  that thick along the normal (negative: below the plane).
+* `align` is `LEFT` (default), `CENTER` or `RIGHT` of the point.
+* `font` is a font name (`sans-serif`, the default, `serif`, `monospace`,
+  `DejaVu Sans` ...) or the path to a `.ttf`/`.otf` file; `style` is
+  `REGULAR`, `BOLD`, `ITALIC` or `BOLDITALIC`.
+* Put the text in quotes when it has spaces or commas: `TEXT, "M8 x 1.25", ...`.
+
+The letters are exact curves from the font, so they cut and fillet like any
+other solid:
+
+```
+BLOCK, 0,0,0, 70,24,4
+NAME, LAST, plate
+TEXT, "M4 DONE", 35,6,4, 9, 1.2, , , , , CENTER, , BOLD   ! raised
+UNION, plate, LAST
+TEXT, "No 16", 4,1.5,3.4, 4, 1                           ! engraved 0.6 deep
+SUBTRACT, plate, LAST
+```
+
+### SPINELOFT
+
+`SPINELOFT, spine, s1, s2, ... [, FRENET/FIXED] [, SURFACE]` lofts through
+sections that sit along a curved centre line. Draw each section where it
+belongs, across the spine (it need not be exactly square to it). The
+sections can be given in any order; they are sorted along the spine, and the
+result says where each one sits (`t` from 0 to 1). Between them, the shape
+blends smoothly (through all the sections at once, so there is no kink at a
+middle one) and stays square to the spine, so the shape follows the bend of
+the spine rather than cutting straight across as a plain `LOFT` would.
+
+```
+ARC, 0,0,0, 14.64,0,35.36, 50,0,50                ! a 90 degree bend
+NAME, LAST, spine
+CIRCLE, 0,0,0, 9                                  ! round at the start
+RECT, 14.64,0,35.36, 20, 14, 4, 0.7071,0,0.7071    ! rounded square half way
+CIRCLE, 50,0,50, 5, 1,0,0                         ! smaller and round at the end
+SPINELOFT, spine, 2, 3, 4
+```
+
+`FRENET` turns the sections with the spine's bend, `FIXED` never turns them
+(default: `MINTWIST`, as for `SWEEP`). `SURFACE` leaves the ends open.
+
+### SURFACE
+
+`SURFACE, PARAM, x(u,v), y(u,v), z(u,v), u0, u1, v0, v1 [, nu, nv] [, thick]`
+samples an equation on a grid of `nu` x `nv` steps (32 each by default) and
+fits one exact smooth surface through the points. Angles in `sin` and `cos`
+are in degrees, as everywhere.
+
+* An open surface stays a surface, or becomes a solid wall when `thick` is
+  given (negative: to the other side).
+* A surface that closes on itself (a torus, a sphere, any closed shell)
+  becomes a solid by itself.
+
+```
+SURFACE, PARAM, u, v, 3*sin(6*u)*cos(6*v), 0, 60, 0, 60, 30, 30, 2     ! a wavy cover, 2 thick
+SURFACE, PARAM, (20 + 6*cos(v))*cos(u), (20 + 6*cos(v))*sin(u), 6*sin(v), 0, 360, 0, 360   ! torus
+```
+
+### PUSHPULL and DELFACE: editing faces directly
+
+These change the faces of a solid without needing the steps that made it,
+so they work on imported STEP parts too. Select faces first (click them, or
+`SEL, S, FACE, ...`).
+
+* `PUSHPULL, d` moves each selected face by `d` along its outward normal and
+  lets the faces around it stretch to meet it. Positive adds material,
+  negative removes it. A flat face moves flat; a hole's wall changes the
+  hole's radius (`PUSHPULL, -1` makes it 1 bigger in radius); a fillet's
+  face changes the fillet. Face IDs stay the same.
+* `DELFACE` removes the selected faces and closes the gap: the faces around
+  them grow to fill it. Select all the faces of the feature to remove: a
+  through hole's wall, a blind hole's wall and bottom, a fillet's face, a
+  boss's side and top.
+
+```
+BLOCK, 0,0,0, 40,30,10
+NAME, LAST, blk
+CYL, 20,15,-1, 4, 12
+SUBTRACT, blk, LAST
+SEL, S, FACE, BODY, blk
+SEL, R, FACE, NORMAL, 0,0,1
+PUSHPULL, 6                       ! the top goes up by 6
+SEL, S, FACE, BODY, blk
+SEL, R, FACE, TYPE, CYLINDER
+PUSHPULL, -2                      ! the hole grows from radius 4 to 6
+DELFACE                           ! ... and now it is gone
+```
+
+The Features toolbar has **Push/Pull…** and **Delete faces** buttons for the
+selected faces. See `scripts/m4_shapes.cmd`.
+

@@ -262,7 +262,7 @@ Grouped by what the user asked for. `[M#]` is the milestone that delivers it.
 - Primitives with full parameters and placement `[M1]`
 - 2D sketches with constraints, then extrude/revolve `[M3]`
 - Sweeps, lofts, pipes and helices, with shapes that change along the path: see 5.2 `[M2]`/`[M4]`/`[M5]`
-- Text and logos (font outlines to sketches) `[M4]`
+- Text and logos: `TEXT` from any font, flat or solid letters `[done]`
 
 ### 5.2 Shapes on curves: sweeps, lofts and morphing
 
@@ -280,14 +280,14 @@ spring is a short script whose numbers you can change later.
 **Profiles (the moving shape)** `[M2]`
 - `CIRCLE`, `ELLIPSE`, `RECT` (with corner radius), `POLYGON` (n sides), `SLOT`, `STAR`, `AIRFOIL` (NACA 4-digit: chord, camber, thickness)
 - Each one is placed on any plane (origin, normal, and an X direction), and a closed `POLYLINE`/`SPLINE` is a profile too
-- Later: any sketch from the sketcher `[M3]`, text outlines `[M4]`
+- Later: any sketch from the sketcher `[M3]`; text outlines are faces from `TEXT` `[done]`
 
 **Loft: a smooth shape through sections** `[M2]`
 - `LOFT` through 2 or more sections: smooth (one B-spline surface) or ruled (straight between sections)
 - Closed lofts that loop back to the first section (a ring with a changing section)
 - Sections with different shapes and point counts (circle to square to star); start points matched so the surface does not twist by accident
 - Solid or open surface; caps on or off
-- Loft along a spine curve, so the sections follow a curved center line `[M4]`
+- Loft along a spine curve, so the sections follow a curved center line (`SPINELOFT`) `[done]`
 - Loft with guide curves that the side of the shape must pass through `[M5]`
 
 **Sweep: drag a profile along a path** `[M2]`
@@ -340,7 +340,7 @@ spring is a short script whose numbers you can change later.
 - Analysis: zebra stripes, Gaussian/mean curvature map, draft angle `[M5]`
 
 ### 5.4 Equation-based geometry
-- Parametric curves `x(t), y(t), z(t)` and surfaces `x(u,v), y(u,v), z(u,v)`, fitted to NURBS so they become exact geometry usable in booleans `[M4]`
+- Parametric curves `x(t), y(t), z(t)` and surfaces `x(u,v), y(u,v), z(u,v)`, fitted to NURBS so they become exact geometry usable in booleans (`CURVE, PARAM`, `SURFACE, PARAM`; closed surfaces become solids) `[done]`
 - Implicit shapes `f(x,y,z) ≤ 0` (gyroids, metaballs, superquadrics), meshed by marching cubes; smooth blends between them `[M6]`
 - Lattice infill of a solid (gyroid, cubic, octet) `[M6]`
 - Driven dimensions: any number in any command can be an expression of parameters `[M2]`
@@ -351,7 +351,7 @@ spring is a short script whose numbers you can change later.
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
 - `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes (`HOLE` then `THREAD`) `[done]`; variable-radius and face fillets `[M3]`
 - Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call `[done]`; `ARRAY ... CUT`; patterns of features (repeat the last steps, not just a body) `[M3]`
-- Direct editing: push/pull a face, move/delete faces (great on imported STEP) `[M4]`
+- Direct editing: push/pull faces (`PUSHPULL`), delete faces and close the gap (`DELFACE`), great on imported STEP `[done]`; move a face by a vector, replace a face `[M5]`
 - Patterns: linear, polar, along a path `[M2]`
 
 ### 5.6 Freehand
@@ -478,28 +478,32 @@ work. Numbers were measured in November 2026 on the code after M2.
 
 ## Next step
 
-M0, M1 and M2 are done, including a fill-in form for every command, so a
-whole part can be made by mouse alone (docs/M2-forms.md). The first round
-of hardening (risks 1 and 2) is in.
-M3 has started with what the sketcher stands on and the features people
-reach for first: datum planes, axes and points, work planes, `HOLE`,
-`SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, the measure commands and the section
-view (see LANGUAGE.md sections 13 to 15).
+Done: M0, M1, M2 (with a fill-in form for every command, docs/M2-forms.md),
+the first round of hardening (risks 1 and 2), M3 apart from the items below,
+and all of M4: parts and instances (LANGUAGE.md section 17,
+docs/M4-parts.md), threads and springs (section 18, docs/M4-threads.md),
+rail sweeps (section 19, docs/M4-rails.md), and text, spine lofts, equation
+surfaces and direct face editing (section 20, docs/M4-shapes.md). Healing
+imports is `HEAL` (section 12).
 
-Next, in order:
+Still open in the milestones already started, in the suggested order:
 
-0. Started M4 with parts and instances: `*PART ... *ENDPART`, `INST`,
-   `EXPLODE`, the part library (`LIB, LOAD`, `LIBSAVE`), and making a part
-   from history steps (LANGUAGE.md section 17, docs/M4-parts.md). Then
-   real screw threads and springs (`THREAD`, `SPRING`, LANGUAGE.md section
-   18, docs/M4-threads.md), and sweeps steered by one or two rails
-   (`RAILSWEEP`, LANGUAGE.md section 19, docs/M4-rails.md). Next in M4:
-   spine lofts, text.
-1. Done: the sketcher (solver spike, then `SKETCH ... ENDSKETCH` on any
-   plane or face with constraints and dimensions, `EXTRUDE` and `REVOLVE`,
-   all by mouse too; LANGUAGE.md section 16, docs/M3-sketcher.md).
-2. Sketch tools people ask for next: trim, extend, offset, sketch fillet,
-   mirror and pattern in the sketch, projecting body edges into a sketch.
-3. Feature patterns: repeat the last steps along a line or a circle, using
-   the one-call cut route (risk 3).
-4. Sweep and loft in the GUI: preview, section slider, law handles.
+1. Speed (risk 3): `ARRAY ... CUT` and feature patterns (repeat the last
+   steps along a line or a circle) through the one-call cut route; skip
+   steps whose inputs did not change; rebuild on a worker thread with
+   progress and cancel.
+2. The sweep and loft GUI from M3: preview, a slider that moves a ghost
+   section along the path, twist and scale handles that edit the law, and a
+   small graph of each law. The twist handle is the last part of the M3 exit
+   test.
+3. Sketch tools: trim, extend, offset, sketch fillet, mirror and pattern in
+   the sketch, projecting body edges into a sketch.
+4. Layers (M3).
+5. The same result checks for `LOFT`/`SWEEP`/`PIPE` as for booleans, and a
+   corpus of hard cases in CI (risk 2).
+6. A run of the viewer on a real Windows or macOS desktop (risk 5; needs
+   the user's machine).
+
+Then M5 (NURBS freeform), M6 (equations and freehand cuts), M7 (sculpt),
+M8 (polish and installers) and M9 (the AI assistant), in the order the user
+prefers.
