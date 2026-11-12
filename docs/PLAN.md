@@ -315,8 +315,8 @@ spring is a short script whose numbers you can change later.
 
 **Pipes, springs and threads**
 - `PIPE, path, r`: round tube along any curve, solid or hollow (wall), with a radius law `[M2]`
-- Springs: `HELIX` + `PIPE`, variable pitch, ground ends `[M4]`
-- Threads: a thread profile swept on a helix, added or cut, standard metric sizes `[M4]`
+- Springs: `SPRING` with closed and ground ends; any other pitch law with `HELIX` + `PIPE` `[done]`
+- Threads: `THREAD` cuts real ISO metric threads, outside and inside, coarse or any pitch `[done]`
 
 **Shape follows a curve (deformers)** `[M5]`
 - `FLOW`: bend an existing body so it follows a curve (a straight text or pattern wrapped onto a path)
@@ -349,7 +349,7 @@ spring is a short script whose numbers you can change later.
 - Bodies kept and reusable after booleans (`KEEP`) `[M2]`
 - Parts with parameters, instances that follow the definition, part library across projects `[M4]`
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
-- `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes `[M4]`; variable-radius and face fillets `[M3]`
+- `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes (`HOLE` then `THREAD`) `[done]`; variable-radius and face fillets `[M3]`
 - Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call `[done]`; `ARRAY ... CUT`; patterns of features (repeat the last steps, not just a body) `[M3]`
 - Direct editing: push/pull a face, move/delete faces (great on imported STEP) `[M4]`
 - Patterns: linear, polar, along a path `[M2]`
@@ -490,8 +490,9 @@ Next, in order:
 
 0. Started M4 with parts and instances: `*PART ... *ENDPART`, `INST`,
    `EXPLODE`, the part library (`LIB, LOAD`, `LIBSAVE`), and making a part
-   from history steps (LANGUAGE.md section 17, docs/M4-parts.md). Next in
-   M4: threads and springs, rail sweeps and spine lofts, text.
+   from history steps (LANGUAGE.md section 17, docs/M4-parts.md). Then
+   real screw threads and springs (`THREAD`, `SPRING`, LANGUAGE.md section
+   18, docs/M4-threads.md). Next in M4: rail sweeps and spine lofts, text.
 1. Done: the sketcher (solver spike, then `SKETCH ... ENDSKETCH` on any
    plane or face with constraints and dimensions, `EXTRUDE` and `REVOLVE`,
    all by mouse too; LANGUAGE.md section 16, docs/M3-sketcher.md).

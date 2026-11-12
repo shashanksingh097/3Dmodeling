@@ -160,7 +160,16 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
 
         return distance(m.body(body_id(a, "GAP")).shape, m.body(body_id(b, "GAP")).shape)[0]
 
+    def pitch(d):
+        from ..geometry.threads import coarse_for_shaft
+
+        c = coarse_for_shaft(float(d))
+        if c is None:
+            raise ExprError(f"PITCH({d:g}): not an ISO metric coarse size")
+        return c[1]
+
     return {
+        "PITCH": pitch,
         "ORIGIN": origin,
         "DIR": direction,
         "GAP": gap,
