@@ -11,6 +11,9 @@
   ``tests/corpus/scripts.json``, so a kernel upgrade cannot change a model
   unnoticed. After a deliberate change, update the numbers with
   ``python tests/test_corpus.py --update`` and look at the diff.
+  A script that uses ``TEXT`` is checked for errors, validity and its
+  number of bodies only: the letters come from a system font, and fonts
+  differ between Linux, Windows and macOS (179, 186 and 194 faces).
 """
 
 from __future__ import annotations
@@ -82,6 +85,8 @@ def test_example_script(path):
     want = json.loads(NUMBERS.read_text()).get(path.name)
     assert want is not None, f"{path.name} is not in {NUMBERS.name}: run python tests/test_corpus.py --update"
     assert got["bodies"] == want["bodies"]
+    if re.search(r"^\s*TEXT\b", path.read_text(), re.M | re.I):
+        return  # system fonts differ by platform (see above)
     assert got["faces"] == want["faces"]
     assert got["volume"] == pytest.approx(want["volume"], rel=1e-4, abs=1e-3)
 
