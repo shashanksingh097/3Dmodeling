@@ -1,6 +1,7 @@
 name: Release builds
 
 # Builds the desktop app for Windows, macOS and Linux with PyInstaller.
+# - A pull request that touches packaging builds too (no release).
 # - Run it by hand (Actions > Release builds > Run workflow) to get test
 #   builds as downloadable artifacts.
 # - Push a tag such as v0.1.0 and it also makes a DRAFT GitHub release with
@@ -11,6 +12,8 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+  pull_request:  # a PR that changes the packaging gets test builds too
+    paths: ["packaging/**", ".github/workflows/release.yml", "pyproject.toml"]
 
 permissions:
   contents: write
