@@ -92,7 +92,8 @@ be made by mouse alone, [docs/M2-forms.md](docs/M2-forms.md)) are in. M3 so far:
 ([docs/M3.md](docs/M3.md)) and the sketcher with `EXTRUDE` and `REVOLVE`
 ([docs/M3-sketcher.md](docs/M3-sketcher.md)). M4 so far: reusable parts
 placed as instances, and a part library ([docs/M4-parts.md](docs/M4-parts.md)),
-and real screw threads and springs ([docs/M4-threads.md](docs/M4-threads.md)).
+real screw threads and springs ([docs/M4-threads.md](docs/M4-threads.md)),
+and sweeps steered by rails ([docs/M4-rails.md](docs/M4-rails.md)).
 
 ## Requirements
 

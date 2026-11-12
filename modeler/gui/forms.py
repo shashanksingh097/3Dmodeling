@@ -105,7 +105,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
-    ("Shapes from curves", ("LOFT", "SWEEP", "MORPH", "PIPE")),
+    ("Shapes from curves", ("LOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY")),
@@ -187,11 +187,13 @@ _LABELS = {
     "corners": "Corners", "sketch": "Sketch", "axis": "Axis", "back": "Back distance", "neutral": "Neutral plane",
     "expr": "Expression", "what": "What", "plane": "Plane", "fx": "x(t)", "fy": "y(t)", "fz": "z(t)",
     "t0": "t from", "t1": "t to", "closed": "Closed turns at each end", "finish": "Ends",
+    "rail1": "Rail 1", "rail2": "Rail 2", "thick": "Thickness law", "fit": "Fit",
 }
 # labels that differ for one command
 _COMMAND_LABELS = {
     ("SPRING", "r"): "Coil radius",
     ("SPRING", "d"): "Wire diameter",
+    ("RAILSWEEP", "path"): "Path, empty = along rail 1",
     ("THREAD", "pitch"): "Pitch, 0 = ISO coarse",
     ("THREAD", "length"): "Length, 0 = the whole face",
 }
@@ -207,6 +209,7 @@ _KINDS = {
     ("LIBSAVE", "part"): "part",
     ("MIRROR", "copy"): "bool",
     ("SWEEP", "solid"): "bool",
+    ("RAILSWEEP", "solid"): "bool",
     ("SPLIT", "by"): "datum",
     ("WORKPLANE", "plane"): "datum",
     ("SECTION", "plane"): "datum",
