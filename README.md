@@ -90,10 +90,12 @@ core, [docs/M1.md](docs/M1.md)) and M2 (shapes on curves,
 [docs/M2.md](docs/M2.md), and a fill-in form for every command so a part can
 be made by mouse alone, [docs/M2-forms.md](docs/M2-forms.md)) are in. M3 so far: datums and part features
 ([docs/M3.md](docs/M3.md)) and the sketcher with `EXTRUDE` and `REVOLVE`
-([docs/M3-sketcher.md](docs/M3-sketcher.md)). M4 so far: reusable parts
+([docs/M3-sketcher.md](docs/M3-sketcher.md)). M4 is done: reusable parts
 placed as instances, and a part library ([docs/M4-parts.md](docs/M4-parts.md)),
 real screw threads and springs ([docs/M4-threads.md](docs/M4-threads.md)),
-and sweeps steered by rails ([docs/M4-rails.md](docs/M4-rails.md)).
+sweeps steered by rails ([docs/M4-rails.md](docs/M4-rails.md)), and
+text, spine lofts, equation surfaces and push/pull face editing
+([docs/M4-shapes.md](docs/M4-shapes.md)).
 
 ## Requirements
 

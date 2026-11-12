@@ -613,3 +613,94 @@ def rail_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, rails: list[TopoDS_Wire]
         M, b = _affine_station(f0, f, A, cvec, k if similar else 1.0)
         sections.append(_as_wire(_apply(profile, M, b, similar)))
     return loft(sections, solid=solid and profile.Closed(), ruled=False), n
+
+
+# ---- spine lofts ---------------------------------------------------------------
+# A loft whose sections follow a curved centre line (the spine). Each section
+# is drawn where it belongs along the spine. Its points are read in the spine's
+# frame at that place, the points are blended smoothly from section to
+# section (a cubic through all of them, so the side stays smooth through the
+# middle sections too), and each blend is set back square to the spine at its
+# own place. At a section's own station this gives back the section where it
+# was drawn (as a smooth curve through 64 points of it).
+
+
+def _station_of(fs: list[Frame], q) -> int:
+    """Index of the fine frame whose plane passes nearest to point q."""
+    best, bi = None, 0
+    for i, f in enumerate(fs):
+        d = sub(q, f.o)
+        along = abs(dot(d, f.tan))
+        score = along + 1e-3 * norm(d)  # in the plane, and near the spine
+        if best is None or score < best:
+            best, bi = score, i
+    return bi
+
+
+def _hermite(ts: list[float], vals: list[list[tuple]], t: float) -> list[tuple]:
+    """Cubic (Catmull-Rom with uneven spacing) through ``vals`` at ``ts``."""
+    n = len(ts)
+    if n == 2:
+        w = (t - ts[0]) / (ts[1] - ts[0])
+        return [add(mul(a, 1 - w), mul(b, w)) for a, b in zip(vals[0], vals[1])]
+    k = max(0, min(n - 2, next((q for q in range(n - 1) if t <= ts[q + 1] + 1e-12), n - 2)))
+
+    def slope(i):
+        lo, hi = max(0, i - 1), min(n - 1, i + 1)
+        return [mul(sub(b, a), 1 / (ts[hi] - ts[lo])) for a, b in zip(vals[lo], vals[hi])]
+
+    h = ts[k + 1] - ts[k]
+    s = (t - ts[k]) / h
+    h00, h10, h01, h11 = 2 * s**3 - 3 * s**2 + 1, s**3 - 2 * s**2 + s, -2 * s**3 + 3 * s**2, s**3 - s**2
+    m0, m1 = slope(k), slope(k + 1)
+    return [add(add(mul(p0, h00), mul(d0, h10 * h)), add(mul(p1, h01), mul(d1, h11 * h)))
+            for p0, d0, p1, d1 in zip(vals[k], m0, vals[k + 1], m1)]
+
+
+def spine_loft(sections: list[TopoDS_Wire], spine: TopoDS_Wire, mode: str = "MINTWIST", n: int = 0,
+               solid: bool = True) -> tuple[TopoDS_Shape, int, list[float]]:
+    """Loft through sections placed along a spine curve.
+
+    Returns the shape, the number of loft sections used, and where each given
+    section sits on the spine (t from 0 to 1), in spine order."""
+    if len(sections) < 2:
+        raise CurveError("SPINELOFT: give at least 2 sections")
+    if not all(w.Closed() for w in sections):
+        raise CurveError("SPINELOFT: all sections must be closed curves")
+    ps = PathSampler(spine)
+    fine = 800
+    fs = frames(ps, fine, mode)
+    placed = []
+    for w in sections:
+        pc = PathSampler(w)
+        ring = [pc.at(pc.length * i / 48)[0] for i in range(48)]
+        c = tuple(sum(q[k] for q in ring) / len(ring) for k in range(3))
+        placed.append((_station_of(fs, c), w))
+    placed.sort(key=lambda kv: kv[0])
+    idx = [k for k, _ in placed]
+    if len(set(idx)) != len(idx):
+        raise CurveError("SPINELOFT: two sections sit at the same place on the spine")
+    ts = [k / fine for k in idx]
+    k_pts = 64
+    local = [_profile_points(w, fs[k], k_pts) for k, w in placed]
+    # how many loft sections: enough for the spine's bend between the ends
+    turn = 0.0
+    for a, b in zip(fs[idx[0]:idx[-1]], fs[idx[0] + 1:idx[-1] + 1]):
+        turn += math.degrees(math.acos(max(-1.0, min(1.0, dot(a.tan, b.tan)))))
+    if n <= 0:
+        n = max(len(sections) - 1, int(math.ceil(turn / 6.0)), 4 * (len(sections) - 1))
+        n = min(n, 120)
+    if n < len(sections) - 1 or n > 400:
+        raise CurveError(f"SPINELOFT: the number of sections must be from {len(sections) - 1} to 400")
+    # stations: every given section, plus evenly spread ones in between
+    stations = set(idx)
+    for i in range(n + 1):
+        stations.add(idx[0] + round((idx[-1] - idx[0]) * i / n))
+    wires = []
+    for k in sorted(stations):
+        f = fs[k]
+        loc = local[idx.index(k)] if k in idx else _hermite(ts, local, k / fine)
+        world = [add(f.o, add(mul(f.side, u), add(mul(f.up, v), mul(f.tan, z)))) for (u, v, z) in loc]
+        wires.append(spline(world + [world[0]]))
+    shape = loft(wires, solid=solid)
+    return shape, len(wires), ts

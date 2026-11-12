@@ -43,6 +43,9 @@ _COMMAND_CHOICES = {
     ("SHELL", "side"): ("IN", "OUT"),
     ("SPRING", "finish"): ("PLAIN", "GROUND"),
     ("RAILSWEEP", "fit"): ("SCALE", "TURN"),
+    ("SURFACE", "kind"): ("PARAM",),
+    ("TEXT", "align"): ("LEFT", "CENTER", "RIGHT"),
+    ("TEXT", "style"): ("REGULAR", "BOLD", "ITALIC", "BOLDITALIC"),
     ("OFFSET", "corners"): ("ROUND", "SHARP"),
     ("SECTION", "side"): ("ABOVE", "BELOW"),
 }

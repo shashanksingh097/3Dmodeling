@@ -73,13 +73,13 @@ def two_selected(p: Processor, what: str) -> list[str]:
     return [what]
 
 
-def faces_selected(p: Processor, what: str, value: float) -> list[str]:
+def faces_selected(p: Processor, what: str, value: float | None) -> list[str]:
     m = p.model
     if what == "SHELL" and m.selection_kind == "BODY" and m.selection:
         return [f"SHELL, {_r(value)}"]
     if m.selection_kind != "FACE" or not m.selection:
         raise NeedInput(f"{what}: select faces first" + (" (or bodies, for a closed hollow part)" if what == "SHELL" else ""))
-    return [f"{what}, {_r(value)}"]
+    return [what if value is None else f"{what}, {_r(value)}"]
 
 
 def section_toggle(p: Processor) -> list[str]:

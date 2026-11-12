@@ -105,9 +105,11 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
-    ("Shapes from curves", ("LOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
+    ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
+    ("Text and surfaces", ("TEXT", "SURFACE")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
+    ("Edit faces", ("PUSHPULL", "DELFACE")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
@@ -152,6 +154,9 @@ STARTS: dict[str, dict[str, str]] = {
     "CHAMFER": {"d": "1"},
     "HOLE": {"d": "6"},
     "SHELL": {"t": "2"},
+    "TEXT": {"text": "TEXT", "x": "0, 0, 0", "size": "10", "depth": "2"},
+    "SURFACE": {"kind": "PARAM", "fx": "u", "fy": "v", "fz": "3*sin(6*u)*cos(6*v)", "u1": "60", "v1": "40"},
+    "PUSHPULL": {"d": "2"},
     "DRAFT": {"angle": "3"},
     "OFFSET": {"d": "1"},
     "PIPE": {"r": "2"},
@@ -188,6 +193,9 @@ _LABELS = {
     "expr": "Expression", "what": "What", "plane": "Plane", "fx": "x(t)", "fy": "y(t)", "fz": "z(t)",
     "t0": "t from", "t1": "t to", "closed": "Closed turns at each end", "finish": "Ends",
     "rail1": "Rail 1", "rail2": "Rail 2", "thick": "Thickness law", "fit": "Fit",
+    "text": "Text", "size": "Font size", "align": "Align", "font": "Font", "style": "Style",
+    "u0": "u from", "u1": "u to", "v0": "v from", "v1": "v to", "nu": "Grid points along u",
+    "nv": "Grid points along v", "spine": "Spine",
 }
 # labels that differ for one command
 _COMMAND_LABELS = {
@@ -196,6 +204,12 @@ _COMMAND_LABELS = {
     ("RAILSWEEP", "path"): "Path, empty = along rail 1",
     ("THREAD", "pitch"): "Pitch, 0 = ISO coarse",
     ("THREAD", "length"): "Length, 0 = the whole face",
+    ("TEXT", "depth"): "Depth, 0 = flat letters",
+    ("SURFACE", "fx"): "x(u,v)",
+    ("SURFACE", "fy"): "y(u,v)",
+    ("SURFACE", "fz"): "z(u,v)",
+    ("SURFACE", "thick"): "Wall thickness, 0 = surface only",
+    ("PUSHPULL", "d"): "Distance (+ adds, - removes)",
 }
 
 _EXTRA_CHOICES = {
@@ -408,6 +422,13 @@ def _hand() -> dict[str, FormSpec]:
                                   _F("ruled", "Straight between sections", "flag", word="RULED"),
                                   _F("closed", "Loop back to the first", "flag", word="CLOSED"),
                                   _F("surface", "Surface only (no caps)", "flag", word="SURFACE")])])
+    add("SPINELOFT", [Variant("", "", [
+        _F("spine", "Spine", "body", required=True, pick="BODY", help="the centre line the sections follow"),
+        _F("s", "Sections", "bodies", required=True, pick="BODY", count=16,
+           help="the section curves, each drawn across the spine where it belongs (any order)"),
+        _F("frenet", "Sections follow the spine's bend (FRENET)", "flag", word="FRENET"),
+        _F("fixed", "Sections never turn (FIXED)", "flag", word="FIXED"),
+        _F("surface", "Surface only (no caps)", "flag", word="SURFACE")])])
 
     def two(name):
         k = ("FACE", "EDGE", "VERTEX", "BODY", "DATUM")

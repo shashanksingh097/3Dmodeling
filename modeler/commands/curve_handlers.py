@@ -147,7 +147,7 @@ def _run(what: str, fn: Callable, *a, **kw):
         return fn(*a, **kw)
     except cv.CurveError as exc:
         msg = str(exc)
-        for prefix in ("LOFT: ", "SWEEP: ", "MORPH: "):
+        for prefix in ("LOFT: ", "SWEEP: ", "MORPH: ", "SPINELOFT: "):
             if msg.startswith(prefix):
                 msg = msg[len(prefix):]
         raise CommandError(f"{what}: {msg}") from None
@@ -294,6 +294,40 @@ def loft(p: Processor, **raws):
     wires = [_wire(p, b, "a LOFT section") for b in ids]
     shape = _run("LOFT", sw.loft, wires, solid="SURFACE" not in words, ruled="RULED" in words, closed="CLOSED" in words)
     return _new(p, shape, f"LOFT through {len(ids)} sections")
+
+
+_SPINE_WORDS = ("SURFACE",) + tuple(sw.MODES)
+
+
+@command("SPINELOFT", Arg("spine", BodyRef, help="the centre line the sections follow"),
+         *[Arg(f"a{i}", Raw, "") for i in range(1, 17)],
+         help="Loft through sections placed along a curved centre line: SPINELOFT, spine, s1, s2, s3. Draw each "
+              "section where it belongs, across the spine; between them the shape blends smoothly and stays square "
+              "to the spine. Add FRENET or FIXED (how the sections turn, default MINTWIST) or SURFACE (no caps).")
+def spineloft(p: Processor, spine, **raws):
+    words, ids = set(), []
+    for raw in (r.strip() for r in raws.values()):
+        if not raw:
+            continue
+        if is_ident(raw) and raw.upper() in _SPINE_WORDS:
+            words.add(raw.upper())
+            continue
+        ids.append(p._body_arg(REGISTRY["SPINELOFT"], raw))
+    if len(ids) < 2:
+        raise CommandError("SPINELOFT: give the spine and at least 2 section curves")
+    if len(set(ids)) != len(ids):
+        raise CommandError("SPINELOFT: a section is used twice")
+    if spine in ids:
+        raise CommandError("SPINELOFT: the spine cannot also be a section")
+    modes = [w for w in words if w in sw.MODES]
+    if len(modes) > 1:
+        raise CommandError("SPINELOFT: give one of MINTWIST, FRENET or FIXED")
+    sp = _wire(p, spine, "the SPINELOFT spine")
+    wires = [_wire(p, b, "a SPINELOFT section") for b in ids]
+    shape, used, ts = _run("SPINELOFT", sw.spine_loft, wires, sp, modes[0] if modes else "MINTWIST", 0,
+                           "SURFACE" not in words)
+    at = ", ".join(f"{t:.3g}" for t in ts)
+    return _new(p, shape, f"SPINELOFT through {len(ids)} sections at t = {at} ({used} loft sections)")
 
 
 _LAW_ARGS = (
