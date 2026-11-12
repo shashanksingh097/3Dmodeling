@@ -213,7 +213,14 @@ FUNCTIONS: dict[str, Callable] = {
     "VEC": _vec,
     "NORM": _length,
     "DISTANCE": _dist,
+    "TABLE": lambda *a: _table().function(*a),
 }
+
+
+def _table():
+    from . import table
+
+    return table
 
 CONSTANTS: dict[str, float] = {"PI": math.pi, "E": math.e, "TRUE": 1, "FALSE": 0}
 

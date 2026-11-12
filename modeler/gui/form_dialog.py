@@ -30,7 +30,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..lang.script import ScriptError, split_args, strip_comment
+from ..lang.script import ScriptError, split_args
+from .forms import replace_code_line as _replace_code_line
 from . import forms as F
 
 if TYPE_CHECKING:
@@ -419,18 +420,6 @@ class FormDialog(QDialog):
         if "name" in self.fields and self.spec.command in ("PLANE", "AXIS", "POINT", "SKETCH", "CM"):
             fresh = F.initial(p, self.spec, self.variant).get("name", "")
             self.fields["name"].set_value(fresh)
-
-
-def _replace_code_line(old: str, new: str) -> str:
-    """Put a new command in place of an entry's command line, keeping its comments."""
-    lines = old.splitlines()
-    for i, raw in enumerate(lines):
-        code = strip_comment(raw).strip()
-        if code:
-            comment = raw[len(strip_comment(raw)):].strip()
-            lines[i] = new + (f"    {comment}" if comment else "")
-            return "\n".join(lines)
-    return new
 
 
 def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None = None) -> FormDialog | None:

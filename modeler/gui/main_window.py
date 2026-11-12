@@ -232,6 +232,10 @@ class HistoryPanel(QTableWidget):
             menu.addAction("Edit…", lambda: self.edit_row(row))
             if fd.F.has_form(e.text):
                 menu.addAction("Edit in form…", lambda: self.win.open_form("", e.text, row))
+            from .sweep_editor import _is_sweep
+
+            if _is_sweep(e.text):
+                menu.addAction("Sweep editor…", lambda: self.win.open_sweep_editor(row))
             menu.addAction("Insert before…", lambda: self._insert(n))
             menu.addAction("Resume" if e.suppressed else "Suppress",
                            lambda: self.win.execute(hist_command("RESUME" if e.suppressed else "SUPPRESS", n)))
@@ -524,6 +528,9 @@ class MainWindow(QMainWindow):
                         "Runs: EXTRUDE, sketch, d [, ADD/CUT, body]", lambda: self.sketch_ui.extrude() or [])
         act("Revolve…", "Turn a sketch about an axis into a solid\nRuns: REVOLVE, sketch, axis, angle",
             lambda: self.sketch_ui.revolve() or [])
+        act("Sweep editor…", "Shape the twist and scale of a SWEEP by dragging handles, with a preview\n"
+                             "Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT",
+            lambda: (self.open_sweep_editor(), [])[1])
         tb.addSeparator()
         act("Plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id", lambda: fa.plane_on_face(p))
         act("Work plane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
@@ -546,6 +553,12 @@ class MainWindow(QMainWindow):
         act("Clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
         act("Section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                        "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+
+    def open_sweep_editor(self, row: int | None = None):
+        """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""
+        from .sweep_editor import open_editor
+
+        return open_editor(self, row)
 
     def open_form(self, name: str, text: str = "", edit_row: int | None = None):
         """Open a command's fill-in form (see gui/forms.py)."""

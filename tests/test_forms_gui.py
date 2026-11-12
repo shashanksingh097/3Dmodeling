@@ -218,3 +218,42 @@ def test_rebuild_shows_progress_and_cancel_puts_everything_back(app, win, monkey
     assert [e.text for e in win.processor.history] == texts
     assert win.processor.evaluate("W") == 10
     assert win.rebuild_progress.dialog is None  # closed again
+
+
+def test_sweep_editor_drag_a_twist_handle_and_apply(app, win):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    win.execute("LINE, 0,0,0, 0,0,40\nRECT, 0,0,0, 10, 4\nSWEEP, LAST, LAST-1, 90*t")
+    pump(app, 20)
+    dlg = win.open_sweep_editor()
+    assert dlg is not None
+    pump(app, 20)
+    assert len(win.viewport._ghost_ais) == 2  # the see-through sweep and the section
+    g = dlg.graphs[0]
+
+    def mouse(kind, q):
+        t = {"press": QMouseEvent.MouseButtonPress, "move": QMouseEvent.MouseMove,
+             "release": QMouseEvent.MouseButtonRelease}[kind]
+        btn = Qt.LeftButton
+        ev = QMouseEvent(t, q, q, btn, btn if kind != "release" else Qt.NoButton, Qt.NoModifier)
+        {"press": g.mousePressEvent, "move": g.mouseMoveEvent, "release": g.mouseReleaseEvent}[kind](ev)
+
+    st = dlg.edit.law_stations("twist")
+    g._fit()
+    q = g.to_px(*st[-1])  # the handle at the tip: 90 degrees
+    mouse("press", q)
+    target = g.to_px(1.0, 30.0)
+    mouse("move", QPointF(q.x(), target.y()))
+    mouse("release", QPointF(q.x(), target.y()))
+    pump(app, 20)
+    assert dlg.edit.stations["twist"][-1][1] == pytest.approx(30, abs=1.5)
+    dlg.slider.setValue(1000)
+    pump(app, 5)
+    assert "twist 3" in dlg.readout.text() or "twist 2" in dlg.readout.text()
+    dlg.apply()
+    pump(app, 20)
+    text = win.processor.history[2].text
+    assert text.startswith("SWEEP, LAST, LAST-1, TABLE(t, 0, 0,")
+    assert win.processor.history[2].ok
+    assert win.viewport._ghost_ais == []  # the preview went away with the editor
