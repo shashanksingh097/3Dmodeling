@@ -42,6 +42,13 @@ SEL, S, FACE, NORMAL, 0,0,1
 SEL, R, FACE, LOC, Z, T_FLANGE
 CM, flange_top, FACE
 
+! checks that hold for any values above: the step fails if one does not
+ASSERT, VALID(flange)
+ASSERT, HOLES(flange, D_BOLT), EQ, N_BOLTS
+ASSERT, HOLES(flange, D_BORE, 1), EQ, 1          ! the bore goes all the way through
+ASSERT, BBOX(flange).dz, EQ, T_FLANGE + H_HUB, 0.001
+ASSERT, SYMMETRIC(flange, "YZ")
+
 *MSG, "flange volume: ", round(VOL(flange)), " mm3"
 VIEW, ISO
 FIT

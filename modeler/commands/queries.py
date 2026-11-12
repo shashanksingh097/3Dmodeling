@@ -168,7 +168,59 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
             raise ExprError(f"PITCH({d:g}): not an ISO metric coarse size")
         return c[1]
 
+    def shape_body(b, fn):
+        return m.body(body_id(b, fn)).shape
+
+    def valid(b):
+        from ..geometry import robust
+
+        return 1 if robust.report(shape_body(b, "VALID"))["ok"] else 0
+
+    def pieces(b):
+        from ..geometry import robust
+
+        return len(robust.solids(shape_body(b, "PIECES")))
+
+    def nfaces(b, kind=None):
+        bid = body_id(b, "NFACES")
+        ids = m.body(bid).entity_ids["FACE"]
+        if kind is None:
+            return len(ids)
+        from ..geometry import recognize as rc
+
+        want = str(kind).lower()
+        if want not in rc.SURFACE_NAMES.values():
+            raise ExprError(f"NFACES(): the type is one of {', '.join(sorted(set(rc.SURFACE_NAMES.values())))}")
+        return sum(1 for i in ids if rc.surface_type(m.entity_shape("FACE", i)) == want)
+
+    def holes(b, d=None, through=None):
+        from ..geometry import recognize as rc
+
+        found = rc.holes(shape_body(b, "HOLES"), m.tolerance)
+        if d is not None and float(d) > 0:
+            tol = 1e-6 * max(1.0, float(d)) + m.tolerance
+            found = [h for h in found if abs(h.d - float(d)) <= tol]
+        if through is not None:
+            found = [h for h in found if h.through == bool(through)]
+        return len(found)
+
+    def symmetric(b, plane):
+        from ..geometry import recognize as rc
+
+        d = datum(plane, "SYMMETRIC")
+        if d.kind != "PLANE":
+            raise ExprError("SYMMETRIC(): give a plane, e.g. SYMMETRIC(b, \"YZ\")")
+        try:
+            return 1 if rc.mirror_matches(shape_body(b, "SYMMETRIC"), d.origin, d.z) else 0
+        except ValueError as exc:
+            raise ExprError(f"SYMMETRIC(): {exc}") from None
+
     return {
+        "VALID": valid,
+        "PIECES": pieces,
+        "NFACES": nfaces,
+        "HOLES": holes,
+        "SYMMETRIC": symmetric,
         "PITCH": pitch,
         "ORIGIN": origin,
         "DIR": direction,

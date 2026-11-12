@@ -25,6 +25,7 @@ are instant and editing entry *k* only re-runs entries *k* onwards.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -214,6 +215,8 @@ class Processor:
         # returning False cancels the rebuild (the GUI's progress dialog)
         self.progress: Callable[[int, int, str], bool] | None = None
         self._quiet = True
+        # time.monotonic() after which a running entry stops (sandbox runs); None: no limit
+        self.deadline: float | None = None
 
         from . import queries  # registers the model query functions
 
@@ -694,6 +697,8 @@ class Processor:
         self._steps += 1
         if self._steps > MAX_STEPS:
             raise CommandError(f"stopped after {MAX_STEPS} steps (endless loop?)")
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            raise CommandError("stopped: the time limit for this run is used up")
         try:
             getattr(self, "_exec_" + type(st).__name__)(st)
         except (CommandError, ModelError, ExprError) as exc:

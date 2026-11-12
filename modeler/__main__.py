@@ -7,6 +7,11 @@
                                       (the script's own NAME = ... keeps that value),
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
+    python -m modeler tools           the AI assistant's tool definitions, as JSON
+    python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
+                                      call one tool headless and print its JSON answer;
+                                      NAME - reads "name {json}" lines from stdin, one
+                                      answer per line, sharing one sandbox
 """
 
 from __future__ import annotations
@@ -93,8 +98,47 @@ def _gui(script: str | None) -> int:
     return app.exec()
 
 
+def _tool(args: list[str]) -> int:
+    import json
+
+    from .ai.tools import Toolbox
+    from .commands import Processor
+
+    p = Processor()
+    if args[:1] == ["--script"] and len(args) >= 2:
+        with open(args[1], encoding="utf-8") as f:
+            bad = [r for r in p.run_script(f.read()) if not r.ok]
+        if bad:
+            print(json.dumps({"error": f"the script failed: {bad[0].line}: {bad[0].message}"}))
+            return 1
+        args = args[2:]
+    if not args:
+        print(__doc__)
+        return 2
+    box = Toolbox(p)
+    if args[0] == "-":
+        for line in sys.stdin:
+            name, _, rest = line.strip().partition(" ")
+            if name:
+                print(box.call_json(name, rest), flush=True)
+        return 0
+    out = box.call_json(args[0], args[1] if len(args) > 1 else "")
+    print(out)
+    return 1 if '"error"' in out[:10] else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["tools"]:
+        import json
+
+        from .ai.tools import Toolbox
+        from .commands import Processor
+
+        print(json.dumps(Toolbox(Processor()).definitions(), indent=1))
+        return 0
+    if args[:1] == ["tool"]:
+        return _tool(args[1:])
     if args[:1] == ["run"] and len(args) >= 2:
         return _run_headless(args[1:])
     if args[:1] == ["check"]:

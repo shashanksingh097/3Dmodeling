@@ -85,6 +85,10 @@ Every numeric argument of every command is an expression.
 | `EXISTS(id, "FACE")`, `PARAM("W", default)` | 1/0, a parameter with a fallback |
 | `ORIGIN("top")`, `DIR("top")` | a datum's origin, and its normal (plane) or direction (axis), as points |
 | `GAP(a, b)` | shortest distance between two bodies (0 when they touch or overlap) |
+| `VALID(b)`, `PIECES(b)` | 1 if the body passes `CHECK`, else 0; how many separate solids it is made of |
+| `NFACES(b)`, `NFACES(b, "cylinder")` | how many faces, or faces of one type (plane cylinder cone sphere torus bspline ...) |
+| `HOLES(b)`, `HOLES(b, d)`, `HOLES(b, d, 1)` | round holes in the body: all, of diameter `d`, and only through (1) or only blind (0) holes; section 23 |
+| `SYMMETRIC(b, "YZ")` | 1 if the body is its own mirror image in the plane (a base plane or a datum plane) |
 
 `ECHO, VOL(flange) / 1000` prints a value without changing anything.
 
@@ -268,6 +272,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
+| Check and describe | `ASSERT, value [, op, ref [, tol]]` · `DESCRIBE [, b/SEL/FACE, id [, SUMMARY/FACES/EDGES]] [, JSON]` · `SELFOR [, kind, id]` · `LINT [, file]` · `DIFF [, first [, last]] [, JSON]` (section 23) |
 
 ## 8. Running scripts without the GUI
 
@@ -1276,3 +1281,102 @@ only that layer, and delete it. Each click runs the matching `LAYER`
 command, so it lands in the history like typed text. `COLOR`, `MATERIAL` and
 `ISOLATE` have forms in the Commands menu under "Layers, colours,
 materials".
+
+## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF
+
+These commands say exactly what the model is and whether it is right,
+in words and numbers. They are what the AI assistant uses instead of
+looking at pictures (docs/M9-ai-tools.md), and they are just as handy
+typed by hand.
+
+### ASSERT: checks that live in the script
+
+```
+ASSERT, VALID(flange)                         ! true or false
+ASSERT, HOLES(flange, D_BOLT), EQ, N_BOLTS    ! a comparison: EQ NE LT GT LE GE
+ASSERT, BBOX(flange).dz, EQ, 40, 0.001        ! ... with a tolerance
+ASSERT, VOL(flange), BETWEEN, 66000, 68000
+ASSERT, VOL(a) > VOL(b)                        ! one comparison written out
+ASSERT, SYMMETRIC(flange, "YZ")
+```
+
+When the check holds, `ASSERT` does nothing but print `ok: HOLES(flange, 8)
+= 6`. When it does not, the step fails and says why: `ASSERT failed:
+BBOX(flange).dz is 40, expected EQ 41 (± 0.01)`, and like any failed step it
+does not go into the history (a script stops there). A passing `ASSERT` is a
+history step, so it runs again whenever the history is re-run: change
+`N_BOLTS` in the Parameters panel and the check on the number of holes is
+done again with the new value. `scripts/flange.cmd` ends with a few.
+
+Without a tolerance, `EQ` allows a millionth of the value (plus `/TOL`).
+
+### DESCRIBE: the model in words
+
+| Command | What it shows |
+|---------|---------------|
+| `DESCRIBE` | every body (kind, volume, bounding box), parameters, datums, sketches, named sets, the selection, the history length |
+| `DESCRIBE, flange` | one body: valid, volume, area, box, centre of mass, numbers of faces, edges and vertices, faces by type, flat faces by direction, the step that made it, and its **holes**: diameter, through or depth, counterbore, axis, positions, and the circle they sit on when they form a pattern |
+| `DESCRIBE, flange, FACES` / `EDGES` | one row per face (type, area, centre, normal or axis and radius, whether a round face is on the inside, the faces next to it) or edge (type, length, ends, radius, the two faces) |
+| `DESCRIBE, FACE, 12` · `DESCRIBE, SEL` | those faces, edges or vertices |
+
+Add `JSON` at the end for the same data as compact JSON. Numbers are
+rounded to 3 decimals and lists are in ID order, so two answers compare
+line by line.
+
+A hole is a round, concave face (or several on one axis) that goes all the
+way round. It is *through* when its axis leaves the body at both ends
+without meeting material; a chamfer, countersink or counterbore round the
+mouth does not count as material, a floor or a drill point does. A wider
+hole on the same axis that starts where a narrower one ends is that hole's
+counterbore. A rounded slot end or a fillet in a corner is only part of a
+cylinder, so it is not a hole.
+
+### SELFOR: a selector instead of an ID
+
+`SELFOR, FACE, 12` (or `SELFOR` with one thing selected) prints the `SEL`
+lines that pick exactly that entity by what it is, most telling criteria
+first:
+
+```
+SELFOR, EDGE, 45
+SEL, S, EDGE, RADIUS, EQ, 20
+SEL, R, EDGE, LOC, Z, 38.5
+```
+
+Use these in scripts in place of `PICK, EDGE, 45`: when an earlier step
+changes and IDs move, the criteria still find the right edge. When nothing
+but the ID tells an entity apart from its look-alikes, `SELFOR` says so and
+lists them.
+
+### LINT: check a script before running it
+
+`LINT, "bracket.cmd"` (or `LINT` alone, for the history as it stands) reads
+a script without running it and reports, by line: syntax errors, unknown
+commands (with the nearest names), too many or missing arguments, names used
+before they are set, and raw IDs (`PICK`, `SEL ... ID`) that may move.
+
+### DIFF: what changed
+
+`DIFF` shows what the last step did; `DIFF, 3` what happened since entry 3;
+`DIFF, 0, 5` what the first five entries made. Bodies made, removed and
+changed (volume, faces added and removed, moved, renamed, layer or
+material), parameters, datums and sketches. `JSON` at the end gives the
+data.
+
+### The same, for the AI assistant
+
+`modeler/ai/tools.py` wraps these (and a sandbox to try scripts in) as a
+fixed list of tools that take and give JSON. They can be tried from a
+shell:
+
+```
+python -m modeler tools                                  # the tool list
+python -m modeler tool --script scripts/flange.cmd describe_body '{"body": "flange"}'
+python -m modeler tool --script scripts/flange.cmd -  < calls.txt   # one "name {json}" per line
+```
+
+The sandbox is a copy of the model: `run` executes a script there step by
+step and reports what each step changed, `check` tests a list of `ASSERT`
+expectations, `diff` and `sandbox_script` show what was added. Nothing in
+the sandbox reaches the real model; commands that read or write files are
+refused there.
