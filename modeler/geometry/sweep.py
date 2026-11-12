@@ -290,17 +290,144 @@ def _check(shape: TopoDS_Shape, what: str) -> TopoDS_Shape:
     return shape
 
 
-def loft(wires: list[TopoDS_Wire], solid: bool = True, ruled: bool = False, closed: bool = False) -> TopoDS_Shape:
+def wire_polygon(wire: TopoDS_Wire, n: int = 48) -> list[tuple]:
+    """n points along a curve, evenly in its parameter (enough for the overlap tests)."""
+    c = BRepAdaptor_CompCurve(wire)
+    u0, u1 = c.FirstParameter(), c.LastParameter()
+    out = []
+    for i in range(n):
+        p = c.Value(u0 + (u1 - u0) * i / n)
+        out.append((p.X(), p.Y(), p.Z()))
+    return out
+
+
+def _fmt_t(t: float) -> str:
+    return f"{t:.2f}".rstrip("0").rstrip(".") or "0"
+
+
+def _fmt_p(p) -> str:
+    size = max(1.0, max(abs(v) for v in p))
+    return "(" + ", ".join(f"{(0.0 if abs(v) < 1e-9 * size else v) + 0.0:.3g}" for v in p) + ")"
+
+
+def check_slices(polys: list, what: str, ts: list[float] | None = None, path: "PathSampler | None" = None,
+                 closed: bool = False) -> None:
+    """Raise CurveError when two sections of the shape touch: the shape would
+    run into itself (see geometry/overlap.py). ``ts``/``path`` say where each
+    section sits on a path, for the message; without them sections are
+    numbered from 1 as the user gave them."""
+    from . import overlap
+
+    n = len(polys)
+    skip = (lambda i, j: i == 0 and j == n - 1) if closed else None
+    found = overlap.clashes(polys, skip=skip)
+    if not found:
+        return
+    c = found[0]
+    at = _fmt_p(c.where)
+    A, B = overlap.Section(polys[c.i]), overlap.Section(polys[c.j])
+    if ts is None and A.ok and B.ok and abs(float(A.n @ B.n)) > 1 - 1e-9 and abs(float((B.c - A.c) @ A.n)) < 1e-6 * (A.r + B.r):
+        raise CurveError(f"{what}: sections {c.i + 1} and {c.j + 1} lie in the same plane, one over the other, so "
+                         "the shape would have no thickness there. Move one of them along the shape.")
+    if ts is None or path is None:
+        raise CurveError(f"{what}: sections {c.i + 1} and {c.j + 1} cut through each other near {at}, so the "
+                         "shape would pass through itself. Move them apart, or turn one so they do not cross.")
+    ta, tb = ts[c.i], ts[c.j]
+    sa, sb = ta * path.length, tb * path.length
+    o, tan = path.at(sa)
+    sec = overlap.Section(polys[c.i])
+    if sec.ok and abs(float(sec.n @ tan)) < 0.2:
+        raise CurveError(f"{what}: the profile lies along the path instead of across it (at t = {_fmt_t(ta)}), so the "
+                         "shape would have no thickness. Draw the profile square to the path at its start.")
+    reach = max(norm(sub(q, o)) for q in polys[c.i])
+    gap = abs(sb - sa)
+    if closed:
+        gap = min(gap, path.length - gap)
+    if gap <= math.pi * reach:  # neighbours: the path bends (or turns a corner) too tightly here
+        k = 16
+        tans = [path.at(sa + (sb - sa) * i / k)[1] for i in range(k + 1)]
+        steps = [math.acos(max(-1.0, min(1.0, dot(a, b)))) for a, b in zip(tans, tans[1:])]
+        turn = sum(steps)
+        if max(steps, default=0.0) > math.radians(20):
+            kk = max(range(len(steps)), key=lambda i: steps[i])
+            tc = ta + (tb - ta) * (kk + 0.5) / k
+            raise CurveError(f"{what}: the path has a sharp corner at t = {_fmt_t(tc)}, and the shape folds into "
+                             "itself there. Round the corner (draw the path as a SPLINE, or put an ARC between the lines).")
+        bend = gap / turn if turn > 1e-9 else float("inf")
+        tm = (ta + tb) / 2
+        raise CurveError(f"{what}: the shape runs into itself near t = {_fmt_t(tm)}: the path bends with a radius of "
+                         f"about {bend:.3g} there, but the profile reaches {reach:.3g} from the path. Make the profile "
+                         "smaller than the bend, or the bend gentler.")
+    raise CurveError(f"{what}: the shape runs into itself: the part at t = {_fmt_t(ta)} meets the part at "
+                     f"t = {_fmt_t(tb)} near {at}. The path comes back too close to itself for this profile.")
+
+
+def check_section_curves(wires: list[TopoDS_Wire], what: str) -> None:
+    """Each closed section must be a simple loop: a figure-of-eight cannot be filled."""
+    from . import overlap
+
+    for k, w in enumerate(wires):
+        if not w.Closed():
+            continue
+        hit = overlap.self_crossing(wire_polygon(w, 96))
+        if hit is not None:
+            raise CurveError(f"{what}: section {k + 1} crosses itself near {_fmt_p(hit)}; a section must be a "
+                             "simple loop (no figure-of-eight)")
+
+
+def sweep_slices(profile: TopoDS_Wire, path: TopoDS_Wire, mode: str, scale: Law | None = None,
+                 n: int = 0) -> tuple[list, list[float], "PathSampler", bool]:
+    """Where an exact sweep's sections are: the profile carried along the path
+    (with its scale law) at n+1 stations. For check_slices."""
+    ps = PathSampler(path)
+    if n <= 0:
+        n = min(160, max(24, auto_sections(ps, lambda t: 0.0, (scale or (lambda t: 1.0),), 1)))
+    fs = frames(ps, n, mode)
+    f0 = fs[0]
+    prof = wire_polygon(profile)
+    polys, ts = [], []
+    closed = ps.closed
+    last = n if not closed else n - 1
+    for i in range(last + 1):
+        t = i / n
+        k = scale(t) if scale is not None else 1.0
+        M, b = _station_matrix(f0, fs[i], 0.0, k, k, 0.0, 0.0, k)
+        polys.append([tuple(sum(M[r][c] * q[c] for c in range(3)) + b[r] for r in range(3)) for q in prof])
+        ts.append(t)
+    return polys, ts, ps, closed
+
+
+def loft(wires: list[TopoDS_Wire], solid: bool = True, ruled: bool = False, closed: bool = False,
+         what: str = "LOFT", ts: list[float] | None = None, path: "PathSampler | None" = None) -> TopoDS_Shape:
+    """Loft through the wires. A solid loft is first checked for sections that
+    cut through each other (``ts``/``path`` name them by place on a path)."""
     if len(wires) < 2:
         raise CurveError("LOFT: give at least 2 sections")
     if solid and not all(w.Closed() for w in wires):
         solid = False
+    if solid:
+        if ts is None:
+            check_section_curves(wires, what)
+            from . import overlap
+
+            k = overlap.folds_back([wire_polygon(w) for w in wires])
+            if k is not None:
+                raise CurveError(f"{what}: the shape goes past section {k + 1} and comes back to it, so it would "
+                                 "pass through itself. Give the sections in order along the shape.")
+        check_slices([wire_polygon(w) for w in wires], what, ts, path, closed=closed or (path is not None and path.closed))
     seq = list(wires) + ([wires[0]] if closed else [])
-    mk = BRepOffsetAPI_ThruSections(solid and not closed, ruled, 1e-6)
-    mk.CheckCompatibility(True)
-    for w in seq:
-        mk.AddWire(w)
-    mk.Build()
+    # A closed loft (it ends on its first section again) fails in
+    # ThruSections now and then for the very same input: about half the runs
+    # on a ring of three circles, depending on where things land in memory.
+    # A failed run is simply tried again; open lofts have not shown this.
+    for _attempt in range(12 if closed else 1):
+        mk = BRepOffsetAPI_ThruSections(solid and not closed, ruled, 1e-6)
+        mk.CheckCompatibility(True)
+        for w in seq:
+            mk.AddWire(w)
+        mk.Build()
+        if mk.IsDone():
+            break
     if not mk.IsDone():
         raise CurveError("LOFT: the kernel could not fit a shape through these sections")
     shape = mk.Shape()
@@ -319,9 +446,19 @@ def _solid_from_shell(shape: TopoDS_Shape) -> TopoDS_Shape:
     sewn = sew.SewedShape()
     ex = TopExp_Explorer(sewn, TopAbs_SHELL)
     if not ex.More():
-        return shape
+        # one face closed on itself (a ring lofted round a circle): sewing
+        # hands back the bare face, but the loft's own shell is already closed
+        ex = TopExp_Explorer(shape, TopAbs_SHELL)
+        if not ex.More():
+            return shape
     mk = BRepBuilderAPI_MakeSolid((getattr(TopoDS, "Shell_s", None) or TopoDS.Shell)(ex.Current()))
-    return mk.Solid() if mk.IsDone() else shape
+    if not mk.IsDone():
+        return shape
+    from OCP.BRepLib import BRepLib
+
+    solid = mk.Solid()
+    BRepLib.OrientClosedSolid_s(solid)  # outward faces, so the volume comes out positive
+    return solid
 
 
 def _set_mode(mk, ps: PathSampler, mode: str) -> None:
@@ -334,7 +471,12 @@ def _set_mode(mk, ps: PathSampler, mode: str) -> None:
         mk.SetMode(False)  # corrected Frenet = minimal twist
 
 
-def exact_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, mode: str = "MINTWIST", solid: bool = True) -> TopoDS_Shape:
+def exact_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, mode: str = "MINTWIST", solid: bool = True,
+                what: str = "SWEEP") -> TopoDS_Shape:
+    if solid and profile.Closed() and path.Closed():
+        return _closed_path_sweep(profile, path, mode, None)
+    if solid and profile.Closed():
+        check_slices(*_slices_args(profile, path, mode, None, what))
     mk = BRepOffsetAPI_MakePipeShell(path)
     _set_mode(mk, PathSampler(path), mode)
     mk.Add(profile, False, False)
@@ -362,7 +504,23 @@ def auto_sections(ps: PathSampler, twist: Law, scales: tuple, n_profiles: int) -
     return int(min(160, max(12, round(n))))
 
 
-def law_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, scale: Law, mode: str = "MINTWIST", solid: bool = True) -> TopoDS_Shape:
+def _closed_path_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, mode: str, scale: Law | None) -> TopoDS_Shape:
+    """A solid swept round a closed path (a ring, a knot). The exact sweep
+    leaves two caps where the ends meet and comes out invalid, so this is a
+    closed loft through sections along the path instead (within a percent of
+    the exact volume on a trefoil knot)."""
+    one, zero = (lambda t: 1.0), (lambda t: 0.0)
+    shape, _ = section_sweep([profile], path, zero, scale or one, one, one, zero, zero, mode, 0, True)
+    return shape
+
+
+def _slices_args(profile, path, mode, scale, what):
+    polys, ts, ps, closed = sweep_slices(profile, path, mode, scale)
+    return polys, what, ts, ps, closed
+
+
+def law_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, scale: Law, mode: str = "MINTWIST", solid: bool = True,
+              what: str = "SWEEP") -> TopoDS_Shape:
     """Exact sweep whose profile grows or shrinks by ``scale(t)`` (OCCT's
     evolution law). Robust on long, winding paths such as springs."""
     ps = PathSampler(path)
@@ -374,6 +532,10 @@ def law_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, scale: Law, mode: str = "
         if v <= 1e-9:
             raise CurveError(f"SWEEP: the scale must stay above 0 (it is {v:g} at t = {t:g})")
         arr.SetValue(i + 1, gp_Pnt2d(ps.u0 + (ps.u1 - ps.u0) * t, v))
+    if solid and profile.Closed() and path.Closed():
+        return _closed_path_sweep(profile, path, mode, scale)
+    if solid and profile.Closed():
+        check_slices(*_slices_args(profile, path, mode, scale, what))
     law = Law_Interpol()
     law.Set(arr, False)
     mk = BRepOffsetAPI_MakePipeShell(path)
@@ -445,7 +607,9 @@ def section_sweep(
         and abs((twist(1) - twist(0)) % 360) < 1e-9 and mode != "FIXED"
     if closed_path:
         sections = sections[:-1]
-    shape = loft(sections, solid=solid, ruled=False, closed=closed_path)
+    what = "MORPH" if morph else "SWEEP"
+    shape = loft(sections, solid=solid, ruled=False, closed=closed_path, what=what,
+                 ts=[i / n for i in range(len(sections))], path=ps)
     return shape, n
 
 
@@ -612,7 +776,8 @@ def rail_sweep(profile: TopoDS_Wire, path: TopoDS_Wire, rails: list[TopoDS_Wire]
         similar = k is not None
         M, b = _affine_station(f0, f, A, cvec, k if similar else 1.0)
         sections.append(_as_wire(_apply(profile, M, b, similar)))
-    return loft(sections, solid=solid and profile.Closed(), ruled=False), n
+    return loft(sections, solid=solid and profile.Closed(), ruled=False, what="RAILSWEEP",
+                ts=[i / n for i in range(len(sections))], path=ps), n
 
 
 # ---- spine lofts ---------------------------------------------------------------
@@ -697,10 +862,11 @@ def spine_loft(sections: list[TopoDS_Wire], spine: TopoDS_Wire, mode: str = "MIN
     for i in range(n + 1):
         stations.add(idx[0] + round((idx[-1] - idx[0]) * i / n))
     wires = []
+    where = [k / fine for k in sorted(stations)]
     for k in sorted(stations):
         f = fs[k]
         loc = local[idx.index(k)] if k in idx else _hermite(ts, local, k / fine)
         world = [add(f.o, add(mul(f.side, u), add(mul(f.up, v), mul(f.tan, z)))) for (u, v, z) in loc]
         wires.append(spline(world + [world[0]]))
-    shape = loft(wires, solid=solid)
+    shape = loft(wires, solid=solid, what="SPINELOFT", ts=where, path=ps)
     return shape, len(wires), ts

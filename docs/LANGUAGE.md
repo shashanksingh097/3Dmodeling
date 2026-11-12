@@ -493,6 +493,44 @@ HEAL, housing         ! repair a broken body (typically an import); HEAL, b, 0.0
 CLEAN, housing        ! join neighbouring faces on the same surface (seams from imports or cuts)
 ```
 
+`CHECK, b, SELF` adds the kernel's own self-intersection test: faces that
+cut through each other, which no repair can fix. It can take seconds on a
+long sweep, so it runs only when asked, and faces that only touch along a
+seam can also show up there.
+
+### Shapes made from curves
+
+`LOFT`, `SPINELOFT`, `SWEEP`, `MORPH`, `RAILSWEEP` and `PIPE` get their own
+checks. The kernel builds a pipe that is too fat for its bend, or a sweep
+whose turns overlap, without complaint and calls the result valid; booleans
+on it then fail steps later. So before a solid is built, its sections are
+compared: the cross-sections of a sound shape never touch each other, and
+two that do mean the shape runs into itself there. That takes milliseconds
+and the message says where and why:
+
+| Situation | What you get |
+|-----------|--------------|
+| A profile bigger than a bend of the path (`PIPE` of radius 8 round a bend of radius 5) | error: "the path bends with a radius of about 5 there, but the profile reaches 8 from the path" |
+| A sharp corner in the path (a `POLYLINE`) | error at the corner's t: round it (a `SPLINE`, or an `ARC` between the lines) |
+| A path that comes back near itself (a tight helix) | error naming the two places (t values) that meet |
+| A profile drawn along the path instead of across it | error: the shape would have no thickness |
+| `LOFT` sections that cut through each other, or lie in the same plane | error naming the two sections |
+| `LOFT` sections out of order (z = 0, 20, 10) | error: the shape would pass through itself |
+| A `LOFT` section that crosses itself (a figure-of-eight) | error naming the section |
+| A result that is not valid, has gaps in its skin, or no volume | repaired if a repair works (with a warning), otherwise an error |
+| A solid made inside out | turned the right way round, with a warning |
+
+A solid swept round a closed path (a ring, a knot) is built as a closed loft
+through sections along the path, because the kernel's exact sweep leaves
+two caps where the ends meet. Its volume is within a percent of the exact
+one.
+
+The examples in `scripts/` and the hard cases in `tests/corpus/hard/` run in
+CI: every example must work, every body must pass `CHECK`, and the bodies,
+faces and volume of each example must stay as recorded, so a kernel upgrade
+cannot change a model unnoticed (`python tests/test_corpus.py --update`
+records new numbers after a deliberate change).
+
 `CHECK` is a query and not part of the history. `HEAL` and `CLEAN` are
 history entries; the body keeps its ID and name, and its faces keep their
 IDs where they survive. `HEAL` refuses, and changes nothing, when the repair

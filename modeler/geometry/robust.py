@@ -280,3 +280,85 @@ def largest_working(build, wanted: float, budget: float = 6.0) -> float | None:
         else:
             hi = mid
     return lo
+
+
+# ---- shapes made from curves (LOFT, SWEEP, PIPE ...) ------------------------------
+
+class ShapeError(Exception):
+    """A made shape that cannot be used; the message says what to change."""
+
+
+# The kernel's own self-intersection test (``self_intersects``) is not run
+# after every LOFT or SWEEP: on a long sweep or a spine loft it takes seconds
+# (a 0.5 s script took 17 s), and on smooth lofts it reports faces that touch
+# only along a seam. The section test in geometry/overlap.py catches the
+# usual causes up front, in milliseconds; CHECK runs the kernel's test on
+# request.
+
+
+def self_intersects(shape: TopoDS_Shape) -> bool:
+    """The kernel's own test: do faces of the shape cut through each other?"""
+    from OCP.BOPAlgo import BOPAlgo_ArgumentAnalyzer
+
+    a = BOPAlgo_ArgumentAnalyzer()
+    a.SetShape1(shape)
+    for k in ("ArgumentTypeMode", "SmallEdgeMode", "RebuildFaceMode", "TangentMode", "MergeVertexMode",
+              "MergeEdgeMode", "ContinuityMode", "CurveOnSurfaceMode"):
+        setattr(a, k, False)
+    a.SelfInterMode = True
+    try:
+        a.Perform()
+    except Exception:  # noqa: BLE001 - the test itself failed: say nothing rather than guess
+        return False
+    return bool(a.HasFaulty())
+
+
+def _flip_solids(shape: TopoDS_Shape) -> TopoDS_Shape:
+    """Turn inside-out solids the right way round."""
+    from OCP.BRepLib import BRepLib
+    from OCP.TopoDS import TopoDS
+
+    as_solid = getattr(TopoDS, "Solid_s", None) or TopoDS.Solid
+    if shape.ShapeType() == TopAbs_SOLID:
+        s = as_solid(shape)
+        BRepLib.OrientClosedSolid_s(s)
+        return s
+    return shape.Reversed()
+
+
+def check_made(shape: TopoDS_Shape, what: str, solid: bool):
+    """Check a shape built from curves before it becomes a body.
+
+    Returns ``(shape, notes)``: the shape (turned the right way out or
+    repaired, if that was needed) and warnings for the history entry. Raises
+    ShapeError when the shape cannot be used.
+    """
+    notes: list[str] = []
+    if is_empty(shape):
+        raise ShapeError(f"{what}: the kernel returned nothing")
+    if not is_valid(shape):
+        fixed = heal(shape)
+        if not is_valid(fixed):
+            raise ShapeError(f"{what}: the result is not a valid shape, and repairing it did not help. "
+                             "Try a smoother path, fewer sections, or a smaller profile.")
+        shape = fixed
+        notes.append(f"{what}: the kernel's result needed a repair; CHECK it")
+    if not solid:
+        return shape, notes
+    if not solids(shape):
+        raise ShapeError(f"{what}: no solid came out (the curves may not be closed); add SURFACE if you want a skin")
+    if open_edges(shape):
+        fixed = heal(shape)
+        if open_edges(fixed) or not is_valid(fixed):
+            raise ShapeError(f"{what}: the solid has gaps in its skin ({open_edges(shape)} open edges)")
+        shape = fixed
+    size = diagonal(shape)
+    vol = volume(shape)
+    if vol < 0:
+        shape = _flip_solids(shape)
+        vol = volume(shape)
+        notes.append(f"{what}: the kernel made the solid inside out; it was turned the right way round")
+    if abs(vol) <= 1e-9 * max(size, 1e-9) ** 3:
+        raise ShapeError(f"{what}: the result has no volume: the sections lie on top of each other, or the profile "
+                         "lies along the path instead of across it")
+    return shape, notes

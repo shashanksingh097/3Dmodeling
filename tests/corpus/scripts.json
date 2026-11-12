@@ -1,0 +1,77 @@
+{
+ "blade.cmd": {
+  "bodies": 1,
+  "faces": 150,
+  "volume": 30414.254
+ },
+ "blade_smooth.cmd": {
+  "bodies": 3,
+  "faces": 19,
+  "volume": 40260.033
+ },
+ "bolted_plate.cmd": {
+  "bodies": 13,
+  "faces": 93,
+  "volume": 146515.138
+ },
+ "bracket_features.cmd": {
+  "bodies": 1,
+  "faces": 16,
+  "volume": 25060.741
+ },
+ "flange.cmd": {
+  "bodies": 1,
+  "faces": 15,
+  "volume": 66877.738
+ },
+ "layers_demo.cmd": {
+  "bodies": 6,
+  "faces": 31,
+  "volume": 56262.601
+ },
+ "m0_demo.cmd": {
+  "bodies": 3,
+  "faces": 10,
+  "volume": 2507.964
+ },
+ "m2_shell_demo.cmd": {
+  "bodies": 19,
+  "faces": 57,
+  "volume": 57132.836
+ },
+ "m4_shapes.cmd": {
+  "bodies": 9,
+  "faces": 179,
+  "volume": 52860.186
+ },
+ "plate.cmd": {
+  "bodies": 1,
+  "faces": 10,
+  "volume": 5434.513
+ },
+ "sketch_bracket.cmd": {
+  "bodies": 2,
+  "faces": 24,
+  "volume": 84868.157
+ },
+ "sketch_tools.cmd": {
+  "bodies": 1,
+  "faces": 28,
+  "volume": 20855.549
+ },
+ "sweep_gallery.cmd": {
+  "bodies": 20,
+  "faces": 40,
+  "volume": 67580.969
+ },
+ "threaded_bolts.cmd": {
+  "bodies": 17,
+  "faces": 1526,
+  "volume": 121094.962
+ },
+ "wing_rails.cmd": {
+  "bodies": 5,
+  "faces": 4,
+  "volume": 10853.014
+ }
+}
