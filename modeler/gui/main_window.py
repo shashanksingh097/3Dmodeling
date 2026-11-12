@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QPlainTextEdit,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -40,6 +41,7 @@ from ..lang.script import strip_comment
 from ..viewport.occ_view import OccViewport
 from . import assist
 from . import feature_actions as fa
+from . import form_dialog as fd
 
 
 def _mono() -> QFont:
@@ -222,6 +224,8 @@ class HistoryPanel(QTableWidget):
             n = row + 1
             e = p.history[row]
             menu.addAction("Edit…", lambda: self.edit_row(row))
+            if fd.F.has_form(e.text):
+                menu.addAction("Edit in form…", lambda: self.win.open_form("", e.text, row))
             menu.addAction("Insert before…", lambda: self._insert(n))
             menu.addAction("Resume" if e.suppressed else "Suppress",
                            lambda: self.win.execute(hist_command("RESUME" if e.suppressed else "SUPPRESS", n)))
@@ -284,6 +288,13 @@ class ParamPanel(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.verticalHeader().setDefaultSectionSize(22)
         self.itemChanged.connect(self._changed)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._menu)
+
+    def _menu(self, pos) -> None:
+        menu = QMenu(self)
+        menu.addAction("New parameter…", lambda: self.win.open_form("="))
+        menu.exec(self.viewport().mapToGlobal(pos))
 
     def refresh(self) -> None:
         p = self.win.processor
@@ -355,6 +366,11 @@ class MainWindow(QMainWindow):
         row.setContentsMargins(4, 0, 0, 0)
         row.addWidget(self.prompt)
         row.addWidget(self.cmdline, 1)
+        self.form_button = QPushButton("Form")
+        self.form_button.setToolTip("Fill in the typed command in a form (F2); with nothing typed, find a command")
+        self.form_button.setShortcut(QKeySequence("F2"))
+        self.form_button.clicked.connect(self.form_for_typed)
+        row.addWidget(self.form_button)
         lay.addWidget(self.cmdline.hint)  # above the line, so the completion list never covers it
         lay.addLayout(row)
         self.setCentralWidget(central)
@@ -371,6 +387,7 @@ class MainWindow(QMainWindow):
         self.processor.listeners.append(self._on_result)
         self.processor.history_listeners.append(self._on_history)
         self._build_toolbar()
+        fd.command_menu(self, self.menuBar().addMenu("&Commands"))
         from .sketch_ui import SketchUI
 
         self.sketch_ui = SketchUI(self)
@@ -405,9 +422,21 @@ class MainWindow(QMainWindow):
         self.undo_action = cmd_action("Undo", "UNDO", "Undo the last step", QKeySequence.Undo)
         self.redo_action = cmd_action("Redo", "REDO", "Redo", QKeySequence.Redo)
         tb.addSeparator()
-        cmd_action("Block", "BLOCK, 0,0,0, 20,10,5", "Add a block")
-        cmd_action("Cylinder", "CYL, 30,5,0, 4,12", "Add a cylinder")
-        cmd_action("Sphere", "SPHERE, 0,25,5, 6", "Add a sphere")
+        def form_action(label: str, name: str, tip: str) -> QAction:
+            act = QAction(label, self)
+            act.setToolTip(f"{tip}: opens its form\nRuns: {name}, ...")
+            act.triggered.connect(lambda _=False, n=name: self.open_form(n))
+            tb.addAction(act)
+            return act
+
+        form_action("Block…", "BLOCK", "Add a block")
+        form_action("Cylinder…", "CYL", "Add a cylinder")
+        form_action("Sphere…", "SPHERE", "Add a sphere")
+        commands = QAction("Commands…", self)
+        commands.setToolTip("Find any command by name or by what it does, and fill in its form (Ctrl+K)")
+        commands.setShortcut(QKeySequence("Ctrl+K"))
+        commands.triggered.connect(lambda: fd.find_command(self))
+        tb.addAction(commands)
         tb.addSeparator()
 
         group = QActionGroup(self)
@@ -493,6 +522,19 @@ class MainWindow(QMainWindow):
         act("Clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
         act("Section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                        "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+
+    def open_form(self, name: str, text: str = "", edit_row: int | None = None):
+        """Open a command's fill-in form (see gui/forms.py)."""
+        return fd.open_form(self, name, text, edit_row)
+
+    def form_for_typed(self) -> None:
+        text = self.cmdline.text().strip()
+        if not text:
+            fd.find_command(self)
+            return
+        name = text.split(",")[0].strip().upper()
+        if self.open_form(name, text) is not None:
+            self.cmdline.clear()
 
     def run_feature(self, build) -> None:
         try:

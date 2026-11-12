@@ -233,8 +233,9 @@ language can't express. It is off by default for scripts from others.
 | Session | `UNDO`, `REDO`, `CLEAR`, `/UNITS`, `/TOL` |
 
 Every GUI tool is a thin form that fills in one of these commands. The
-command it built is shown in the command line before it runs, so users learn
-the language by using the GUI.
+command it built is shown in the form before it runs, and lands in the
+History panel and the log, so users learn the language by using the GUI
+(docs/M2-forms.md).
 
 ### 4.4 Selection in detail
 
@@ -477,8 +478,9 @@ work. Numbers were measured in November 2026 on the code after M2.
 
 ## Next step
 
-M0 and M1 are done, M2 is done apart from the command forms (a dialog per
-command), and the first round of hardening (risks 1 and 2) is in.
+M0, M1 and M2 are done, including a fill-in form for every command, so a
+whole part can be made by mouse alone (docs/M2-forms.md). The first round
+of hardening (risks 1 and 2) is in.
 M3 has started with what the sketcher stands on and the features people
 reach for first: datum planes, axes and points, work planes, `HOLE`,
 `SPLIT`, `SHELL`, `DRAFT`, `OFFSET`, the measure commands and the section
