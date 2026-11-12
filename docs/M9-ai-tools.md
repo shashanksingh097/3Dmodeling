@@ -1,8 +1,10 @@
 # M9: tools for the AI assistant
 
 This is the design of the tools the in-app AI assistant uses to build and
-check models. It is a plan: nothing here is built yet. The summary is in
-PLAN.md section 5.8.
+check models. The summary is in PLAN.md section 5.8.
+
+**Status.** Most of step M9a (section 7) is built: see "What is built" at
+the end. The rest is still a plan.
 
 ## 1. The idea
 
@@ -297,3 +299,27 @@ M9 exit test (adds to the one in PLAN.md section 7): the flange request
 above gives a correct script that passes its expectations without a
 picture, and an edit request on an existing model is done as a history
 edit that survives `round_trip`.
+
+## 8. What is built
+
+Step M9a, first part (the commands are in LANGUAGE.md section 23):
+
+| Planned | Built as | Notes |
+|---------|----------|-------|
+| `ASSERT` and new queries | `ASSERT` command; `VALID`, `PIECES`, `NFACES`, `HOLES`, `SYMMETRIC` | `MINWALL` waits for `THICK` (M9b). `scripts/flange.cmd` carries its own checks, so the regression corpus runs them |
+| `describe_body` (summary, faces), `describe_entities`, `model_summary` | `DESCRIBE` command and `modeler/ai/describe.py` | the summary already finds round holes (through or blind, depth, counterbore, axis, positions, circle patterns) from the geometry, so it works on imported bodies. The rest of feature recognition (fillets, pockets, bosses, history-first naming) is M9b |
+| `selector_for`, `preview_selection` | `SELFOR` command and `modeler/ai/selectors.py` | greedy: adds the criterion that narrows the most until one entity is left, and checks the lines against the model |
+| `lint` | `LINT` command and `modeler/ai/lint.py` | |
+| `diff` | `DIFF` command and `modeler/ai/diff.py` | between history positions; `since` revisions are not done yet |
+| `sandbox`, `run`, `check` | `modeler/ai/sandbox.py`, `modeler/ai/tools.py` | a second processor sharing the immutable bodies; file commands refused; a time limit per run (`Processor.deadline`) |
+| `find_commands`, `command_help`, `history` | `modeler/ai/tools.py` | from the command registry |
+| JSON tool list | `Toolbox` in `modeler/ai/tools.py`; `python -m modeler tools` and `python -m modeler tool ...` | 15 tools; errors are answers with a `hint` |
+
+Measured on the worked example of section 4 (a 100 mm flange, 30 mm bore,
+6 holes of 8 mm, rim rounded): lint, run in an empty sandbox, seven checks,
+diff and the final script take 1.5 s of wall time including start-up, and
+the `describe_body` answer for the result is about 200 tokens.
+
+Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
+`user_context`, `since` on every tool, `vary`, `round_trip`, and everything
+in M9b and M9c.
