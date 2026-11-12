@@ -191,3 +191,30 @@ def test_make_a_part_from_history_steps(app, win):
     assert [e.text.splitlines()[0] for e in p.history] == [
         "W = 30", "*PART, plate_part, W=30", "INST, plate_part, W=W", "NAME, LAST, plate"]
     assert p.evaluate("VOL(plate)") == pytest.approx(before)
+
+
+def test_rebuild_shows_progress_and_cancel_puts_everything_back(app, win, monkeypatch):
+    from modeler.gui import progress as pg
+
+    monkeypatch.setattr(pg, "SHOW_AFTER", 0.0)
+    win.execute("W = 10\nBLOCK, 0,0,0, W,W,W\nMOVE, LAST, 1,0,0\nMOVE, LAST, 1,0,0")
+    texts = [e.text for e in win.processor.history]
+    real = win.rebuild_progress.__call__
+    shown = []
+
+    def press_cancel(done, total, label):
+        keep = real(done, total, label)
+        d = win.rebuild_progress.dialog
+        if d is not None:
+            shown.append(d.labelText())
+            if done == 2:
+                d.cancel()
+        return keep and not (d is not None and d.wasCanceled())
+
+    win.processor.progress = press_cancel
+    res = win.execute('HIST, EDIT, 1, "W = 20"')
+    assert not res.ok and "cancelled" in res.message
+    assert shown and shown[0].startswith("Step 1 of 4")
+    assert [e.text for e in win.processor.history] == texts
+    assert win.processor.evaluate("W") == 10
+    assert win.rebuild_progress.dialog is None  # closed again
