@@ -143,12 +143,14 @@ class OccViewport(QWidget):
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
         self._preview_ais: list = []  # what a sketch tool is drawing
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
+        self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
+        self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
         self._shown_active: str | None = None  # the open sketch the view last turned to
         self._mode_pending = False
         self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
         self._initialized = False
         self._press: QPoint | None = None
-        self._drag = ""  # "", "rotate", "pan"
+        self._drag = ""  # "", "rotate", "pan", "sketch", "point" (a control point)
         self._last = QPoint()
 
         for attr in (
@@ -203,6 +205,7 @@ class OccViewport(QWidget):
         self._show_datums()
         self._show_sketches()
         self._sync_selection()
+        self._draw_control_points()
         self.view.FitAll(0.1, False)
         self.view.Redraw()
         self.ready.emit()
@@ -290,6 +293,13 @@ class OccViewport(QWidget):
             traceback.print_exc()
 
     def _apply_event(self, ev: Event) -> None:
+        self._apply_body_event(ev)
+        if self._cp is not None and ev.kind not in ("selection", "sketch_selection"):
+            # (an edit removes the body and adds it back under the same ID: keep the editor)
+            self._cp.refresh()
+            self._draw_control_points()
+
+    def _apply_body_event(self, ev: Event) -> None:
         if ev.kind == "body_added":
             first = not self._ais
             self._display_body(ev.body_id, update=False)
@@ -302,12 +312,14 @@ class OccViewport(QWidget):
                 self.context.Remove(ais, False)
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
+            self._cp_ais.clear()
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
             self._preview_ais.clear()
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
+            self._cp_ais.clear()
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -733,6 +745,85 @@ class OccViewport(QWidget):
             self._ghost_ais.append(ais)
         ctx.UpdateCurrentViewer()
 
+    # ---- control points (CPOINTS) ----------------------------------------------
+    def show_control_points(self, bid: int | None) -> None:
+        """Show the control points of a curve or surface body so they can be dragged; None hides them."""
+        from ..gui.point_edit import PointEditor
+
+        self._cp = None
+        if bid is not None and bid in self.model.bodies:
+            ed = PointEditor(self.model, bid)
+            self._cp = ed if ed.geometry is not None else None
+        if self._initialized:
+            self._draw_control_points()
+
+    @property
+    def control_points(self):
+        return self._cp
+
+    def _draw_control_points(self) -> None:
+        if not self._initialized:
+            return
+        from OCP.Aspect import Aspect_TypeOfLine, Aspect_TypeOfMarker
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeVertex
+        from OCP.gp import gp_Pnt
+        from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
+        from OCP.TopoDS import TopoDS_Compound
+
+        ctx = self.context
+        for ais in self._cp_ais:
+            ctx.Remove(ais, False)
+        self._cp_ais = []
+        ed = self._cp
+        if ed is None:
+            ctx.UpdateCurrentViewer()
+            return
+
+        def compound(shapes):
+            comp, b = TopoDS_Compound(), BRep_Builder()
+            b.MakeCompound(comp)
+            for sh in shapes:
+                b.Add(comp, sh)
+            return comp
+
+        def show(shape, setup):
+            ais = AIS_Shape(shape)
+            setup(ais)
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._cp_ais.append(ais)
+
+        segs = [BRepBuilderAPI_MakeEdge(gp_Pnt(*a), gp_Pnt(*c)).Edge()
+                for a, c in ed.lines() if sum((x - y) ** 2 for x, y in zip(a, c)) > 1e-18]
+        if segs:
+            def net(ais):
+                asp = Prs3d_LineAspect(_rgb(1.0, 0.75, 0.2), Aspect_TypeOfLine.Aspect_TOL_DASH, 1.2)
+                ais.Attributes().SetWireAspect(asp)
+                ais.Attributes().SetLineAspect(asp)
+                ais.SetColor(_rgb(1.0, 0.75, 0.2))
+            show(compound(segs), net)
+        moving = ed.drag.index if ed.drag is not None else None
+        for colour, which in (((1.0, 0.85, 0.1), lambda k: k != moving), ((1.0, 0.25, 0.85), lambda k: k == moving)):
+            verts = [BRepBuilderAPI_MakeVertex(gp_Pnt(*q)).Vertex() for k, q in ed.points() if which(k)]
+            if verts:
+                def marks(ais, colour=colour):
+                    ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_BALL,
+                                                                      _rgb(*colour), 2.2))
+                show(compound(verts), marks)
+        pv = ed.preview()
+        if pv is not None:
+            def ghost(ais):
+                ais.SetColor(_rgb(1.0, 0.25, 0.85))
+                ais.SetWidth(3.0)
+            show(pv, ghost)
+        ctx.UpdateCurrentViewer()
+
+    def _ray(self, x: int, y: int):
+        X, Y, Z, vx, vy, vz = self.view.ConvertWithProj(x, y)
+        return (X, Y, Z), (vx, vy, vz)
+
     def plane_point(self, x: int, y: int):
         """Where device pixel (x, y) hits the open sketch's plane, as (u, v); None if no sketch is open."""
         m = self.model
@@ -874,6 +965,11 @@ class OccViewport(QWidget):
             if self.sketcher.tool != "SELECT":
                 self._drag = "pan" if e.modifiers() & Qt.ShiftModifier else ""
                 return
+        if (self._cp is not None and e.button() == Qt.LeftButton
+                and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
+            self._drag = "point"
+            self._draw_control_points()
+            return
         if e.button() == Qt.LeftButton and not (e.modifiers() & Qt.ShiftModifier):
             self._drag = "rotate"
             self.view.StartRotation(x, y)
@@ -893,6 +989,11 @@ class OccViewport(QWidget):
                     pv = self.sketcher.move(*uv, self._tol(x, y))
                     self.set_preview(pv)
                 self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
+            return
+        if self._drag == "point":
+            if moved:
+                self._cp.move(self._ray(x, y))
+                self._draw_control_points()
             return
         if moved:
             if self._drag == "rotate":
@@ -934,6 +1035,14 @@ class OccViewport(QWidget):
                 self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
                 self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
             return
+        if drag == "point":
+            if not moved:
+                self._cp.cancel()
+            text = self._cp.release() if self._cp is not None else None
+            self._draw_control_points()
+            if text:
+                self.command.emit(text)
+            return
         if not moved and e.button() == Qt.LeftButton:
             self.click(x, y, e.modifiers())
 
@@ -949,6 +1058,11 @@ class OccViewport(QWidget):
             self.edit_dimension.emit(name)
 
     def keyPressEvent(self, e) -> None:
+        if self._drag == "point" and e.key() == Qt.Key_Escape:
+            self._cp.cancel()
+            self._drag, self._press = "", None
+            self._draw_control_points()
+            return
         if self._sketching() and e.key() == Qt.Key_Escape:
             self.sketcher.finish()
             self.set_preview(None)

@@ -220,7 +220,31 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
 
         return min_wall(shape_body(b, "MINWALL"))
 
+    def _nurbs(b, fn):
+        from ..geometry import nurbs as nb
+
+        try:
+            return nb, nb.geometry_of(m.body(body_id(b, fn)).shape, need_whole=False)
+        except (nb.CurveError, ModelError) as exc:
+            raise ExprError(f"{fn}(): {exc}") from None
+
+    def pole(b, i, j=None):
+        nb, g = _nurbs(b, "POLE")
+        idx = (int(i),) if j is None else (int(i), int(j))
+        try:
+            return Vec(nb.pole(g, idx))
+        except nb.CurveError as exc:
+            raise ExprError(f"POLE(): {exc}") from None
+
+    def npoles(b, direction="U"):
+        nb, g = _nurbs(b, "NPOLES")
+        if isinstance(g, nb.Geom_BSplineCurve):
+            return g.NbPoles()
+        return g.NbUPoles() if str(direction).upper() == "U" else g.NbVPoles()
+
     return {
+        "POLE": pole,
+        "NPOLES": npoles,
         "MINWALL": minwall,
         "VALID": valid,
         "PIECES": pieces,

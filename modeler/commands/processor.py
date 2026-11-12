@@ -196,6 +196,7 @@ class Processor:
         self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
         self.project_path: str | None = None  # the last SAVE/OPEN file
         self.section = None  # SECTION view: (datum plane, "ABOVE"/"BELOW") or None; a view setting only
+        self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
 
         self.history: list[Entry] = []
         self._uid = 0  # the last entry uid handed out

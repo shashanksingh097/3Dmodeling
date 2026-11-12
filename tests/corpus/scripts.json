@@ -44,6 +44,11 @@
   "faces": 179,
   "volume": 52860.186
  },
+ "nurbs_freeform.cmd": {
+  "bodies": 13,
+  "faces": 3,
+  "volume": 14738.566
+ },
  "plate.cmd": {
   "bodies": 1,
   "faces": 10,

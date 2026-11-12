@@ -1428,3 +1428,84 @@ symmetry about YZ fails with 3 bolts; about ZX it holds for any number).
 ID, volume, the selection and named sets came back. Nothing in
 the sandbox reaches the real model; commands that read or write files are
 refused there.
+
+## 24. NURBS freeform: control points, networks, patches and sewing
+
+A NURBS curve or surface is shaped by **control points**: the shape starts
+and ends on the end points and is pulled towards the others like a magnet
+pulls a thread. Each point has a **weight** (how hard it pulls, normally 1),
+and the **degree** says how smooth the joins are (1 straight pieces, 3 the
+usual smooth curve). Every edit below is a history entry, so it re-runs when
+an earlier step changes.
+
+### Curves
+
+```
+NURBS, 3, (0,0,0), (10,8,0), (20,-8,0), (30,0,0)       ! degree 3, four control points
+NURBS, 2, (10,0,0), (10,10,0,0.70710678), (0,10,0)     ! a fourth number is the weight: an exact quarter circle
+NURBS, 3, (10,0,0), (0,10,0), (-10,0,0), (0,-10,0), CLOSE   ! a smooth closed loop
+```
+
+With fewer points than the degree needs, the degree is lowered (with a
+warning). `SPLINE` is still the way to draw a curve *through* points.
+
+### Editing control points
+
+| Command | What it does |
+|---|---|
+| `MOVEPT, c, 2, 0, 5, 0` | move control point 2 by (0, 5, 0); add `TO` to move it *to* that point |
+| `MOVEPT, s, (2, 3), 0, 0, 4` | on a surface a point is `(row, point in the row)` |
+| `WEIGHT, c, 2, 3` | set a point's weight (more pulls harder) |
+| `KNOT, c, 0.5` | add control points at 0.5 along the curve without changing its shape (`KNOT, s, 0.5, V` on a surface) |
+| `DEGREE, c, 5` | raise the degree, shape unchanged (`U`, `V` or `BOTH` on a surface) |
+| `REBUILD, c, 8` | remake as one smooth curve of 8 control points (a polyline or chain of curves becomes one curve; says how far it moved) |
+| `REBUILD, s, 6, 3, 5` | a surface with 6 x 5 control points, degree 3 |
+| `POLES, c` | list the control points and weights with their numbers |
+
+Lines, arcs, circles and untrimmed faces (a block's side, a cylinder) are
+turned into their exact NURBS first, so they can be edited too. A face
+trimmed by other curves (a `FILL` patch, a face with a hole) cannot have its
+points moved, because it would tear away from its edges: `REBUILD` it or
+edit the curves it came from. An edit keeps the body's ID and, while it has
+as many faces, edges and vertices as before, their IDs too.
+
+In expressions, `POLE(c, 2)` is a control point of a curve,
+`POLE(s, 2, 3)` one of a surface, and `NPOLES(c)` / `NPOLES(s, "V")` count
+them.
+
+**In the view:** pick a curve or surface and press **Control points** on
+the Features toolbar (or type `CPOINTS, body`). The control points and the
+lines joining them appear; drag one and a preview follows the mouse, in the
+plane through the point that faces you. Letting go runs `MOVEPT` with the
+distance moved. Esc during a drag cancels it; press the button again (or
+`CPOINTS, OFF`) to hide the points.
+
+### Surfaces
+
+```
+NSURF, 3, r1, r2, r3, r4                  ! the curves' control points are the rows of the surface's net
+NETWORK, u1, u2, u3, ACROSS, v1, v2, v3   ! a surface through every curve of a network
+FILL, G0, c1, c2, c3, c4                  ! a patch inside a closed loop of curves
+FILL, G2, SEL                             ! ... meeting the surfaces whose edges are picked
+FILL, G1, SEL, c5, THROUGH, (10, 10, 6)   ! also passing through a point (or curves) inside
+SEW, top, bottom, side                    ! surfaces that meet become one skin; a closed skin becomes a solid
+```
+
+- `NSURF` uses the control points of each curve as one row, so the surface
+  is pulled towards the middle rows rather than passing through them (that
+  is what `LOFT, ..., SURFACE` does). Rows with different point counts or
+  degrees are matched first without changing them.
+- `NETWORK` needs every curve of one set to meet every curve of the other,
+  in order across them. Curves drawn the wrong way round are turned. The
+  surface runs from the first to the last curve of each set.
+- `FILL` takes curve bodies, or `SEL` for the picked edges of open
+  surfaces. Along a picked edge the patch flows on from that surface: `G1`
+  without a crease, `G2` with matching curvature too; the result says how
+  closely it met them. Along a curve body the patch only touches (`G0`).
+- `SEW` uses up the surfaces. Edges closer than about 1/10000 of the
+  model's size are joined. If any edge is left free the result is an open
+  skin and the warning says how many edges are free.
+
+Example: `scripts/nurbs_freeform.cmd` (a dome through a network of curves,
+closed with a flat patch and sewn into a solid; an edited curve; a surface
+from rows of control points with one point pulled up).
