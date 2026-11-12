@@ -41,6 +41,7 @@ _COMMAND_CHOICES = {
     ("HOLE", "kind"): ("SIMPLE", "CBORE", "CSINK"),
     ("SPLIT", "keep"): ("BOTH", "ABOVE", "BELOW"),
     ("SHELL", "side"): ("IN", "OUT"),
+    ("SPRING", "finish"): ("PLAIN", "GROUND"),
     ("OFFSET", "corners"): ("ROUND", "SHARP"),
     ("SECTION", "side"): ("ABOVE", "BELOW"),
 }

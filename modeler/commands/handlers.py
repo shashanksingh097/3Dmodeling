@@ -223,6 +223,7 @@ def combine(p: Processor, name: str, op, base, tool_shapes, a: int, merge: bool 
 
     def run(fuzzy: float):
         algo = op()
+        algo.SetRunParallel(True)
         algo.SetArguments(_shape_list([base]))
         algo.SetTools(_shape_list(tool_shapes))
         if fuzzy > 0:

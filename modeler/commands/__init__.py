@@ -6,3 +6,4 @@ from .processor import REGISTRY, CommandError, Entry, Processor, Result
 
 __all__ = ["Processor", "Result", "Entry", "CommandError", "REGISTRY"]
 from . import part_handlers  # noqa: F401  (parts, instances, the part library)
+from . import thread_handlers  # noqa: F401  (THREAD, SPRING)

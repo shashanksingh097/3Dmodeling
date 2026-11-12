@@ -101,13 +101,13 @@ PARAM = "="
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Parameters", (PARAM,)),
-    ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE")),
+    ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SWEEP", "MORPH", "PIPE")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
-    ("Features", ("FILLET", "CHAMFER", "HOLE", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
+    ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
@@ -137,6 +137,7 @@ STARTS: dict[str, dict[str, str]] = {
     "CONE": {"x": "0, 0, 0", "r1": "6", "r2": "2", "h": "10"},
     "TORUS": {"x": "0, 0, 0", "r1": "10", "r2": "2"},
     "WEDGE": {"x": "0, 0, 0", "dx": "20, 10, 10", "ltx": "5"},
+    "SPRING": {"x": "0, 0, 0", "r": "10", "pitch": "5", "turns": "8", "d": "1.5"},
     "LINE": {"x1": "0, 0, 0", "x2": "0, 0, 40"},
     "ARC": {"x1": "0, 0, 0", "x2": "20, 0, 10", "x3": "40, 0, 0"},
     "HELIX": {"x": "0, 0, 0", "r": "10", "pitch": "4", "turns": "5"},
@@ -185,7 +186,14 @@ _LABELS = {
     "h2": "Depth or angle 2", "tip": "Drill point angle", "keep": "Keep", "by": "Split by", "side": "Side",
     "corners": "Corners", "sketch": "Sketch", "axis": "Axis", "back": "Back distance", "neutral": "Neutral plane",
     "expr": "Expression", "what": "What", "plane": "Plane", "fx": "x(t)", "fy": "y(t)", "fz": "z(t)",
-    "t0": "t from", "t1": "t to",
+    "t0": "t from", "t1": "t to", "closed": "Closed turns at each end", "finish": "Ends",
+}
+# labels that differ for one command
+_COMMAND_LABELS = {
+    ("SPRING", "r"): "Coil radius",
+    ("SPRING", "d"): "Wire diameter",
+    ("THREAD", "pitch"): "Pitch, 0 = ISO coarse",
+    ("THREAD", "length"): "Length, 0 = the whole face",
 }
 
 _EXTRA_CHOICES = {
@@ -215,8 +223,8 @@ _KINDS = {
 }
 
 
-def _label(name: str) -> str:
-    return _LABELS.get(name, name)
+def _label(name: str, cmd: str = "") -> str:
+    return _COMMAND_LABELS.get((cmd, name)) or _LABELS.get(name, name)
 
 
 def _choices(cmd: str, arg) -> tuple[str, ...]:
@@ -285,7 +293,7 @@ def _generic(name: str) -> list[Field]:
                 kind = "word"
             else:
                 kind = "num"
-        out.append(Field(a.name, _label(a.name), kind, _default_text(a.default), required=a.default is None,
+        out.append(Field(a.name, _label(a.name, name), kind, _default_text(a.default), required=a.default is None,
                          choices=choices, help=a.help, pick="BODY" if kind == "body" else ""))
         i += 1
     return out

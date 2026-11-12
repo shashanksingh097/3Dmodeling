@@ -786,3 +786,92 @@ folder (`MODELER_LIBRARY`, default `~/.modeler/parts`), or `LIBSAVE, bolt,
 saved project keeps a copy of every part file it loaded, like imported
 files, so it opens on a computer without your library.
 
+
+## 18. Screw threads and springs
+
+### THREAD
+
+`THREAD [, pitch] [, length] [, RIGHT|LEFT]` cuts a real helical ISO metric
+thread (60 degree flanks) into the selected round faces. Select the face
+first: `PICK, FACE, 7`, or by script `SEL, S, FACE, AT, x, y, z` with a point
+on the face.
+
+```
+CYL, 0, 0, 0, 4, 30           ! an 8 mm shaft
+SEL, S, FACE, AT, 4, 0, 15    ! its side
+THREAD                        ! M8: ISO coarse pitch 1.25, the whole length
+
+HOLE, plate, 20, 10, 0, 6.8   ! the M8 tap drill
+SEL, S, FACE, AT, 23.4, 10, -2
+THREAD                        ! the matching M8 inside thread
+```
+
+* **Outside or inside** comes from the face: the side of a shaft gets an
+  outside thread, the wall of a hole an inside thread.
+* **Size.** A shaft's diameter is the thread's major diameter. A hole is read
+  as drilled for a thread: anything from the minor diameter to the usual tap
+  drill (size minus pitch) counts, so a 6.8 hole takes M8. With no pitch
+  given, the ISO coarse pitch of that size is used (M8: 1.25, M10: 1.5, M12:
+  1.75); a size that is not an ISO size needs the pitch. A pitch given for a
+  hole that is not drilled for a standard size makes a thread 0.54 x pitch
+  deep into the wall.
+* **Where it runs.** A thread starts at a free end of the face (one with
+  nothing of the body beyond it, a chamfer or countersink counts as free) and
+  runs out past it cleanly. It stops before a closed end (a bolt head, a
+  shoulder, the bottom of a blind hole) and never cuts into it. `length` is
+  measured from the free end of the face (where a chamfer starts); if both ends are free and a length is given,
+  it starts at the upper end (highest Z). A face with no free end cannot be
+  threaded.
+* **Hand.** `RIGHT` (default) or `LEFT`.
+* The body keeps its ID and name. The message names the thread, for example
+  `M8 outside thread (pitch 1.25, minor diameter 6.466)`.
+* `PITCH(d)` gives the ISO coarse pitch of a size inside any expression:
+  `HOLE, nut, 0, 0, M, D - PITCH(D)` drills the tap drill for any `D`.
+
+A threaded bolt and nut as parts (from `scripts/threaded_bolts.cmd`):
+
+```
+*PART, bolt, D=8, L=30, K=0.7*D, B=2*D+6
+  POLYGON, 0, 0, 0, D*0.9, 6
+  POLYGON, 0, 0, K, D*0.9, 6
+  LOFT, 1, 2, RULED
+  CYL, 0, 0, -L, D/2, L
+  UNION, 3, 4
+  SEL, S, EDGE, AT, 0, D/2, -L    ! the rim at the tip
+  CHAMFER, D/10
+  SEL, S, FACE, AT, D/2, 0, -L/2  ! the side of the shank
+  THREAD, , MIN(B, L)
+*ENDPART
+
+*PART, nut, D=8, M=0.8*D
+  POLYGON, 0, 0, 0, D*0.9, 6
+  POLYGON, 0, 0, M, D*0.9, 6
+  LOFT, 1, 2, RULED
+  HOLE, LAST, 0, 0, M, D - PITCH(D)
+  SEL, S, FACE, AT, (D - PITCH(D))/2, 0, M/2
+  THREAD
+*ENDPART
+```
+
+### SPRING
+
+`SPRING, x, y, z, r, pitch, turns, d [, dx, dy, dz] [, RIGHT|LEFT] [, closed] [, PLAIN|GROUND]`
+makes a coil spring of round wire around the axis through `(x, y, z)`
+(default +Z, on the work plane if one is set).
+
+* `r` is the coil radius (axis to the middle of the wire), `d` the wire
+  diameter, `turns` counts every turn, end coils included.
+* `closed` turns at each end are wound tight, so the spring stands flat
+  (a compression spring); the pitch eases smoothly from the tight end coils
+  to `pitch` in the middle.
+* `GROUND` grinds both ends flat, square to the axis, taking off half a wire.
+* The message gives the free height.
+
+```
+SPRING, 0, 0, 0, 10, 6, 8, 1.5                    ! plain, open ends
+SPRING, 40, 0, 0, 10, 5, 10, 2, , , , , 1, GROUND ! closed and ground ends
+SPRING, 80, 0, 0, 6, 3, 8, 1, , , , LEFT          ! left-hand
+```
+
+For a spring with any other pitch law, or a wire that is not round, use
+`HELIX` with a pitch law and `SWEEP` or `PIPE` (sections 9 to 11).
