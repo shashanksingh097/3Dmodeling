@@ -495,9 +495,15 @@ def _transform(p: Processor, bid: int, trsf: gp_Trsf, what: str, copy: bool) -> 
     mk = BRepBuilderAPI_Transform(shape, trsf, True)
     if not mk.IsDone():
         raise CommandError(f"{what}: kernel failed")
+    inst = m.instances.get(bid)  # a moved or copied instance is still one
     if copy:
-        return _new(p, mk.Shape(), f"{what} of body {bid}")
+        body = m.add_body(mk.Shape())
+        if inst:
+            m.instances[body.id] = inst
+        return _added(p, body, f"{what} of body {bid}")
     body = m.replace([bid], mk.Shape(), mk, same_id=True)
+    if inst:
+        m.instances[body.id] = inst
     return f"{what} body {bid}" + ("" if body.name == f"body{bid}" else f" '{body.name}'")
 
 
@@ -1045,13 +1051,14 @@ def redo(p: Processor, n):
 
 @command(
     "HIST",
-    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY"),
+    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY, PART"),
     Arg("n", int, 0, "entry number (1-based)"),
     Arg("text", Text, "", "new text (quoted; \\n separates lines), or the target position for MOVE"),
     session=True,
     help=(
         "Work with the history: HIST lists it · HIST, EDIT, 3, \"W = 60\" changes entry 3 and re-runs · "
-        "HIST, INSERT, 3, \"...\" · HIST, DELETE, 3 · HIST, SUPPRESS, 3 / RESUME, 3 · HIST, MOVE, 5, 2 · HIST, REPLAY"
+        "HIST, INSERT, 3, \"...\" · HIST, DELETE, 3 · HIST, SUPPRESS, 3 / RESUME, 3 · HIST, MOVE, 5, 2 · HIST, REPLAY · "
+        "HIST, PART, 3, \"6, bracket\" turns entries 3 to 6 into a part, placed once where it was"
     ),
 )
 def hist(p: Processor, action, n, text):
@@ -1071,6 +1078,15 @@ def hist(p: Processor, action, n, text):
         return p.suppress_entry(n, True)
     if action in ("RESUME", "UNSUPPRESS"):
         return p.suppress_entry(n, False)
+    if action == "PART":
+        from ..lang.script import ScriptError, split_args
+
+        try:
+            last, name = (s.strip() for s in split_args(text))
+            last_n = int(p.evaluate(last))
+        except (ValueError, ScriptError, ExprError, TypeError):
+            raise CommandError('HIST, PART, first, "last, name": give the last entry and the part name') from None
+        return p.wrap_entries(n, last_n, name)
     if action == "MOVE":
         try:
             to = int(p.evaluate(text))
@@ -1123,7 +1139,7 @@ def fit(p: Processor):
         p.view.fit()
 
 
-@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, SETS, DATUMS, SKETCHES, SKETCH"),
+@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH"),
          logged=False,
          help="List bodies, parameters, macros, named sets and the selection. LIST, SKETCH shows every curve and "
               "constraint of the open sketch (or LIST, SKETCH, name).")
@@ -1132,14 +1148,23 @@ def list_(p: Processor, what):
     lines = []
     if what in ("ALL", "BODIES"):
         lines.append(f"{len(m.bodies)} bodies ({m.units})")
+        from .part_handlers import instance_of
+
         for b in m.bodies.values():
             n = {k: len(b.entity_ids[k]) for k in ENTITY_KINDS}
-            lines.append(f"  body {b.id} {b.name}: {n['FACE']} faces, {n['EDGE']} edges, {n['VERTEX']} vertices")
+            inst = instance_of(p, b.id)
+            lines.append(f"  body {b.id} {b.name}: {n['FACE']} faces, {n['EDGE']} edges, {n['VERTEX']} vertices"
+                         + (f"  [instance of {inst}]" if inst else ""))
     if what in ("ALL", "PARAMS") and p.params:
         lines.append("parameters:")
         lines += [f"  {k} = {format_value(v)}" for k, v in p.params.items()]
     if what in ("ALL", "MACROS") and p.macros:
         lines.append("macros: " + ", ".join(p.macros))
+    if what in ("ALL", "PARTS") and p.parts:
+        from .part_handlers import parts_listing
+
+        lines.append("parts:")
+        lines += parts_listing(p)
     if what in ("ALL", "SETS") and m.named_sets:
         lines.append("named sets:")
         lines += [f"  {k}: {kind} {', '.join(map(str, ids))}" for k, (kind, ids) in m.named_sets.items()]
@@ -1166,8 +1191,8 @@ def list_(p: Processor, what):
     if what == "ALL":
         lines.append(_describe_selection(p))
     if not lines:
-        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "SETS", "DATUMS", "SKETCHES"):
-            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, SETS, DATUMS, SKETCHES or SKETCH")
+        if what not in ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES"):
+            raise CommandError("LIST: use ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES or SKETCH")
         lines.append(f"no {what.lower()}")
     return "\n".join(lines)
 

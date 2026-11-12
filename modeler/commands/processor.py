@@ -38,6 +38,7 @@ from ..lang.script import (
     If,
     Incomplete,
     MacroDef,
+    PartDef,
     ScriptError,
     Simple,
     Stmt,
@@ -177,6 +178,11 @@ class Processor:
         self.history_listeners: list[Callable[[], None]] = []
         self.params: dict[str, Any] = {}
         self.macros: dict[str, MacroDef] = {}
+        self.parts: dict[str, PartDef] = {}  # *PART definitions, by upper-case name
+        # built part shapes by (definition text, parameter values); not undo state,
+        # because a key never changes meaning
+        self.part_cache: dict = {}
+        self.lib_files: dict[str, str] = {}  # LIB, LOAD names as written -> the file read
         # parameters fixed from outside (batch runner -D): assignments keep these values
         self.overrides = {k.upper(): v for k, v in (overrides or {}).items()}
         # IMPORT file names as written in the script -> the file to read
@@ -310,6 +316,7 @@ class Processor:
         self._scopes = []
         self.params = {}
         self.macros = {}
+        self.parts = {}
         self.file_map = {}
         self.model.clear()
         self.history = []
@@ -396,6 +403,66 @@ class Processor:
         self.history.insert(j, e)
         return self.rebuild(min(i, j))
 
+    def wrap_entries(self, first: int, last: int, name: str) -> str:
+        """Turn entries first..last (1-based) into a part, placed once where it
+        was: ``*PART`` + ``INST`` (+ ``NAME`` when the steps made one named body).
+
+        Parameters set inside the range become the part's own parameters;
+        parameters from before it that the steps use become part parameters
+        too, passed in by the ``INST`` (``W=W``), so the model still follows
+        them. The part is built first; if it fails, nothing changes.
+        """
+        import re
+
+        from .part_handlers import build
+
+        self._drop_redo_tail()
+        i0, i1 = self._index(first), self._index(last)
+        if i1 < i0:
+            raise CommandError("HIST, PART: the last entry comes before the first")
+        if not is_ident(name):
+            raise CommandError(f"HIST, PART: {name!r} is not a valid part name")
+        entries = [e for e in self.history[i0:i1 + 1] if not e.suppressed]
+        outer = self._snaps[i0]["params"]
+        inner: list[tuple[str, str]] = []
+        body: list[str] = []
+        for e in entries:
+            stmts = parse(e.text)
+            if len(stmts) == 1 and isinstance(stmts[0], Assign):
+                inner.append((stmts[0].name, stmts[0].expr))
+                continue
+            body.append(e.text)
+        used = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", "\n".join(body + [x for _, x in inner])))
+        inner_names = {n for n, _ in inner}
+        passed = [k for k in outer if k in {u.upper() for u in used} and k not in inner_names]
+        params = [f"{k}={format_value(outer[k])}" for k in passed] + [f"{n}={x}" for n, x in inner]
+        head = f"*PART, {name}" + (", " + ", ".join(params) if params else "")
+        block = "\n".join(["  " + ln for t in body for ln in t.splitlines()])
+        part_text = f"{head}\n{block}\n*ENDPART"
+        stmts = parse(part_text)
+        part = stmts[0]
+        trial = dict(self.parts)
+        saved_parts, self.parts = self.parts, trial
+        try:
+            build(self, part, {k: outer[k] for k in passed})
+        finally:
+            self.parts = saved_parts
+        # the name the steps gave their one body, so later steps still find it
+        snap_after = self._snaps[i1 + 1]["model"]
+        before = self._snaps[i0]["model"]["bodies"]
+        made = [b for bid, b in snap_after["bodies"].items() if bid not in before]
+        new = [part_text, f"INST, {name}" + "".join(f", {k}={k}" for k in passed)]
+        if len(made) == 1 and not made[0].name.lower().startswith("body"):
+            new.append(f"NAME, LAST, {made[0].name}")
+        n = i1 - i0 + 1
+        self.history[i0:i1 + 1] = [Entry(t) for t in new]
+        del self._snaps[i0 + 1:i1 + 2]
+        for _ in new:
+            self._snaps.insert(i0 + 1, self._snaps[i0])  # placeholders, rebuilt below
+        self.cursor += len(new) - n
+        msg = self.rebuild(i0)
+        return f"steps {first} to {last} are now part {name.lower()}, placed once\n{msg}"
+
     def rebuild(self, start: int = 0) -> str:
         """Re-run entries ``start`` (0-based) .. cursor-1 from the snapshot before ``start``.
 
@@ -467,11 +534,13 @@ class Processor:
             fn()
 
     def _state(self) -> dict:
-        return {"model": self.model.snapshot(), "params": dict(self.params), "macros": dict(self.macros)}
+        return {"model": self.model.snapshot(), "params": dict(self.params), "macros": dict(self.macros),
+                "parts": dict(self.parts)}
 
     def _restore(self, state: dict, emit: bool = True) -> None:
         self.params = dict(state["params"])
         self.macros = dict(state["macros"])
+        self.parts = dict(state.get("parts", {}))
         if emit:
             self.model.restore(state["model"])
         else:
@@ -678,6 +747,11 @@ class Processor:
         self.macros[st.name] = st
         args = ", ".join(n if d is None else f"{n}={d}" for n, d in st.params)
         self._say(f"macro {st.name}({args}) defined")
+
+    def _exec_PartDef(self, st: PartDef) -> None:
+        from .part_handlers import define_part
+
+        self._say(define_part(self, st))
 
     def _exec_Simple(self, st: Simple) -> None:
         w = st.word

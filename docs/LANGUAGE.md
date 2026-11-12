@@ -251,6 +251,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `LIB, LOAD, name/file` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -721,3 +722,67 @@ Every button and click only builds a command and runs it, so the output and
 the history show exactly what happened, and a script can do the same.
 
 See `scripts/sketch_bracket.cmd`.
+
+## 17. Parts and instances
+
+A part is a reusable shape recipe with parameters. Define it once, place it
+as often as you like, and every copy follows the definition.
+
+```
+*PART, bolt, D=8, L=30, K=0.7*D     ! parameters and their defaults
+  POLYGON, 0, 0, 0, D*0.9, 6        ! hexagon head: two hexagons and a straight loft
+  POLYGON, 0, 0, K, D*0.9, 6
+  LOFT, 1, 2, RULED
+  CYL, 0, 0, -L, D/2, L             ! shank
+  UNION, 3, 4
+*ENDPART
+
+*DO, i, 1, 8
+  INST, bolt, i*25, 0, 0, D=SIZE    ! eight copies; SIZE is a parameter out here
+*ENDDO
+INST, bolt, 0, 40, 0, 90, 1, 0, 0, L=50   ! turned 90 degrees about X, a longer one
+```
+
+* **The definition** is one history entry. Its body runs in a model of its
+  own, starting empty, so body numbers inside it start at 1 whatever the
+  main model holds. A default can use an earlier parameter (`K=0.7*D`). A
+  parameter with no default (`*PART, washer, D`) must be given by every
+  `INST`. When every parameter has a default, the part is built once when it
+  is defined, so mistakes show at once.
+* **A part sees only its own parameters.** Pass anything else in:
+  `INST, bolt, x, y, z, D=SIZE`. Parts can place other parts.
+* **What a part gives** is the solids it leaves shown (curves and profiles
+  used to build them are left out). Several solids stay together as one body.
+* **`INST, part, x, y, z [, angle [, dx, dy, dz]] [, NAME=value ...]`** turns
+  the part by `angle` degrees about the axis `(dx, dy, dz)` (default Z)
+  through its own origin, then moves it to `(x, y, z)`, on the work plane if
+  one is set. `NAME=value` items can come anywhere after the part name.
+* **Every copy follows.** Edit the `*PART` entry, or a parameter an `INST`
+  passes, and everything after it re-runs. A part built with the same values
+  is reused, so fifty identical bolts are built once.
+* **Instances are bodies.** You can name, move, copy, cut and fillet them.
+  `MOVE`, `ROTATE`, `COPY` and `MIRROR` keep a body an instance; any other
+  change makes plain geometry. `LIST, BODIES` marks instances and `LIST,
+  PARTS` lists the parts with how many copies each has.
+* **`EXPLODE, b`** splits a body into one body per solid (`name_1`,
+  `name_2` ...), or turns a one-solid instance into plain geometry.
+* **Steps into a part.** `HIST, PART, 3, "7, bracket"` turns history entries
+  3 to 7 into `*PART, bracket` and places it once where those steps put it,
+  so the model looks the same. Parameters set inside those steps become the
+  part's parameters. Parameters from before them that the steps use become
+  part parameters too, passed in by the `INST` (`W=W`), so the model still
+  follows them. If the steps used a body made earlier, the part cannot be
+  built on its own; nothing changes and the message says why. In the GUI:
+  select the rows in the History panel, right click, "Make a part from
+  steps …".
+
+### The part library
+
+`LIBSAVE, bolt` writes the part's definition to `bolt.cmd` in the library
+folder (`MODELER_LIBRARY`, default `~/.modeler/parts`), or `LIBSAVE, bolt,
+"path/file.cmd"`. It runs when given and is not kept in the history.
+`LIB, LOAD, bolt` reads it back in another project (also `LIB, LOAD,
+"path/file.cmd"`; the file must hold only `*PART` blocks and comments). A
+saved project keeps a copy of every part file it loaded, like imported
+files, so it opens on a computer without your library.
+

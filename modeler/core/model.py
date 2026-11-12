@@ -149,6 +149,9 @@ class Model:
         # never changed in place: edit_sketch() swaps in a copy, so snapshots
         # can share them.
         self.sketches: dict = {}
+        # body ID -> (part name, ((PARAM, value), ...)) for bodies placed by INST;
+        # moving or copying keeps it, any other change makes plain geometry
+        self.instances: dict[int, tuple] = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -186,6 +189,7 @@ class Model:
             "workplane": self.workplane,
             "sketches": dict(self.sketches),
             "active_sketch": self.active_sketch,
+            "instances": dict(self.instances),
         }
 
     def restore(self, snap: dict) -> None:
@@ -205,6 +209,7 @@ class Model:
         self.workplane = snap.get("workplane")
         self.sketches = dict(snap.get("sketches", {}))
         self.active_sketch = snap.get("active_sketch")
+        self.instances = dict(snap.get("instances", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 
@@ -273,6 +278,7 @@ class Model:
                 self._entities[kind].pop(gid, None)
         del self.bodies[bid]
         self.hidden.discard(bid)
+        self.instances.pop(bid, None)
         if emit:
             self._drop_stale_selection()
             self._emit(Event("body_removed", bid))
