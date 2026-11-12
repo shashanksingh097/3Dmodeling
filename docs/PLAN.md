@@ -381,6 +381,19 @@ spring is a short script whose numbers you can change later.
 ### 5.8 AI assistant (last)
 - Chat panel that explains any command, turns plain language into a command script, explains errors, and can read the current model state through query commands `[M9]`
 - The AI never edits the model directly; it proposes commands, the user sees and accepts them, and they run through the same processor and log.
+- **Tools made for the AI** (full design in docs/M9-ai-tools.md). The assistant checks its work with exact text queries instead of looking at pictures, which saves tokens and gives stronger answers (a picture cannot tell a 6.0 mm hole from a 6.4 mm one). Pictures stay as a fallback. The tools, in six groups:
+
+| Group | Tools | What they give the AI |
+|-------|-------|-----------------------|
+| Learn the language | `find_commands`, `command_help`, `search_docs` | arguments, defaults, examples and errors from the command registry and LANGUAGE.md, on demand, so the system prompt stays small |
+| Read the model | `model_summary`, `describe_body`, `describe_entities`, `around`, `history`, `parameters`, `sketch_state`, `user_context` | bodies, sizes, validity; features a person would name (holes with size, depth and pattern, fillets, pockets, symmetry), from the history first and the geometry otherwise; what the user has selected or is pointing at |
+| Probe space | `probe_ray`, `probe_point`, `section_profile`, `outline`, `measure`, `wall_thickness` | where material is: ray hits, inside or outside, a cut through a body as loops of lines and arcs (a stack of cuts reads like a scan), a silhouette as a 2D path |
+| Try in a sandbox | `sandbox`, `lint`, `run`, `diff`, `check`, `vary`, `round_trip`, `check_design` | a copy of the model to run scripts in, with per-step results and diffs; expectations checked exactly (`ASSERT`, a new command also usable in scripts and the regression corpus); a parameter swept over values; history edits undone and checked for stable references |
+| Hand over | `propose`, `ask_pick`, `highlight`, `selector_for`, `preview_selection` | a card with the commands, summary, diff and passed checks plus a ghost preview, which the user accepts as one undoable step; asking the user to click instead of guessing; robust `SEL` criteria in place of raw IDs |
+| Look (fallback) | `render`, `render_compare`, `render_detail` | small off-screen images with ID labels, for looks, freeform and sculpted shapes, or when the text answers do not settle it |
+
+- Rules for all of them: each wraps a command a person can also type, so it runs headless and is unit tested; answers are compact JSON, rounded to the tolerance, paged, in stable ID order, and carry the model revision (so the AI can ask only for what changed); errors come with a hint; the tool list is fixed for a chat so its definitions can be cached.
+- Build order: **M9a** tools without AI (`DESCRIBE`, `ASSERT` and new queries such as `HOLES`, `VALID`, `PIECES`, `MINWALL`, `LINT`, `DIFF`, the sandbox), useful early for the regression corpus and for GUI picks written as criteria; **M9b** seeing without pictures (feature recognition, `PROBE`, section profiles, outlines, wall thickness, design checks, parameter sweeps); **M9c** the chat panel, proposal cards, picking, rendering, the API connection, and a benchmark of modelling requests that records success, tokens and pictures used. The same tools can be served to outside AI agents as an MCP server.
 
 ---
 
