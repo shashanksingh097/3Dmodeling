@@ -68,7 +68,7 @@ NAME, LAST, tubcap2
 SEW, tubskin, tubcap1, tubcap2
 NAME, LAST, tub
 
-gsec, 1120, 830, 790, 760, 790, 5
+gsec, 1120, 830, 790, 700, 830, 5
 NAME, LAST, cowl
 gsec, 1350, 820, 730, 760, 960, 30
 gsec, 1750, 800, 665, 760, 1300, 40
@@ -76,7 +76,7 @@ gsec, 2000, 795, 645, 760, 1490, 35
 gsec, 2800, 795, 645, 770, 1500, 35
 gsec, 3250, 785, 625, 780, 1450, 35
 gsec, 3650, 770, 585, 800, 1160, 25
-gsec, 3880, 750, 560, 820, 990, 10
+gsec, 3880, 750, 560, 780, 990, 10
 NAME, LAST, deck
 NSURF, 3, cowl, LAST-6, LAST-5, LAST-4, LAST-3, LAST-2, LAST-1, deck
 NAME, LAST, cabskin
