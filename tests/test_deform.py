@@ -154,3 +154,16 @@ def test_refusals(p):
 def test_example_script_runs(p):
     with open("scripts/deformers.cmd") as f:
         ok(p, f.read())
+
+
+def test_greville_points_stay_inside_the_knots():
+    # the mean of three 0.35 knots rounds below 0.35, where every basis function is 0 (a singular fit)
+    from modeler.geometry import deform as dfm
+    from modeler.geometry import nurbs as nb
+    import numpy as np
+
+    k = np.array([0.35] * 4 + [1.1675, 1.985, 2.8025, 3.62, 4.4375, 5.255, 6.07251] + [6.89001] * 4)
+    g = dfm._greville(k, 3, 11)
+    assert g[0] == 0.35 and g[-1] == 6.89001
+    N = nb.basis(k, 3, g)
+    assert np.linalg.matrix_rank(N) == 11

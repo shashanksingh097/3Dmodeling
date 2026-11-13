@@ -77,7 +77,9 @@ def _subs(shape, kind) -> list:
 
 
 def _greville(knots_full: np.ndarray, deg: int, n: int) -> np.ndarray:
-    return np.array([knots_full[i + 1:i + deg + 1].mean() for i in range(n)])
+    g = np.array([knots_full[i + 1:i + deg + 1].mean() for i in range(n)])
+    # the mean of equal end knots can round just outside the range, where every basis function is 0
+    return np.clip(g, knots_full[deg], knots_full[n])
 
 
 def _flat(knots, mults) -> np.ndarray:
