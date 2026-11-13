@@ -545,7 +545,8 @@ Still open in the milestones already started, in the suggested order:
 1. Done: more file formats (export IGES, OBJ, 3MF, glTF; import OBJ, 3MF,
    glTF, PLY, OFF, VTK and simulation meshes; LANGUAGE.md section 10).
 2. Finish M5: deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`, `STRETCH`,
-   `SWEEPVOL`) and the M5 exit test (docs/M5-nurbs.md, "What is left").
+   `SWEEPVOL`) are done (docs/M5-nurbs.md, part 4); the M5 exit test is
+   next (docs/M5-nurbs.md, "What is left").
    Then release 0.2.0 (NURBS freeform and the new formats).
 3. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,

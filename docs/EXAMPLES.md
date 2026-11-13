@@ -39,6 +39,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/nurbs_freeform.png" width="160">](#nurbs-curves-surfaces-and-patches) | [NURBS curves, surfaces and patches](#nurbs-curves-surfaces-and-patches) |
 | [<img src="examples/surface_ops.png" width="160">](#surface-blends-extend-trim-and-face-moves) | [Surface blends, extend, trim and face moves](#surface-blends-extend-trim-and-face-moves) |
 | [<img src="examples/guides_analysis.png" width="160">](#guide-curve-lofts-and-surface-analysis) | [Guide-curve lofts and surface analysis](#guide-curve-lofts-and-surface-analysis) |
+| [<img src="examples/deformers.png" width="160">](#bent-twisted-and-flowed-bodies-and-a-milled-slot) | [Bent, twisted and flowed bodies, and a milled slot](#bent-twisted-and-flowed-bodies-and-a-milled-slot) |
 | [<img src="examples/car_body.png" width="160">](#car-body) | [Car body](#car-body) |
 
 ---
@@ -1012,6 +1013,68 @@ NAME, LAST, rib
 
 ! ---- look at it: stripes on the vase, and its joins in words ----
 ANALYZE, vase, ZEBRA
+```
+
+</details>
+
+---
+
+## Bent, twisted and flowed bodies, and a milled slot
+
+![Bent, twisted and flowed bodies, and a milled slot](examples/deformers.png)
+
+Deformers and swept volumes (M5 part 4): BEND, TWIST, TAPER, STRETCH, FLOW, SWEEPVOL. A deformed body keeps its ID and its faces keep theirs, so later steps that pick them still work.
+
+**Script:** [scripts/deformers.cmd](../scripts/deformers.cmd) (43 lines) · **Run:** `python -m modeler scripts/deformers.cmd`
+
+**You should get:** 9 bodies, volume 75,017.7 mm³, 94 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Deformers and swept volumes (M5 part 4): BEND, TWIST, TAPER, STRETCH, FLOW, SWEEPVOL.
+! A deformed body keeps its ID and its faces keep theirs, so later steps that pick them still work.
+
+! ---- a flat bar bent into a quarter circle, and one bent more towards its far end ----
+BLOCK, 0, 0, 0, 100, 10, 4
+NAME, LAST, bar
+BEND, bar, 90
+BLOCK, 0, 30, 0, 100, 10, 4
+NAME, LAST, hook
+BEND, hook, 150, X, Z, t**2
+
+! ---- a square column, twisted half a turn and tapered to a point-ish top ----
+BLOCK, 140, -6, 0, 12, 12, 80
+NAME, LAST, column
+TWIST, column, 180
+TAPER, column, 0.4, Z
+! a round bar twisted out and back: the ends stay where they were
+BLOCK, 170, -4, 0, 8, 8, 60
+NAME, LAST, wave
+TWIST, wave, 60, Z, sin(180*t)
+
+! ---- a block stretched to twice its length, keeping its volume ----
+BLOCK, 200, 0, 0, 30, 12, 12
+NAME, LAST, plug
+STRETCH, plug, 2
+
+! ---- a word laid along an arc, fitted to its length ----
+TEXT, "FLOW", 0, -60, 0, 16, 3
+NAME, LAST, label
+ARC, 0, -60, 0, 50, -30, 0, 100, -60, 0
+NAME, LAST, arc
+FLOW, label, arc, FIT
+
+! ---- a slot cut by an end mill moving along a curve ----
+BLOCK, 130, -100, -10, 90, 60, 10
+NAME, LAST, plate
+CYL, 140, -80, -4, 3, 10
+NAME, LAST, cutter
+SPLINE, (140, -80, -4), (170, -60, -4), (200, -75, -4), (210, -55, -4)
+NAME, LAST, track
+SWEEPVOL, cutter, track
+SUBTRACT, plate, LAST
+DELETE, cutter
 ```
 
 </details>
