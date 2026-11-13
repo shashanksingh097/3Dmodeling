@@ -57,7 +57,11 @@ def _run_headless(args: list[str]) -> int:
         if not quiet or not r.ok:
             print(f"> {r.line}")
         if r.message and (not quiet or not r.ok or r.line.lstrip().upper().startswith("*MSG")):
-            print(("" if r.ok else "ERROR: ") + r.message)
+            if r.ok:
+                print(r.message)
+            else:  # a block's message is what its lines did, ending with the error: mark that line
+                *done, err = r.message.split("\n")
+                print("\n".join([*done, "ERROR: " + err]))
     ok = all(r.ok for r in results)
     print(f"{'done' if ok else 'FAILED'}: {len(p.history)} history entries, {len(p.model.bodies)} bodies")
     return 0 if ok else 1

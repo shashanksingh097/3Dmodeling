@@ -243,3 +243,14 @@ def test_every_new_command_has_a_form():
     assert F.missing_forms() == []
     for name in ("LAYER", "COLOR", "MATERIAL", "ISOLATE"):
         F.spec(name)
+
+
+def test_glass_is_drawn_see_through_and_keeps_it_when_redefined(p):
+    ok(p, "BLOCK, 0,0,0, 10,10,2")
+    assert p.model.display_transparency(1) == 0.0
+    ok(p, "MATERIAL, 1, GLASS")
+    assert 0 < p.model.display_transparency(1) < 1
+    ok(p, "MATERIAL, 1, GLASS, 2500, #335577")   # same material, another colour
+    assert 0 < p.model.display_transparency(1) < 1
+    ok(p, "MATERIAL, 1, STEEL")
+    assert p.model.display_transparency(1) == 0.0

@@ -168,3 +168,14 @@ def test_windows_style_paths_are_taken_literally(tmp_path):
     p = Processor()
     r = p.run(r'RUN, "C:\Users\new\test.cmd"')
     assert not r.ok and r"C:\Users\new\test.cmd" in r.message
+
+
+def test_batch_runner_marks_the_failing_line_of_a_block(tmp_path, capsys):
+    from modeler.__main__ import main
+
+    script = tmp_path / "loop.cmd"
+    script.write_text("*DO, i, 1, 2\n  BLOCK, 0,0,0, 1,1,1\n  OFFSET, LAST, -5\n*ENDDO\n")
+    assert main(["run", str(script), "-q"]) == 1
+    out = capsys.readouterr().out
+    assert "ERROR: BLOCK" not in out  # the block's first line is not the error
+    assert any(line.startswith("ERROR: ") and "OFFSET" in line for line in out.splitlines()), out

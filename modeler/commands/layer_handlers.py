@@ -258,7 +258,7 @@ def material(p: Processor, target, name, density, color):
             raise CommandError(f"MATERIAL: {known.name} is built in ({fmt_num(known.density)} kg/m3); "
                                "give your material another name")
         col = parse_color(p, "MATERIAL", color) if color.strip() else (known.color if known else None)
-        mat = Material(known.name if known else key, density, col)
+        mat = Material(known.name if known else key, density, col, known.transparency if known else 0.0)
         if mat != known:
             m.put_material(mat)
     else:
