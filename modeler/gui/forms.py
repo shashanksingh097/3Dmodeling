@@ -108,11 +108,11 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Text and surfaces", ("TEXT", "SURFACE")),
-    ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "SEW", "MOVEPT", "WEIGHT", "KNOT", "DEGREE",
-                          "REBUILD", "POLES")),
+    ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "BLEND", "SEW", "EXTEND", "TRIM", "MOVEPT",
+                          "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
-    ("Edit faces", ("PUSHPULL", "DELFACE")),
+    ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE")),
@@ -492,6 +492,30 @@ def _hand() -> dict[str, FormSpec]:
            help="how the patch meets surfaces whose edges are picked: G0 touching, G1 no crease, G2 smooth curvature"),
         _F("a", "Around the hole", "bodies", required=True, pick="BODY", count=24, start="SEL",
            help="curve bodies, or SEL for the picked edges of surfaces")])])
+    add("BLEND", [Variant("", "", [
+        _F("cont", "Smoothness", "choice", "G1", choices=("G1", "G2"),
+           help="G1: no crease where it meets the surfaces; G2: no jump in curvature either"),
+        _F("e1", "Edge on the first surface", "word", "SEL", start="SEL",
+           help="its ID, or SEL for the two picked edges (pick one edge of each surface)"),
+        _F("e2", "Edge on the second surface", "word"),
+        _F("bulge", "Bulge", default="1", help="how full the blend is: 1 even, more swings out further")])])
+    add("EXTEND", [Variant("", "", [
+        _F("body", "Surface", "body", required=True, pick="BODY"),
+        _F("d", "Distance", required=True, start="5"),
+        _F("side", "Side", "choice", "", choices=("", "U0", "U1", "V0", "V1", "ALL"),
+           help="left empty: the side whose edge is picked, else all four")])])
+    add("TRIM", [Variant("", "", [
+        _F("body", "Surface", "body", required=True, pick="BODY"),
+        _F("curve", "Cutting curve", "body", required=True, pick="BODY",
+           help="laid onto the surface along its normal; it must cross it or close into a loop on it"),
+        _F("x", "Point on the piece", "point", required=True),
+        _F("mode", "That piece", "choice", "REMOVE", choices=("REMOVE", "KEEP"))])])
+    add("MOVEFACE", [Variant("", "", [
+        _F("dx", "Move the picked faces by", "point", required=True, start="0, 0, 2",
+           help="the faces around stretch or shrink to meet them")])])
+    add("REPLACEFACE", [Variant("", "", [
+        _F("surface", "New surface", "body", required=True, pick="BODY",
+           help="the picked faces of the solid take this surface's shape")])])
     add("SEW", [Variant("", "", [
         _F("b", "Surfaces", "bodies", required=True, pick="BODY", count=24, start="SEL",
            help="surfaces whose edges meet; a closed skin becomes a solid")])])

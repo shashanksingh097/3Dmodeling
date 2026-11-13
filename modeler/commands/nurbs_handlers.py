@@ -517,7 +517,5 @@ def sew_(p: Processor, **raws):
     if robust.solids(out):
         kind = f"a closed solid, volume {robust.volume(out):.4g}"
     else:
-        kind = f"an open skin with {free} free edge{'s' if free != 1 else ''}"
-        if free:
-            p.warn(f"SEW: {free} edge{'s' if free != 1 else ''} did not meet another surface, so no solid was made")
+        kind = f"an open skin with {free} free edge{'s' if free != 1 else ''} (a closed one would be a solid)"
     return _added(p, body, f"SEW {len(ids)} surface{'s' if len(ids) > 1 else ''} into {kind}")

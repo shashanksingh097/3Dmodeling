@@ -1152,6 +1152,22 @@ DELFACE                           ! ... and now it is gone
 The Features toolbar has **Push/Pull…** and **Delete faces** buttons for the
 selected faces. See `scripts/m4_shapes.cmd`.
 
+`MOVEFACE, dx, dy, dz` moves the picked faces of a solid in any direction
+and `REPLACEFACE, surface` gives them the shape of a surface body; the faces
+around stretch or shrink to meet them, and every face keeps its ID:
+
+```
+PICK, FACE, 6
+MOVEFACE, 0, 0, 5        ! the top up 5 (for a flat face this is PUSHPULL, 5)
+PICK, FACE, 6
+REPLACEFACE, wave        ! the top takes the shape of surface 'wave'
+```
+
+The solid is grown along the face's outward direction as far as needed,
+then cut back by the new surface (carried on past its edges when it does not
+reach across). The surface has to cross the body cleanly there: one that
+misses it, or would cut the body in two, is refused with the body unchanged.
+
 ## 21. Patterns of features, and fast repeated cuts
 
 Cutting holes one at a time makes the kernel rebuild the whole body for each
@@ -1505,6 +1521,34 @@ SEW, top, bottom, side                    ! surfaces that meet become one skin; 
 - `SEW` uses up the surfaces. Edges closer than about 1/10000 of the
   model's size are joined. If any edge is left free the result is an open
   skin and the warning says how many edges are free.
+
+### Blends, extending and trimming
+
+```
+BLEND, G2                          ! pick an edge of each of two surfaces first
+BLEND, G1, 12, 31, 1.5             ! by edge IDs; 1.5 makes it fuller (default 1)
+EXTEND, s, 5                       ! carry s on by 5 past its picked edge (or U0, U1, V0, V1, ALL)
+TRIM, s, c, 10, 5, 0               ! cut s with curve c and remove the piece nearest (10, 5, 0)
+TRIM, s, c, 10, 5, 0, KEEP         ! ... or keep only that piece
+OFFSET, s, 2                       ! a surface moved 2 along its normal (the same OFFSET as for solids)
+```
+
+- `BLEND` makes a new surface across the gap between two edges. `G1`
+  leaves no crease where it meets each surface; `G2` also matches their
+  curvature, so reflections run on without a kink. The result says how
+  closely it met them (in degrees). The two surfaces stay as they are;
+  `SEW` them with the blend for one skin.
+- `EXTEND` carries a surface on the way it was going at that edge (its last
+  span continued) and keeps the body's ID. `POLES` and where an edge lies
+  tell which side is `U0`; picking the edge is easier.
+- `TRIM` lays the curve onto the surface along the surface's normal. The
+  curve must cross the surface from edge to edge, or close into a loop on
+  it (that cuts a hole when the inside is removed). A trimmed face can no
+  longer have its control points moved (see above).
+
+Example: `scripts/surface_ops.cmd` (two panels joined by a G2 blend and sewn
+into one skin; a panel extended and trimmed with a round hole; a block
+whose top takes the shape of a wavy surface and whose side is moved in).
 
 Example: `scripts/nurbs_freeform.cmd` (a dome through a network of curves,
 closed with a flat patch and sewn into a solid; an edited curve; a surface

@@ -64,6 +64,11 @@
   "faces": 28,
   "volume": 20855.549
  },
+ "surface_ops.cmd": {
+  "bodies": 11,
+  "faces": 11,
+  "volume": 9359.93
+ },
  "sweep_gallery.cmd": {
   "bodies": 20,
   "faces": 40,
