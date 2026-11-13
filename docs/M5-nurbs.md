@@ -157,11 +157,66 @@ Part 3 gotchas:
 - Zebra stripes need about 5 mesh nodes per stripe period: 24 stripes over
   180 degrees with an angular mesh deflection of 0.05 rad.
 
+
+## Part 4: deformers and swept volumes
+
+`BEND`, `TWIST`, `TAPER`, `STRETCH` and `FLOW` (commands/deform_handlers.py)
+are point maps run through one engine (geometry/deform.py); `SWEEPVOL` is
+geometry/sweptvol.py.
+
+- **The engine** copies the body and turns it into NURBS
+  (`BRepBuilderAPI_NurbsConvert`), then edits every surface and edge curve
+  *in place*: raise the degree to 3, make it non-periodic, insert knots so
+  each direction has 8 spans. It then moves the control points so the
+  surface goes through the mapped points at the Greville points (the same
+  knots and weights; rational surfaces are solved in homogeneous form and
+  divided back). The error is measured at span midpoints; where it is above
+  1e-4 of the body's size the spans double, up to 64. Knot insertion keeps
+  the parameterisation, so the pcurves on each face stay valid, and as the
+  faces keep their identity the body keeps its topology: `SameTopology`
+  maps old to new one to one and the model replaces the body with the same
+  IDs. Vertices are moved, then `SameParameter`, `ShapeFix_Shape` and a
+  validity check.
+- **Faceted bodies** (200 or more planar faces, as imported from a mesh)
+  are triangulated, their points moved and rebuilt as a mesh body.
+- **The maps** work in a frame from the body's bounding box: `t` along the
+  axis, an up and a side direction. `BEND` keeps the centre line's length
+  (R = L / angle; with a law it integrates the centre line's direction);
+  past the ends it goes on straight. `FLOW` samples 400 frames along the
+  curve (the `SWEEP` frame code) and interpolates between them.
+- **`SWEEPVOL`**: a ball gives an exact round pipe (`exact_sweep` of a
+  circle) fused with the ball at both ends; a cylinder moving square to its
+  axis gives its rectangle swept with `MakePipeShell.SetMode(gp_Dir(axis))`
+  (binormal mode keeps it upright), fused with the cylinder at both ends.
+  Anything else: copies spaced so the ridge between two is under the
+  tolerance (spacing 2 sqrt(r^2 - (r - tol)^2), r half the tool's size), at
+  most 400, fused, then `UnifySameDomain`. Measured: a 3 radius end mill 30
+  along a line gives exactly pi 9 10 + 6 10 30 = 2082.74.
+
+Part 4 gotchas:
+
+- `IncreaseDegree` after `SetUNotPeriodic` raised OutOfRange on periodic
+  surfaces: raise the degree first.
+- `InsertUKnot` outside the surface's knot range raises ConstructionError:
+  insert only inside `Bounds()` (a converted face can use part of a
+  larger surface).
+- Faces and edges placed by a `TopLoc_Location` (common after a `MOVE`)
+  hold their geometry in local coordinates: map points through the
+  location, deform, and map back.
+- Some edges stay Bezier after `NurbsConvert`: replace their curve by a
+  `GeomConvert` B-spline with `BRep_Builder.UpdateEdge` and set its range.
+- Pcurves are stored against the surface handle: replacing a face's
+  surface instead of editing it loses them.
+- A pipe of a solid (`MakePipe` of each face of a cutter) failed or
+  crashed; prisms of solids are not supported either; hence the special
+  cases and copies.
+- `GeomAbs` enum values cannot be sorted in OCP: count them instead.
+
 ## What is left of M5
 
 In the suggested order, about three items per pull request:
 
-1. Deformers: `FLOW` (text along a curve), `BEND`, `TWIST`, `TAPER`,
-   `STRETCH`, and `SWEEPVOL`.
+1. Done (part 4): deformers `FLOW`, `BEND`, `TWIST`, `TAPER`, `STRETCH`,
+   and `SWEEPVOL`.
 2. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
    to 2 mm; flow a text along a curve.

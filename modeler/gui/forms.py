@@ -113,6 +113,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
+    ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE")),
@@ -516,6 +517,35 @@ def _hand() -> dict[str, FormSpec]:
     add("MOVEFACE", [Variant("", "", [
         _F("dx", "Move the picked faces by", "point", required=True, start="0, 0, 2",
            help="the faces around stretch or shrink to meet them")])])
+    axis = _F("axis", "Axis", "choice", "", choices=("", "X", "Y", "Z"),
+              help="the length it acts along; empty = the body's longest side")
+    law = _F("law", "Law in t", "expr", help="how much of it is done by t (0 at the start of the body, 1 at the "
+                                             "end); empty = evenly")
+    add("BEND", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY"),
+        _F("angle", "Angle (degrees)", required=True, start="90"), replace(axis),
+        _F("toward", "Bends towards", "choice", "", choices=("", "X", "Y", "Z", "-X", "-Y", "-Z"),
+           help="empty = up (+Z; +X when the axis is Z)"), replace(law)])])
+    add("TWIST", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY"),
+        _F("angle", "Angle (degrees)", required=True, start="90"), replace(axis), replace(law)])])
+    add("TAPER", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY"),
+        _F("scale", "Far end's size", required=True, start="0.5", help="1 = unchanged"), replace(axis),
+        replace(law)])])
+    add("STRETCH", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY"),
+        _F("factor", "Factor", required=True, start="1.5"), replace(axis),
+        _F("mode", "Volume", "choice", "KEEP", choices=("KEEP", "FREE"),
+           help="KEEP: the sides grow thinner so the volume stays; FREE: only the length changes")])])
+    add("FLOW", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY"),
+        _F("curve", "Along the curve", "body", required=True, pick="BODY"),
+        _F("fit", "Stretch to the curve's length", "flag", word="FIT"),
+        _F("frenet", "Follow the curve's bend (FRENET)", "flag", word="FRENET")])])
+    add("SWEEPVOL", [Variant("", "", [
+        _F("tool", "Tool", "body", required=True, pick="BODY", help="placed where the path starts"),
+        _F("path", "Path", "body", required=True, pick="BODY")])])
     add("ANALYZE", [Variant("", "", [
         _F("body", "Body", "body", required=True, pick="BODY", help="the body to colour; ANALYZE, OFF ends it"),
         _F("mode", "Analysis", "choice", "ZEBRA", choices=("ZEBRA", "CURVATURE", "GAUSS", "DRAFT"),

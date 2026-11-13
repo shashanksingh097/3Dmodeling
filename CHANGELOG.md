@@ -18,6 +18,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Drag control points in the 3D view: pick a curve or surface and press Control points; each drag is a `MOVEPT` step in the history.
 - NURBS freeform, part 2: smooth blends between two surfaces (`BLEND`, G1 or G2), extending and trimming surfaces (`EXTEND`, `TRIM`), and moving or replacing faces of a solid (`MOVEFACE`, `REPLACEFACE`).
 - NURBS freeform, part 3: lofts steered by guide curves (`LOFT, ..., GUIDE, g1, g2`), sweeps that keep their angle to a surface (`SWEEP` mode `NORMAL`), laying a curve onto a surface (`PROJECT`), and surface analysis in words and colours: zebra stripes with every join judged G2, G1 or creased, curvature and Gaussian curvature maps, and draft for moulding (`ANALYZE`, and a Zebra button). `CURVEPT()` and `CURVETAN()` give a curve's point and direction.
+- Deformers: bend (`BEND`), twist (`TWIST`), taper (`TAPER`) and stretch (`STRETCH`, keeping the volume or not) whole bodies, with an optional law for how the change runs along the body, and lay a body such as a text along a curve (`FLOW`, optionally fitted to the curve's length). The body and its faces keep their IDs; solids are refitted as NURBS within 1/10000 of their size, mesh bodies are moved point by point.
+- `SWEEPVOL`: the volume a cutter sweeps along a path, as a body to `SUBTRACT`; exact for a ball and for an end mill moving square to its axis.
 - A detailed car body example (`scripts/car_body.cmd`): NURBS master surfaces cut into panels with shut lines, glass, lamps, grille, wheels, mirrors and trim, all in the command language (see `docs/example-car.md`).
 
 ### Viewing

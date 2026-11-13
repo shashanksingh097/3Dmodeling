@@ -152,7 +152,7 @@ def test_save_adds_extension_and_open_is_not_history(p, tmp_path):
 # ---- command-line assist ---------------------------------------------------------------
 def test_completion_words_fit_the_position(p):
     ok(p, "W = 4\nCYL, 0,0,0, 1, 2\nNAME, LAST, shaft\n*MACRO, bolt, d\n  CYL, 0,0,0, d, 10\n*END")
-    assert assist.completions(p, "SWE") == ["SWEEP"]
+    assert assist.completions(p, "SWE") == ["SWEEP", "SWEEPVOL"]
     assert "BOLT" in assist.completions(p, "BO")
     assert assist.completions(p, "ARRAY, P") == ["POLAR", "PATH"]
     assert assist.completions(p, "SWEEP, sh") == ["shaft"]

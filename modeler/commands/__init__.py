@@ -14,3 +14,4 @@ from . import check_handlers  # noqa: F401  (ASSERT, DESCRIBE, SELFOR, LINT, DIF
 from . import nurbs_handlers  # noqa: F401  (NURBS, MOVEPT, WEIGHT, KNOT, DEGREE, REBUILD, NSURF, NETWORK, FILL, SEW)
 from . import surface_handlers  # noqa: F401  (BLEND, EXTEND, TRIM, PROJECT, MOVEFACE, REPLACEFACE)
 from . import analysis_handlers  # noqa: F401  (ANALYZE)
+from . import deform_handlers  # noqa: F401  (BEND, TWIST, TAPER, STRETCH, FLOW, SWEEPVOL)
