@@ -67,6 +67,58 @@ def body_kind(shape) -> str:
     return "other"
 
 
+FACETED_CAN = ("booleans (UNION, SUBTRACT, INTERSECT), SPLIT, SECTION, PROFILE, PROBE, measuring, "
+               "MOVE/ROTATE/SCALE/ARRAY, export")
+FACETED_CANNOT = ("FILLET, CHAMFER, SHELL, OFFSET and DRAFT across facets, HOLE on curved areas, and "
+                  "PUSHPULL or MOVEFACE of curved areas: every triangle is its own flat face")
+_MESH_FORMATS = {"STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH"}
+
+
+def representation(shape, sample: int = 400) -> str:
+    """'faceted' when the faces are flat triangles (a mesh made into a body), else 'exact'."""
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_face = getattr(TopoDS, "Face_s", None) or TopoDS.Face
+    n = tri = 0
+    ex = TopExp_Explorer(shape, TopAbs_FACE)
+    while ex.More() and n < sample:
+        face = as_face(ex.Current())
+        ex.Next()
+        n += 1
+        if BRepAdaptor_Surface(face).GetType() != GeomAbs_SurfaceType.GeomAbs_Plane:
+            continue
+        edges = 0
+        ee = TopExp_Explorer(face, TopAbs_EDGE)
+        while ee.More() and edges < 4:
+            edges += 1
+            ee.Next()
+        tri += edges == 3
+    return "faceted" if n >= 12 and tri >= 0.9 * n else "exact"
+
+
+def origin_info(p: "Processor", bid: int) -> dict[str, Any]:
+    """Where a body came from: the IMPORT that read it (format and file), when it was imported."""
+    n = made_by(p, "BODY", bid)
+    if not n:
+        return {}
+    lines = [x.strip() for x in p.history[n - 1].text.splitlines() if x.strip().upper().startswith("IMPORT")]
+    rows = [[x.strip().strip('"\'') for x in line.split(",")] for line in lines]
+    name = p.model.bodies[bid].name.upper()
+    named = [r for r in rows if len(r) > 3 and r[3].upper() == name]
+    rows = named or (rows if len(rows) == 1 else [])
+    if not rows:
+        return {}
+    parts = rows[0]
+    out: dict[str, Any] = {"imported": True}
+    if len(parts) > 1:
+        out["format"] = parts[1].upper()
+    if len(parts) > 2:
+        out["file"] = parts[2].replace("\\", "/").rsplit("/", 1)[-1]
+    return out
+
+
 def find_body(p: "Processor", ref) -> int:
     """A body by ID, name, or a parameter holding either."""
     m = p.model
@@ -103,6 +155,11 @@ def model_summary(p: "Processor", limit: int = LIMIT) -> dict[str, Any]:
         row: dict[str, Any] = {"id": bid, "name": b.name, "kind": kind}
         if kind == "solid":
             row["volume"] = num(robust.volume(b.shape))
+        if representation(b.shape) == "faceted":
+            row["faceted"] = True
+        src = origin_info(p, bid)
+        if src:
+            row["imported"] = src.get("format", True)
         row["bbox"] = vec(bbox(b.shape))
         pieces = len(robust.solids(b.shape))
         if pieces > 1:
@@ -180,6 +237,14 @@ def describe_body(p: "Processor", ref, detail: str = "summary", limit: int = LIM
     mb = made_by(p, "BODY", bid)
     if mb:
         out["made_by"] = mb
+    out.update(origin_info(p, bid))
+    out["representation"] = representation(shape)
+    if out["representation"] == "faceted":
+        out["faceted"] = {"triangles": out["counts"]["faces"], "works": FACETED_CAN, "does_not_work": FACETED_CANNOT}
+    elif out.get("imported"):
+        out["note"] = ("exact shape from another program, without its feature history: edit it with HOLE, FILLET, "
+                       "CHAMFER, SHELL, PUSHPULL, MOVEFACE, REPLACEFACE, DELFACE (remove holes/fillets), booleans; "
+                       "HEAL or CHECK if a step fails")
     if detail == "summary":
         out.update(_body_overview(p, b))
     elif detail == "faces":
