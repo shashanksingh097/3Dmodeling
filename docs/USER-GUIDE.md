@@ -141,7 +141,7 @@ Now change `W` in the **Parameters** panel to 120. The whole part rebuilds.
 
 Scripts can also loop, branch and define your own commands (`*DO`, `*IF`,
 `*MACRO`). See [LANGUAGE.md](LANGUAGE.md) sections 2 to 4, and open
-**File > Open example** for finished models.
+**File > Open example** for finished models; [EXAMPLES.md](EXAMPLES.md) shows each one with a picture and its script.
 
 ---
 

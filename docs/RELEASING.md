@@ -45,6 +45,11 @@ started headless and runs two example scripts before it is packed.
    the changelog section as its notes.
 4. Try a download, then press **Publish** on the draft.
 
+If you cannot push tags, run the workflow by hand instead (Actions > Release
+builds > Run workflow) with `tag` set to `v0.1.0` and, if it is not the
+branch's head, `ref` set to the commit to release. It makes the same draft;
+publishing the draft creates the tag on that commit.
+
 ## Unsigned builds
 
 The builds are not code-signed yet, so the first start shows a warning:
