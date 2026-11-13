@@ -544,9 +544,9 @@ Still open in the milestones already started, in the suggested order:
 
 1. Done: more file formats (export IGES, OBJ, 3MF, glTF; import OBJ, 3MF,
    glTF, PLY, OFF, VTK and simulation meshes; LANGUAGE.md section 10).
-2. Finish M5: deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`, `STRETCH`,
-   `SWEEPVOL`) are done (docs/M5-nurbs.md, part 4); the M5 exit test is
-   next (docs/M5-nurbs.md, "What is left").
+2. Done: M5 is finished: deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`,
+   `STRETCH`, `SWEEPVOL`, docs/M5-nurbs.md part 4) and the exit test, a
+   computer mouse shell (`scripts/mouse.cmd`).
 3. The assistant on GitHub Copilot, pulled forward into 0.2.0 (M9c, first
    part; docs/M9-copilot.md): each user signs in with their own GitHub
    account and any Copilot plan, Copilot Free included. First part done:

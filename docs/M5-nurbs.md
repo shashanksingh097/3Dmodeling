@@ -212,11 +212,45 @@ Part 4 gotchas:
   cases and copies.
 - `GeomAbs` enum values cannot be sorted in OCP: count them instead.
 
+## The exit test: a computer mouse shell
+
+`scripts/mouse.cmd` (tests/test_mouse.py) meets the M5 exit test:
+
+- **From curves**: a closed plan outline (a `SPLINE` through ten points, in
+  a macro so it can be drawn at any size and height) gives the side wall
+  (`LOFT ... SURFACE` from the foot to a 0.97 copy 14 up) and, laid onto an
+  equation surface with a hump towards the back, the rim the top is
+  trimmed to.
+- **G2 blends**: one `BLEND, G2` all round, from the side's upper edge to the
+  top's rim. `ANALYZE` judges both joins G2; the foot is the only crease.
+- **Solid, shelled to 2 mm**: `FILL` closes the bottom, `SEW` makes the
+  solid, `SHELL` opens the bottom face; `MINWALL` gives 2.0 right after.
+  A button split and a slot for a scroll wheel are cut afterwards (`MINWALL`
+  then finds thinner spots where those cuts meet the curved wall at a
+  glancing angle, as it should).
+- **Text flowed along a curve**: an arc laid onto a copy of the top with
+  `PROJECT` (laid on the shell it would land on both the outer and inner
+  skin), the text `FLOW`ed along it with `FIT` and joined with `UNION`.
+
+Two fixes it needed:
+
+- **`BLEND` between two closed loops**: before, the blend's two seam edges
+  missed each other by about 0.1 (each end row was built from a one-sided
+  tangent) and the start of the second loop was matched to the first only
+  by luck. Now a closed side takes its tangent across the seam, the second
+  loop is turned to start across from the first and to run the same way
+  round, and each row of control points is interpolated as a periodic
+  curve, then clamped at the seam, so the seam closes exactly and the
+  blend runs on smoothly over it.
+- **`ANALYZE` on nearly flat faces**: the side wall bends with a radius of
+  about 30 m; the blend matched it, but a 10% test on curvatures that small
+  (3e-5 against 4.6e-5) called the join G1. A bend wider than 100 times
+  the body's size now counts as flat.
+
 ## What is left of M5
 
 In the suggested order, about three items per pull request:
 
 1. Done (part 4): deformers `FLOW`, `BEND`, `TWIST`, `TAPER`, `STRETCH`,
    and `SWEEPVOL`.
-2. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
-   to 2 mm; flow a text along a curve.
+2. Done: the M5 exit test (`scripts/mouse.cmd`, see above). M5 is complete.

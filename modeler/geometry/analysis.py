@@ -50,6 +50,7 @@ MODES = ("ZEBRA", "CURVATURE", "GAUSS", "DRAFT")
 
 CREASE_DEG = 0.25  # normals further apart than this across an edge: a crease
 G2_REL = 0.1  # curvature across an edge may differ by this much (relative) and still count as G2
+FLAT = 100.0  # bends with a radius over FLAT times the body's size count as flat (their curvature as 0)
 
 
 # =============================================================================
@@ -133,12 +134,13 @@ class Join:
     angle: float  # worst angle between the two faces' normals, degrees
     k_a: float  # curvature across the edge on each side, where they differ most
     k_b: float
+    flat: float = 0.0  # curvature below this counts as none
 
     @property
     def kind(self) -> str:
         if self.angle > CREASE_DEG:
             return "crease"
-        if abs(self.k_a - self.k_b) > G2_REL * max(abs(self.k_a), abs(self.k_b)) + 1e-9:
+        if abs(self.k_a - self.k_b) > G2_REL * max(abs(self.k_a), abs(self.k_b)) + max(self.flat, 1e-9):
             return "G1"
         return "G2"
 
@@ -148,6 +150,7 @@ def joins(shape, edge_ids: dict, samples: int = 9) -> list[Join]:
     ``edge_ids`` maps an edge shape's hash key to its ID (see ids_of)."""
     m = _AncestorMap()
     TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, m)
+    flat = 1.0 / (FLAT * max(robust.diagonal(shape), 1e-6))
     out = []
     for i in range(1, m.Extent() + 1):
         edge = _as_edge(m.FindKey(i))
@@ -182,7 +185,7 @@ def joins(shape, edge_ids: dict, samples: int = 9) -> list[Join]:
             ka, kb = a.across(T), b.across(T)
             if abs(ka - kb) > abs(worst_k[0] - worst_k[1]):
                 worst_k = (ka, kb)
-        out.append(Join(gid, worst_angle, *worst_k))
+        out.append(Join(gid, worst_angle, *worst_k, flat=flat))
     out.sort(key=lambda j: j.edge)
     return out
 

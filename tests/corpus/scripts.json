@@ -59,6 +59,11 @@
   "faces": 179,
   "volume": 52860.186
  },
+ "mouse.cmd": {
+  "bodies": 2,
+  "faces": 161,
+  "volume": 24354.435
+ },
  "nurbs_freeform.cmd": {
   "bodies": 13,
   "faces": 3,

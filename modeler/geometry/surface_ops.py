@@ -88,6 +88,15 @@ class _Side:
         self.srf = BRep_Tool.Surface_s(face)
         self.pts = edge_points(edge, n)
         self.n = n
+        self.closed = bool(np.linalg.norm(self.pts[0] - self.pts[-1]) < 1e-7 * max(1.0, np.ptp(self.pts, axis=0).max()))
+
+    def start_near(self, P, ahead) -> None:
+        """A closed side: start at the sample nearest P and run the way ``ahead`` (the next point) lies."""
+        core = self.pts[:-1]
+        core = np.roll(core, -int(np.argmin(np.linalg.norm(core - P, axis=1))), axis=0)
+        if np.linalg.norm(core[-1] - ahead) < np.linalg.norm(core[1] - ahead):
+            core = np.concatenate([core[:1], core[:0:-1]])
+        self.pts = np.concatenate([core, core[:1]])
 
     def reverse(self) -> None:
         self.pts = self.pts[::-1].copy()
@@ -102,7 +111,10 @@ class _Side:
         p, su, sv, suu, svv, suv = gp_Pnt(), gp_Vec(), gp_Vec(), gp_Vec(), gp_Vec(), gp_Vec()
         self.srf.D2(u, v, p, su, sv, suu, svv, suv)
         Su, Sv = _vec(su), _vec(sv)
-        t = self.pts[min(k + 1, self.n - 1)] - self.pts[max(k - 1, 0)]
+        if self.closed:  # (the last sample is the first again)
+            t = self.pts[(k + 1) % (self.n - 1)] - self.pts[(k - 1) % (self.n - 1)]
+        else:
+            t = self.pts[min(k + 1, self.n - 1)] - self.pts[max(k - 1, 0)]
         d = np.cross(np.cross(Su, Sv), t)
         if np.linalg.norm(d) < 1e-12:
             raise SurfaceOpError("the surface is degenerate at a blend edge")
@@ -147,10 +159,16 @@ def blend(side1: tuple, side2: tuple, cont: str = "G1", bulge: float = 1.0, samp
         raise SurfaceOpError("the bulge must be greater than 0")
     A = _Side(*side1, samples)
     B = _Side(*side2, samples)
-    straight = np.linalg.norm(A.pts[0] - B.pts[0]) + np.linalg.norm(A.pts[-1] - B.pts[-1])
-    crossed = np.linalg.norm(A.pts[0] - B.pts[-1]) + np.linalg.norm(A.pts[-1] - B.pts[0])
-    if crossed < straight:
-        B.reverse()
+    closed = A.closed and B.closed
+    if A.closed != B.closed:
+        raise SurfaceOpError("one edge is a closed loop and the other is not; blend two loops or two open edges")
+    if closed:  # two loops: start B across from A's start, running the same way round
+        B.start_near(A.pts[0], A.pts[1] + (B.pts.mean(axis=0) - A.pts.mean(axis=0)))
+    else:
+        straight = np.linalg.norm(A.pts[0] - B.pts[0]) + np.linalg.norm(A.pts[-1] - B.pts[-1])
+        crossed = np.linalg.norm(A.pts[0] - B.pts[-1]) + np.linalg.norm(A.pts[-1] - B.pts[0])
+        if crossed < straight:
+            B.reverse()
     deg = 3 if cont == "G1" else 5
     rows = []
     ca, cb = A.crosses(), B.crosses()
@@ -175,7 +193,7 @@ def blend(side1: tuple, side2: tuple, cont: str = "G1", bulge: float = 1.0, samp
     chord = np.linalg.norm(np.diff(net, axis=0), axis=2).mean(axis=1)
     t = np.concatenate([[0.0], np.cumsum(chord)])
     t /= t[-1]
-    curves = [_interpolate(net[:, j, :], t) for j in range(deg + 1)]
+    curves = [_interpolate(net[:, j, :], t, closed) for j in range(deg + 1)]
     ks, ms = nb.knots(curves[0])
     poles = [[nb._xyz(c.Pole(i)) for c in curves] for i in range(1, curves[0].NbPoles() + 1)]
     srf = nb.make_surface(poles, None, curves[0].Degree(), deg, ks, ms, [0.0, 1.0], [deg + 1, deg + 1])
@@ -190,8 +208,10 @@ def blend(side1: tuple, side2: tuple, cont: str = "G1", bulge: float = 1.0, samp
     return face, worst
 
 
-def _interpolate(points: np.ndarray, params: np.ndarray):
-    """A cubic B-spline through the points at the given parameters (the knots follow the parameters only)."""
+def _interpolate(points: np.ndarray, params: np.ndarray, closed: bool = False):
+    """A cubic B-spline through the points at the given parameters (the knots follow the parameters only).
+    Closed: the last point is the first again; the curve runs on smoothly through it (periodic, then
+    clamped there so it can be one row of a surface)."""
     from OCP.GeomAPI import GeomAPI_Interpolate
 
     try:  # OCP 8
@@ -201,15 +221,20 @@ def _interpolate(points: np.ndarray, params: np.ndarray):
         from OCP.TColgp import TColgp_HArray1OfPnt as _HPnt  # type: ignore[no-redef]
         from OCP.TColStd import TColStd_HArray1OfReal as _HReal  # type: ignore[no-redef]
 
-    pts, prm = _HPnt(1, len(points)), _HReal(1, len(points))
-    for i, (q, u) in enumerate(zip(points, params), 1):
-        pts.SetValue(i, gp_Pnt(*map(float, q)))
+    m = len(points) - 1 if closed else len(points)
+    pts, prm = _HPnt(1, m), _HReal(1, len(params))  # periodic: one more parameter than points
+    for i in range(m):
+        pts.SetValue(i + 1, gp_Pnt(*map(float, points[i])))
+    for i, u in enumerate(params, 1):
         prm.SetValue(i, float(u))
-    it = GeomAPI_Interpolate(pts, prm, False, 1e-9)
+    it = GeomAPI_Interpolate(pts, prm, closed, 1e-9)
     it.Perform()
     if not it.IsDone():
         raise SurfaceOpError("the blend could not be fitted along the edges")
-    return it.Curve()
+    c = it.Curve()
+    if closed:
+        c.SetNotPeriodic()
+    return c
 
 
 def _normal(srf, P) -> np.ndarray:
