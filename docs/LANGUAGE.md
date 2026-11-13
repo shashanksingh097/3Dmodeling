@@ -1636,6 +1636,71 @@ picture. `ANALYZE` only looks: it is not a history step.
 The **Zebra** button (Features toolbar) shows stripes on the picked body and
 ends them when pressed again; the form (Freeform category) has the others.
 
+### Deformers: bend, twist, taper, stretch, and flow along a curve
+
+```
+BEND, bar, 90                      ! the bar's centre line becomes a quarter circle
+BEND, bar, 90, X, -Z               ! along X, bending downwards
+BEND, hook, 150, X, Z, t**2        ! more of the bend towards the far end
+TWIST, column, 180                 ! the far end turns half a turn about the middle
+TWIST, bar, 60, Z, sin(180*t)      ! out and back: both ends stay square
+TAPER, column, 0.4                 ! the far end shrinks to 0.4 of its size
+STRETCH, plug, 2                   ! twice as long, thinner, same volume
+STRETCH, plug, 2, X, FREE          ! twice as long, same cross-section
+FLOW, label, arc, FIT              ! lay a text along a curve, fitted to its length
+FLOW, label, arc, X, 12            ! from 12 along the curve, at its own length
+```
+
+Each one changes the body in place: it keeps its ID and name, and its
+faces, edges and vertices keep theirs, so later steps that pick them still
+work. The axis is the length that changes (X, Y or Z; by default the body's
+longest side), measured over the body's bounding box: `t` runs from 0 at
+its low end to 1 at its high end.
+
+- `BEND` turns the centre line through the angle while keeping its length
+  (the inner side is squeezed, the outer stretched). The bend goes towards
+  `+Z`, or the side you give (`X`, `-Y` ...; `+X` for an axis Z). Less than
+  360 degrees.
+- `TWIST` and `TAPER` work about the axis through the middle of the body's
+  cross-section; `TAPER` scales both sides of the cross-section (above 0).
+- The optional law says how much of the bend, turn or size change is done
+  by `t`: plain `t` (the default) is even, `t**2` gathers it towards the
+  far end, `sin(180*t)` goes out and comes back.
+- `STRETCH` keeps the start where it is. `KEEP` (the default) makes the
+  sides thinner by the square root of the factor, so the volume stays;
+  `FREE` changes only the length.
+- `FLOW` lays the body's length along a curve from the curve's start; its
+  cross-section turns with the curve as a `SWEEP` profile would (its up
+  side, `+Z` or `+X` for an axis Z, stays on the curve's up side;
+  `MINTWIST`, `FRENET` or `FIXED` as for `SWEEP`). Without `FIT` a body
+  longer than the curve is refused.
+
+How it works: the body is turned into NURBS, each face is refined until the
+deformed shape is fitted within 1/10000 of the body's size, and the message
+says how close it is. A body read from a mesh file is moved point by
+point instead (the message says "as a mesh"). Planes and cylinders become
+freeform faces, so a deformed block reports `bspline` faces.
+
+### SWEEPVOL: the volume a moving tool sweeps
+
+```
+SWEEPVOL, cutter, track            ! a new body: what the cutter passes through
+SUBTRACT, plate, LAST              ! cut it away
+```
+
+The tool moves along the curve without turning, from where it stands (the
+curve's start is taken as the tool's start). The result is exact for a
+ball (a round pipe with the ball at each end) and for a cylinder moving
+square to its axis, such as an end mill along a path across it (its
+rectangular section swept upright, with the cylinder at each end). Any
+other tool is copied closely along the path and the copies are joined; the
+message gives how many copies and how high the ridges between them can be.
+
+Example: `scripts/deformers.cmd` (a bar bent into a quarter circle and a
+hook bent more at its end; a square column twisted and tapered, and one
+twisted out and back; a block stretched to twice its length; the word FLOW
+laid along an arc; a slot milled along a curve with `SWEEPVOL`).
+
 Example: `scripts/guides_analysis.cmd` (a vase lofted through three sections
 along two guide curves; a rib swept along a wavy line on a domed panel,
 staying square to it; zebra stripes on the vase).

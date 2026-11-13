@@ -54,6 +54,14 @@ How to work:
 - When a script works, call propose_commands with the script and a one-line summary. The user
   sees it with a Run button. You cannot change the user's model yourself, so never say that you
   did; say what the proposal will do.
+- To change what is already there (a size, a step that fails, a hole in the wrong place), read the
+  history and call propose_edits to change those steps, rather than adding steps on top. Sizes are
+  often a parameter line such as `W = 40`: edit that one line.
+- Imported bodies: describe_body says where a body came from and whether it is "exact" (STEP, IGES,
+  BREP: works like any body, but without the other program's feature history; edit it with HOLE,
+  FILLET, SHELL, PUSHPULL, MOVEFACE, DELFACE, booleans) or "faceted" (a mesh: every triangle is a
+  flat face; booleans, SPLIT, sections, measuring and export work, fillets, shells and offsets do
+  not). When asked what can be done with an import, check it first, then explain in those terms.
 - Picks by number break when the history is edited: prefer SEL criteria (selector_for).
 - Keep answers short and plain. Give sizes with units.
 """
@@ -81,8 +89,29 @@ def _need_sdk():
 
 @dataclass
 class Proposal:
+    """Commands for the user to run: new steps (``script``), or history edits (``edits``).
+
+    Edits are ``{"action": "edit"|"insert"|"delete", "entry": n, "text": ..., "old": ...}``,
+    applied in order, each numbered as the history stands after the ones before."""
+
     script: str
     summary: str
+    edits: list[dict[str, Any]] = field(default_factory=list)
+
+    def commands(self) -> list[str]:
+        """The lines to run, one command line each (history edits are HIST commands)."""
+        if not self.edits:
+            return [self.script]
+        from ..lang.expr import format_value
+
+        out = []
+        for e in self.edits:
+            act = {"edit": "EDIT", "insert": "INSERT", "delete": "DELETE"}[e["action"]]
+            line = f"HIST, {act}, {int(e['entry'])}"
+            if act != "DELETE":
+                line += f", {format_value(e['text'])}"
+            out.append(line)
+        return out
 
 
 @dataclass
@@ -262,6 +291,8 @@ class CopilotAssistant:
                     self._reply.tools.append(name)
                 if name == "propose_commands":
                     answer = self._propose(args)
+                elif name == "propose_edits":
+                    answer = await asyncio.to_thread(self.run_on_model, lambda: self._propose_edits(args))
                 else:
                     answer = await asyncio.to_thread(self.run_on_model, lambda: self.toolbox.call(name, args))
                 text = json.dumps(answer, separators=(",", ":"), default=str)
@@ -270,7 +301,7 @@ class CopilotAssistant:
             return handler
 
         tools = []
-        for d in self.toolbox.definitions() + [_PROPOSE]:
+        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
         del cp
@@ -289,6 +320,55 @@ class CopilotAssistant:
             self._reply.proposals.append(prop)
         self.on_event("proposal", prop)
         return {"shown_to_user": True, "lines": len(script.splitlines())}
+
+    def _propose_edits(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Try history edits on a sandbox copy; show them when every step still works."""
+        from ..commands.processor import CommandError
+        from .sandbox import Sandbox
+
+        raw = args.get("edits") or []
+        if not isinstance(raw, list) or not raw:
+            return {"error": "propose_edits needs edits: [{action, entry, text}]"}
+        box = Sandbox(self.toolbox.real)
+        p = box.p
+        before = sum(1 for e in p.history[: p.cursor] if not e.ok)
+        edits = []
+        for k, e in enumerate(raw, 1):
+            if not isinstance(e, dict):
+                return {"error": f"edit {k} is not an object"}
+            action = str(e.get("action", "edit")).lower()
+            try:
+                n = int(e.get("entry", 0))
+            except (TypeError, ValueError):
+                return {"error": f"edit {k}: entry must be a number"}
+            text = str(e.get("text", ""))
+            if action not in ("edit", "insert", "delete"):
+                return {"error": f"edit {k}: action is edit, insert or delete"}
+            limit = p.cursor + (1 if action == "insert" else 0)
+            if not 1 <= n <= limit:
+                return {"error": f"edit {k}: there is no entry {n} (the history has {p.cursor})"}
+            if action != "delete" and not text.strip():
+                return {"error": f"edit {k}: give the new text"}
+            old = p.history[n - 1].text if action != "insert" else ""
+            try:
+                if action == "edit":
+                    p.edit_entry(n, text)
+                elif action == "insert":
+                    p.insert_entry(n, text)
+                else:
+                    p.delete_entry(n)
+            except CommandError as exc:
+                return {"error": f"edit {k} refused: {exc}"}
+            edits.append({"action": action, "entry": n, "text": text, "old": old})
+        failed = [{"entry": i, "text": e.text, "error": e.message}
+                  for i, e in enumerate(p.history[: p.cursor], 1) if not e.ok]
+        if len(failed) > before:
+            return {"error": "after these edits some steps fail; fix them first", "failed": failed[:5]}
+        prop = Proposal("", str(args.get("summary", "")).strip(), edits)
+        if self._reply is not None:
+            self._reply.proposals.append(prop)
+        self.on_event("proposal", prop)
+        return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies)}
 
     async def _session(self):
         if self.session is not None:
@@ -368,6 +448,21 @@ _PROPOSE = {
                    "checked with LINT first. summary: one line on what running it does.",
     "input_schema": {"type": "object", "properties": {"script": {"type": "string"}, "summary": {"type": "string"}},
                      "required": ["script"]},
+}
+
+
+_PROPOSE_EDITS = {
+    "name": "propose_edits",
+    "description": "Show the user changes to existing history steps, with a Run button: change a step's text "
+                   "('edit'), add a step before entry n ('insert'), or remove one ('delete'). Applied in order, "
+                   "each entry number as the history stands after the edits before it. They are tried on a "
+                   "sandbox copy first and refused if a step then fails. Use this to change sizes or fix steps "
+                   "instead of adding new steps on top. summary: one line on what changes.",
+    "input_schema": {"type": "object", "properties": {
+        "edits": {"type": "array", "items": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["edit", "insert", "delete"]},
+            "entry": {"type": "integer"}, "text": {"type": "string"}}, "required": ["entry"]}},
+        "summary": {"type": "string"}}, "required": ["edits"]},
 }
 
 

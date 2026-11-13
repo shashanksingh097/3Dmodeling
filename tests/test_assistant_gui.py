@@ -101,3 +101,16 @@ def test_answers_show_code(win):
     assert "BLOCK, 0,0,0, 1,1,1" in html and "CYL, 0,0,0, 1, 2" in html
     panel._on_event("tool", "describe_body")
     assert "describe_body" in panel.transcript.toPlainText()
+
+
+def test_run_a_history_edit_proposal(win, app):
+    for line in ("W = 10", "BLOCK, 0,0,0, W, 5, 5"):
+        win.execute(line)
+    panel = win.assistant_panel
+    panel.show_proposal(cp.Proposal("", "wider", [{"action": "edit", "entry": 1, "text": "W = 20", "old": "W = 10"}]))
+    assert "was:  W = 10" in panel.proposal_text.toPlainText()
+    assert "1 change to the history" in panel.proposal_label.text()
+    panel.run_proposal()
+    pump(app)
+    assert win.processor.evaluate("BBOX(1).dx") == pytest.approx(20)
+    assert "W = 10" in panel.transcript.toPlainText()

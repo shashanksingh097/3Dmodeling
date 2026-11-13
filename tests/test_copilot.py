@@ -39,7 +39,7 @@ def plate():
 def test_every_modeler_tool_is_offered(plate):
     a = cp.CopilotAssistant(plate)
     names = [t.name for t in a.sdk_tools()]
-    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands"]
+    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits"]
     assert all(t.skip_permission for t in a.sdk_tools())  # read-only or sandboxed: no prompts
 
 
@@ -229,4 +229,57 @@ def test_runtime_registers_only_our_tools(plate, tmp_path):
 
     names = run(go())
     assert names == sorted([d["name"] for d in cp.CopilotAssistant(plate).toolbox.definitions()]
-                           + ["propose_commands"])
+                           + ["propose_commands", "propose_edits"])
+
+
+# ---- changing what is there ---------------------------------------------------------------
+@pytest.fixture
+def steps():
+    p = Processor()
+    for line in ("W = 40", "BLOCK, 0,0,0, W, 30, 10", "NAME, LAST, plate", "CYL, 20,15,-1, 4, 12",
+                 "SUBTRACT, plate, LAST"):
+        assert p.run(line).ok
+    return p
+
+
+def test_propose_edits_tries_them_in_a_sandbox(steps):
+    seen = []
+    a = cp.CopilotAssistant(steps, on_event=lambda k, d: seen.append((k, d)))
+    tool = {t.name: t for t in a.sdk_tools()}["propose_edits"]
+    res = run(tool.handler(ToolInvocation(arguments={
+        "edits": [{"action": "edit", "entry": 1, "text": "W = 60"},
+                  {"action": "insert", "entry": 6, "text": "SPHERE, 0,0,30, 2"}],
+        "summary": "wider plate"})))
+    assert res.result_type == "success", res.text_result_for_llm
+    prop = [d for k, d in seen if k == "proposal"][0]
+    assert prop.edits[0]["old"] == "W = 40"
+    assert prop.commands() == ['HIST, EDIT, 1, "W = 60"', 'HIST, INSERT, 6, "SPHERE, 0,0,30, 2"']
+    assert steps.evaluate("W") == 40 and len(steps.history) == 5  # nothing changed yet
+    for line in prop.commands():
+        assert steps.run(line).ok
+    assert steps.evaluate("BBOX(plate).dx") == pytest.approx(60)
+
+
+def test_propose_edits_refuses_edits_that_break_steps(steps):
+    a = cp.CopilotAssistant(steps)
+    tool = {t.name: t for t in a.sdk_tools()}["propose_edits"]
+    res = run(tool.handler(ToolInvocation(arguments={"edits": [{"action": "delete", "entry": 2}]})))
+    assert res.result_type == "failure" and "fail" in res.text_result_for_llm
+    res = run(tool.handler(ToolInvocation(arguments={"edits": [{"action": "edit", "entry": 9, "text": "X = 1"}]})))
+    assert "no entry 9" in res.text_result_for_llm
+    assert len(steps.history) == 5
+
+
+def test_imported_bodies_say_what_they_are(tmp_path):
+    p = Processor()
+    assert p.run(f'SPHERE, 0,0,0, 10\nEXPORT, STL, "{tmp_path}/s.stl"\nEXPORT, STEP, "{tmp_path}/s.step"\nCLEAR').ok
+    for line in (f'IMPORT, STL, "{tmp_path}/s.stl", ball', f'IMPORT, STEP, "{tmp_path}/s.step", exact'):
+        assert p.run(line).ok
+    box = cp.CopilotAssistant(p).toolbox
+    ball = box.call("describe_body", {"body": "ball"})
+    assert ball["representation"] == "faceted" and ball["format"] == "STL" and ball["file"] == "s.stl"
+    assert "FILLET" in ball["faceted"]["does_not_work"]
+    exact = box.call("describe_body", {"body": "exact"})
+    assert exact["representation"] == "exact" and exact["format"] == "STEP" and "DELFACE" in exact["note"]
+    rows = box.call("model_summary")["bodies"]
+    assert rows[0]["faceted"] is True and rows[0]["imported"] == "STL" and "faceted" not in rows[1]

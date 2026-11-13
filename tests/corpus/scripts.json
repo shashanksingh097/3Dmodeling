@@ -24,6 +24,11 @@
   "faces": 4531,
   "volume": 8070474278.192
  },
+ "deformers.cmd": {
+  "bodies": 9,
+  "faces": 94,
+  "volume": 75017.747
+ },
  "flange.cmd": {
   "bodies": 1,
   "faces": 15,

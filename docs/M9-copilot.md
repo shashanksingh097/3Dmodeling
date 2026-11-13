@@ -61,6 +61,16 @@ Sources: <https://github.com/github/copilot-sdk>,
   panel with **Run** and **Dismiss**. Run goes through `MainWindow.execute`,
   so the commands land in the history and Undo takes them back. Copilot
   cannot change the model itself.
+* **Changing what is there.** `propose_edits` takes history edits
+  (`edit`, `insert`, `delete` an entry), tries them on a sandbox copy and
+  refuses them when a step then fails. The panel shows each step's old and
+  new text; Run sends `HIST, EDIT/INSERT/DELETE` lines. History edits have
+  no Undo yet, so the old text stays in the conversation to edit back.
+* **Imported bodies.** `describe_body` says where a body came from
+  (`imported`, `format`, `file`) and whether it is `exact` or `faceted`
+  (flat triangles, found from the faces), with what works on it;
+  `model_summary` marks faceted and imported bodies. The system prompt
+  tells Copilot to check a body first and explain in those terms.
 * **Errors in words.** No plan points to Copilot Free; a used-up allowance
   says so.
 

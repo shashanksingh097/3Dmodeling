@@ -277,10 +277,26 @@ class AssistantPanel(QWidget):
 
     def show_proposal(self, prop: cp.Proposal) -> None:
         self.proposal = prop
-        n = len(prop.script.splitlines())
-        self.proposal_label.setText(f"<b>Proposal</b> ({n} command{'s' if n != 1 else ''}): "
-                                    f"{html.escape(prop.summary or 'run these commands')}")
-        self.proposal_text.setPlainText(prop.script)
+        if prop.edits:
+            n = len(prop.edits)
+            what = f"{n} change{'s' if n != 1 else ''} to the history"
+            lines = []
+            for e in prop.edits:
+                if e["action"] == "edit":
+                    lines += [f"Step {e['entry']}, was:  {e['old']}", f"         now:  {e['text']}"]
+                elif e["action"] == "insert":
+                    lines.append(f"New step {e['entry']}:  {e['text']}")
+                else:
+                    lines.append(f"Remove step {e['entry']}:  {e['old']}")
+            self.proposal_text.setPlainText("\n".join(lines))
+            self.run_button.setToolTip("Change these steps; the model rebuilds. To go back, edit the steps back "
+                                       "(the old text is shown here and stays in the conversation).")
+        else:
+            n = len(prop.script.splitlines())
+            what = f"{n} command{'s' if n != 1 else ''}"
+            self.proposal_text.setPlainText(prop.script)
+            self.run_button.setToolTip("Run these commands; they go into the history and Undo takes them back")
+        self.proposal_label.setText(f"<b>Proposal</b> ({what}): {html.escape(prop.summary or 'run these commands')}")
         self.proposal_box.show()
 
     def clear_proposal(self) -> None:
@@ -290,9 +306,19 @@ class AssistantPanel(QWidget):
     def run_proposal(self) -> None:
         if self.proposal is None:
             return
-        res = self.win.execute(self.proposal.script)
-        self._say("system" if res.ok else "error", "Ran the proposal." if res.ok else
-                  "The proposal stopped with an error: " + html.escape(res.message.splitlines()[-1]))
+        prop = self.proposal
+        res = None
+        for line in prop.commands():
+            res = self.win.execute(line)
+            if not res.ok:
+                break
+        if res is not None and res.ok:
+            self._say("system", "Ran the proposal.")
+        elif res is not None:
+            self._say("error", "The proposal stopped with an error: " + html.escape(res.message.splitlines()[-1]))
+        if prop.edits:
+            self._say("system", "Changed: " + "; ".join(
+                html.escape(f"step {e['entry']} was “{e['old']}”") for e in prop.edits if e["old"]))
         self.clear_proposal()
 
     def _say(self, who: str, body_html: str) -> None:

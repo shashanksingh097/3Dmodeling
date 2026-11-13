@@ -6,6 +6,7 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Assistant
 - An **Assistant** panel with GitHub Copilot (Help > Ask the assistant, Ctrl+Shift+A). Sign in with your own GitHub account using a one-time code; any Copilot plan works, Copilot Free included, and requests count against your own plan. Copilot reads the model with the modeler's text tools, tries scripts in a sandbox, and shows a proposal with a Run button; it never changes the model by itself, and its own coding tools are switched off. Needs `pip install "3Dmodeling[ai]"` (Python 3.11+); the Copilot runtime downloads on first use (about 190 MB).
+- The assistant can change existing steps (a size, a step that fails): it tries the edits on a copy first, and the panel shows each step's old and new text before you press Run. It can also explain what works on an imported body: `DESCRIBE` and its tools now say whether a body is exact (STEP, IGES, BREP) or faceted (a mesh) and which file it came from.
 - `python -m modeler copilot status|login|quota|models|ask|check`: the assistant from a shell; `check` tests sign-in, allowance and a question that must use the modeler's tools.
 
 ### Examples
@@ -22,6 +23,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Drag control points in the 3D view: pick a curve or surface and press Control points; each drag is a `MOVEPT` step in the history.
 - NURBS freeform, part 2: smooth blends between two surfaces (`BLEND`, G1 or G2), extending and trimming surfaces (`EXTEND`, `TRIM`), and moving or replacing faces of a solid (`MOVEFACE`, `REPLACEFACE`).
 - NURBS freeform, part 3: lofts steered by guide curves (`LOFT, ..., GUIDE, g1, g2`), sweeps that keep their angle to a surface (`SWEEP` mode `NORMAL`), laying a curve onto a surface (`PROJECT`), and surface analysis in words and colours: zebra stripes with every join judged G2, G1 or creased, curvature and Gaussian curvature maps, and draft for moulding (`ANALYZE`, and a Zebra button). `CURVEPT()` and `CURVETAN()` give a curve's point and direction.
+- Deformers: bend (`BEND`), twist (`TWIST`), taper (`TAPER`) and stretch (`STRETCH`, keeping the volume or not) whole bodies, with an optional law for how the change runs along the body, and lay a body such as a text along a curve (`FLOW`, optionally fitted to the curve's length). The body and its faces keep their IDs; solids are refitted as NURBS within 1/10000 of their size, mesh bodies are moved point by point.
+- `SWEEPVOL`: the volume a cutter sweeps along a path, as a body to `SUBTRACT`; exact for a ball and for an end mill moving square to its axis.
 - A detailed car body example (`scripts/car_body.cmd`): NURBS master surfaces cut into panels with shut lines, glass, lamps, grille, wheels, mirrors and trim, all in the command language (see `docs/example-car.md`).
 
 ### Viewing
