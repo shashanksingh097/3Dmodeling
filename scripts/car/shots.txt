@@ -1,0 +1,28 @@
+# The pictures of the car example: the whole car, two exploded views, then each part alone.
+# Run with shoot.py (see its docstring). Views are directions from the car towards the eye.
+car-1-front-three-quarter.png | | -1,-1.25,0.55
+car-2-side.png | | 0,-1,0.02
+car-3-front.png | | -1,0,0.12
+car-4-rear-three-quarter.png | | 1.1,-0.9,0.5
+car-5-rear.png | | 1,0,0.15
+car-6-top.png | | 0.0001,0,1
+car-7-other-side-from-above.png | | -0.6,1,0.9
+car-8-exploded.png | MOVE, hood, 0,0,450; MOVE, trunk, 0,0,450; MOVE, spoiler, 0,0,520; MOVE, roof, 0,0,1050; MOVE, antenna, 0,0,1050; MOVE, windscreen, -200,0,760; MOVE, backlight, 200,0,760; MOVE, glass_fl, 0,520,760; MOVE, glass_rl, 0,520,760; MOVE, door_f_l, 0,750,0; MOVE, handle_f_l, 0,750,0; MOVE, mirror_l, 0,750,0; MOVE, mirrorglass_l, 0,750,0; MOVE, door_r_l, 0,750,0; MOVE, handle_r_l, 0,750,0; MOVE, fender_l, 0,600,0; MOVE, quarter_l, 0,600,0; MOVE, sill_l, 0,420,0; MOVE, headlamp_l, -380,120,0; MOVE, headlamp_l_housing, -380,120,0; MOVE, headlamp_l_strip, -380,120,0; MOVE, headlamp_l_projectors, -380,120,0; MOVE, taillamp_l, 380,120,0; MOVE, taillamp_l_housing, 380,120,0; MOVE, taillamp_l_strip, 380,120,0; MOVE, tyre_fl, 0,1050,0; MOVE, rim_fl, 0,1050,0; MOVE, disc_fl, 0,1050,0; MOVE, caliper_fl, 0,1050,0; MOVE, tyre_rl, 0,1050,0; MOVE, rim_rl, 0,1050,0; MOVE, disc_rl, 0,1050,0; MOVE, caliper_rl, 0,1050,0; MOVE, glass_fr, 0,-520,760; MOVE, glass_rr, 0,-520,760; MOVE, door_f_r, 0,-750,0; MOVE, handle_f_r, 0,-750,0; MOVE, mirror_r, 0,-750,0; MOVE, mirrorglass_r, 0,-750,0; MOVE, door_r_r, 0,-750,0; MOVE, handle_r_r, 0,-750,0; MOVE, fender_r, 0,-600,0; MOVE, quarter_r, 0,-600,0; MOVE, sill_r, 0,-420,0; MOVE, headlamp_r, -380,-120,0; MOVE, headlamp_r_housing, -380,-120,0; MOVE, headlamp_r_strip, -380,-120,0; MOVE, headlamp_r_projectors, -380,-120,0; MOVE, taillamp_r, 380,-120,0; MOVE, taillamp_r_housing, 380,-120,0; MOVE, taillamp_r_strip, 380,-120,0; MOVE, tyre_fr, 0,-1050,0; MOVE, rim_fr, 0,-1050,0; MOVE, disc_fr, 0,-1050,0; MOVE, caliper_fr, 0,-1050,0; MOVE, tyre_rr, 0,-1050,0; MOVE, rim_rr, 0,-1050,0; MOVE, disc_rr, 0,-1050,0; MOVE, caliper_rr, 0,-1050,0; MOVE, bumper_f, -650,0,0; MOVE, grille, -650,0,0; MOVE, badge, -650,0,0; MOVE, badge_text, -650,0,0; MOVE, intake_l, -650,0,0; MOVE, intake_r, -650,0,0; MOVE, foglamp_l, -650,0,0; MOVE, foglamp_r, -650,0,0; MOVE, plate_f, -650,0,0; MOVE, plate_f_text, -650,0,0; MOVE, bumper_r, 650,0,0; MOVE, diffuser, 650,0,0; MOVE, exhaust_l, 650,0,0; MOVE, exhaust_r, 650,0,0; MOVE, plate_r, 650,0,0; MOVE, plate_r_text, 650,0,0 | -0.45,-1,1.25
+car-9-exploded-from-behind.png | | 0.6,-0.9,1.0
+parts/01-hood.png | PICK, BODY, hood; ISOLATE, SEL | -1,-0.8,1.2
+parts/02-front-bumper-grille-intakes.png | PICK, BODY, bumper_f; PICK, BODY, grille, A; PICK, BODY, badge, A; PICK, BODY, badge_text, A; PICK, BODY, intake_l, A; PICK, BODY, intake_r, A; PICK, BODY, foglamp_l, A; PICK, BODY, foglamp_r, A; PICK, BODY, plate_f, A; PICK, BODY, plate_f_text, A; ISOLATE, SEL | -1,-0.6,0.35
+parts/03-front-fender.png | PICK, BODY, fender_r; ISOLATE, SEL | -0.3,-1,0.4
+parts/04-front-door-with-handle.png | PICK, BODY, door_f_r; PICK, BODY, handle_f_r, A; ISOLATE, SEL | 0.1,-1,0.3
+parts/05-rear-door-with-handle.png | PICK, BODY, door_r_r; PICK, BODY, handle_r_r, A; ISOLATE, SEL | 0.1,-1,0.3
+parts/06-rear-quarter-with-fuel-flap.png | PICK, BODY, quarter_r; ISOLATE, SEL | 0.3,-1,0.4
+parts/07-trunk-lid-and-spoiler.png | PICK, BODY, trunk; PICK, BODY, spoiler, A; ISOLATE, SEL | 1,-0.7,0.8
+parts/08-rear-bumper-diffuser-exhausts.png | PICK, BODY, bumper_r; PICK, BODY, diffuser, A; PICK, BODY, exhaust_l, A; PICK, BODY, exhaust_r, A; PICK, BODY, plate_r, A; PICK, BODY, plate_r_text, A; ISOLATE, SEL | 1,-0.6,0.3
+parts/09-roof-and-pillars.png | PICK, BODY, roof; PICK, BODY, antenna, A; ISOLATE, SEL | -0.9,-1,0.7
+parts/10-glass.png | PICK, BODY, windscreen; PICK, BODY, backlight, A; PICK, BODY, glass_fl, A; PICK, BODY, glass_fr, A; PICK, BODY, glass_rl, A; PICK, BODY, glass_rr, A; ISOLATE, SEL | -0.9,-1,0.7
+parts/11-headlamp.png | PICK, BODY, headlamp_r; PICK, BODY, headlamp_r_housing, A; PICK, BODY, headlamp_r_strip, A; PICK, BODY, headlamp_r_projectors, A; ISOLATE, SEL | -1,-0.7,0.4
+parts/12-taillamp.png | PICK, BODY, taillamp_r; PICK, BODY, taillamp_r_housing, A; PICK, BODY, taillamp_r_strip, A; ISOLATE, SEL | 1,-0.7,0.4
+parts/13-mirror.png | PICK, BODY, mirror_r; PICK, BODY, mirrorglass_r, A; ISOLATE, SEL | 0.8,-0.6,0.3
+parts/14-wheel.png | PICK, BODY, tyre_fr; PICK, BODY, rim_fr, A; PICK, BODY, disc_fr, A; PICK, BODY, caliper_fr, A; ISOLATE, SEL | -0.4,-1,0.3
+parts/15-wheel-from-inside.png | PICK, BODY, tyre_fr; PICK, BODY, rim_fr, A; PICK, BODY, disc_fr, A; PICK, BODY, caliper_fr, A; ISOLATE, SEL | 0.4,1,0.3
+parts/16-sills.png | PICK, BODY, sill_l; PICK, BODY, sill_r, A; ISOLATE, SEL | -0.3,-1,0.5
+parts/17-body-frame.png | PICK, BODY, bodyframe; ISOLATE, SEL | -0.9,-1,0.7
