@@ -162,6 +162,36 @@ def trim(p: Processor, body, curve, x, y, z, mode):
                           f"({fmt_num(x)}, {fmt_num(y)}, {fmt_num(z)})")
 
 
+@command(
+    "PROJECT",
+    Arg("curve", BodyRef, help="the curve to lay onto the surface"),
+    Arg("surface", BodyRef, help="a surface (or any body: its faces)"),
+    Arg("dx", float, 0.0, "direction to project along; all 0 = along the surface's normal"),
+    Arg("dy", float, 0.0), Arg("dz", float, 0.0),
+    help="Lay a curve onto a surface as a new curve (the original stays): along the surface's normal, PROJECT, "
+         "c, hull · or straight along a direction, PROJECT, c, dome, 0, 0, -1. The new curve can be a path for "
+         "SWEEP ... NORMAL, or cut the surface with TRIM.",
+)
+def project(p: Processor, curve, surface, dx, dy, dz):
+    m = p.model
+    if nb.kind_of(m.body(curve).shape) != "curve":
+        raise CommandError(f"PROJECT: body {curve} is not a curve")
+    if not nb._subs(m.body(surface).shape, TopAbs_FACE):
+        raise CommandError(f"PROJECT: body {surface} has no faces to lay the curve on")
+    d = None if dx == dy == dz == 0 else (dx, dy, dz)
+    shape, n = _run("PROJECT", so.project, m.body(curve).shape, m.body(surface).shape, d)
+    how = "along the surface's normal" if d is None else f"along ({fmt_num(dx)}, {fmt_num(dy)}, {fmt_num(dz)})"
+    b = m.add_body(shape)
+    if n == 1:
+        from ..geometry import sweep as sw
+
+        kind = "closed" if shape.Closed() else "open"
+        return (f"PROJECT curve {curve} onto body {surface} {how} -> curve {b.id} ({kind}, length "
+                f"{fmt_num(round(sw.PathSampler(shape).length, 4))})")
+    p.warn(f"PROJECT: the curve lands on the surface in {n} separate pieces, so it is not one path")
+    return f"PROJECT curve {curve} onto body {surface} {how} -> body {b.id} ({n} pieces)"
+
+
 # =============================================================================
 # Faces of solids
 # =============================================================================

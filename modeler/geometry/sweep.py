@@ -20,7 +20,10 @@ Frame modes along the path:
 
 * ``MINTWIST`` (default): rotation-minimizing frame, no flips on 3D curves;
 * ``FRENET``: follows the curve's curvature (good for helices);
-* ``FIXED``: the profile only translates, never turns.
+* ``FIXED``: the profile only translates, never turns;
+* ``NORMAL`` (an :class:`OnSurface`): the profile keeps its angle to a
+  surface the path lies on, turning with the surface's normal (a bead on a
+  car body, a rib on a hull, a strip that stays flat on a dome).
 
 Profiles keep their position relative to the start frame: draw the profile
 where the path starts (any offset from the path is kept), and every station
@@ -59,6 +62,75 @@ _length = getattr(GCPnts_AbscissaPoint, "Length_s", None) or GCPnts_AbscissaPoin
 
 Law = Callable[[float], float]
 MODES = ("MINTWIST", "FRENET", "FIXED")
+
+
+class OnSurface:
+    """Frame mode NORMAL: the profile's up direction follows the normal of a
+    surface (one face or several) that the path lies on."""
+
+    name = "NORMAL"
+
+    def __init__(self, shape: TopoDS_Shape):
+        from OCP.BRep import BRep_Tool
+        from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
+
+        self.shape = shape
+        self.faces = []
+        ex = TopExp_Explorer(shape, TopAbs_FACE)
+        while ex.More():
+            f = (getattr(TopoDS, "Face_s", None) or TopoDS.Face)(ex.Current())
+            self.faces.append((f, BRep_Tool.Surface_s(f), f.Orientation() == TopAbs_REVERSED))
+            ex.Next()
+        if not self.faces:
+            raise CurveError("the NORMAL surface has no faces")
+
+    def __eq__(self, other):
+        return isinstance(other, OnSurface) and other.shape.IsSame(self.shape)
+
+    def __hash__(self):
+        return id(self.shape)
+
+    def __str__(self):
+        return self.name
+
+    def nearest(self, q):
+        """(distance, unit normal) of the surface point nearest q."""
+        from OCP.GeomAPI import GeomAPI_ProjectPointOnSurf
+        from OCP.GeomLProp import GeomLProp_SLProps
+
+        best = None
+        for f, srf, rev in self.faces:
+            pj = GeomAPI_ProjectPointOnSurf(gp_Pnt(*q), srf)
+            if not pj.NbPoints():
+                continue
+            d = pj.LowerDistance()
+            if best is None or d < best[0]:
+                best = (d, srf, rev, *pj.LowerDistanceParameters())
+        if best is None:
+            raise CurveError("the path is nowhere above the NORMAL surface")
+        d, srf, rev, u, v = best
+        pr = GeomLProp_SLProps(srf, u, v, 1, 1e-9)
+        if not pr.IsNormalDefined():
+            # a pole or a pinched edge: step inside a little
+            pr = GeomLProp_SLProps(srf, u + 1e-6, v + 1e-6, 1, 1e-9)
+        n = pr.Normal()
+        n = (n.X(), n.Y(), n.Z())
+        return d, (mul(n, -1.0) if rev else n)
+
+    def exact_ok(self, path: TopoDS_Wire) -> bool:
+        """Whether the kernel's exact sweep can follow this surface along the path: it needs the path
+        to sit on the surface as curves on it (a PROJECT result does; a path drawn on its own may not)."""
+        mk = BRepOffsetAPI_MakePipeShell(path)
+        return bool(mk.SetMode(self.shape))
+
+    def check(self, path: "PathSampler", k: int = 40) -> None:
+        tol = 1e-3 * max(1.0, path.length)
+        for i in range(k + 1):
+            q = path.at(path.length * i / k)[0]
+            d, _ = self.nearest(q)
+            if d > tol:
+                raise CurveError(f"the path must lie on the NORMAL surface, and it is {d:.3g} away from it at "
+                                 f"t = {i / k:.3g}; lay it on first (PROJECT, path, surface)")
 
 
 # ---- shapes to wires ---------------------------------------------------------
@@ -140,14 +212,26 @@ def start_frame(o, tan) -> Frame:
     return Frame(o, side, up, tan)
 
 
-def frames(path: PathSampler, n: int, mode: str) -> list[Frame]:
+def frames(path: PathSampler, n: int, mode) -> list[Frame]:
     """Frames at n+1 stations equally spaced along the path (t = i/n)."""
-    sub_steps = 8
+    sub_steps = 8 if not isinstance(mode, OnSurface) else 1
     m = n * sub_steps
     pts = [path.at(path.length * i / m) for i in range(m + 1)]
     f0 = start_frame(*pts[0])
     out = [f0]
-    if mode == "FIXED":
+    if isinstance(mode, OnSurface):
+        out = []
+        prev = None
+        for o, t in pts:
+            _, nrm = mode.nearest(o)
+            up = sub(nrm, mul(t, dot(nrm, t)))
+            if norm(up) < 1e-9:  # the path runs straight into the surface here
+                up = prev
+            up = unit(up)
+            out.append(Frame(o, cross(up, t), up, t))
+            prev = up
+        _align_frenet(out, f0)
+    elif mode == "FIXED":
         out = [Frame(o, f0.side, f0.up, f0.tan) for o, _ in pts]
     elif mode == "FRENET":
         out = []
@@ -461,8 +545,12 @@ def _solid_from_shell(shape: TopoDS_Shape) -> TopoDS_Shape:
     return solid
 
 
-def _set_mode(mk, ps: PathSampler, mode: str) -> None:
-    if mode == "FRENET":
+def _set_mode(mk, ps: PathSampler, mode) -> None:
+    if isinstance(mode, OnSurface):
+        mode.check(ps)
+        if not mk.SetMode(mode.shape):
+            raise CurveError("the kernel cannot follow this surface's normal along this path")
+    elif mode == "FRENET":
         mk.SetMode(True)
     elif mode == "FIXED":
         f0 = start_frame(*ps.at(0))
@@ -572,6 +660,8 @@ def section_sweep(
         n = auto_sections(ps, twist, (scale, sx, sy), len(profiles))
     if n < 2 or n > 400:
         raise CurveError("SWEEP: the number of sections must be from 2 to 400")
+    if isinstance(mode, OnSurface):
+        mode.check(ps)
     fs = frames(ps, n, mode)
     f0 = fs[0]
     morph = len(profiles) > 1
@@ -870,3 +960,251 @@ def spine_loft(sections: list[TopoDS_Wire], spine: TopoDS_Wire, mode: str = "MIN
         wires.append(spline(world + [world[0]]))
     shape = loft(wires, solid=solid, what="SPINELOFT", ts=where, path=ps)
     return shape, len(wires), ts
+
+
+# ---- lofts with guide curves -------------------------------------------------
+# A loft whose side must pass along guide curves. Every guide crosses every
+# section. Each section is cut at the points where the guides cross it, and
+# each piece between two guides gets the same number of points on every
+# section, so a point's neighbours across the sections sit at the same place
+# relative to the guides. Between sections each point column is a smooth
+# cubic through the sections; a guide's own column is then replaced by the
+# guide, and the columns between two guides are pulled along by a smooth blend
+# of how far each guide moved them. Round closed sections the pull of each
+# guide is first split into growing or shrinking the section about its
+# centre (straight out from it) and a slide (the rest); those two are blended
+# between the guides, so a section swells all round rather than shifting
+# sideways. At the sections nothing moves (the guides
+# cross the sections there), so the loft still passes through every section
+# (as a smooth curve through its points) and runs exactly along every guide
+# (through the station curves, which the loft fits).
+
+
+class _Curve:
+    """A section or guide as arc length -> point, with nearest-point lookup."""
+
+    def __init__(self, wire: TopoDS_Wire, samples: int = 800):
+        self.ps = PathSampler(wire)
+        self.L = self.ps.length
+        self.closed = wire.Closed()
+        self.flip = False
+        self.m = samples
+        self._pts = [self.ps.at(self.L * i / samples)[0] for i in range(samples + 1)]
+
+    def at(self, s: float):
+        s = s % self.L if self.closed else min(max(s, 0.0), self.L)
+        return self.ps.at(self.L - s if self.flip else s)[0]
+
+    def locate(self, q) -> float:
+        """Arc length (in this curve's own direction) of the point nearest q."""
+        d = [norm(sub(p, q)) for p in self._pts]
+        i = min(range(len(d)), key=d.__getitem__)
+        h = self.L / self.m
+        a, b = (i - 1) * h, (i + 1) * h
+        if not self.closed:
+            a, b = max(a, 0.0), min(b, self.L)
+        g = (math.sqrt(5) - 1) / 2
+        f = lambda s: norm(sub(self.ps.at(s % self.L if self.closed else s)[0], q))  # noqa: E731
+        c, e = b - g * (b - a), a + g * (b - a)
+        fc, fe = f(c), f(e)
+        for _ in range(40):
+            if fc < fe:
+                b, e, fe = e, c, fc
+                c = b - g * (b - a)
+                fc = f(c)
+            else:
+                a, c, fc = c, e, fe
+                e = a + g * (b - a)
+                fe = f(e)
+        s = 0.5 * (a + b)
+        return s % self.L if self.closed else s
+
+
+def _newell(c: _Curve, k: int = 64):
+    pts = [c.ps.at(c.L * i / k)[0] for i in range(k)]
+    n = [0.0, 0.0, 0.0]
+    for p, q in zip(pts, pts[1:] + pts[:1]):
+        n[0] += (p[1] - q[1]) * (p[2] + q[2])
+        n[1] += (p[2] - q[2]) * (p[0] + q[0])
+        n[2] += (p[0] - q[0]) * (p[1] + q[1])
+    return tuple(n)
+
+
+def _crossing(guide: TopoDS_Wire, section: TopoDS_Wire, gname: str, sname: str, size: float):
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    d = BRepExtrema_DistShapeShape(guide, section)
+    d.Perform()
+    if not d.IsDone() or d.NbSolution() == 0:
+        raise CurveError(f"LOFT: could not find where {gname} meets {sname}")
+    tol = max(1e-4, 1e-4 * size)
+    if d.Value() > tol:
+        raise CurveError(f"LOFT: {gname} misses {sname} by {d.Value():.3g}; every guide must pass through every "
+                         "section")
+    p = d.PointOnShape1(1)
+    return (p.X(), p.Y(), p.Z())
+
+
+def _smooth(w: float) -> float:
+    return w * w * (3 - 2 * w)
+
+
+def guide_loft(sections: list[TopoDS_Wire], guides: list[TopoDS_Wire], solid: bool = True, points: int = 96,
+               per_span: int = 0) -> tuple[TopoDS_Shape, int]:
+    """Loft through ``sections`` (in order) whose side runs along ``guides``.
+
+    Returns the shape and the number of station curves the loft was fitted
+    through."""
+    if len(sections) < 2:
+        raise CurveError("LOFT: give at least 2 sections")
+    if not guides:
+        raise CurveError("LOFT: give at least one guide curve after GUIDE")
+    closed = sections[0].Closed()
+    if any(w.Closed() != closed for w in sections):
+        raise CurveError("LOFT: with guides the sections must be all closed or all open")
+    secs = [_Curve(w) for w in sections]
+    gds = [_Curve(w, 1200) for w in guides]
+    size = max(c.L for c in secs + gds)
+    nsec, ng = len(secs), len(gds)
+    gnames = [f"guide {j + 1}" for j in range(ng)] if ng > 1 else ["the guide"]
+    # orient the sections alike
+    if closed:
+        n0 = _newell(secs[0])
+        for c in secs[1:]:
+            c.flip = dot(_newell(c), n0) < 0
+    else:
+        for a, c in zip(secs, secs[1:]):
+            s0, e0 = a.at(0), a.at(a.L)
+            st, en = c.ps.at(0)[0], c.ps.at(c.L)[0]
+            c.flip = norm(sub(en, s0)) + norm(sub(st, e0)) < norm(sub(st, s0)) + norm(sub(en, e0))
+    # where each guide crosses each section: (arc length on the section, arc length on the guide)
+    cross_s = [[0.0] * ng for _ in range(nsec)]
+    cross_g = [[0.0] * ng for _ in range(nsec)]
+    for i, (c, w) in enumerate(zip(secs, sections)):
+        for j, (g, gw) in enumerate(zip(gds, guides)):
+            q = _crossing(gw, w, gnames[j], f"section {i + 1}", size)
+            s = c.locate(q)
+            cross_s[i][j] = (c.L - s) % c.L if (c.flip and closed) else (c.L - s if c.flip else s)
+            cross_g[i][j] = g.locate(q)
+    for j in range(ng):
+        col = [cross_g[i][j] for i in range(nsec)]
+        steps = [b - a for a, b in zip(col, col[1:])]
+        if all(st < 0 for st in steps):
+            gds[j].flip = True
+            for i in range(nsec):
+                cross_g[i][j] = gds[j].L - cross_g[i][j]
+        elif not all(st > 0 for st in steps):
+            raise CurveError(f"LOFT: {gnames[j]} must cross the sections in the order they are given")
+    # the guides' order round (or along) each section must be the same on all of them
+    if closed:
+        def order(i):
+            base = cross_s[i][0]
+            return sorted(range(ng), key=lambda j: (cross_s[i][j] - base) % secs[i].L)
+    else:
+        def order(i):
+            return sorted(range(ng), key=lambda j: cross_s[i][j])
+    gorder = order(0)
+    for i in range(1, nsec):
+        if order(i) != gorder:
+            raise CurveError(f"LOFT: the guides cross section {i + 1} in a different order than section 1; "
+                             "guides cannot cross each other")
+    # break points on each section: (arc length, guide or None), as positions that only grow
+    breaks = []
+    for i, c in enumerate(secs):
+        if closed:
+            base = cross_s[i][gorder[0]]
+            b = [(base + (cross_s[i][j] - base) % c.L, j) for j in gorder] + [(base + c.L, gorder[0])]
+        else:
+            b = [(cross_s[i][j], j) for j in gorder]
+            if b[0][0] > 1e-6 * c.L:
+                b.insert(0, (0.0, None))
+            if b[-1][0] < c.L * (1 - 1e-6):
+                b.append((c.L, None))
+        breaks.append(b)
+    nseg = len(breaks[0]) - 1
+    frac = [sum((breaks[i][k + 1][0] - breaks[i][k][0]) / secs[i].L for i in range(nsec)) / nsec
+            for k in range(nseg)]
+    counts = [max(4, round(points * f)) for f in frac]
+    # points of each section, segment by segment; the guide columns
+    cols: list[int | None] = []
+    seg_of: list[tuple[int, float]] = []  # per column: (segment, place within it 0..1)
+    for k, cnt in enumerate(counts):
+        for q in range(cnt):
+            cols.append(breaks[0][k][1] if q == 0 else None)
+            seg_of.append((k, q / cnt))
+    if not closed:
+        cols.append(breaks[0][-1][1])
+        seg_of.append((nseg - 1, 1.0))
+    P = []
+    for i, c in enumerate(secs):
+        row = []
+        for k, cnt in enumerate(counts):
+            a, b = breaks[i][k][0], breaks[i][k + 1][0]
+            row += [c.at(a + (b - a) * q / cnt) for q in range(cnt)]
+        if not closed:
+            row.append(c.at(breaks[i][-1][0]))
+        P.append(row)
+    gcol = {j: cols.index(j) for j in range(ng)}
+    # stations between the sections
+    if per_span <= 0:
+        turn = 0.0
+        for g in gds:
+            tans = [g.ps.at(g.L * i / 200)[1] for i in range(201)]
+            turn = max(turn, sum(math.degrees(math.acos(max(-1.0, min(1.0, dot(a, b)))))
+                                 for a, b in zip(tans, tans[1:])))
+        per_span = int(min(24, max(6, math.ceil(turn / 8 / (nsec - 1)))))
+    ts = list(range(nsec))
+    wires, where = [], []
+    total = per_span * (nsec - 1)
+    for step in range(total + 1):
+        v = step / per_span
+        i = min(nsec - 2, int(v))
+        w = v - i
+        base = _hermite(ts, P, v)
+        dev = {}
+        for j in range(ng):
+            g = gds[j]
+            s = cross_g[i][j] + (cross_g[i + 1][j] - cross_g[i][j]) * w
+            dev[j] = sub(g.at(s), base[gcol[j]])
+        if closed:
+            # round closed sections each guide sets how much the section grows or shrinks about its centre
+            # there (its pull straight out from the centre), and the rest of its pull slides the points;
+            # between two guides both blend smoothly, so the section swells all round, not only at the guides
+            n = len(base)
+            C = tuple(sum(q[c] for q in base) / n for c in range(3))
+            grow, slide = {}, {}
+            for j in range(ng):
+                r = sub(base[gcol[j]], C)
+                rr = dot(r, r)
+                k = 1.0 + (dot(dev[j], r) / rr if rr > 1e-18 else 0.0)
+                if k <= 0.05:
+                    raise CurveError(f"LOFT: {gnames[j]} comes so close to the middle of the sections that they "
+                                     "would shrink to nothing")
+                grow[j], slide[j] = k, sub(dev[j], mul(r, k - 1.0))
+            pts = []
+            for col, (seg, f) in enumerate(seg_of):
+                a, b = breaks[0][seg][1], breaks[0][seg + 1][1]
+                w = _smooth(f)
+                k = grow[a] * (1 - w) + grow[b] * w
+                sl = add(mul(slide[a], 1 - w), mul(slide[b], w))
+                pts.append(add(add(C, mul(sub(base[col], C), k)), sl))
+            wires.append(spline(pts, closed=True))
+            where.append(v / (nsec - 1))
+            continue
+        pts = []
+        for col, (k, f) in enumerate(seg_of):
+            a, b = breaks[0][k][1], breaks[0][k + 1][1]
+            if a is None and b is None:
+                corr = (0.0, 0.0, 0.0)
+            elif a is None:
+                corr = dev[b]
+            elif b is None:
+                corr = dev[a]
+            else:
+                s = _smooth(f)
+                corr = add(mul(dev[a], 1 - s), mul(dev[b], s))
+            pts.append(add(base[col], corr))
+        wires.append(spline(pts, closed=closed))
+        where.append(v / (nsec - 1))
+    shape = loft(wires, solid=solid and closed, what="LOFT", ts=where)
+    return shape, len(wires)

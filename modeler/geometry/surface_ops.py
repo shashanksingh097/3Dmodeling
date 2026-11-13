@@ -338,6 +338,53 @@ def trim(face, curve_shape, point, keep: bool):
 # =============================================================================
 
 
+def project(curve_shape, surface_shape, direction=None):
+    """Lay a curve onto a surface: along the surface's normal, or straight
+    along ``direction``. Returns (shape, pieces): one wire when the pieces
+    join end to end, else a compound of them."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+    from OCP.TopAbs import TopAbs_EDGE
+
+    edges = []
+    if direction is None:
+        from OCP.BRepOffsetAPI import BRepOffsetAPI_NormalProjection
+
+        proj = BRepOffsetAPI_NormalProjection(surface_shape)
+        proj.Add(curve_shape)
+        try:
+            proj.Build()
+        except Exception:  # noqa: BLE001
+            raise SurfaceOpError("the curve could not be laid onto the surface") from None
+        if not proj.IsDone():
+            raise SurfaceOpError("the curve could not be laid onto the surface")
+        edges = [nb._as_edge(e) for e in nb._subs(proj.Shape(), TopAbs_EDGE)]
+    else:
+        from OCP.BRepProj import BRepProj_Projection
+        from OCP.gp import gp_Dir
+
+        if np.linalg.norm(direction) < 1e-12:
+            raise SurfaceOpError("the direction cannot be (0, 0, 0)")
+        pr = BRepProj_Projection(curve_shape, surface_shape, gp_Dir(*map(float, direction)))
+        while pr.More():
+            edges += [nb._as_edge(e) for e in nb._subs(pr.Current(), TopAbs_EDGE)]
+            pr.Next()
+    if not edges:
+        raise SurfaceOpError("the curve does not lie over the surface (nothing lands on it)")
+    mk = BRepBuilderAPI_MakeWire()
+    for e in edges:
+        mk.Add(e)
+    if mk.IsDone() and len(nb._subs(mk.Wire(), TopAbs_EDGE)) == len(edges):
+        return mk.Wire(), 1
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    comp, b = TopoDS_Compound(), BRep_Builder()
+    b.MakeCompound(comp)
+    for e in edges:
+        b.Add(comp, e)
+    return comp, len(edges)
+
+
 def _centre(face) -> np.ndarray:
     g = GProp_GProps()
     BRepGProp.SurfaceProperties_s(face, g)

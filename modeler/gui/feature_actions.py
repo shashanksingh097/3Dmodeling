@@ -99,3 +99,15 @@ def control_points_toggle(p: Processor) -> list[str]:
     gid = m.selection[0]
     bid = gid if m.selection_kind == "BODY" else m.entity_owner(m.selection_kind, gid)[0]
     return [f"CPOINTS, {bid}"]
+
+
+def zebra_toggle(p: Processor) -> list[str]:
+    """Zebra stripes on the picked body, and its joins judged in words (press again to end it)."""
+    if p.analysis is not None:
+        return ["ANALYZE, OFF"]
+    m = p.model
+    if not m.selection:
+        raise NeedInput("Zebra: pick a body (or a face of it) first")
+    gid = m.selection[0]
+    bid = gid if m.selection_kind == "BODY" else m.entity_owner(m.selection_kind, gid)[0]
+    return [f"ANALYZE, {bid}, ZEBRA"]

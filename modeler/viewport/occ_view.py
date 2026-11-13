@@ -94,6 +94,46 @@ def _on_top(ctx, ais) -> None:
     ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
 
 
+def _coloured_mesh(m, rgb):
+    """An AIS_Triangulation of an analysis mesh with a colour at every node."""
+    from OCP.AIS import AIS_Triangulation
+    from OCP.gp import gp_Pnt
+    from OCP.Poly import Poly_Triangle, Poly_Triangulation
+
+    try:  # OCP 8
+        from OCP.collections import HArray1_int as _HInts
+    except ImportError:  # OCP 7.x
+        from OCP.TColStd import TColStd_HArray1OfInteger as _HInts
+
+    from OCP.gp import gp_Dir
+
+    n, k = len(m.nodes), len(m.tris)
+    tri = Poly_Triangulation(n, k, False, True)
+    for i, (q, nv) in enumerate(zip(m.nodes, m.normals), 1):
+        tri.SetNode(i, gp_Pnt(*map(float, q)))
+        ln = float((nv ** 2).sum()) ** 0.5
+        tri.SetNormal(i, gp_Dir(*map(float, nv / ln)) if ln > 1e-12 else gp_Dir(0, 0, 1))
+    for i, (a, b, c) in enumerate(m.tris, 1):
+        tri.SetTriangle(i, Poly_Triangle(int(a) + 1, int(b) + 1, int(c) + 1))
+    cols = _HInts(1, n)
+    c8 = (rgb.clip(0, 1) * 255).round().astype(int)
+    for i, (r, g, b) in enumerate(c8, 1):
+        cols.SetValue(i, int((255 << 24) | (int(b) << 16) | (int(g) << 8) | int(r)) - (1 << 32))
+    ais = AIS_Triangulation(tri)
+    ais.SetColors(cols)
+    # plain white plastic, so the node colours show as they are (the default material tints them gold)
+    from OCP.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial
+    from OCP.Prs3d import Prs3d_ShadingAspect
+
+    asp = Prs3d_ShadingAspect()
+    mat = Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Plastified)
+    mat.SetColor(_rgb(1, 1, 1))
+    asp.SetMaterial(mat)
+    asp.SetColor(_rgb(1, 1, 1))
+    ais.Attributes().SetShadingAspect(asp)
+    return ais
+
+
 def _mark_position(sk, c):
     """Where a constraint's mark goes: next to the middle of its first curve."""
     for r in c.refs:
@@ -145,6 +185,9 @@ class OccViewport(QWidget):
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
+        self._an = None  # commands.analysis_handlers.Analysis while a body is shown coloured (ANALYZE)
+        self._an_ais = None  # the coloured mesh drawn in place of that body
+        self._an_hidden: int | None = None  # the body whose own drawing is erased meanwhile
         self._shown_active: str | None = None  # the open sketch the view last turned to
         self._mode_pending = False
         self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
@@ -206,6 +249,7 @@ class OccViewport(QWidget):
         self._show_sketches()
         self._sync_selection()
         self._draw_control_points()
+        self._draw_analysis()
         self.view.FitAll(0.1, False)
         self.view.Redraw()
         self.ready.emit()
@@ -298,6 +342,8 @@ class OccViewport(QWidget):
             # (an edit removes the body and adds it back under the same ID: keep the editor)
             self._cp.refresh()
             self._draw_control_points()
+        if self._an is not None and ev.kind not in ("selection", "sketch_selection"):
+            self._draw_analysis()
 
     def _apply_body_event(self, ev: Event) -> None:
         if ev.kind == "body_added":
@@ -313,6 +359,7 @@ class OccViewport(QWidget):
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
             self._cp_ais.clear()
+            self._an_ais, self._an_hidden = None, None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -320,6 +367,7 @@ class OccViewport(QWidget):
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._cp_ais.clear()
+            self._an_ais, self._an_hidden = None, None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -818,6 +866,59 @@ class OccViewport(QWidget):
                 ais.SetColor(_rgb(1.0, 0.25, 0.85))
                 ais.SetWidth(3.0)
             show(pv, ghost)
+        ctx.UpdateCurrentViewer()
+
+    # ---- surface analysis (ANALYZE) -----------------------------------------------
+    def eye_direction(self):
+        """Unit direction from the model towards the eye (None before the view exists)."""
+        if not self._initialized:
+            return None
+        v = self.view.Proj()
+        return tuple(float(x) for x in v)
+
+    def show_analysis(self, analysis) -> None:
+        """Colour a body by an analysis (zebra, curvature, draft); None ends it."""
+        self._an = analysis
+        if self._initialized:
+            self._draw_analysis()
+
+    @property
+    def analysis(self):
+        return self._an
+
+    def _draw_analysis(self) -> None:
+        if not self._initialized:
+            return
+        ctx = self.context
+        if self._an_ais is not None:
+            ctx.Remove(self._an_ais, False)
+            self._an_ais = None
+        if self._an_hidden is not None:
+            ais = self._ais.get(self._an_hidden)
+            if ais is not None and not ctx.IsDisplayed(ais):
+                ctx.Display(ais, 1, 0, False)
+                self._activate(ais)
+            self._an_hidden = None
+        a = self._an
+        if a is None or a.body not in self.model.bodies or not self.model.is_shown(a.body):
+            ctx.UpdateCurrentViewer()
+            return
+        from ..geometry import analysis as an
+
+        try:
+            m = an.mesh(self.model.bodies[a.body].shape)
+            rgb = an.colours(m, a.mode, a.direction, a.angle)
+        except Exception:  # noqa: BLE001  (a picture problem must not stop the app)
+            traceback.print_exc()
+            ctx.UpdateCurrentViewer()
+            return
+        self._an_ais = _coloured_mesh(m, rgb)
+        ctx.Display(self._an_ais, 0, -1, False)  # (a triangulation draws in mode 0 only)
+        ctx.Deactivate(self._an_ais)
+        own = self._ais.get(a.body)
+        if own is not None:
+            ctx.Erase(own, False)
+            self._an_hidden = a.body
         ctx.UpdateCurrentViewer()
 
     def _ray(self, x: int, y: int):

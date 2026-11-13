@@ -288,11 +288,11 @@ spring is a short script whose numbers you can change later.
 - Sections with different shapes and point counts (circle to square to star); start points matched so the surface does not twist by accident
 - Solid or open surface; caps on or off
 - Loft along a spine curve, so the sections follow a curved center line (`SPINELOFT`) `[done]`
-- Loft with guide curves that the side of the shape must pass through `[M5]`
+- Loft with guide curves that the side of the shape must pass through (`LOFT, ..., GUIDE, g1, g2`) `[done]`
 
 **Sweep: drag a profile along a path** `[M2]`
 - `SWEEP, profile, path`: exact sweep of one profile
-- Orientation modes: follow the curve (Frenet), minimal twist (the default; no flips on 3D curves), fixed direction, keep a chosen "up" direction (binormal), and follow a surface's normal `[M5]`
+- Orientation modes: follow the curve (Frenet), minimal twist (the default; no flips on 3D curves), fixed direction, keep a chosen "up" direction (binormal), and follow a surface's normal (`NORMAL`, with `PROJECT` to lay the path on the surface) `[done]`
 - Sharp or rounded corners on polyline paths
 - Solid or open (a surface), and keep the profile perpendicular to the path or as placed
 
@@ -337,7 +337,7 @@ spring is a short script whose numbers you can change later.
 - NURBS surfaces: from control net (`NSURF`), loft, network of curves (`NETWORK`), patch/fill with G0/G1/G2 to neighbouring surfaces (`FILL`) `[done]`; blend between surfaces with G1/G2 continuity (`BLEND`), extend (`EXTEND`), offset (`OFFSET`), trim by curves (`TRIM`) `[done]`
 - Control-point editing in the viewport (drag points, each drag is a `MOVEPT` command) `[done]` (the Control points button, `CPOINTS`)
 - Rebuild/reparameterize, sew surfaces into solids `[done]` (`REBUILD`, `SEW`)
-- Analysis: zebra stripes, Gaussian/mean curvature map, draft angle `[M5]`
+- Analysis: zebra stripes, Gaussian/mean curvature map, draft angle (`ANALYZE`, in words and colours) `[done]`
 
 ### 5.4 Equation-based geometry
 - Parametric curves `x(t), y(t), z(t)` and surfaces `x(u,v), y(u,v), z(u,v)`, fitted to NURBS so they become exact geometry usable in booleans (`CURVE, PARAM`, `SURFACE, PARAM`; closed surfaces become solids) `[done]`
@@ -538,7 +538,7 @@ Still open in the milestones already started, in the suggested order:
 4. Next: user guide, README for users, changelog and release notes.
 5. A run of a build on a real Windows or macOS desktop (needs the user).
 
-**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; part 2 done: `BLEND`, `EXTEND`, `TRIM`, `MOVEFACE`, `REPLACEFACE`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
+**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; part 2 done: `BLEND`, `EXTEND`, `TRIM`, `MOVEFACE`, `REPLACEFACE`; part 3 done: guide-curve lofts, `NORMAL` sweeps, `PROJECT`, `ANALYZE`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
 freehand cuts), M7 (sculpt), the AI chat panel (M9c), skipping unchanged
 steps on rebuild, a sketch fillet between a line and an arc, trimming to the
 sketch axes, more export formats (OBJ, 3MF, glTF) and 2D drawings, code
