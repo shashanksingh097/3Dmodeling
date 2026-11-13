@@ -396,6 +396,96 @@ spring is a short script whose numbers you can change later.
 - Built so far (M9a, first part): `ASSERT` with `VALID`, `PIECES`, `NFACES`, `HOLES`, `SYMMETRIC`; `DESCRIBE` (with round holes found from the geometry); `SELFOR`; `LINT`; `DIFF`; the sandbox and a JSON tool list (`python -m modeler tool ...`). M9b first part: `PROBE` (rays, points), `PROFILE` (a cut as text), `THICK` and `MINWALL`, and the `vary` and `round_trip` tools. See docs/M9-ai-tools.md section 8.
 - Build order: **M9a** tools without AI (`DESCRIBE`, `ASSERT` and new queries such as `HOLES`, `VALID`, `PIECES`, `MINWALL`, `LINT`, `DIFF`, the sandbox), useful early for the regression corpus and for GUI picks written as criteria; **M9b** seeing without pictures (feature recognition, `PROBE`, section profiles, outlines, wall thickness, design checks, parameter sweeps); **M9c** the chat panel, proposal cards, picking, rendering, the API connection, and a benchmark of modelling requests that records success, tokens and pictures used. The same tools can be served to outside AI agents as an MCP server.
 
+### 5.9 Model tree and right-click menu (after release 0.2.0)
+
+Asked for by the user after running 0.1.0 on Windows: today a right click on
+a picked body does nothing, and there is no list of what the model holds.
+This is built right after release 0.2.0, before M6 (milestone **M10** in
+section 7). Like everything else, the tree and the menu only send commands.
+
+**What it should do**
+
+- **A model tree** in a left dock: every body, grouped the way a person
+  thinks of the model. Parts and their instances (a bolt part with its 8
+  placed bolts), loose bodies, sketches, datums (planes, axes, points, work
+  planes), named sets, and layers as an optional grouping. Each row shows the
+  name, an eye for shown or hidden, a faded marker, the colour, and a warning
+  or error badge taken from the history. Picking in the tree selects in the
+  viewport and the other way round; a double click zooms to the item.
+- **A right-click menu**, the same in the tree and on a body clicked in the
+  3D view: Hide, Show, Show only this (isolate), Fade this, Fade all others
+  (this one stays solid), Show everything, plus Rename, Colour, Layer,
+  Material, Zoom to, Delete, Edit history of this, and for a part instance
+  Edit part and Explode.
+- **Edit from the tree.** Selecting an item, for example a screw, lists every
+  history step that made or changed it, in order (for a bolt placed from a
+  part: the part's head, shank, `THREAD` with its pitch and length, and the
+  `INST` that placed it). Each step opens in its fill-in form, or in the
+  sweep editor for a sweep, and the parameters it uses are shown with their
+  values, so changing the helix pitch or the diameter is one edit that
+  re-runs the model. For a part instance the list shows the instance's own
+  values (`D`, `L`) and the part's recipe, with a choice of changing this one
+  instance or the part (which updates every instance).
+
+**What exists to build on**
+
+- History panel (`gui/main_window.py`, `HistoryPanel`): its right-click menu
+  already has Edit, Edit in form, Sweep editor, Insert before, Suppress,
+  Delete, Sizes of sketch, Roll back and Make a part from steps. The tree's
+  step list reuses these actions.
+- Command forms with edit-step (`gui/forms.py`, `gui/form_dialog.py`,
+  `open_form(..., edit_row)`):
+  every command already opens in a form that writes `HIST, EDIT`.
+- Visibility: `HIDE`, `SHOW`, `ISOLATE` (bodies, `SEL` or a layer), layers
+  on, off and locked, the Layers panel (`gui/layer_panel.py`), and the
+  model's `visibility` event that the viewport already listens to.
+- See-through drawing: `Model.display_transparency` (today only from a
+  material, such as glass), so fading is a second source for the same value.
+- Parts and instances (`commands/part_handlers.py`): `Model.instances` maps
+  each placed body to its part and values; `*PART`, `INST`, `EXPLODE`,
+  `LIST, PARTS`.
+- Stable IDs and origins (`core/model.py`): every body, face, edge and vertex
+  knows the history entry that made it (`Model.origin`), and a body made
+  from others keeps its ID and name, so the tree's rows survive edits.
+
+**What is new**
+
+1. `FADE, b|SEL|OTHERS[, amount]` and `UNFADE, b|ALL`: a view state kept on
+   the model next to `hidden`, drawn through `display_transparency`. Hide,
+   show, fade and isolate from the menu become view steps: saved with the
+   project but not history entries, so clicking around does not fill the
+   history. (`HIDE` and `SHOW` are history entries today; scripts that use
+   them keep working.)
+2. A right click without dragging opens the menu in the viewport (a right
+   drag still pans). The menu acts on the body under the cursor, or on the
+   whole selection when the cursor is on a selected body.
+3. Lineage: each history entry records which bodies it read and which it
+   made or changed. This is the same record that "skip entries whose inputs
+   did not change" needs (risk 3), so both are built on it. A body's list of
+   steps is its lineage walked back through its inputs.
+4. The tree widget: built from model events and history refreshes, kept in
+   step with the selection, its layout saved with the window.
+5. An item panel under the tree: the steps of the picked item with Edit
+   buttons, its parameters, and for an instance "this one" or "the part".
+6. Tests that run headless: the new commands, lineage on the example scripts
+   (bolted plate, threaded bolts, the car), and GUI tests for the tree and
+   the menus under a virtual display.
+
+**Pull requests** (about three items each)
+
+- **M10a:** `FADE`/`UNFADE` and view steps (1), the viewport right-click
+  menu (2), and the same body actions on History rows. Usable on its own:
+  hide, show and fade by right click.
+- **M10b:** lineage per history entry (3), the model tree dock (4), its
+  right-click menu and two-way selection.
+- **M10c:** the item panel with each step's form and parameters (5),
+  instance or part editing, tests on the example scripts (6), and the
+  USER-GUIDE.md and LANGUAGE.md sections.
+
+Exit test: open the threaded bolts example, right-click a bolt in the view
+and fade the others, find the same bolt in the tree, open its `THREAD`
+step, change the pitch, and see every bolt of that part update.
+
 ---
 
 ## 6. Architecture
@@ -465,6 +555,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M7** | Sculpt mode | Brushes, symmetry, masking, remesh, stroke logging, mesh ↔ solid conversion | Sculpt a character head at 1M triangles at interactive speed |
 | **M8** | Polish & release | Preferences, themes, help browser from command metadata, 2D drawing export, installers | Installable app with docs and example library |
 | **M9** | AI assistant | Chat panel, commands as AI tools, model-state queries, "explain this script", "write a script for ..." | Plain request "make a 50 mm flange with 6 bolt holes" produces a correct script the user accepts |
+| **M10** | Model tree and right-click menu (after 0.2.0) | Model tree dock; right-click menu in the tree and the 3D view (hide, show, fade this, fade the others, isolate); the design history of each item editable from the tree (section 5.9) | Fade the others around a bolt by right click, open its `THREAD` step from the tree, change the pitch, and every bolt of that part updates |
 
 M0 through M2 are the critical path; once the command core and viewport are
 solid, M3 to M7 are mostly independent sets of handlers and can be built in
