@@ -47,6 +47,14 @@ Sources: <https://github.com/github/copilot-sdk>,
   needs no OAuth app and ships no secret. A user already signed in to
   Copilot on the computer is signed in here too. This sign-in call is
   marked experimental in the SDK, so the SDK is pinned below 2.0.
+* **Working folder.** `empty` mode refuses to start without a folder of its
+  own (it never falls back to `~/.copilot`), so the client always gets
+  `base_directory = <working folder>/.copilot`. The working folder is
+  temporary by default (`<temp>/3Dmodeling-assistant`, or
+  `MODELER_COPILOT_HOME`); the panel's **Folder** menu picks the project's
+  folder or any folder (QSettings `assistant/folder_mode`,
+  `assistant/folder`), and the CLI takes `--folder`. The system prompt names
+  the folder for file commands. Changing it restarts Copilot.
 * **A clean agent.** The client runs in the SDK's `empty` mode, the session
   allows only custom tools (`available_tools = custom:*`), and our system
   prompt replaces the coding-agent prompt. The runtime's shell, file, web

@@ -13,20 +13,24 @@ its tools read the model on the GUI thread, through :class:`_ModelCalls`.
 from __future__ import annotations
 
 import html
+import os
 import threading
 from concurrent.futures import Future
 from typing import TYPE_CHECKING, Any, Callable
 
 from PySide6.QtCore import QObject, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QActionGroup, QDesktopServices
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -87,6 +91,32 @@ class AssistantPanel(QWidget):
         top.addWidget(self.sign_in_button)
         lay.addLayout(top)
 
+        # the working folder: a temporary one unless the user picks one, or the project's folder
+        row = QHBoxLayout()
+        self.folder_label = QLabel()
+        self.folder_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        row.addWidget(self.folder_label, 1)
+        self.folder_button = QToolButton()
+        self.folder_button.setText("Folder")
+        self.folder_button.setToolTip("The folder Copilot works in: where it saves and looks for files")
+        self.folder_button.setPopupMode(QToolButton.InstantPopup)
+        menu = QMenu(self.folder_button)
+        group = QActionGroup(menu)
+        self.folder_actions = {}
+        for mode, text in (("temp", "A temporary folder"), ("project", "The project's folder"),
+                           ("custom", "Choose a folder…")):
+            act = menu.addAction(text)
+            act.setCheckable(True)
+            group.addAction(act)
+            act.triggered.connect(lambda _=False, m=mode: self.choose_folder(m))
+            self.folder_actions[mode] = act
+        menu.addSeparator()
+        menu.addAction("Open the folder", lambda: QDesktopServices.openUrl(
+            QUrl.fromLocalFile(self.working_folder()[0])))
+        self.folder_button.setMenu(menu)
+        row.addWidget(self.folder_button)
+        lay.addLayout(row)
+
         self.transcript = QTextBrowser()
         self.transcript.setOpenExternalLinks(True)
         lay.addWidget(self.transcript, 1)
@@ -126,6 +156,7 @@ class AssistantPanel(QWidget):
 
         self.event.connect(self._on_event)
         self.done.connect(self._on_done)
+        self.show_folder()
 
         if not cp.sdk_available():
             self.status_label.setText("The assistant is not installed.")
@@ -137,11 +168,70 @@ class AssistantPanel(QWidget):
                                 "sandbox first and shows them here with a <b>Run</b> button; it never changes "
                                 "your model by itself. Requests count against your own Copilot plan.")
 
+    # ---- the working folder --------------------------------------------------------------
+    def _settings(self):
+        shell = getattr(self.win, "shell", None)
+        return shell.settings if shell is not None else None
+
+    def folder_mode(self) -> tuple[str, str]:
+        """(``temp`` | ``project`` | ``custom``, the chosen folder for ``custom``), from the settings."""
+        st = self._settings()
+        if st is None:
+            return "temp", ""
+        return str(st.value("assistant/folder_mode", "temp")), str(st.value("assistant/folder", "") or "")
+
+    def working_folder(self) -> tuple[str, str]:
+        """(the folder Copilot works in now, a note when it is not the one chosen)."""
+        mode, chosen = self.folder_mode()
+        if mode == "project":
+            path = getattr(self.win.processor, "project_path", "")
+            if path:
+                return os.path.dirname(os.path.abspath(path)), ""
+            return cp.default_home(), "the project is not saved yet, so a temporary folder for now"
+        if mode == "custom":
+            if chosen and os.path.isdir(chosen):
+                return chosen, ""
+            return cp.default_home(), "the chosen folder is gone, so a temporary folder for now"
+        return cp.default_home(), ""
+
+    def show_folder(self) -> None:
+        mode, _ = self.folder_mode()
+        path, note = self.working_folder()
+        what = {"temp": "Temporary folder", "project": "Project folder", "custom": "Folder"}.get(mode, "Folder")
+        self.folder_label.setText(f"{what}: {path}" + (f" ({note})" if note else ""))
+        self.folder_label.setToolTip(path)
+        act = self.folder_actions.get(mode)
+        if act is not None:
+            act.setChecked(True)
+
+    def choose_folder(self, mode: str, path: str | None = None) -> None:
+        """Set where Copilot works; ``custom`` asks for the folder unless ``path`` is given."""
+        st = self._settings()
+        if mode == "custom" and path is None:
+            start = self.folder_mode()[1] or self.working_folder()[0]
+            path = QFileDialog.getExistingDirectory(self, "The assistant's working folder", start)
+            if not path:
+                self.show_folder()  # cancelled: keep what was there
+                return
+        if st is not None:
+            st.setValue("assistant/folder_mode", mode)
+            if path:
+                st.setValue("assistant/folder", path)
+        self.show_folder()
+        if self.thread is not None and self.thread.assistant.home != self.working_folder()[0]:
+            self.shutdown()
+            self._say("system", f"Working folder: {html.escape(self.working_folder()[0])}. "
+                                "Copilot starts again in it with your next question.")
+
     # ---- the assistant's thread ----------------------------------------------------------
     def _assistant(self) -> cp.AssistantThread:
+        home, _ = self.working_folder()
+        if self.thread is not None and self.thread.assistant.home != home:
+            self.shutdown()  # the project was saved somewhere else: follow it
+        self.show_folder()
         if self.thread is None:
             asst = cp.CopilotAssistant(self.win.processor, run_on_model=self.calls.run,
-                                       on_event=lambda kind, data: self.event.emit(kind, data))
+                                       on_event=lambda kind, data: self.event.emit(kind, data), home=home)
             self.thread = cp.AssistantThread(asst)
         return self.thread
 

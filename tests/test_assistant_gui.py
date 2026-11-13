@@ -114,3 +114,20 @@ def test_run_a_history_edit_proposal(win, app):
     pump(app)
     assert win.processor.evaluate("BBOX(1).dx") == pytest.approx(20)
     assert "W = 10" in panel.transcript.toPlainText()
+
+
+def test_working_folder_choices(win, tmp_path, monkeypatch):
+    monkeypatch.setenv("MODELER_COPILOT_HOME", str(tmp_path / "temp"))
+    panel = win.assistant_panel
+    assert panel.folder_mode()[0] == "temp"
+    assert panel.working_folder() == (str(tmp_path / "temp"), "")
+    panel.choose_folder("custom", str(tmp_path))
+    assert panel.working_folder()[0] == str(tmp_path) and str(tmp_path) in panel.folder_label.text()
+    panel.choose_folder("project")
+    path, note = panel.working_folder()
+    assert path == str(tmp_path / "temp") and "not saved" in note  # unsaved: temporary for now
+    (tmp_path / "proj").mkdir()
+    win.processor.project_path = str(tmp_path / "proj" / "m.m3d")
+    assert panel.working_folder() == (str(tmp_path / "proj"), "")
+    assert panel._assistant().assistant.home == str(tmp_path / "proj")  # nothing starts until it is used
+    panel.shutdown()

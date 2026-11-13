@@ -217,7 +217,7 @@ def test_cli_help(capsys):
                     reason="starts the real Copilot runtime (set MODELER_TEST_COPILOT_RUNTIME=1)")
 def test_runtime_registers_only_our_tools(plate, tmp_path):
     async def go():
-        a = cp.CopilotAssistant(plate, home=str(tmp_path))
+        a = cp.CopilotAssistant(plate)  # no folder given, as in the app: the temporary one
         try:
             st = await a.status()
             assert "signed_in" in st
@@ -283,3 +283,45 @@ def test_imported_bodies_say_what_they_are(tmp_path):
     assert exact["representation"] == "exact" and exact["format"] == "STEP" and "DELFACE" in exact["note"]
     rows = box.call("model_summary")["bodies"]
     assert rows[0]["faceted"] is True and rows[0]["imported"] == "STL" and "faceted" not in rows[1]
+
+
+# ---- the working folder ------------------------------------------------------------------
+class FakeClient:
+    seen: dict = {}
+
+    def __init__(self, **kw):
+        FakeClient.seen = kw
+
+    async def start(self):
+        pass
+
+
+def test_the_client_always_gets_a_folder(plate, tmp_path, monkeypatch):
+    """Empty mode refuses to start without base_directory (seen on Windows with SDK 1.0.33)."""
+    import copilot
+
+    monkeypatch.setattr(copilot, "CopilotClient", FakeClient)
+    monkeypatch.setenv("MODELER_COPILOT_HOME", str(tmp_path / "temp"))
+    a = cp.CopilotAssistant(plate)  # no folder chosen: a temporary one
+    run(a.start())
+    assert FakeClient.seen["mode"] == "empty"
+    assert a.home == str(tmp_path / "temp")
+    assert FakeClient.seen["base_directory"] == os.path.join(a.home, ".copilot")
+    assert os.path.isdir(FakeClient.seen["base_directory"])
+
+
+def test_a_chosen_folder_is_used(plate, tmp_path, monkeypatch):
+    import copilot
+
+    monkeypatch.setattr(copilot, "CopilotClient", FakeClient)
+    a = cp.CopilotAssistant(plate, home=str(tmp_path))
+    run(a.start())
+    assert FakeClient.seen["base_directory"] == str(tmp_path / ".copilot")
+    assert str(tmp_path) in cp.FOLDER_PROMPT.format(a.home)
+
+
+def test_default_folder_is_temporary(monkeypatch):
+    import tempfile
+
+    monkeypatch.delenv("MODELER_COPILOT_HOME", raising=False)
+    assert cp.default_home() == os.path.join(tempfile.gettempdir(), "3Dmodeling-assistant")
