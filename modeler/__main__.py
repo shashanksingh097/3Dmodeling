@@ -9,6 +9,11 @@
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
     python -m modeler --version       print the version
+    python -m modeler render part.cmd part.png [--view ISO] [--size 1600x1000]
+                                      save a picture of what a script makes
+                                      (--shots file.txt OUTDIR for several; see modeler/render.py)
+    python -m modeler gallery [NAME ...]
+                                      remake docs/examples/ pictures and docs/EXAMPLES.md
     python -m modeler tools           the AI assistant's tool definitions, as JSON
     python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
                                       call one tool headless and print its JSON answer;
@@ -147,6 +152,14 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"3Dmodeling {__version__}")
         return 0
+    if args[:1] == ["render"]:
+        from .render import main as render_main
+
+        return render_main(args[1:])
+    if args[:1] == ["gallery"]:
+        from .gallery import main as gallery_main
+
+        return gallery_main(args[1:])
     if args[:1] == ["tools"]:
         import json
 
