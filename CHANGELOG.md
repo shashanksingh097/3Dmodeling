@@ -8,6 +8,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - An examples gallery, [docs/EXAMPLES.md](docs/EXAMPLES.md): every example script with a picture of what it makes, its description, the numbers you should get (bodies, volume) and the whole script. Help > Examples with pictures opens it.
 - `python -m modeler render part.cmd part.png` saves a picture of what a script makes, as the app draws it; a shots file takes several pictures with commands per picture. `python -m modeler gallery` remakes the gallery, and CI keeps scripts, pictures and page in step.
 
+### Files
+- Export to IGES, OBJ, 3MF and glTF (`.glb` or `.gltf`) as well as STEP, BREP and STL. OBJ, 3MF and glTF keep one object per body with its name and colour; 3MF records the units; glTF is in metres with Y up.
+- Import OBJ, 3MF, glTF, PLY, OFF and VTK (`.vtk`, `.vtu`) files, and simulation meshes such as Gmsh, Abaqus and Nastran with `IMPORT, MESH, file`. Each connected piece becomes a faceted body, a solid when it is closed (turned the right way out if needed); volume meshes keep their outer skin. Up to 100,000 triangles.
+- Mesh import is much faster: STL files are no longer sewn triangle by triangle (a 50,000-triangle STL took 17 s, now under 4 s), and an STL with several pieces gives a body for each piece instead of only the first.
+
 ### Modeling
 - NURBS freeform, part 1: curves from control points with weights (`NURBS`), editing control points, weights, knots and degree (`MOVEPT`, `WEIGHT`, `KNOT`, `DEGREE`), refitting any curve or surface with a chosen number of control points (`REBUILD`), surfaces from rows of control points (`NSURF`), through a network of curves (`NETWORK`) or filling a hole smoothly (`FILL`, G0/G1/G2), and sewing surfaces into a solid (`SEW`).
 - Drag control points in the 3D view: pick a curve or surface and press Control points; each drag is a `MOVEPT` step in the history.
@@ -22,7 +27,7 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ### Fixes
 - `python -m modeler run` marks the line that failed inside a block or macro with `ERROR:`, not the block's first line.
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-11-13
 
 The first release: a desktop 3D modeler for solid parts in which every
 click is a command, so every model is also an editable script.

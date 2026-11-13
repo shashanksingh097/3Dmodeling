@@ -64,7 +64,7 @@ by criteria, the editable history) is described in
 - **Parts** with parameters, placed many times, and a part library.
 - **Layers, colours, materials**, mass properties, distances, angles, clash checks, section views.
 - **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
-- **Files:** projects (`.m3d`) with autosave and recovery; STEP, IGES, BREP, STL import; STEP, STL, BREP export.
+- **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (Gmsh, Abaqus, Nastran); export STEP, IGES, BREP, STL, OBJ, 3MF, glTF.
 - **Text tools for an AI assistant** (describe a body, probe it with rays, check expectations), ready for the chat panel in a later release.
 
 ## Install from source

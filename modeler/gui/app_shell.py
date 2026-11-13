@@ -38,14 +38,26 @@ if TYPE_CHECKING:
 APP_NAME = "3Dmodeling"
 MAX_RECENT = 8
 
-IMPORT_FILTER = "Shapes (*.step *.stp *.iges *.igs *.brep *.stl);;All files (*)"
+IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
+                 "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;"
+                 "Exact shapes (*.step *.stp *.iges *.igs *.brep);;"
+                 "Meshes (*.stl *.obj *.3mf *.glb *.gltf *.ply *.off);;"
+                 "Simulation meshes (*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;All files (*)")
 EXPORT_FILTERS = {
     "STEP (*.step *.stp)": "STEP",
+    "IGES (*.iges *.igs)": "IGES",
     "STL mesh (*.stl)": "STL",
+    "OBJ mesh (*.obj)": "OBJ",
+    "3MF for 3D printing (*.3mf)": "3MF",
+    "glTF binary (*.glb)": "GLTF",
+    "glTF text (*.gltf)": "GLTF",
     "BREP, Open CASCADE (*.brep)": "BREP",
 }
 _EXT_FORMAT = {".step": "STEP", ".stp": "STEP", ".stl": "STL", ".brep": "BREP",
-               ".iges": "IGES", ".igs": "IGES"}
+               ".iges": "IGES", ".igs": "IGES", ".obj": "OBJ", ".3mf": "3MF", ".glb": "GLTF",
+               ".gltf": "GLTF", ".ply": "PLY", ".off": "OFF", ".vtk": "VTK", ".vtu": "VTK"}
+_DEFAULT_EXT = {"STEP": ".step", "IGES": ".igs", "STL": ".stl", "BREP": ".brep", "OBJ": ".obj",
+                "3MF": ".3mf", "GLTF": ".glb"}
 
 
 def _quote(path: str) -> str:
@@ -175,7 +187,8 @@ class AppShell:
         if path is None:
             path, _ = QFileDialog.getOpenFileName(self.win, "Import", self._start_dir(), IMPORT_FILTER)
         if path:
-            fmt = _EXT_FORMAT.get(os.path.splitext(path)[1].lower(), "BREP")
+            # any other file goes to meshio by its extension (Gmsh, Abaqus, Nastran, ...)
+            fmt = _EXT_FORMAT.get(os.path.splitext(path)[1].lower(), "MESH")
             self.win.execute(f"IMPORT, {fmt}, {_quote(path)}")
 
     def export_file(self, path: str | None = None, fmt: str | None = None) -> None:
@@ -190,10 +203,10 @@ class AppShell:
                 return
             fmt = _EXT_FORMAT.get(os.path.splitext(path)[1].lower()) or EXPORT_FILTERS.get(chosen, "STEP")
         fmt = fmt or _EXT_FORMAT.get(os.path.splitext(path)[1].lower(), "STEP")
-        if fmt == "IGES":
+        if fmt not in _DEFAULT_EXT:  # read-only formats (PLY, OFF, VTK)
             fmt = "STEP"
         if not os.path.splitext(path)[1]:
-            path += {"STEP": ".step", "STL": ".stl", "BREP": ".brep"}[fmt]
+            path += _DEFAULT_EXT[fmt]
         self.win.execute(f"EXPORT, {fmt}, {_quote(path)}")
 
     def run_script(self, path: str | None = None) -> None:
@@ -294,9 +307,11 @@ class AppShell:
                                 "Save the project under a new name. Runs: SAVE, file")
         m.addSeparator()
         self.import_action = a(m, "&Import…", self.import_file, "Ctrl+I",
-                               "Read STEP, IGES, BREP or STL. Runs: IMPORT, format, file")
+                               "Read STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, VTK and more. "
+                               "Runs: IMPORT, format, file")
         self.export_action = a(m, "&Export…", self.export_file, "Ctrl+E",
-                               "Write all bodies as STEP, STL or BREP. Runs: EXPORT, format, file")
+                               "Write all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP. "
+                               "Runs: EXPORT, format, file")
         m.addSeparator()
         a(m, "Run &script…", self.run_script, None, "Run a .cmd script. Runs: RUN, file")
         a(m, "Save &log…", self.win._save_log, None, "Save the history as a script that rebuilds this model")
@@ -484,8 +499,8 @@ suppress it or delete it.</li>
 <h3>Keep your work</h3>
 <ul>
 <li><b>File &gt; Save</b> (Ctrl+S) writes a <code>.m3d</code> project with the whole history.</li>
-<li><b>File &gt; Export</b> writes STEP, STL or BREP for other programs; <b>Import</b> reads STEP, IGES,
-BREP and STL.</li>
+<li><b>File &gt; Export</b> writes STEP, IGES, STL, OBJ, 3MF, glTF or BREP for other programs; <b>Import</b>
+reads those and mesh files such as PLY, VTK and Gmsh (meshes become faceted bodies).</li>
 <li>Work is autosaved as you go. After a crash, press <b>Recover</b> on the toolbar.</li>
 </ul>
 <p>Try <b>File &gt; Open example</b> to see finished models and their scripts

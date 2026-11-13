@@ -95,7 +95,7 @@ later stretch goal).
 | Implicit/equations | numpy expression evaluation, scikit-image marching cubes |
 | Expressions | our own safe evaluator over Python's `ast` (no `eval`) |
 | Constraint sketcher | our own small solver on numpy (chosen after a spike against planegcs and SolveSpace's solver; see docs/M3-sketcher.md) |
-| File formats | native `.cmd` script + `.3dm`-style project zip; STEP, IGES, BREP, STL, OBJ, 3MF, glTF |
+| File formats | native `.cmd` script + `.3dm`-style project zip; STEP, IGES, BREP, STL, OBJ, 3MF, glTF; other mesh files (VTK, PLY, OFF, Gmsh, Abaqus, Nastran) read with meshio |
 | Tests | pytest; headless command tests need no GUI |
 | Packaging | pip + `pyproject.toml`; PyInstaller bundles later |
 | AI (last phase) | Claude API with tool use; the tools are our commands |
@@ -367,7 +367,7 @@ spring is a short script whose numbers you can change later.
 - **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), `CLASH` (overlap and clearance between bodies) `[done]`; minimum wall thickness `[M3]`
 - Layers (show, hide, lock, colour, current layer), colours, materials with densities, mass from materials, `ISOLATE` `[done]`
 - Section view (`SECTION`), hide/show and isolate `[done]`
-- Import/export STEP, IGES, STL, OBJ, 3MF, glTF; drawings (2D projection to DXF/SVG) later `[M2]`/`[M8]`
+- Import/export STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of PLY, OFF, VTK and simulation meshes (volume meshes keep their outer skin), each mesh piece a faceted body `[done]` (LANGUAGE.md section 10); drawings (2D projection to DXF/SVG) `[M8]`
 - Autosave and crash recovery from the log `[M2]`
 - Results checked after every boolean and blend, `CHECK`, `HEAL`, `CLEAN` `[done]`; auto-heal on import, sewing with a tolerance, defeaturing (remove small holes and fillets) `[M4]`
 - History that stays fast: skip entries whose inputs did not change (dependency tracking), rebuild on a worker thread with progress and cancel, so the window never freezes `[M3]`
@@ -484,7 +484,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 | 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 11 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Much reduced | Snapshot after every entry, so only entries from the edit onwards re-run; one kernel call for many cuts: `SUBTRACT, a, SEL`, `ARRAY ... CUT, target` and `PATTERN` (feature patterns): the 300 holes take 0.3 to 0.4 s, and an edit of the patterned hole re-runs in 0.4 s; a progress dialog with Cancel (which puts everything back) for long rebuilds | Skip entries whose inputs did not change (needs each entry to record which bodies and parameters it read); running the rebuild on a worker thread, if the kernel lets go of Python's lock |
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; planegcs as a faster back end if big sketches get slow (trim, extend, offset, fillet, mirror, pattern and projection are in) |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
-| 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Not started | STL import sews to a solid when closed | Mesh bodies with `manifold3d` booleans (M6) |
+| 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Partly done | Export to STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of those plus PLY, OFF, VTK and simulation meshes; each closed mesh piece becomes a faceted solid that takes booleans (a 5,000-triangle sphere imports in 0.4 s; up to 100,000 triangles) | Mesh bodies with `manifold3d` booleans, smoothing and remeshing, so big meshes stay meshes (M6); fitting smooth surfaces to meshes (later) |
 | 7 | Sculpting performance in Python | Not started | | numpy/numba brush kernels; a dedicated renderer if needed (measured in M7) |
 | 8 | Scope is huge | Managed | Each milestone is usable alone | Features after M2 are ordered by the user |
 
@@ -538,8 +538,24 @@ Still open in the milestones already started, in the suggested order:
 4. Next: user guide, README for users, changelog and release notes.
 5. A run of a build on a real Windows or macOS desktop (needs the user).
 
-**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; part 2 done: `BLEND`, `EXTEND`, `TRIM`, `MOVEFACE`, `REPLACEFACE`; part 3 done: guide-curve lofts, `NORMAL` sweeps, `PROJECT`, `ANALYZE`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
-freehand cuts), M7 (sculpt), the AI chat panel (M9c), skipping unchanged
-steps on rebuild, a sketch fillet between a line and an arc, trimming to the
-sketch axes, more export formats (OBJ, 3MF, glTF) and 2D drawings, code
-signing, preferences and themes.
+**First release:** v0.1.0 was published on 2026-11-13.
+
+**After 0.1.0, in this order** (about three items per pull request):
+
+1. Done: more file formats (export IGES, OBJ, 3MF, glTF; import OBJ, 3MF,
+   glTF, PLY, OFF, VTK and simulation meshes; LANGUAGE.md section 10).
+2. Finish M5: deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`, `STRETCH`,
+   `SWEEPVOL`) and the M5 exit test (docs/M5-nurbs.md, "What is left").
+   Then release 0.2.0 (NURBS freeform and the new formats).
+3. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
+   imported mesh editable as a mesh), then implicit shapes and lattices,
+   then knife and freehand cuts.
+4. M3 leftovers: undo for history edits, skipping unchanged steps on
+   rebuild, a sketch fillet between a line and an arc, trimming to the
+   sketch axes.
+5. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
+6. The AI chat panel (M9c), on the tools already built.
+7. M7 sculpt mode.
+
+A run of the viewer on a real Windows or macOS desktop (risk 5) is being
+done by the user alongside.

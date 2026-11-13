@@ -265,8 +265,8 @@ be broken is refused with a reason, and the model stays as it was.
 |------|---------|-------|
 | **File > Save** (Ctrl+S), **Save as…** | `SAVE, file.m3d` | a project: the whole history plus copies of the files it imports, so it opens anywhere |
 | **File > Open…** (Ctrl+O), **Open recent** | `OPEN, file.m3d` | the history is replayed, so every step is still editable |
-| **File > Import…** (Ctrl+I) | `IMPORT, STEP/IGES/BREP/STL, file` | each solid becomes a body; closed STL meshes become solids |
-| **File > Export…** (Ctrl+E) | `EXPORT, STEP/STL/BREP, file [, body]` | STEP for other CAD programs, STL for 3D printing |
+| **File > Import…** (Ctrl+I) | `IMPORT, format, file` | STEP, IGES and BREP: each solid becomes a body. STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (`MESH`): each piece becomes a faceted body, a solid when closed |
+| **File > Export…** (Ctrl+E) | `EXPORT, format, file [, body]` | STEP or IGES for other CAD programs, STL or 3MF for 3D printing, OBJ or glTF for viewers and game engines, BREP for Open CASCADE |
 | **File > Save log…** | | the history as a plain `.cmd` script |
 | **File > Run script…** | `RUN, file.cmd` | runs a script; its lines join the history |
 

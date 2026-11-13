@@ -510,8 +510,8 @@ class MainWindow(QMainWindow):
 
         dlg_action("Open…", "Open a project (.m3d) (Ctrl+O)\nRuns: OPEN, file", self._open_project)
         dlg_action("Save", "Save the project (.m3d) (Ctrl+S)\nRuns: SAVE, file", self._save_project)
-        dlg_action("Import…", "Import STEP, IGES, BREP or STL (Ctrl+I)\nRuns: IMPORT, format, file", self._import_file)
-        dlg_action("Export…", "Export all bodies as STEP, STL or BREP (Ctrl+E)\nRuns: EXPORT, format, file",
+        dlg_action("Import…", "Import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, VTK... (Ctrl+I)\nRuns: IMPORT, format, file", self._import_file)
+        dlg_action("Export…", "Export all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP (Ctrl+E)\nRuns: EXPORT, format, file",
                    lambda: self.shell.export_file())
         self.recover_action = cmd_action("Recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
         self.recover_action.setVisible(False)
