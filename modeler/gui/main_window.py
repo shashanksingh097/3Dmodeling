@@ -570,6 +570,9 @@ class MainWindow(QMainWindow):
         act("Control points", "Show the control points of the picked curve or surface; drag one to move it "
                               "(press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
             lambda: fa.control_points_toggle(p))
+        act("Zebra", "Zebra stripes on the picked body, and each join between its faces judged G2, G1 or "
+                     "creased (press again to end it; the form has curvature and draft maps)\n"
+                     "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
         tb.addSeparator()
         act("Distance", "Shortest distance between the two selected things\nRuns: DIST", lambda: fa.two_selected(p, "DIST"))
         act("Angle", "Angle between the two selected faces or edges\nRuns: ANGLE", lambda: fa.two_selected(p, "ANGLE"))

@@ -74,3 +74,33 @@ def test_control_points_button_needs_a_pick(win):
         fa.control_points_toggle(win.processor)
     win.execute("PICK, BODY, 1")
     assert fa.control_points_toggle(win.processor) == ["CPOINTS, 1"]
+
+
+def test_analyze_colours_a_body_and_off_brings_it_back(win, app):
+    win.execute("BLOCK, 0,0,0, 20,20,10")
+    win.execute("SPHERE, 40, 0, 0, 8")
+    vp = win.viewport
+    for mode in ("ZEBRA", "CURVATURE", "GAUSS", "DRAFT"):
+        assert win.execute(f"ANALYZE, 2, {mode}").ok
+        app.processEvents()
+        assert vp.analysis is not None and vp.analysis.mode == mode
+        assert vp._an_ais is not None and vp.context.IsDisplayed(vp._an_ais)
+        assert not vp.context.IsDisplayed(vp._ais[2])  # the coloured mesh stands in for the body
+        assert vp.context.IsDisplayed(vp._ais[1])
+    win.execute("MOVE, 2, 5, 0, 0")  # an edit: the colours follow the moved body
+    app.processEvents()
+    assert vp._an_ais is not None and not vp.context.IsDisplayed(vp._ais[2])
+    assert win.execute("ANALYZE, OFF").ok
+    app.processEvents()
+    assert vp.analysis is None and vp._an_ais is None
+    assert vp.context.IsDisplayed(vp._ais[2])
+
+
+def test_zebra_button_toggles(win, app):
+    from modeler.gui import feature_actions as fa
+
+    win.execute("BLOCK, 0,0,0, 20,20,10")
+    win.execute("PICK, FACE, 1")
+    assert fa.zebra_toggle(win.processor) == ["ANALYZE, 1, ZEBRA"]
+    win.execute("ANALYZE, 1, ZEBRA")
+    assert fa.zebra_toggle(win.processor) == ["ANALYZE, OFF"]

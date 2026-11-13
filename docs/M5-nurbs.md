@@ -109,13 +109,59 @@ Part 2 gotchas:
 - A half-space cut by a big curved face gave garbage on a wavy surface; the
   splitter with a side test is reliable.
 
+## Part 3: guide-curve lofts, sweeps on a surface, analysis
+
+| Item | Commands | Code |
+|---|---|---|
+| Loft with guide curves | `LOFT, ..., GUIDE, g1, g2` | `geometry/sweep.py` (`guide_loft`) |
+| Sweep following a surface's normal | `SWEEP ... NORMAL, ..., surface`, `PROJECT` | `geometry/sweep.py` (`OnSurface`), `geometry/surface_ops.py` (`project`) |
+| Zebra, curvature and draft analysis | `ANALYZE`, the Zebra button | `geometry/analysis.py`, `commands/analysis_handlers.py`, viewport |
+
+- **Guide lofts** are built from point columns: each section is cut where
+  the guides cross it, every piece gets the same number of points on every
+  section, and each column is a cubic through the sections. A guide's own
+  column is then replaced by the guide, and the columns between two guides
+  move by a smoothstep blend of the two guides' corrections (so the side is
+  C1 across a guide). Round closed sections each guide's pull is split into
+  a scale about the section's centre and a slide, and those are blended
+  instead: blending the plain pulls shifted a vase sideways where it had no
+  guide, rather than letting it swell all round. Station curves
+  (6 to 24 per span, by how much the guides turn) go to `ThruSections`.
+  Measured: guides followed within 0.003 on a 40 long vase, sections within
+  1e-3.
+- **`NORMAL` sweeps**: the exact sweep uses `BRepOffsetAPI_MakePipeShell.
+  SetMode(support)`, which needs the path's edges to have curves on the
+  surface. A `PROJECT` result has them; a path made on its own does not, and
+  `SetMode` returns False. Then the sweep goes through sections whose frames
+  take the surface normal at each station (`frames()` with an `OnSurface`
+  mode), turned so the first frame is the usual start frame, as `FRENET`
+  does.
+- **Analysis in words**: joins are judged along each edge between two
+  faces at 9 points: the angle between normals (crease above 0.25 degrees),
+  then the normal curvature straight across the edge on each side (from the
+  principal curvatures and their directions; G1 if they differ by more than
+  10%). Checked on the test panels: a G1 blend comes out "tangent only", a
+  G2 blend "smooth in curvature".
+- **Colours**: a fine mesh of each face (a copy, so the model's own
+  triangulation is untouched) with normals and curvatures at the nodes,
+  drawn as an `AIS_Triangulation` with node colours in place of the body.
+
+Part 3 gotchas:
+
+- `AIS_Triangulation` draws only in display mode 0; displayed in the
+  context's default shaded mode (1) it shows nothing.
+- Its default material tints node colours gold; set a white plastic
+  shading aspect.
+- `Poly_Triangulation.SetNormal` takes a `gp_Dir` in both OCP 7 and 8
+  (`gp_Vec3f` exists only in OCP 7's `gp`).
+- Zebra stripes need about 5 mesh nodes per stripe period: 24 stripes over
+  180 degrees with an angular mesh deflection of 0.05 rad.
+
 ## What is left of M5
 
 In the suggested order, about three items per pull request:
 
-1. Guide-curve lofts, sweeps that follow a surface's normal, and zebra /
-   curvature / draft analysis in the view.
-2. Deformers: `FLOW` (text along a curve), `BEND`, `TWIST`, `TAPER`,
+1. Deformers: `FLOW` (text along a curve), `BEND`, `TWIST`, `TAPER`,
    `STRETCH`, and `SWEEPVOL`.
-3. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
+2. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
    to 2 mm; flow a text along a curve.
