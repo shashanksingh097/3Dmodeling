@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import tempfile
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future
@@ -64,6 +65,29 @@ How to work:
   not). When asked what can be done with an import, check it first, then explain in those terms.
 - Picks by number break when the history is edited: prefer SEL criteria (selector_for).
 - Keep answers short and plain. Give sizes with units.
+"""
+
+
+def default_home() -> str:
+    """The assistant's working folder when the user has not chosen one: a temporary folder.
+
+    ``MODELER_COPILOT_HOME`` overrides it. In the app, the Assistant panel's
+    Folder menu chooses another folder, or the project's own folder.
+    """
+    path = os.environ.get("MODELER_COPILOT_HOME") or os.path.join(tempfile.gettempdir(), "3Dmodeling-assistant")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def runtime_dir(home: str) -> str:
+    """Where the Copilot runtime keeps its settings and session state: ``.copilot`` in the
+    working folder. The SDK's clean (``empty``) mode needs this folder named: it never falls
+    back to ``~/.copilot``. The GitHub sign-in itself stays in the system keychain."""
+    path = os.path.join(home, ".copilot")
+    os.makedirs(path, exist_ok=True)
+    return path
+FOLDER_PROMPT = """- The user's working folder is {0}. Put files from EXPORT and SAVE there and look
+  for IMPORT and RUN files there, unless the user names another folder. Always write full paths.
 """
 
 
@@ -158,9 +182,13 @@ class CopilotAssistant:
         import logging
 
         logging.getLogger("copilot").setLevel(logging.CRITICAL)  # failures come back as AssistantError
-        kwargs: dict[str, Any] = {"mode": "empty", "log_level": "error"}
-        if self.home:
-            kwargs["base_directory"] = self.home
+        try:
+            if not self.home:
+                self.home = default_home()
+            base = runtime_dir(self.home)
+        except OSError as exc:
+            raise AssistantError(f"could not use the folder {self.home}: {exc}") from None
+        kwargs: dict[str, Any] = {"mode": "empty", "log_level": "error", "base_directory": base}
         if self.github_token:
             kwargs["github_token"] = self.github_token
         client = cp.CopilotClient(**kwargs)
@@ -381,10 +409,10 @@ class CopilotAssistant:
             on_permission_request=PermissionHandler.approve_all,  # only our own read-only tools exist
             tools=self.sdk_tools(),
             available_tools=cp.ToolSet().add_custom("*"),  # none of the runtime's coding tools
-            system_message={"mode": "replace", "content": SYSTEM_PROMPT},
+            system_message={"mode": "replace", "content": SYSTEM_PROMPT + FOLDER_PROMPT.format(self.home)},
             streaming=True,
             client_name="3Dmodeling",
-            working_directory=self.home or os.path.expanduser("~"),
+            working_directory=self.home,
         )
         if self.model:
             kwargs["model"] = self.model
@@ -525,6 +553,8 @@ python -m modeler copilot ask [--script file.cmd] "question"
 python -m modeler copilot check           the whole test for one account (Copilot Free too):
                                           sign-in, allowance, models, and a question that must
                                           use the modeler's tools; prints PASS or FAIL per step
+--folder DIR                              the assistant's working folder (default: a temporary
+                                          folder); Copilot keeps its own files in DIR/.copilot
 """
 
 
@@ -549,13 +579,19 @@ def main(args: list[str]) -> int:
                 print(res.message)
                 return 1
 
+    home = None
+    if "--folder" in args:
+        i = args.index("--folder")
+        home = os.path.abspath(args[i + 1]) if i + 1 < len(args) else None
+        del args[i:i + 2]
+
     def on_event(kind, data):
         if kind == "tool":
             print(f"  [tool] {data}", flush=True)
         elif kind == "proposal":
             print(f"  [proposal] {data.summary}\n" + "\n".join("    " + x for x in data.script.splitlines()))
 
-    asst = CopilotAssistant(p, on_event=on_event, model=os.environ.get("MODELER_COPILOT_MODEL") or None)
+    asst = CopilotAssistant(p, on_event=on_event, model=os.environ.get("MODELER_COPILOT_MODEL") or None, home=home)
     return asyncio.run(_cli(asst, args))
 
 
@@ -619,7 +655,12 @@ async def _check(asst: CopilotAssistant) -> int:
         fails += 0 if ok else 1
         print(f"{'PASS' if ok else 'FAIL'}  {what}" + (f": {detail}" if detail else ""), flush=True)
 
-    st = await asst.status()
+    try:
+        st = await asst.status()
+    except AssistantError as exc:
+        report(False, "start Copilot", str(exc))
+        return fails
+    report(True, "start Copilot", f"working folder {asst.home}")
     if not st["signed_in"]:
         print("Not signed in yet: signing in.")
         try:

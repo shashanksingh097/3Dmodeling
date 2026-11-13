@@ -353,8 +353,22 @@ errors, reads your model, and writes scripts for you.
 The panel shows a short code and opens <https://github.com/login/device>;
 enter the code there and allow access. The sign-in is kept in your
 system's keychain, so you do this once. If you already use Copilot on this
-computer (for example the Copilot command-line tool), you are signed in
+computer (for example the Copilot command-line tool), you may be signed in
 already.
+
+**The working folder.** The line under the account shows the folder
+Copilot works in: where it puts files it exports and looks for files to
+import. Choose it with **Folder**:
+
+* **A temporary folder** (the default): `3Dmodeling-assistant` in your
+  system's temporary folder.
+* **The project's folder**: the folder of the saved project, so Copilot and
+  your project use the same folder. Until the project is saved, the
+  temporary folder is used.
+* **Choose a folder…**: any folder you like.
+
+Copilot keeps its own small files (settings, the conversation state) in a
+`.copilot` folder inside the working folder. The app remembers your choice.
 
 **Any Copilot plan works, Copilot Free too.** Requests count against your
 own plan; the panel shows how much of this month's allowance is left. If
@@ -374,5 +388,6 @@ your cache folder, so you need internet then.
 
 From a shell, `python -m modeler copilot check` tests everything for your
 account: sign-in, allowance, models, and one question that Copilot must
-answer with the modeler's tools. It prints PASS or FAIL per step.
+answer with the modeler's tools. It prints PASS or FAIL per step. Add
+`--folder DIR` to use another working folder.
 
