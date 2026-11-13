@@ -242,7 +242,28 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
             return g.NbPoles()
         return g.NbUPoles() if str(direction).upper() == "U" else g.NbVPoles()
 
+    def _along(b, t, fn):
+        from ..geometry import curves as cv
+        from ..geometry import sweep as sw
+
+        try:
+            ps = sw.PathSampler(sw.as_wire(m.body(body_id(b, fn)).shape, f"the {fn}() body"))
+        except (cv.CurveError, ModelError) as exc:
+            raise ExprError(f"{fn}(): {exc}") from None
+        t = float(t)
+        if not 0 <= t <= 1:
+            raise ExprError(f"{fn}(): t goes from 0 (the start) to 1 (the end), got {t:g}")
+        return ps.at(ps.length * t)
+
+    def curve_point(b, t):
+        return Vec(_along(b, t, "CURVEPT")[0])
+
+    def curve_tangent(b, t):
+        return Vec(_along(b, t, "CURVETAN")[1])
+
     return {
+        "CURVEPT": curve_point,
+        "CURVETAN": curve_tangent,
         "POLE": pole,
         "NPOLES": npoles,
         "MINWALL": minwall,

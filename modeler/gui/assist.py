@@ -27,6 +27,8 @@ _COMMAND_CHOICES = {
     ("ARRAY", "kind"): ("LINEAR", "POLAR", "PATH"),
     ("PATTERN", "kind"): ("LINEAR", "POLAR"),
     ("CURVE", "kind"): ("PARAM",),
+    ("SWEEP", "mode"): ("MINTWIST", "FRENET", "FIXED", "NORMAL"),
+    ("ANALYZE", "mode"): ("ZEBRA", "CURVATURE", "GAUSS", "DRAFT"),
     ("KEEP", "mode"): ("ON", "OFF"),
     ("SEL", "mode"): ("S", "R", "A", "U", "ALL", "NONE", "INVE"),
     ("VIEW", "name"): ("ISO", "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT"),

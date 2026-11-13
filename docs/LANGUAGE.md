@@ -261,7 +261,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
-| Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE]` · `SPINELOFT, spine, s1, s2, ... [, FRENET/FIXED] [, SURFACE]` (section 20) · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `RAILSWEEP, profile, rail1 [, rail2] ...` (section 19) · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
+| Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE] [, GUIDE, g1, g2, ...]` · `SPINELOFT, spine, s1, s2, ... [, FRENET/FIXED] [, SURFACE]` (section 20) · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid, on]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `RAILSWEEP, profile, rail1 [, rail2] ...` (section 19) · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
 | Threads and springs | `THREAD [, pitch] [, length] [, hand]` · `SPRING, x,y,z, r, pitch, turns, d ...` (section 18) |
 | Text and surfaces | `TEXT, text, x,y,z, size [, depth] [, nx,ny,nz [, angle]] [, LEFT/CENTER/RIGHT] [, font] [, style]` · `SURFACE, PARAM, x(u,v), y(u,v), z(u,v), u0, u1, v0, v1 [, nu, nv] [, thick]` (section 20) |
 | Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
@@ -375,16 +375,31 @@ a polygon) and need not be parallel. Add `RULED` for straight sides between
 sections, `CLOSED` to come back to the first section (a ring), `SURFACE` for
 no end caps.
 
+Curves after `GUIDE` steer the side between the sections: `LOFT, foot,
+belly, neck, GUIDE, front, side`. Each guide must pass through every
+section, crossing them in the order they are given (the message names the
+section a guide misses, and by how much). Round closed sections, each
+section swells or shrinks about its middle to reach the guides, smoothly
+from one guide to the next, so one or two guides shape the whole side; open
+sections (a `SURFACE` loft) are pulled along smoothly between the guides. The loft
+passes through each section as a smooth curve through 96 of its points, so
+sharp corners come out slightly rounded. Not with `RULED` or `CLOSED`.
+
 ### SWEEP
 
-`SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid]`
+`SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid, on]`
 
 * Draw the profile where the path starts, usually across it. Its place
   relative to the path start is kept all along (an offset profile stays
   offset).
 * `mode`: `MINTWIST` (default) keeps the profile from spinning on 3D
   curves; `FRENET` follows the curve's bend (good on helices); `FIXED` never
-  turns the profile, it only moves.
+  turns the profile, it only moves; `NORMAL` keeps the profile at the same
+  angle to the surface `on` that the path lies on (a rib standing up from a
+  curved panel, a bead round a car body): `SWEEP, rib, track, , , NORMAL, ,
+  , , , , 1, panel`. Lay the path on the surface first with `PROJECT` (see
+  section 24); the sweep is then exact. A path that only lies on the
+  surface by its numbers is swept through sections instead.
 * With no laws the sweep is exact. With a scale law only, it is still exact.
   Other laws place the profile at `n` stations and fit a smooth surface
   through them; `n` = 0 picks enough stations for the twist and the bends of
@@ -1546,6 +1561,57 @@ OFFSET, s, 2                       ! a surface moved 2 along its normal (the sam
   curve must cross the surface from edge to edge, or close into a loop on
   it (that cuts a hole when the inside is removed). A trimmed face can no
   longer have its control points moved (see above).
+
+### Laying a curve on a surface
+
+```
+PROJECT, c, dome                   ! along the dome's normal, as a new curve
+PROJECT, c, dome, 0, 0, -1         ! straight down onto it
+```
+
+`PROJECT` keeps the original curve and adds the one on the surface. It is
+a path for `SWEEP ... NORMAL`, or a cutting curve for `TRIM`. If the curve
+lands in several separate pieces it says so (the body is then not one path).
+`CURVEPT(c, t)` and `CURVETAN(c, t)` give the point and the direction of a
+curve at `t` (0 at the start, 1 at the end), handy to place a profile where
+a path starts.
+
+### Analysis: zebra stripes, curvature and draft
+
+```
+ANALYZE, b                         ! zebra stripes, and every join between faces judged
+ANALYZE, b, CURVATURE              ! mean curvature map (red bulges out, blue is hollow)
+ANALYZE, b, GAUSS                  ! Gaussian curvature: dome, saddle, or bent one way only
+ANALYZE, b, DRAFT, 0, 0, 1, 2      ! pull along +Z, at least 2 degrees of draft
+ANALYZE, OFF                       ! back to the plain view
+```
+
+Each one colours the body in the view (in place of its usual shading) and
+answers in words, so a script or the assistant can check a shape without a
+picture. `ANALYZE` only looks: it is not a history step.
+
+- `ZEBRA` judges every edge between two faces at a few points along it:
+  *creased* if the faces meet at an angle (more than 0.25 degrees), *G1*
+  (tangent only) if they meet smoothly but the curvature across the edge
+  jumps by more than a tenth, *G2* if the curvature runs on too. It lists
+  the edges in each group. The stripes show the same: they break at a
+  crease, kink at a G1 join and flow straight on over G2. The stripes are
+  lit from where the view looks from when the command runs (or give a
+  direction).
+- `CURVATURE` gives the range of mean curvature, how much of the area is
+  flat, and the tightest bend (its radius and where). `GAUSS` tells dome-like
+  areas (both directions curve the same way), saddles, and areas bent one way
+  only (cylinders, cones, flat).
+- `DRAFT`: green comes out of the mould towards the pull direction, blue
+  towards the other side, red is steeper than the angle allows. The answer
+  gives the share of the area of each and lists the faces with red on them.
+
+The **Zebra** button (Features toolbar) shows stripes on the picked body and
+ends them when pressed again; the form (Freeform category) has the others.
+
+Example: `scripts/guides_analysis.cmd` (a vase lofted through three sections
+along two guide curves; a rib swept along a wavy line on a domed panel,
+staying square to it; zebra stripes on the vase).
 
 Example: `scripts/surface_ops.cmd` (two panels joined by a G2 blend and sewn
 into one skin; a panel extended and trimmed with a round hole; a block

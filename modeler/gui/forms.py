@@ -108,8 +108,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Text and surfaces", ("TEXT", "SURFACE")),
-    ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "BLEND", "SEW", "EXTEND", "TRIM", "MOVEPT",
-                          "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES")),
+    ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "BLEND", "SEW", "EXTEND", "TRIM", "PROJECT",
+                          "MOVEPT", "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES", "ANALYZE")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
@@ -233,11 +233,14 @@ _COMMAND_LABELS = {
     ("SURFACE", "fz"): "z(u,v)",
     ("SURFACE", "thick"): "Wall thickness, 0 = surface only",
     ("PUSHPULL", "d"): "Distance (+ adds, - removes)",
+    ("SWEEP", "on"): "Surface to follow (mode NORMAL)",
+    ("PROJECT", "dx"): "Direction, all 0 = along the normal",
 }
 
 _EXTRA_CHOICES = {
     ("EXTRUDE", "mode"): ("NEW", "ADD", "CUT"),
     ("REVOLVE", "mode"): ("NEW", "ADD", "CUT"),
+    ("SWEEP", "mode"): ("MINTWIST", "FRENET", "FIXED", "NORMAL"),
     ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "LAYERS", "MATERIALS"),
     ("MATERIAL", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
                            "NYLON", "PLA", "RUBBER", "WOOD", "GLASS", "NONE"),
@@ -513,6 +516,14 @@ def _hand() -> dict[str, FormSpec]:
     add("MOVEFACE", [Variant("", "", [
         _F("dx", "Move the picked faces by", "point", required=True, start="0, 0, 2",
            help="the faces around stretch or shrink to meet them")])])
+    add("ANALYZE", [Variant("", "", [
+        _F("body", "Body", "body", required=True, pick="BODY", help="the body to colour; ANALYZE, OFF ends it"),
+        _F("mode", "Analysis", "choice", "ZEBRA", choices=("ZEBRA", "CURVATURE", "GAUSS", "DRAFT"),
+           help="ZEBRA: stripes, and each join between faces judged G2, G1 or creased; CURVATURE / GAUSS: a colour "
+                "map; DRAFT: green and blue come out of the mould, red is too steep"),
+        _F("d", "Direction", "point", help="DRAFT: the pull direction (default 0, 0, 1); ZEBRA: where the light "
+                                           "comes from (default: the view)"),
+        _F("angle", "Least draft angle", default="1", help="DRAFT only, in degrees")])])
     add("REPLACEFACE", [Variant("", "", [
         _F("surface", "New surface", "body", required=True, pick="BODY",
            help="the picked faces of the solid take this surface's shape")])])
@@ -523,7 +534,10 @@ def _hand() -> dict[str, FormSpec]:
                                      help="the section curves, in order (select them, then press ← Selection)"),
                                   _F("ruled", "Straight between sections", "flag", word="RULED"),
                                   _F("closed", "Loop back to the first", "flag", word="CLOSED"),
-                                  _F("surface", "Surface only (no caps)", "flag", word="SURFACE")])])
+                                  _F("surface", "Surface only (no caps)", "flag", word="SURFACE"),
+                                  _F("guides", "Guide curves", "bodies", pick="BODY", count=12,
+                                     help="curves the side must run along; each passes through every section "
+                                          "(leave empty for none)")])])
     add("SPINELOFT", [Variant("", "", [
         _F("spine", "Spine", "body", required=True, pick="BODY", help="the centre line the sections follow"),
         _F("s", "Sections", "bodies", required=True, pick="BODY", count=16,
@@ -899,6 +913,10 @@ def build(sp: FormSpec, values: dict[str, str], variant: str = "") -> str:
             if val:
                 words.extend(["CUT", val])
             continue
+        if f.key == "guides" and sp.command == "LOFT":  # GUIDE, g1, g2: written last
+            if val:
+                words.extend(["GUIDE", *_list(val)])
+            continue
         if f.kind == "params":  # NAME=value: their place does not matter, so they go last
             for t in _list(val):
                 name, eq, expr = t.partition("=")
@@ -996,6 +1014,12 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
             k = up.index("CUT")
             values["cut"] = args[k + 1] if k + 1 < len(args) else ""
             args = args[:k] + args[k + 2:]
+    if sp.command == "LOFT":
+        up = [a.strip().upper() for a in args]
+        k = next((i for i, a in enumerate(up) if a in ("GUIDE", "GUIDES")), None)
+        if k is not None:
+            values["guides"] = ", ".join(a.strip() for a in args[k + 1:] if a.strip())
+            args = args[:k]
     words = {f.word.upper(): f for f in v.fields if f.kind == "flag"}
     pfield = next((f for f in v.fields if f.kind == "params"), None)
     plain, pvals = [], []
@@ -1010,7 +1034,8 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
     if pfield is not None:
         values[pfield.key] = ", ".join(pvals)
     i = 0
-    fields = [f for f in v.fields if f.kind not in ("flag", "params") and not (f.key == "cut" and sp.command == "ARRAY")]
+    fields = [f for f in v.fields if f.kind not in ("flag", "params") and not (f.key == "cut" and sp.command == "ARRAY")
+              and not (f.key == "guides" and sp.command == "LOFT")]
     for f in fields:
         if f.kind == "point":
             if i < len(plain) and plain[i].startswith("("):

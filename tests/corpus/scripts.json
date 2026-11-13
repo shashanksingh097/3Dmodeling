@@ -29,6 +29,11 @@
   "faces": 15,
   "volume": 66877.738
  },
+ "guides_analysis.cmd": {
+  "bodies": 11,
+  "faces": 10,
+  "volume": 36472.611
+ },
  "layers_demo.cmd": {
   "bodies": 6,
   "faces": 31,

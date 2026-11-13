@@ -147,10 +147,17 @@ class _Law:
         return self.value is not None and abs(self.value - v) < 1e-12
 
 
-def _mode(mode: str, what: str) -> str:
+def _mode(mode: str, what: str, p: Processor | None = None, on: int = 0):
     m = mode.upper() or "MINTWIST"
+    if m == "NORMAL" and p is not None:
+        if not on:
+            raise CommandError(f"{what}: mode NORMAL follows a surface's normal; give the surface (the last value)")
+        return sw.OnSurface(p.model.body(on).shape)
+    if on:
+        raise CommandError(f"{what}: a surface to follow is given, so the mode must be NORMAL (got {m})")
     if m not in sw.MODES:
-        raise CommandError(f"{what}: mode must be one of {', '.join(sw.MODES)}, got {mode!r}")
+        more = ", NORMAL" if p is not None else ""
+        raise CommandError(f"{what}: mode must be one of {', '.join(sw.MODES)}{more}, got {mode!r}")
     return m
 
 
@@ -284,26 +291,38 @@ def airfoil(p: Processor, x, y, z, chord, code, nx, ny, nz, angle, pivot):
 # Loft, sweep, morph, pipe
 # =============================================================================
 
-_LOFT_WORDS = ("RULED", "CLOSED", "SURFACE")
+_LOFT_WORDS = ("RULED", "CLOSED", "SURFACE", "GUIDE", "GUIDES")
 
 
 @command("LOFT", *[Arg(f"a{i}", Raw, "") for i in range(1, 25)],
          help="Smooth solid through section curves: LOFT, s1, s2, s3. Add RULED (straight between sections), "
-              "CLOSED (loop back to the first) or SURFACE (no caps).")
+              "CLOSED (loop back to the first) or SURFACE (no caps). Curves after GUIDE steer the side: "
+              "LOFT, s1, s2, s3, GUIDE, g1, g2 (each guide passes through every section).")
 def loft(p: Processor, **raws):
-    words, ids = set(), []
+    words, ids, guides = set(), [], []
     for raw in (r.strip() for r in raws.values()):
         if not raw:
             continue
         if is_ident(raw) and raw.upper() in _LOFT_WORDS:
-            words.add(raw.upper())
+            words.add("GUIDE" if raw.upper() == "GUIDES" else raw.upper())
             continue
-        ids.append(p._body_arg(REGISTRY["LOFT"], raw))
+        (guides if "GUIDE" in words else ids).append(p._body_arg(REGISTRY["LOFT"], raw))
     if len(ids) < 2:
         raise CommandError("LOFT: give at least 2 section curves")
     if len(set(ids)) != len(ids) and "CLOSED" not in words:
         raise CommandError("LOFT: a section is used twice")
     wires = [_wire(p, b, "a LOFT section") for b in ids]
+    if "GUIDE" in words:
+        if not guides:
+            raise CommandError("LOFT: give the guide curves after GUIDE")
+        if words & {"RULED", "CLOSED"}:
+            raise CommandError("LOFT: guide curves do not go with RULED or CLOSED")
+        if set(guides) & set(ids) or len(set(guides)) != len(guides):
+            raise CommandError("LOFT: a curve is used twice (as a section and a guide, or as two guides)")
+        gw = [_wire(p, b, "a LOFT guide") for b in guides]
+        shape, used = _run("LOFT", sw.guide_loft, wires, gw, solid="SURFACE" not in words)
+        return _new(p, shape, f"LOFT through {len(ids)} sections along {len(guides)} "
+                              f"guide{'s' if len(guides) > 1 else ''} ({used} loft sections)")
     shape = _run("LOFT", sw.loft, wires, solid="SURFACE" not in words, ruled="RULED" in words, closed="CLOSED" in words)
     return _new(p, shape, f"LOFT through {len(ids)} sections")
 
@@ -349,8 +368,11 @@ _LAW_ARGS = (
 
 
 def _do_sweep(p: Processor, what: str, profiles: list[int], path: int, twist, scale, mode, sx="1", sy="1",
-              ox="0", oy="0", n=0, solid=1, stations=None) -> str:
-    mode = _mode(mode, what)
+              ox="0", oy="0", n=0, solid=1, stations=None, on=0) -> str:
+    try:
+        mode = _mode(mode, what, p, on)
+    except cv.CurveError as exc:
+        raise CommandError(f"{what}: {exc}") from None
     pw = _wire(p, path, f"the {what} path")
     prof = [_wire(p, b, f"a {what} profile") for b in profiles]
     laws = {
@@ -364,6 +386,9 @@ def _do_sweep(p: Processor, what: str, profiles: list[int], path: int, twist, sc
     plain = {k: law.is_(1.0 if k in ("scale", "sx", "sy") else 0.0) for k, law in laws.items()}
     if n < 0:
         raise CommandError(f"{what}: n must be 0 (automatic) or more")
+    if isinstance(mode, sw.OnSurface) and n == 0 and not mode.exact_ok(pw):
+        # the kernel's exact sweep cannot follow this surface along this path: sections instead
+        n = sw.auto_sections(sw.PathSampler(pw), laws["twist"], (laws["scale"], laws["sx"], laws["sy"]), len(prof))
     if len(prof) == 1 and all(plain.values()) and n == 0:
         shape = _run(what, sw.exact_sweep, prof[0], pw, mode, bool(solid), what)
         how = "exact"
@@ -380,17 +405,20 @@ def _do_sweep(p: Processor, what: str, profiles: list[int], path: int, twist, sc
 @command(
     "SWEEP",
     Arg("profile", BodyRef), Arg("path", BodyRef), *_LAW_ARGS,
-    Arg("mode", str, "MINTWIST", "MINTWIST, FRENET or FIXED"),
+    Arg("mode", str, "MINTWIST", "MINTWIST, FRENET, FIXED, or NORMAL (keep square to the surface given last)"),
     Arg("sx", Raw, "1", "extra scale along the profile's X (side), law in t"),
     Arg("sy", Raw, "1", "extra scale along the profile's Y (up), law in t"),
     Arg("ox", Raw, "0", "offset along the side direction, law in t"),
     Arg("oy", Raw, "0", "offset along the up direction, law in t"),
     Arg("n", int, 0, "number of sections (0 = automatic)"),
     Arg("solid", int, 1, "1 = solid, 0 = surface only"),
-    help="Move a profile along a path. Laws in t (0 at the start, 1 at the end) twist, scale, stretch or offset it.",
+    Arg("on", BodyRef, 0, "with mode NORMAL: the surface the path lies on"),
+    help="Move a profile along a path. Laws in t (0 at the start, 1 at the end) twist, scale, stretch or offset it. "
+         "Mode NORMAL keeps the profile at the same angle to a surface the path lies on: "
+         "SWEEP, rib, path, , , NORMAL, , , , , , , hull.",
 )
-def sweep(p: Processor, profile, path, twist, scale, mode, sx, sy, ox, oy, n, solid):
-    return _do_sweep(p, "SWEEP", [profile], path, twist, scale, mode, sx, sy, ox, oy, n, solid)
+def sweep(p: Processor, profile, path, twist, scale, mode, sx, sy, ox, oy, n, solid, on):
+    return _do_sweep(p, "SWEEP", [profile], path, twist, scale, mode, sx, sy, ox, oy, n, solid, on=on)
 
 
 @command(
