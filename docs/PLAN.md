@@ -547,16 +547,25 @@ Still open in the milestones already started, in the suggested order:
 2. Done: M5 is finished: deformers (`FLOW`, `BEND`, `TWIST`, `TAPER`,
    `STRETCH`, `SWEEPVOL`, docs/M5-nurbs.md part 4) and the exit test, a
    computer mouse shell (`scripts/mouse.cmd`).
-   Then release 0.2.0 (NURBS freeform and the new formats).
-3. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
+3. The assistant on GitHub Copilot, pulled forward into 0.2.0 (M9c, first
+   part; docs/M9-copilot.md): each user signs in with their own GitHub
+   account and any Copilot plan, Copilot Free included. First part done:
+   sign-in, the Assistant panel, the modeler's tools, proposals with a Run
+   button (new steps or edits of existing steps), imported bodies described
+   as exact or faceted, and `python -m modeler copilot check`. Next: the
+   user's Copilot Free test, then "use your own key" (OpenAI, Anthropic, a
+   local model) for people without GitHub. Then release 0.2.0 (NURBS
+   freeform, the new formats and the assistant).
+4. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
-4. M3 leftovers: undo for history edits, skipping unchanged steps on
+5. M3 leftovers: undo for history edits, skipping unchanged steps on
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.
-5. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
-6. The AI chat panel (M9c), on the tools already built.
-7. M7 sculpt mode.
+6. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
+7. The rest of M9c: picking for the assistant, pictures as a fallback,
+   the benchmark of modelling requests.
+8. M7 sculpt mode.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

@@ -410,6 +410,12 @@ class MainWindow(QMainWindow):
         self.layer_panel = LayerPanel(self)
         layers = self._dock("Layers", self.layer_panel, Qt.RightDockWidgetArea)
         self.tabifyDockWidget(params, layers)
+        from .assistant_panel import AssistantPanel
+
+        self.assistant_panel = AssistantPanel(self)
+        assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(params, assistant)
+        self.assistant_dock = assistant
         params.raise_()
         self.layers_dock = layers
         self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)

@@ -137,7 +137,7 @@ def test_describe_body_summary_format(p):
     assert d == {"unit": "mm", "body": d["body"], "name": "flange", "kind": "solid", "valid": True,
                  "volume": 82146.365, "pieces": 1, "area": 20401.503, "bbox": [-50.0, -50.0, 0.0, 50.0, 50.0, 12.0],
                  "centre": [0.0, 0.0, 6.0], "counts": {"faces": 10, "edges": 24, "vertices": 16},
-                 "made_by": 7, "face_types": {"cylinder": 8, "plane": 2}, "flat_faces": {"+Z": 1, "-Z": 1}}
+                 "made_by": 7, "representation": "exact", "face_types": {"cylinder": 8, "plane": 2}, "flat_faces": {"+Z": 1, "-Z": 1}}
     assert [(h["d"], h["n"], h["through"]) for h in holes] == [(8.0, 6, True), (30.0, 1, True)]
     assert holes[0]["pattern"] == {"circle": [0.0, 0.0, 12.0], "r": 40.0, "step_deg": 60.0}
     assert len(json.dumps(d)) + len(json.dumps(holes)) < 1600  # a few hundred tokens

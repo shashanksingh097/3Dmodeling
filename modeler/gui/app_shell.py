@@ -338,6 +338,8 @@ class AppShell:
           "The basics: mouse, command line, forms, saving")
         a(m, "&Command reference", self.show_command_reference, "Ctrl+F1", "Every command with its arguments")
         a(m, "&Find a command…", self.win.form_for_typed, None, "Search commands by name or purpose (Ctrl+K)")
+        a(m, "Ask the &assistant", self.show_assistant, "Ctrl+Shift+A",
+          "Chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works too)")
         m.addSeparator()
         a(m, "&User guide (web)", lambda: QDesktopServices.openUrl(QUrl(USER_GUIDE_URL)), None, USER_GUIDE_URL)
         a(m, "&Examples with pictures (web)", lambda: QDesktopServices.openUrl(QUrl(EXAMPLES_URL)), None,
@@ -457,10 +459,20 @@ class AppShell:
         if state is not None:
             self.win.restoreState(state)
 
+    def show_assistant(self) -> None:
+        dock = getattr(self.win, "assistant_dock", None)
+        if dock is not None:
+            dock.show()
+            dock.raise_()
+            self.win.assistant_panel.input.setFocus()
+
     def close_event(self, event) -> None:
         if not self.confirm_discard("close"):
             event.ignore()
             return
+        panel = getattr(self.win, "assistant_panel", None)
+        if panel is not None:
+            panel.shutdown()
         if self.keep_layout:
             self.settings.setValue("geometry", self.win.saveGeometry())
             self.settings.setValue("windowState", self.win.saveState())
