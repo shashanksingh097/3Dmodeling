@@ -67,8 +67,8 @@ def measure(path: Path) -> dict:
     errors = [f"{r.line.splitlines()[0]}: {r.message}" for r in results if not r.ok]
     bodies = list(p.model.bodies.values())
     reports = {b.id: robust.report(b.shape) for b in bodies if b.entity_ids["FACE"]}
-    # an open surface (no solid) only has to be valid: its free edges are what it is
-    bad = [i for i, r in reports.items() if not (r["ok"] or (r["valid"] and not r["solids"] and not r["shells"]))]
+    # an open surface or skin (no solid) only has to be valid: its free edges are what it is
+    bad = [i for i, r in reports.items() if not (r["ok"] or (r["valid"] and not r["solids"]))]
     solids = [b for b in bodies if robust.solids(b.shape)]
     return {
         "errors": errors,

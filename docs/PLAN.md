@@ -334,7 +334,7 @@ spring is a short script whose numbers you can change later.
 
 ### 5.3 NURBS and freeform
 - NURBS curves: control points, degree, weights, knot editing; interpolate through points `[done]` (`NURBS`, `MOVEPT`, `WEIGHT`, `KNOT`, `DEGREE`; `SPLINE` interpolates)
-- NURBS surfaces: from control net (`NSURF`), loft, network of curves (`NETWORK`), patch/fill with G0/G1/G2 to neighbouring surfaces (`FILL`) `[done]`; blend between surfaces with G1/G2 continuity, extend, offset, trim by curves `[M5]`
+- NURBS surfaces: from control net (`NSURF`), loft, network of curves (`NETWORK`), patch/fill with G0/G1/G2 to neighbouring surfaces (`FILL`) `[done]`; blend between surfaces with G1/G2 continuity (`BLEND`), extend (`EXTEND`), offset (`OFFSET`), trim by curves (`TRIM`) `[done]`
 - Control-point editing in the viewport (drag points, each drag is a `MOVEPT` command) `[done]` (the Control points button, `CPOINTS`)
 - Rebuild/reparameterize, sew surfaces into solids `[done]` (`REBUILD`, `SEW`)
 - Analysis: zebra stripes, Gaussian/mean curvature map, draft angle `[M5]`
@@ -351,7 +351,7 @@ spring is a short script whose numbers you can change later.
 - Booleans, split, imprint `[M2]`; fillet, chamfer, shell, draft, offset, thicken `[M3]`
 - `SPLIT` by a plane or a body, `HOLE` (simple, counterbore, countersink, drill point; one command instead of cylinder plus subtract), `SHELL`, `DRAFT`, `OFFSET` `[done]`; threaded holes (`HOLE` then `THREAD`) `[done]`; variable-radius and face fillets `[M3]`
 - Faster repeated cuts: `SUBTRACT, a, SEL` takes many tools in one kernel call; `ARRAY ... CUT, target`; patterns of features (`PATTERN` repeats what the last steps did, not just a body) `[done]`
-- Direct editing: push/pull faces (`PUSHPULL`), delete faces and close the gap (`DELFACE`), great on imported STEP `[done]`; move a face by a vector, replace a face `[M5]`
+- Direct editing: push/pull faces (`PUSHPULL`), delete faces and close the gap (`DELFACE`), great on imported STEP `[done]`; move a face by a vector (`MOVEFACE`), replace a face (`REPLACEFACE`) `[done]`
 - Patterns: linear, polar, along a path `[M2]`
 
 ### 5.6 Freehand
@@ -538,7 +538,7 @@ Still open in the milestones already started, in the suggested order:
 4. Next: user guide, README for users, changelog and release notes.
 5. A run of a build on a real Windows or macOS desktop (needs the user).
 
-**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
+**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; part 2 done: `BLEND`, `EXTEND`, `TRIM`, `MOVEFACE`, `REPLACEFACE`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
 freehand cuts), M7 (sculpt), the AI chat panel (M9c), skipping unchanged
 steps on rebuild, a sketch fillet between a line and an arc, trimming to the
 sketch axes, more export formats (OBJ, 3MF, glTF) and 2D drawings, code

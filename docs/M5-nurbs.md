@@ -1,7 +1,9 @@
-# M5 part 1: NURBS curves and surfaces
+# M5: NURBS freeform
 
-This part of M5 adds freeform modeling with control points. The language is
-in LANGUAGE.md section 24. What is left of M5 is listed at the end.
+Part 1 adds freeform modeling with control points; part 2 adds blends,
+extending and trimming surfaces, and moving or replacing faces. The language
+is in LANGUAGE.md section 24 (and section 20 for `MOVEFACE`/`REPLACEFACE`).
+What is left of M5 is listed at the end.
 
 ## What was built
 
@@ -64,15 +66,56 @@ Every command has a form (Commands menu, "Freeform (NURBS)"), except
 - The corpus check used to call every non-solid body bad; an open surface
   now only has to be valid.
 
+## Part 2: blends, extend, trim, move and replace faces
+
+| Item | Commands | Code |
+|---|---|---|
+| Blend between surfaces with G1/G2 | `BLEND` | `geometry/surface_ops.py`, `commands/surface_handlers.py` |
+| Extend, offset, trim by curves | `EXTEND`, `TRIM` (`OFFSET` already worked on surfaces) | same |
+| Move a face by a vector, replace a face | `MOVEFACE`, `REPLACEFACE` | same |
+
+- **`BLEND`** is exact across the gap: at each of 61 stations along the
+  edges it is a Bezier curve (cubic for G1, quintic for G2) whose end
+  derivatives come from the surfaces: the derivative across the edge for
+  G1, and also the second derivative for G2 (scaled together so the
+  curvature is kept). Along the edges, each row of Bezier control points is
+  interpolated with the same parameters, so the rows share one knot vector
+  and make one B-spline surface. Measured on the test panels: normals meet
+  within 0.02 degrees; G2 matches the panel's curvature to 3e-5 where G1 is
+  off by 0.035.
+- Which way is "out of the face" is asked of the face (a classifier) only
+  at the middle of the edge; the other stations follow their neighbour. At
+  an edge's end a small step can leave the face either way past the
+  corner, which flipped the end rows of the first version.
+- **`EXTEND`** evaluates the B-spline past its ends (the end spans carry
+  on) and refits; the kernel's `GeomLib::ExtendSurfByLength` replaces its
+  handle argument, which a Python binding cannot hand back.
+- **`TRIM`** projects the curve with `BRepOffsetAPI_NormalProjection` and
+  splits with `BRepFeat_SplitShape`; the piece nearest the point is removed
+  or kept.
+- **`MOVEFACE` / `REPLACEFACE`**: grow the solid with a prism of the face
+  along its outward normal if the new surface lies outside, then split it
+  with the new surface (`BRepAlgoAPI_Splitter`) and keep the one piece on
+  the solid's side; the surface is extended on all sides only if it does
+  not cut cleanly as given. Face IDs come from geometry (`SurfaceMatch`):
+  every old face goes to the new faces lying on its surface, the replaced
+  face to those on the new surface. The boolean makers' own history
+  scrambled them.
+
+Part 2 gotchas:
+
+- `BRepLProp_SLProps.MeanCurvature()` returns 0 unless
+  `IsCurvatureDefined()` was called first (that call computes them).
+- A half-space cut by a big curved face gave garbage on a wavy surface; the
+  splitter with a side test is reliable.
+
 ## What is left of M5
 
 In the suggested order, about three items per pull request:
 
-1. Blends between surfaces with G1/G2 (`BLEND`), extend, offset and trim
-   surfaces by curves; move a face by a vector and replace a face.
-2. Guide-curve lofts, sweeps that follow a surface's normal, and zebra /
+1. Guide-curve lofts, sweeps that follow a surface's normal, and zebra /
    curvature / draft analysis in the view.
-3. Deformers: `FLOW` (text along a curve), `BEND`, `TWIST`, `TAPER`,
+2. Deformers: `FLOW` (text along a curve), `BEND`, `TWIST`, `TAPER`,
    `STRETCH`, and `SWEEPVOL`.
-4. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
+3. The M5 exit test: a computer mouse shell from curves, G2 blends, shelled
    to 2 mm; flow a text along a curve.
