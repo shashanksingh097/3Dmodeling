@@ -24,6 +24,7 @@ Contents:
 12. [Running scripts without the window](#12-running-scripts-without-the-window)
 13. [Keyboard shortcuts](#13-keyboard-shortcuts)
 14. [When something goes wrong](#14-when-something-goes-wrong)
+15. [The assistant (GitHub Copilot)](#15-the-assistant-github-copilot)
 
 ---
 
@@ -57,6 +58,9 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install git+https://github.com/shashanksingh097/3Dmodeling
 modeler                            # or: python -m modeler
 ```
+
+For the assistant (section 15) you need Python 3.11 or newer and
+`pip install "3Dmodeling[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"`.
 
 `modeler check` prints the versions and tests the 3D kernel. If the window
 does not open, see [When something goes wrong](#14-when-something-goes-wrong).
@@ -338,3 +342,37 @@ Logs and the autosave are in the app's data folder:
 `~/.local/share/3Dmodeling/3Dmodeling` on Linux.
 
 Report problems at <https://github.com/shashanksingh097/3Dmodeling/issues>.
+
+## 15. The assistant (GitHub Copilot)
+
+The **Assistant** panel (beside History, or **Help > Ask the assistant**,
+Ctrl+Shift+A) is a chat with GitHub Copilot. It explains commands and
+errors, reads your model, and writes scripts for you.
+
+**Sign in with your own GitHub account.** Press **Sign in with GitHub**.
+The panel shows a short code and opens <https://github.com/login/device>;
+enter the code there and allow access. The sign-in is kept in your
+system's keychain, so you do this once. If you already use Copilot on this
+computer (for example the Copilot command-line tool), you are signed in
+already.
+
+**Any Copilot plan works, Copilot Free too.** Requests count against your
+own plan; the panel shows how much of this month's allowance is left. If
+your account has no Copilot plan, turn on Copilot Free (it costs nothing)
+at <https://github.com/settings/copilot>. On Copilot Free, Copilot picks
+the model itself and the monthly allowance is small.
+
+**It never changes your model by itself.** Copilot reads your model with
+exact text tools (sizes, holes, sections, wall thickness), tries its
+scripts in a sandbox copy, and then shows a **Proposal** with a **Run**
+button. Running it puts the commands in the History like anything you
+type, and **Undo** takes them back. Copilot's own coding tools (shell,
+files, web) are switched off in this app.
+
+The first time, the app downloads the Copilot runtime (about 190 MB) to
+your cache folder, so you need internet then.
+
+From a shell, `python -m modeler copilot check` tests everything for your
+account: sign-in, allowance, models, and one question that Copilot must
+answer with the modeler's tools. It prints PASS or FAIL per step.
+

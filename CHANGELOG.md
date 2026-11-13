@@ -4,6 +4,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Assistant
+- An **Assistant** panel with GitHub Copilot (Help > Ask the assistant, Ctrl+Shift+A). Sign in with your own GitHub account using a one-time code; any Copilot plan works, Copilot Free included, and requests count against your own plan. Copilot reads the model with the modeler's text tools, tries scripts in a sandbox, and shows a proposal with a Run button; it never changes the model by itself, and its own coding tools are switched off. Needs `pip install "3Dmodeling[ai]"` (Python 3.11+); the Copilot runtime downloads on first use (about 190 MB).
+- `python -m modeler copilot status|login|quota|models|ask|check`: the assistant from a shell; `check` tests sign-in, allowance and a question that must use the modeler's tools.
+
 ### Examples
 - An examples gallery, [docs/EXAMPLES.md](docs/EXAMPLES.md): every example script with a picture of what it makes, its description, the numbers you should get (bodies, volume) and the whole script. Help > Examples with pictures opens it.
 - `python -m modeler render part.cmd part.png` saves a picture of what a script makes, as the app draws it; a shots file takes several pictures with commands per picture. `python -m modeler gallery` remakes the gallery, and CI keeps scripts, pictures and page in step.

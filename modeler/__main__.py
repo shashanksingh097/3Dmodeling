@@ -14,6 +14,9 @@
                                       (--shots file.txt OUTDIR for several; see modeler/render.py)
     python -m modeler gallery [NAME ...]
                                       remake docs/examples/ pictures and docs/EXAMPLES.md
+    python -m modeler copilot [status|login|quota|models|ask|check]
+                                      the assistant on GitHub Copilot, from a shell;
+                                      "check" tests sign-in and a question for one account
     python -m modeler tools           the AI assistant's tool definitions, as JSON
     python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
                                       call one tool headless and print its JSON answer;
@@ -174,6 +177,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args[:1] == ["tool"]:
         return _tool(args[1:])
+    if args[:1] == ["copilot"]:
+        from .ai.copilot import main as copilot_main
+
+        return copilot_main(args[1:])
     if args[:1] == ["run"] and len(args) >= 2:
         return _run_headless(args[1:])
     if args[:1] == ["check"]:
