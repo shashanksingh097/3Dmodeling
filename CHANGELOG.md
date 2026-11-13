@@ -20,6 +20,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - NURBS freeform, part 3: lofts steered by guide curves (`LOFT, ..., GUIDE, g1, g2`), sweeps that keep their angle to a surface (`SWEEP` mode `NORMAL`), laying a curve onto a surface (`PROJECT`), and surface analysis in words and colours: zebra stripes with every join judged G2, G1 or creased, curvature and Gaussian curvature maps, and draft for moulding (`ANALYZE`, and a Zebra button). `CURVEPT()` and `CURVETAN()` give a curve's point and direction.
 - Deformers: bend (`BEND`), twist (`TWIST`), taper (`TAPER`) and stretch (`STRETCH`, keeping the volume or not) whole bodies, with an optional law for how the change runs along the body, and lay a body such as a text along a curve (`FLOW`, optionally fitted to the curve's length). The body and its faces keep their IDs; solids are refitted as NURBS within 1/10000 of their size, mesh bodies are moved point by point.
 - `SWEEPVOL`: the volume a cutter sweeps along a path, as a body to `SUBTRACT`; exact for a ball and for an end mill moving square to its axis.
+- `BLEND` between two closed loops (a wall's top edge and a lid's rim) makes a blend all the way round whose seam closes exactly, so the pieces sew into a solid.
+- A computer mouse example (`scripts/mouse.cmd`): a side wall and a humped top joined by a G2 blend, sewn, shelled to 2 mm, with a button split, a scroll wheel and a name flowed along a curve on the top.
 - A detailed car body example (`scripts/car_body.cmd`): NURBS master surfaces cut into panels with shut lines, glass, lamps, grille, wheels, mirrors and trim, all in the command language (see `docs/example-car.md`).
 
 ### Viewing
@@ -27,6 +29,7 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Face edges are drawn in a darker shade of the body's colour, so panel lines and small gaps read at any zoom.
 
 ### Fixes
+- `ANALYZE` no longer calls a join G1 between two nearly flat faces whose tiny curvatures differ (a bend wider than 100 times the body counts as flat).
 - `python -m modeler run` marks the line that failed inside a block or macro with `ERROR:`, not the block's first line.
 
 ## [0.1.0] - 2026-11-13

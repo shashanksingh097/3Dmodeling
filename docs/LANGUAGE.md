@@ -1580,7 +1580,10 @@ OFFSET, s, 2                       ! a surface moved 2 along its normal (the sam
   leaves no crease where it meets each surface; `G2` also matches their
   curvature, so reflections run on without a kink. The result says how
   closely it met them (in degrees). The two surfaces stay as they are;
-  `SEW` them with the blend for one skin.
+  `SEW` them with the blend for one skin. Two closed loops (the top edge
+  of a side wall and the rim of a lid) give a blend all the way round: it
+  runs on smoothly across its own seam, which closes exactly, wherever
+  each loop starts and whichever way round it runs.
 - `EXTEND` carries a surface on the way it was going at that edge (its last
   span continued) and keeps the body's ID. `POLES` and where an edge lies
   tell which side is `U0`; picking the edge is easier.
@@ -1620,7 +1623,8 @@ picture. `ANALYZE` only looks: it is not a history step.
 - `ZEBRA` judges every edge between two faces at a few points along it:
   *creased* if the faces meet at an angle (more than 0.25 degrees), *G1*
   (tangent only) if they meet smoothly but the curvature across the edge
-  jumps by more than a tenth, *G2* if the curvature runs on too. It lists
+  jumps by more than a tenth, *G2* if the curvature runs on too (a bend
+  wider than 100 times the body's size counts as flat). It lists
   the edges in each group. The stripes show the same: they break at a
   crease, kink at a G1 join and flow straight on over G2. The stripes are
   lit from where the view looks from when the command runs (or give a
@@ -1695,6 +1699,11 @@ square to its axis, such as an end mill along a path across it (its
 rectangular section swept upright, with the cylinder at each end). Any
 other tool is copied closely along the path and the copies are joined; the
 message gives how many copies and how high the ridges between them can be.
+
+Example: `scripts/mouse.cmd` (the M5 exit test: a computer mouse whose
+side wall and humped top are joined by a G2 blend all round, sewn into a
+solid, shelled to 2 mm with the bottom open, with a button split, a scroll
+wheel and a name flowed along a curve laid on the top).
 
 Example: `scripts/deformers.cmd` (a bar bent into a quarter circle and a
 hook bent more at its end; a square column twisted and tapered, and one

@@ -21,4 +21,5 @@ nurbs_freeform.cmd | NURBS curves, surfaces and patches | ISO
 surface_ops.cmd | Surface blends, extend, trim and face moves | ISO
 guides_analysis.cmd | Guide-curve lofts and surface analysis | ISO
 deformers.cmd | Bent, twisted and flowed bodies, and a milled slot | ISO
+mouse.cmd | Computer mouse shell (the M5 exit test) | 1,0.8,0.9
 car_body.cmd | Car body | -1,-1.25,0.55
