@@ -19,6 +19,11 @@
   "faces": 16,
   "volume": 25060.741
  },
+ "car_body.cmd": {
+  "bodies": 218,
+  "faces": 4531,
+  "volume": 7853580041.454
+ },
  "flange.cmd": {
   "bodies": 1,
   "faces": 15,

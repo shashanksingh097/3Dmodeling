@@ -99,6 +99,7 @@ class Material:
     name: str
     density: float  # kg/m3
     color: tuple[float, float, float] | None = None
+    transparency: float = 0.0  # 0 solid ... 1 invisible; glass is drawn see-through
 
 
 def _rgb255(r: int, g: int, b: int) -> tuple[float, float, float]:
@@ -119,7 +120,7 @@ MATERIALS: dict[str, Material] = {m.name: m for m in (
     Material("PLA", 1240, _rgb255(90, 160, 220)),
     Material("RUBBER", 1100, _rgb255(48, 48, 52)),
     Material("WOOD", 600, _rgb255(178, 128, 76)),
-    Material("GLASS", 2500, _rgb255(170, 210, 220)),
+    Material("GLASS", 2500, _rgb255(170, 210, 220), 0.6),
 )}
 MATERIAL_ALIASES = {"ALUMINUM": "ALUMINIUM", "AL": "ALUMINIUM", "SS": "STAINLESS", "IRON": "CASTIRON",
                     "CU": "COPPER", "TI": "TITANIUM", "PLASTIC": "ABS"}
@@ -489,6 +490,15 @@ class Model:
             if mat is not None:
                 return mat.color
         return None
+
+    def display_transparency(self, bid: int) -> float:
+        """How see-through a body is drawn: its material's (glass), else 0."""
+        body = self.body(bid)
+        if body.material:
+            mat = self.materials.get(body.material.upper())
+            if mat is not None:
+                return mat.transparency
+        return 0.0
 
     def density(self, bid: int) -> float:
         """kg/m3 from the body's material, 0 if it has none."""

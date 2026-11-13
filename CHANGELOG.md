@@ -8,6 +8,14 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - NURBS freeform, part 1: curves from control points with weights (`NURBS`), editing control points, weights, knots and degree (`MOVEPT`, `WEIGHT`, `KNOT`, `DEGREE`), refitting any curve or surface with a chosen number of control points (`REBUILD`), surfaces from rows of control points (`NSURF`), through a network of curves (`NETWORK`) or filling a hole smoothly (`FILL`, G0/G1/G2), and sewing surfaces into a solid (`SEW`).
 - Drag control points in the 3D view: pick a curve or surface and press Control points; each drag is a `MOVEPT` step in the history.
 - NURBS freeform, part 2: smooth blends between two surfaces (`BLEND`, G1 or G2), extending and trimming surfaces (`EXTEND`, `TRIM`), and moving or replacing faces of a solid (`MOVEFACE`, `REPLACEFACE`).
+- A detailed car body example (`scripts/car_body.cmd`): NURBS master surfaces cut into panels with shut lines, glass, lamps, grille, wheels, mirrors and trim, all in the command language (see `docs/example-car.md`).
+
+### Viewing
+- Bodies of the `GLASS` material are drawn see-through.
+- Face edges are drawn in a darker shade of the body's colour, so panel lines and small gaps read at any zoom.
+
+### Fixes
+- `python -m modeler run` marks the line that failed inside a block or macro with `ERROR:`, not the block's first line.
 
 ## [0.1.0] - unreleased
 

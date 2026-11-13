@@ -1260,7 +1260,8 @@ A **colour** is a name (`RED`, `ORANGE`, `YELLOW`, `GREEN`, `TEAL`, `CYAN`,
 Built-in **materials** (kg/m3): `STEEL` 7850, `STAINLESS` 8000, `CASTIRON`
 7200, `ALUMINIUM` 2700 (also `ALUMINUM`), `TITANIUM` 4430, `COPPER` 8960,
 `BRASS` 8500, `ABS` 1050, `NYLON` 1150, `PLA` 1240, `RUBBER` 1100, `WOOD`
-600, `GLASS` 2500. Each has a colour.
+600, `GLASS` 2500. Each has a colour, and bodies of `GLASS` are drawn
+see-through, so what sits behind a lamp lens or a window shows.
 
 How the rules fit together:
 

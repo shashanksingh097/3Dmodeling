@@ -25,10 +25,11 @@ from OCP.Aspect import (
     Aspect_DisplayConnection,
     Aspect_GradientFillMethod,
     Aspect_TOTP_LEFT_LOWER,
+    Aspect_TypeOfLine,
 )
 from OCP.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial
 from OCP.OpenGl import OpenGl_GraphicDriver
-from OCP.Prs3d import Prs3d_TypeOfHighlight
+from OCP.Prs3d import Prs3d_LineAspect, Prs3d_TypeOfHighlight
 from OCP.StdSelect import StdSelect_BRepOwner
 from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHAPE, TopAbs_VERTEX
@@ -347,7 +348,7 @@ class OccViewport(QWidget):
         elif ev.kind == "layers":  # a layer switched on or off, or recoloured: redraw what changed
             for bid in list(self.model.bodies):
                 ais = self._ais.get(bid)
-                if ais is not None and self.model.is_shown(bid) and self._drawn_color.get(bid) == self.model.display_color(bid):
+                if ais is not None and self.model.is_shown(bid) and self._drawn_color.get(bid) == self._look(bid):
                     continue
                 if ais is not None:
                     self.context.Remove(self._ais.pop(bid), False)
@@ -356,17 +357,25 @@ class OccViewport(QWidget):
             self._sync_selection()
         self.context.UpdateCurrentViewer()
 
+    def _look(self, bid: int) -> tuple:
+        """What a body's drawing depends on besides its shape: colour and see-through."""
+        return (self.model.display_color(bid), self.model.display_transparency(bid))
+
     def _display_body(self, bid: int, update: bool = True) -> None:
         if not self.model.is_shown(bid):
             return
         shape = self.model.bodies[bid].shape
         ais = AIS_Shape(shape)
         col = self.model.display_color(bid)  # own colour, else layer, else material
-        self._drawn_color[bid] = col
+        self._drawn_color[bid] = self._look(bid)
         if self.model.bodies[bid].entity_ids["FACE"]:
             ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
-            ais.SetColor(_rgb(*col) if col else _rgb(0.62, 0.66, 0.72))
+            face = col if col else (0.62, 0.66, 0.72)
+            ais.SetColor(_rgb(*face))
             ais.Attributes().SetFaceBoundaryDraw(True)
+            # edges a darker shade of the body: panel lines and shut gaps read at any zoom
+            edge = _rgb(*(0.4 * c for c in face))
+            ais.Attributes().SetFaceBoundaryAspect(Prs3d_LineAspect(edge, Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.0))
         else:  # a curve (path or profile): draw it bright and a little thicker
             ais.SetColor(_rgb(*col) if col else _rgb(1.0, 0.62, 0.15))
             ais.SetWidth(2.5)
@@ -375,6 +384,8 @@ class OccViewport(QWidget):
         self._ais[bid] = ais
         if self.model.active_sketch:
             self.context.SetTransparency(ais, 0.8, False)
+        elif self.model.display_transparency(bid) > 0:
+            self.context.SetTransparency(ais, self.model.display_transparency(bid), False)
         if update:
             self.context.UpdateCurrentViewer()
 
@@ -499,8 +510,9 @@ class OccViewport(QWidget):
 
     def _dim_bodies(self, on: bool) -> None:
         """See-through bodies while sketching, so the sketch reads on any face."""
-        for ais in self._ais.values():
-            self.context.SetTransparency(ais, 0.8 if on else 0.0, False)
+        for bid, ais in self._ais.items():
+            back = self.model.display_transparency(bid) if bid in self.model.bodies else 0.0
+            self.context.SetTransparency(ais, 0.8 if on else back, False)
         self._sync_selection()
 
     def _draw_sketch(self, sk, faint: bool = False) -> None:

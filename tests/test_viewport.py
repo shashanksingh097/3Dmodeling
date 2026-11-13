@@ -274,3 +274,14 @@ def test_layers_and_colours_in_the_view_and_the_layers_panel(win, app):
     app.processEvents()
     assert not win.execute("MOVE, 1, 5").ok
     assert lp.table.item(row, 5).text() == "1"
+
+
+def test_glass_bodies_are_see_through(win):
+    win.execute("BLOCK, 0,0,0, 10,10,2")
+    win.execute("BLOCK, 20,0,0, 10,10,2")
+    assert win.execute("MATERIAL, 2, GLASS").ok
+    ais = win.viewport._ais
+    assert ais[1].Transparency() == 0
+    assert 0 < ais[2].Transparency() < 1
+    assert win.execute("MATERIAL, 2, STEEL").ok
+    assert ais[2].Transparency() == 0
