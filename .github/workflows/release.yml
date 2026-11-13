@@ -6,10 +6,22 @@ name: Release builds
 #   builds as downloadable artifacts.
 # - Push a tag such as v0.1.0 and it also makes a DRAFT GitHub release with
 #   the three downloads attached; publishing the draft is a manual step.
+# - Or run it by hand with a `tag` (and optionally the commit to build as
+#   `ref`): same draft release, and publishing it creates the tag on that
+#   commit. Handy when tags cannot be pushed from where you work.
 # See docs/RELEASING.md.
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Make a draft release with this tag, e.g. v0.1.0 (empty: test builds only)"
+        required: false
+        default: ""
+      ref:
+        description: "Commit or branch to build (empty: the branch this runs on)"
+        required: false
+        default: ""
   push:
     tags: ["v*"]
   pull_request:  # a PR that changes the packaging gets test builds too
@@ -17,6 +29,10 @@ on:
 
 permissions:
   contents: write
+
+env:
+  # the release tag: a pushed tag, or the tag asked for by hand
+  TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.tag || '' }}
 
 jobs:
   build:
@@ -34,6 +50,8 @@ jobs:
             name: linux-x64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -42,11 +60,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . pyinstaller
       - name: Check the version matches the tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: bash
         run: |
           v=$(python -c "import modeler; print(modeler.__version__)")
-          test "v$v" = "${GITHUB_REF_NAME}" || { echo "modeler.__version__ is $v but the tag is ${GITHUB_REF_NAME}"; exit 1; }
+          test "v$v" = "$TAG" || { echo "modeler.__version__ is $v but the tag is $TAG"; exit 1; }
       - name: Build
         run: pyinstaller packaging/3Dmodeling.spec --noconfirm
       - name: Smoke test (headless)
@@ -77,10 +95,15 @@ jobs:
 
   draft-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Commit to release
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: release
@@ -88,13 +111,15 @@ jobs:
       - name: Release notes from CHANGELOG.md
         shell: bash
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           awk -v v="$v" '$0 ~ "^## \\[?"v"\\]?" {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md || true
-          test -s notes.md || echo "Release $GITHUB_REF_NAME" > notes.md
+          test -s notes.md || echo "Release $TAG" > notes.md
           cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
-          name: 3Dmodeling ${{ github.ref_name }}
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ steps.commit.outputs.sha }}
+          name: 3Dmodeling ${{ env.TAG }}
           body_path: notes.md
           files: release/*

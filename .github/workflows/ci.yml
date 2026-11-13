@@ -43,7 +43,7 @@ jobs:
             libxcb-render-util0 libxcb-image0
       - name: GUI tests (3D view and picking, Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1600x1200x24" python -m pytest -q tests/test_viewport.py tests/test_sketch_gui.py tests/test_forms_gui.py tests/test_app_shell.py tests/test_nurbs_gui.py
+        run: xvfb-run -a -s "-screen 0 1600x1200x24" python -m pytest -q tests/test_viewport.py tests/test_sketch_gui.py tests/test_forms_gui.py tests/test_app_shell.py tests/test_render.py tests/test_nurbs_gui.py
 
       # Hosted Windows/macOS runners have no real GPU, so OpenGL may be
       # missing there. This still shows whether the native window handle
@@ -51,4 +51,4 @@ jobs:
       - name: GUI tests (best effort)
         if: runner.os != 'Linux'
         continue-on-error: true
-        run: python -m pytest -q tests/test_viewport.py tests/test_sketch_gui.py tests/test_forms_gui.py tests/test_app_shell.py tests/test_nurbs_gui.py
+        run: python -m pytest -q tests/test_viewport.py tests/test_sketch_gui.py tests/test_forms_gui.py tests/test_app_shell.py tests/test_render.py tests/test_nurbs_gui.py

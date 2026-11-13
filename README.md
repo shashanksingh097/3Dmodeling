@@ -4,7 +4,7 @@ A desktop 3D modeler for solid parts where **every action is a command**.
 
 **Download:** [latest release](https://github.com/shashanksingh097/3Dmodeling/releases) for
 Windows, macOS (Apple silicon) and Linux, no Python needed.
-**Learn it:** the [user guide](docs/USER-GUIDE.md), or **Help > Getting started** in the app.
+**Learn it:** the [user guide](docs/USER-GUIDE.md), the [examples with pictures](docs/EXAMPLES.md), or **Help > Getting started** in the app.
 
 Anything you do in the GUI (creating a block, selecting a face, moving a node,
 deleting an entity, changing the view) is turned into a plain-text command and
@@ -99,7 +99,7 @@ kernel, installs with pip) and numpy.
 
 ## Documents
 
-- [User guide](docs/USER-GUIDE.md) and [command language](docs/LANGUAGE.md)
+- [User guide](docs/USER-GUIDE.md), [examples with pictures](docs/EXAMPLES.md) and [command language](docs/LANGUAGE.md)
 - [Changelog](CHANGELOG.md) and [how releases are made](docs/RELEASING.md)
 - [Product and technical plan](docs/PLAN.md), with what comes after 0.1
 - Design notes per milestone: [M0](docs/M0.md), [M1](docs/M1.md), [M2](docs/M2.md), [forms](docs/M2-forms.md), [M3](docs/M3.md), [sketcher](docs/M3-sketcher.md), [sketch tools](docs/M3-sketch-tools.md), [sweep editor](docs/M3-sweep-editor.md), [parts](docs/M4-parts.md), [threads](docs/M4-threads.md), [rails](docs/M4-rails.md), [M4 shapes](docs/M4-shapes.md), [speed](docs/speed-patterns.md), [AI tools](docs/M9-ai-tools.md)

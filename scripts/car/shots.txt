@@ -1,5 +1,5 @@
 # The pictures of the car example: the whole car, two exploded views, then each part alone.
-# Run with shoot.py (see its docstring). Views are directions from the car towards the eye.
+# Run with `python -m modeler render ... --shots` (see modeler/render.py). Views are directions from the car towards the eye.
 car-1-front-three-quarter.png | | -1,-1.25,0.55
 car-2-side.png | | 0,-1,0.02
 car-3-front.png | | -1,0,0.12

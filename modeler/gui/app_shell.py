@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .. import HOME_URL, ISSUES_URL, USER_GUIDE_URL, __version__
+from .. import EXAMPLES_URL, HOME_URL, ISSUES_URL, USER_GUIDE_URL, __version__
 
 if TYPE_CHECKING:
     from ..commands import Result
@@ -325,6 +325,8 @@ class AppShell:
         a(m, "&Find a command…", self.win.form_for_typed, None, "Search commands by name or purpose (Ctrl+K)")
         m.addSeparator()
         a(m, "&User guide (web)", lambda: QDesktopServices.openUrl(QUrl(USER_GUIDE_URL)), None, USER_GUIDE_URL)
+        a(m, "&Examples with pictures (web)", lambda: QDesktopServices.openUrl(QUrl(EXAMPLES_URL)), None,
+          "Every example script with a picture of what it makes")
         a(m, "&Report a problem (web)", self.report_problem, None, "Open a new issue, with your versions filled in")
         a(m, "Open the &log folder", self.open_log_folder, None, "Error and crash logs")
         m.addSeparator()
@@ -486,6 +488,7 @@ suppress it or delete it.</li>
 BREP and STL.</li>
 <li>Work is autosaved as you go. After a crash, press <b>Recover</b> on the toolbar.</li>
 </ul>
-<p>Try <b>File &gt; Open example</b> to see finished models and their scripts.
+<p>Try <b>File &gt; Open example</b> to see finished models and their scripts
+(Help &gt; Examples with pictures shows what each one makes).
 The full guide is at <a href="{guide}">{guide}</a>.</p>
 """

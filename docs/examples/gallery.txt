@@ -1,0 +1,23 @@
+# The examples gallery (docs/EXAMPLES.md), in page order:
+#   script.cmd | Title | view | commands run after the script, only for the picture
+# view: ISO, TOP, FRONT, RIGHT ... or a direction dx,dy,dz from the model towards the eye.
+# After a change: python -m modeler gallery NAME  (see modeler/gallery.py)
+plate.cmd | Plate with a row of holes | ISO
+flange.cmd | Pipe flange | ISO
+m0_demo.cmd | Three primitives and picks | ISO
+bracket_features.cmd | Housing built on datum planes | ISO
+sketch_bracket.cmd | Plate, boss and pulley from sketches | ISO
+sketch_tools.cmd | Plate drawn with sketch editing tools | ISO
+blade.cmd | Twisted blade from stacked sections | ISO
+blade_smooth.cmd | Twisted blade as one smooth sweep | ISO
+sweep_gallery.cmd | Shapes on curves, one of each | ISO
+m2_shell_demo.cmd | Arrays, kept inputs and a chain on a curve | ISO
+wing_rails.cmd | Wing swept between two rails | ISO
+m4_shapes.cmd | Text, spine loft, equation surface, face editing | ISO
+bolted_plate.cmd | Plate with bolt and washer parts | 1,-1.4,-0.55
+threaded_bolts.cmd | Bolts and nuts with real threads | 1,-1.4,-0.55
+layers_demo.cmd | Pump base on layers | ISO
+nurbs_freeform.cmd | NURBS curves, surfaces and patches | ISO
+surface_ops.cmd | Surface blends, extend, trim and face moves | ISO
+guides_analysis.cmd | Guide-curve lofts and surface analysis | ISO
+car_body.cmd | Car body | -1,-1.25,0.55

@@ -6,7 +6,6 @@ pictures. The method is described in `docs/example-car.md`.
 | File | What it is |
 |------|------------|
 | `../car_body.cmd` | the finished car: 218 bodies, all pass `CHECK` |
-| `shoot.py` | runs a script in the real window and saves pictures of the 3D view, from a list of shots |
 | `shots.txt` | the shots taken: the whole car from 7 angles, 2 exploded views, then each part alone |
 | `sheet.py` | puts several pictures on one sheet, to check a batch of shots at a glance |
 | `prototypes/proto.cmd` | first try: the whole body as one `LOFT` through 14 closed splines (came out wavy and boxy, dropped) |
@@ -22,14 +21,14 @@ pictures. The method is described in `docs/example-car.md`.
 From the repository folder (on Linux without a screen, through Xvfb):
 
 ```bash
-xvfb-run -a -s "-screen 0 1920x1200x24" python scripts/car/shoot.py \
-    scripts/car_body.cmd scripts/car/shots.txt pictures 1600 1000
+xvfb-run -a -s "-screen 0 1920x1200x24" python -m modeler render \
+    scripts/car_body.cmd --shots scripts/car/shots.txt pictures --size 1600x1000
 python scripts/car/sheet.py sheet.png pictures/car-*.png
 ```
 
 The whole run takes a few minutes: the script itself about 85 s in the
 window, then the fine mesh and one picture per line. On a desktop, leave out
-`xvfb-run ...` and run `python scripts/car/shoot.py ...` directly.
+`xvfb-run ...` and run `python -m modeler render ...` directly.
 
 A line of `shots.txt` is `file.png | commands | view`. For a part alone the
 commands are `PICK, BODY, name; PICK, BODY, other, A; ISOLATE, SEL`; the
