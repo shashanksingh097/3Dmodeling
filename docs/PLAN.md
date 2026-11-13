@@ -333,10 +333,10 @@ spring is a short script whose numbers you can change later.
 - A small graph shows each law over `t`
 
 ### 5.3 NURBS and freeform
-- NURBS curves: control points, degree, weights, knot editing; interpolate through points `[M5]`
-- NURBS surfaces: from control net, loft, network of curves, patch/fill, blend between surfaces with G1/G2 continuity, extend, offset, trim by curves `[M5]`
-- Control-point editing in the viewport (drag points, each drag is a `MOVEPT` command) `[M5]`
-- Rebuild/reparameterize, sew surfaces into solids `[M5]`
+- NURBS curves: control points, degree, weights, knot editing; interpolate through points `[done]` (`NURBS`, `MOVEPT`, `WEIGHT`, `KNOT`, `DEGREE`; `SPLINE` interpolates)
+- NURBS surfaces: from control net (`NSURF`), loft, network of curves (`NETWORK`), patch/fill with G0/G1/G2 to neighbouring surfaces (`FILL`) `[done]`; blend between surfaces with G1/G2 continuity, extend, offset, trim by curves `[M5]`
+- Control-point editing in the viewport (drag points, each drag is a `MOVEPT` command) `[done]` (the Control points button, `CPOINTS`)
+- Rebuild/reparameterize, sew surfaces into solids `[done]` (`REBUILD`, `SEW`)
 - Analysis: zebra stripes, Gaussian/mean curvature map, draft angle `[M5]`
 
 ### 5.4 Equation-based geometry
@@ -538,7 +538,7 @@ Still open in the milestones already started, in the suggested order:
 4. Next: user guide, README for users, changelog and release notes.
 5. A run of a build on a real Windows or macOS desktop (needs the user).
 
-**Second release and later:** M5 (NURBS freeform), M6 (equations and
+**Second release and later:** M5 (NURBS freeform; part 1 done: NURBS curves and surfaces, control-point editing in the view, `NETWORK`, `FILL`, `SEW`, `REBUILD`; LANGUAGE.md section 24, docs/M5-nurbs.md, which lists what is left), M6 (equations and
 freehand cuts), M7 (sculpt), the AI chat panel (M9c), skipping unchanged
 steps on rebuild, a sketch fillet between a line and an arc, trimming to the
 sketch axes, more export formats (OBJ, 3MF, glTF) and 2D drawings, code

@@ -87,3 +87,15 @@ def section_toggle(p: Processor) -> list[str]:
         return ["SECTION, OFF"]
     planes = [d for d in p.model.datums.values() if d.kind == "PLANE"]
     return [f"SECTION, {planes[-1].name if planes else 'XY'}"]
+
+
+def control_points_toggle(p: Processor) -> list[str]:
+    """Show the control points of the picked curve or surface (press again to hide them)."""
+    if p.control_points is not None:
+        return ["CPOINTS, OFF"]
+    m = p.model
+    if not m.selection:
+        raise NeedInput("Control points: pick a curve or a surface first")
+    gid = m.selection[0]
+    bid = gid if m.selection_kind == "BODY" else m.entity_owner(m.selection_kind, gid)[0]
+    return [f"CPOINTS, {bid}"]

@@ -108,6 +108,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Text and surfaces", ("TEXT", "SURFACE")),
+    ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "SEW", "MOVEPT", "WEIGHT", "KNOT", "DEGREE",
+                          "REBUILD", "POLES")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
     ("Edit faces", ("PUSHPULL", "DELFACE")),
@@ -128,6 +130,8 @@ NO_FORM = {
     "UNDO", "REDO", "HIST", "OPEN", "SAVE", "NEW", "RUN",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
+    # the Control points button (Features toolbar); dragging a point sends MOVEPT
+    "CPOINTS",
     # drawn by mouse in sketch mode (Sketch toolbar)
     "ENDSKETCH", "SPOINT", "SLINE", "SPOLY", "SRECT", "SCIRCLE", "SARC", "SARC3", "SSLOT",
     "SCON", "SDIM", "SDEL", "SMOVE", "SCONSTRUCT", "SSEL",
@@ -461,6 +465,36 @@ def _hand() -> dict[str, FormSpec]:
     add("LIB", [Variant("", "", [_F("action", "", "choice", "LOAD", choices=("LOAD",)),
                                  _F("file", "Part file", "path", required=True,
                                     help="a part name in the library folder, or a .cmd file")])])
+    add("NURBS", [Variant("", "", [
+        _F("deg", "Degree", default="3", help="1 straight segments, 2, 3 (smooth, the usual)"),
+        _F("cpts", "Control points", "points", required=True, pick="VERTEX",
+           start="0, 0, 0\n10, 8, 0\n20, -8, 0\n30, 0, 0",
+           help="one point per line: x, y, z, or x, y, z, weight (a weight above 1 pulls harder)"),
+        _F("close", "Closed loop", "flag", word="CLOSE")])])
+    add("MOVEPT", [Variant("", "", [
+        _F("body", "Curve or surface", "body", required=True, pick="BODY"),
+        _F("i", "Control point", "expr", required=True, start="2",
+           help="its number on a curve (POLES lists them), or (row, point) on a surface, e.g. (2, 3)"),
+        _F("dx", "Move by", "point", required=True, start="0, 5, 0"),
+        _F("mode", "Mode", "choice", "BY", choices=("BY", "TO"), help="BY: move by these amounts; TO: move to this point")])])
+    add("NSURF", [Variant("", "", [
+        _F("deg", "Degree across the rows", default="3"),
+        _F("c", "Rows", "bodies", required=True, pick="BODY", count=16,
+           help="curves whose control points are the rows of the net, in order")])])
+    add("NETWORK", [Variant("", "", [
+        _F("u", "Curves one way", "bodies", required=True, pick="BODY", count=15,
+           help="in order across the other set"),
+        _F("across", "", "choice", "ACROSS", required=True, choices=("ACROSS",)),
+        _F("v", "Curves the other way", "bodies", required=True, pick="BODY", count=15,
+           help="each must meet every curve of the first set")])])
+    add("FILL", [Variant("", "", [
+        _F("cont", "Smoothness", "choice", "G1", choices=("G0", "G1", "G2"),
+           help="how the patch meets surfaces whose edges are picked: G0 touching, G1 no crease, G2 smooth curvature"),
+        _F("a", "Around the hole", "bodies", required=True, pick="BODY", count=24, start="SEL",
+           help="curve bodies, or SEL for the picked edges of surfaces")])])
+    add("SEW", [Variant("", "", [
+        _F("b", "Surfaces", "bodies", required=True, pick="BODY", count=24, start="SEL",
+           help="surfaces whose edges meet; a closed skin becomes a solid")])])
     add("LOFT", [Variant("", "", [_F("s", "Sections", "bodies", required=True, pick="BODY", count=24,
                                      help="the section curves, in order (select them, then press ← Selection)"),
                                   _F("ruled", "Straight between sections", "flag", word="RULED"),
@@ -795,10 +829,10 @@ def _tokens(f: Field, value: str) -> list[tuple[str, str]]:
             parts = _list(r)
             if len(parts) == 1 and is_ident(parts[0]):
                 out.append((parts[0], ""))
-            elif len(parts) in (2, 3):
+            elif len(parts) in ((2, 3, 4) if f.key == "cpts" else (2, 3)):  # NURBS points may carry a weight
                 out.append(("(" + ", ".join(parts) + ")", ""))
             else:
-                raise FormError(f"{f.label}: each line is x, y, z")
+                raise FormError(f"{f.label}: each line is x, y, z" + (" (and a weight)" if f.key == "cpts" else ""))
         return out
     if f.kind == "path":
         if value and not (value[0] in "\"'" and value[-1] == value[0]):
@@ -964,6 +998,13 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
                 i += 3
         elif f.kind in ("bodies", "points") or (f.kind == "ids" and (f.count == 0 or f.count > 1)):
             n = f.count if f.kind != "points" and f.count else len(plain) - i
+            # a list ends where a later field's fixed word is (NETWORK's ACROSS)
+            later = fields[fields.index(f) + 1:]
+            stops = {c.upper() for g in later if g.kind == "choice" and len(g.choices) == 1 for c in g.choices}
+            for k in range(i, min(i + n, len(plain))):
+                if plain[k].strip().upper() in stops:
+                    n = k - i
+                    break
             got = plain[i:i + n]
             if f.kind == "points":
                 values[f.key] = "\n".join(t[1:-1] if t.startswith("(") and t.endswith(")") else t for t in got)

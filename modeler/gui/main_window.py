@@ -567,6 +567,9 @@ class MainWindow(QMainWindow):
                           "Runs: PUSHPULL, d", lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
         act("Delete faces", "Remove the selected faces and close the gap (a hole, boss or fillet goes away)\n"
                             "Runs: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
+        act("Control points", "Show the control points of the picked curve or surface; drag one to move it "
+                              "(press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
+            lambda: fa.control_points_toggle(p))
         tb.addSeparator()
         act("Distance", "Shortest distance between the two selected things\nRuns: DIST", lambda: fa.two_selected(p, "DIST"))
         act("Angle", "Angle between the two selected faces or edges\nRuns: ANGLE", lambda: fa.two_selected(p, "ANGLE"))
