@@ -998,7 +998,7 @@ def tol(p: Processor, tol):
 # Files
 # =============================================================================
 
-_FORMATS = ("STEP", "BREP", "STL")
+_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF")
 
 
 def _compound(shapes):
@@ -1012,11 +1012,12 @@ def _compound(shapes):
 
 @command(
     "EXPORT",
-    Arg("format", str, help="STEP, BREP or STL"),
+    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF or GLTF"),
     Arg("file", Path),
     Arg("b", BodyRef, 0, "body to export (default: all bodies)"),
     logged=False,
-    help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. Runs when given; not kept in the history.",
+    help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. STEP, IGES and BREP keep the exact "
+         "shape; STL, OBJ, 3MF and GLTF (.glb or .gltf) write triangles. Runs when given; not kept in the history.",
 )
 def export(p: Processor, format, file, b):
     if format not in _FORMATS:
@@ -1028,19 +1029,44 @@ def export(p: Processor, format, file, b):
     shape = bodies[0].shape if len(bodies) == 1 else _compound([x.shape for x in bodies])
     path = os.path.abspath(file)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    # triangle size for mesh formats: 0.1 mm, in the model's units
+    deflection = 0.05 * UNITS["MM"] / UNITS[m.units] * 2
     if format == "STEP":
         _static(Interface_Static, "SetCVal")("write.step.unit", m.units)
         w = STEPControl_Writer()
         w.Transfer(shape, STEPControl_AsIs)
         if int(w.Write(path)) != 1:  # IFSelect_RetDone
             raise CommandError(f"EXPORT: could not write {file}")
+    elif format == "IGES":
+        from OCP.IGESControl import IGESControl_Controller, IGESControl_Writer
+
+        _static(IGESControl_Controller, "Init")()
+        w = IGESControl_Writer(m.units, 1)  # 1: faces as B-rep solids, not trimmed surfaces only
+        w.AddShape(shape)
+        w.ComputeModel()
+        if not w.Write(path):
+            raise CommandError(f"EXPORT: could not write {file}")
     elif format == "BREP":
         if not _static(BRepTools, "Write")(shape, path):
             raise CommandError(f"EXPORT: could not write {file}")
-    else:
-        BRepMesh_IncrementalMesh(shape, 0.05 * UNITS["MM"] / UNITS[m.units] * 2, False, 0.3, True)
+    elif format == "STL":
+        BRepMesh_IncrementalMesh(shape, deflection, False, 0.3, True)
         if not StlAPI_Writer().Write(shape, path):
             raise CommandError(f"EXPORT: could not write {file}")
+    else:
+        from ..geometry import meshfiles
+
+        meshes = [meshfiles.triangulate(x.shape, deflection, x.name or f"body{x.id}", m.display_color(x.id))
+                  for x in bodies]
+        try:
+            if format == "OBJ":
+                meshfiles.write_obj(path, meshes)
+            elif format == "3MF":
+                meshfiles.write_3mf(path, meshes, m.units)
+            else:
+                meshfiles.write_gltf(path, meshes, UNITS[m.units] / 1000.0)
+        except OSError as exc:
+            raise CommandError(f"EXPORT: could not write {file}: {exc.strerror}") from None
     return f"wrote {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file} ({format}, {m.units})"
 
 

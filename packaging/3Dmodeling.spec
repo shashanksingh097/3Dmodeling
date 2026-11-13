@@ -16,6 +16,7 @@ from modeler import __version__  # noqa: E402
 # The kernel is one extension module (OCP.OCP); its sub-packages only
 # re-export names. Take them all, except the VTK bridge the app never uses.
 hidden = [m for m in collect_submodules("OCP") if ".IVtk" not in m] + collect_submodules("modeler")
+hidden += collect_submodules("meshio")  # mesh file readers, imported when a mesh is read
 examples = [(os.path.join(ROOT, "scripts", n), "modeler/examples")
             for n in sorted(os.listdir(os.path.join(ROOT, "scripts"))) if n.endswith(".cmd")]
 

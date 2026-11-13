@@ -16,21 +16,20 @@ import time
 import zipfile
 
 from OCP.BRep import BRep_Builder
-from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepTools import BRepTools
 from OCP.IFSelect import IFSelect_ReturnStatus
 from OCP.STEPControl import STEPControl_Reader
 from OCP.TopAbs import TopAbs_SHELL, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
-from OCP.TopoDS import TopoDS, TopoDS_Shape
+from OCP.TopoDS import TopoDS_Shape
 
 from ..lang.script import first_code_line, parse
 from .processor import Arg, CommandError, Path, Processor, Text, command
 
 PROJECT_VERSION = 1
-_IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL")
-_as_shell = getattr(TopoDS, "Shell_s", None) or TopoDS.Shell
+_IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
+# formats read as triangles (a faceted body); MESH takes any file meshio reads, by its extension
+MESH_FORMATS = ("STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
 
 
 def _static(cls, name):
@@ -49,28 +48,42 @@ def _read_step_like(reader, path: str, what: str) -> TopoDS_Shape:
     return shape
 
 
-def _read_stl(path: str) -> TopoDS_Shape:
-    from OCP.StlAPI import StlAPI_Reader
+def _read_mesh(fmt: str, path: str, units: str) -> list:
+    """A mesh file as faceted bodies (:class:`meshfiles.Piece`), one per connected piece."""
+    from ..core.model import UNITS
+    from ..geometry import meshfiles
 
-    shape = TopoDS_Shape()
-    if not StlAPI_Reader().Read(shape, path):
-        raise CommandError(f"IMPORT: could not read STL file {path}")
-    # an STL is a soup of triangles: sew them and make a solid when it is closed
-    sew = BRepBuilderAPI_Sewing(1e-6)
-    sew.Add(shape)
-    sew.Perform()
-    sewn = sew.SewedShape()
-    ex = TopExp_Explorer(sewn, TopAbs_SHELL)
-    if ex.More():
-        mk = BRepBuilderAPI_MakeSolid(_as_shell(ex.Current()))
-        if mk.IsDone():
-            solid = mk.Solid()
-            if BRepCheck_Analyzer(solid).IsValid():
-                return solid
-    return sewn
+    name = os.path.basename(path)
+    try:
+        if fmt == "3MF":
+            pts, tris = meshfiles.read_3mf(path)
+            pts = pts / UNITS[units]  # millimetres to the model's units
+        elif fmt == "GLTF":
+            pts, tris = meshfiles.read_gltf(path)
+            pts = pts / UNITS[units]
+        elif fmt == "STL":
+            pts, tris = meshfiles.read_stl(path)
+        else:
+            pts, tris = meshfiles.read_with_meshio(path)
+        if len(tris) == 0:
+            raise CommandError(f"IMPORT: {name} has no surface triangles (only points or lines)")
+        if len(tris) > MAX_MESH_TRIANGLES:
+            raise CommandError(f"IMPORT: {name} has {len(tris)} triangles; up to {MAX_MESH_TRIANGLES} can "
+                               "become a body. Reduce the mesh in a mesh tool first.")
+        pieces = meshfiles.mesh_to_pieces(pts, tris)
+    except meshfiles.MeshFileError as exc:
+        raise CommandError(f"IMPORT: {name}: {exc}") from None
+    if not pieces:
+        raise CommandError(f"IMPORT: {name} has no triangles with area")
+    return pieces
+
+
+# each triangle becomes a face of the body: past this the body gets too slow to work with
+MAX_MESH_TRIANGLES = 100_000
 
 
 def read_shape(fmt: str, path: str) -> TopoDS_Shape:
+    """An exact (STEP, IGES or BREP) file as one shape."""
     if fmt == "STEP":
         return _read_step_like(STEPControl_Reader(), path, "STEP")
     if fmt == "IGES":
@@ -82,24 +95,33 @@ def read_shape(fmt: str, path: str) -> TopoDS_Shape:
         if not _static(BRepTools, "Read")(shape, path, BRep_Builder()):
             raise CommandError(f"IMPORT: could not read BREP file {path}")
         return shape
-    return _read_stl(path)
+    raise CommandError(f"IMPORT: {fmt} is not an exact format")
 
 
 def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
+    """Each solid, then each shell that is not part of a solid (an open mesh piece)."""
     out = []
     ex = TopExp_Explorer(shape, TopAbs_SOLID)
     while ex.More():
         out.append(ex.Current())
         ex.Next()
+    if out:
+        ex = TopExp_Explorer(shape, TopAbs_SHELL, TopAbs_SOLID)
+        while ex.More():
+            out.append(ex.Current())
+            ex.Next()
     return out or [shape]
 
 
 @command(
     "IMPORT",
-    Arg("format", str, help="STEP, IGES, BREP or STL"),
+    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK or MESH"),
     Arg("file", Path),
     Arg("name", Text, "", "name for the (first) imported body"),
-    help="Read bodies from a file. Each solid in it becomes a body. Saved projects keep a copy of the file.",
+    help="Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, "
+         "GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; "
+         "volume meshes keep their outer skin). MESH reads any other mesh file meshio knows, by its extension "
+         "(Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). Saved projects keep a copy of the file.",
 )
 def import_(p: Processor, format, file, name):
     if format not in _IMPORT_FORMATS:
@@ -107,13 +129,19 @@ def import_(p: Processor, format, file, name):
     path = p.file_map.get(file, file)
     if not os.path.isfile(path):
         raise CommandError(f"IMPORT: no such file: {file}")
-    shape = read_shape(format, path)
     from .handlers import _added
 
     msgs = []
-    for k, s in enumerate(_solids(shape)):
-        body = p.model.add_body(s, name if (name and k == 0) else "")
-        msgs.append(_added(p, body, "IMPORT"))
+    if format in MESH_FORMATS:
+        pieces = _read_mesh(format, path, p.model.units)
+        for k, pc in enumerate(pieces):
+            body = p.model.add_body(pc.shape, name if (name and k == 0) else "")
+            note = "" if pc.closed else ", open surface, not a solid"
+            msgs.append(f"{_added(p, body, 'IMPORT')} [{pc.triangles} triangles{note}]")
+    else:
+        for k, s in enumerate(_solids(read_shape(format, path))):
+            body = p.model.add_body(s, name if (name and k == 0) else "")
+            msgs.append(_added(p, body, "IMPORT"))
     if len(msgs) == 1:
         return msgs[0]
     return f"IMPORT {file}: {len(msgs)} bodies\n  " + "\n  ".join(msgs)

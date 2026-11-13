@@ -269,7 +269,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
-| Files | `EXPORT, STEP/BREP/STL, file [, body]` · `IMPORT, STEP/IGES/BREP/STL, file [, name]` · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name]` (section 10) · `RUN, file` |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
@@ -450,8 +450,35 @@ empty session. These commands act on the session, so they are not history
 entries and `UNDO` does not undo them.
 
 `IMPORT, STEP, "housing.step", housing` adds each solid in the file as a
-body; the first one gets the name. STL files are sewn into a solid when
-they are closed.
+body; the first one gets the name.
+
+**Exact files and mesh files.** STEP, IGES and BREP hold exact shapes:
+an imported body works like one made here (fillets, holes, `SHELL`,
+`PUSHPULL`, `DELFACE`), but the other program's feature history does not
+come along, so edits are recorded on top of the body as it came in.
+
+STL, OBJ, 3MF, GLTF (`.glb` or `.gltf`), PLY, OFF and VTK (`.vtk`,
+`.vtu`) hold triangles. Each connected piece becomes one **faceted body**:
+every triangle is a flat face. A closed piece is a solid (turned the right
+way out if its triangles faced inwards); an open one is a surface, and the
+message says so. Volume meshes from simulation tools (tetrahedra,
+hexahedra, wedges, pyramids, also second-order ones) keep only their outer
+skin. `MESH` reads any other file the meshio library knows, by its
+extension: Gmsh `.msh`, Abaqus `.inp`, Nastran `.bdf`/`.nas`, `.med`,
+`.xdmf` and more. 3MF and glTF carry their units (glTF is in metres), so
+they arrive at the right size; the other mesh formats have no units and
+are read as the model's units.
+
+Faceted bodies take booleans, `SPLIT`, `SECTION`, measuring and export,
+but not fillets or shells across facets. Up to 100,000 triangles become a
+body; reduce a bigger mesh in a mesh tool first. Editing meshes as meshes
+(smoothing, sculpting, fast mesh booleans) is planned for M6 and M7.
+
+`EXPORT` writes STEP, IGES or BREP (exact) or STL, OBJ, 3MF or GLTF
+(triangles, 0.1 mm fine). OBJ, 3MF and glTF keep one object per body with
+its name and colour; 3MF records the model's units; glTF is written in
+metres with Y up, as viewers expect, as a binary `.glb` or a single
+`.gltf` file.
 
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
