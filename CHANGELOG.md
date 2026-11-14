@@ -25,6 +25,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Each history step now records which bodies it read, made, used up and
   changed. `STEPS, b` lists the steps that made a body, including the
   `*PART` of an instance.
+- An **item panel** under the tree lists the steps that made the picked
+  body and the parameters they use. Each step, also a line inside a part
+  recipe or a loop, opens in its form; change a bolt part's `THREAD` pitch
+  there and every bolt follows. Parameters can be changed in place.
 - Bodies picked in the tree are highlighted in the 3D view whatever a click
   picks (face, edge or body).
 

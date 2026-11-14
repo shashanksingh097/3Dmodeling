@@ -377,3 +377,34 @@ def test_model_tree_groups_part_instances(win, app):
     items = win.model_tree.menu_items("part:PEG")
     fade = next(i for i in items if i.label == "Fade all of them")
     assert fade.commands == [f"FADE, {' '.join(map(str, part.ids))}"]
+
+
+def test_item_panel_edits_a_line_of_the_part_and_every_copy_follows(win, app):
+    """M10 exit test in the window: pick a placed peg in the tree, open the
+    CYL line of its part recipe in a form, change the radius: all pegs grow."""
+    win.execute("*PART, peg, D=4\nCYL, 0,0,0, D/2, 10   ! the peg\n*ENDPART")
+    win.execute("*DO, i, 0, 2\nINST, peg, 60 + 10*i, 0, 0\n*ENDDO")
+    app.processEvents()
+    pegs = sorted(b for b in win.processor.model.bodies if b in win.processor.model.instances)
+    assert len(pegs) == 3
+    win.model_tree._clicked(win.model_tree.item(f"body:{pegs[1]}"), 0)
+    for _ in range(3):
+        app.processEvents()
+    panel = win.item_panel
+    assert panel.info is not None and panel.info.part == "peg" and panel.info.copies == 3
+    r = next(i for i, ln in enumerate(panel.info.lines) if ln.text.startswith("CYL"))
+    dlg = panel.edit(r)
+    assert dlg is not None and "line 2" in dlg.windowTitle()
+    assert dlg.ok_button.isEnabled()  # D is the part's own name: not flagged as unknown
+    dlg.fields["r"].set_value("3")
+    assert dlg.submit(True), dlg.error.text()
+    part_text = win.processor.history[panel.info.lines[r].row].text
+    assert "CYL, 0, 0, 0, 3, 10" in part_text.replace("0,0,0", "0, 0, 0") and "! the peg" in part_text
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    for b in pegs:
+        box = Bnd_Box()
+        BRepBndLib.Add_s(win.processor.model.bodies[b].shape, box)
+        lo, hi = box.CornerMin(), box.CornerMax()
+        assert abs((hi.X() - lo.X()) - 6) < 0.1  # every copy now 6 wide

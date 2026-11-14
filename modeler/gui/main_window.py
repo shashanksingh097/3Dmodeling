@@ -37,7 +37,6 @@ from PySide6.QtWidgets import (
 
 from ..commands import Processor, Result
 from ..lang.expr import format_value
-from ..lang.script import strip_comment
 from ..viewport.occ_view import OccViewport
 from . import assist
 from . import body_menu as bm
@@ -365,12 +364,9 @@ class ParamPanel(QTableWidget):
         if entry is None or not new:
             self.refresh()
             return
-        old_text = p.history[entry - 1].text
-        # keep comment lines above the assignment
-        lines = old_text.splitlines()
-        comment = lines[-1][len(strip_comment(lines[-1])):].strip()
-        lines[-1] = f"{name} = {new}" + (f"    {comment}" if comment else "")
-        res = self.win.execute(hist_command("EDIT", entry, "\n".join(lines)))
+        from .item_model import param_edit
+
+        res = self.win.execute(param_edit(p, name, new))
         if not res.ok:
             self.refresh()
 
@@ -436,9 +432,19 @@ class MainWindow(QMainWindow):
         self.layers_dock = layers
         from .model_tree import ModelTree
 
+        from PySide6.QtWidgets import QSplitter
+
+        from .item_panel import ItemPanel
+
         self.model_tree = ModelTree(self)
-        self.tree_dock = self._dock("Model", self.model_tree, Qt.LeftDockWidgetArea)
-        self.resizeDocks([self.tree_dock], [260], Qt.Horizontal)
+        self.item_panel = ItemPanel(self)  # the steps of the picked body, under the tree
+        split = QSplitter(Qt.Vertical)
+        split.setObjectName("model_split")
+        split.addWidget(self.model_tree)
+        split.addWidget(self.item_panel)
+        split.setSizes([480, 320])
+        self.tree_dock = self._dock("Model", split, Qt.LeftDockWidgetArea)
+        self.resizeDocks([self.tree_dock], [300], Qt.Horizontal)
         self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)
         self.resizeDocks([hist, params], [520, 260], Qt.Vertical)
         self.resizeDocks([out], [170], Qt.Vertical)
@@ -656,9 +662,9 @@ class MainWindow(QMainWindow):
             if not self.execute(c).ok:
                 break
 
-    def open_form(self, name: str, text: str = "", edit_row: int | None = None):
-        """Open a command's fill-in form (see gui/forms.py)."""
-        return fd.open_form(self, name, text, edit_row)
+    def open_form(self, name: str, text: str = "", edit_row: int | None = None, edit_line: int | None = None):
+        """Open a command's fill-in form (see gui/forms.py); with edit_line, for one line inside an entry."""
+        return fd.open_form(self, name, text, edit_row, edit_line)
 
     def form_for_typed(self) -> None:
         text = self.cmdline.text().strip()

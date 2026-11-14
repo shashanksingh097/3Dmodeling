@@ -164,6 +164,14 @@ Right-click a step in the **History** panel:
 | **Roll back to here** | undo back to this step (Redo brings the rest back) |
 | **Make a part from steps …** | with several steps selected, turn them into a reusable part |
 
+**From the model tree.** Pick a body in the **Model** tree (or in the 3D
+view): the panel under the tree lists every step that made it, and the
+parameters those steps use. Double-click a step (or **Edit step…**) to change
+it in its form. For a body placed from a part, such as one of 8 bolts, the
+list holds the lines of the part's recipe (head, shank, `THREAD`): change
+the thread's pitch there and all 8 bolts are rebuilt. Type a new value next
+to a parameter to change it.
+
 When a step is edited, picks made after it still point at the same faces
 and edges where possible. If the app had to guess, the step turns amber and
 says so. A step that fails turns red with the reason, and the steps after it

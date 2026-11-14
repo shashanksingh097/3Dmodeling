@@ -1165,6 +1165,18 @@ def has_form(text: str) -> bool:
     return True
 
 
+def replace_line(old: str, index: int, new: str) -> str:
+    """Put a new command in place of line ``index`` (0-based) of an entry,
+    keeping that line's indent and comment (a line inside a *PART or loop)."""
+    lines = old.splitlines()
+    raw = lines[index]
+    code = strip_comment(raw)
+    indent = raw[: len(raw) - len(raw.lstrip())]
+    comment = raw[len(code):].strip()
+    lines[index] = indent + new + (f"    {comment}" if comment else "")
+    return "\n".join(lines)
+
+
 def replace_code_line(old: str, new: str) -> str:
     """Put a new command in place of an entry's command line, keeping its comments."""
     lines = old.splitlines()
