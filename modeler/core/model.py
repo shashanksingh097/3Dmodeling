@@ -197,6 +197,12 @@ class Model:
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
         self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
+        # The view's own changes (DISPLAY, FADE): saved with the project but
+        # not history entries and not in snapshots, so undo, redo and
+        # rebuilds keep them. They are keyed by body ID, which survives edits.
+        self.view_hidden: set[int] = set()  # hidden by the view although the history shows them
+        self.view_shown: set[int] = set()  # shown by the view although the history hid them
+        self.faded: dict[int, float] = {}  # body ID -> how see-through it is drawn (0..1)
         # layers by upper-case name; there is always the DEFAULT layer
         self.layers: dict[str, Layer] = {DEFAULT_LAYER: Layer(DEFAULT_LAYER)}
         self.current_layer: str = DEFAULT_LAYER
@@ -386,14 +392,72 @@ class Model:
         self._emit(Event("visibility", bid))
 
     def is_shown(self, bid: int) -> bool:
-        """Drawn in the viewport: not hidden, and its layer is on."""
-        if bid in self.hidden:
+        """Drawn in the viewport: not hidden (by the history or the view), and its layer is on."""
+        if bid in self.view_hidden:
+            return False
+        if bid in self.hidden and bid not in self.view_shown:
             return False
         lay = self.layers.get(self.bodies[bid].layer.upper())
         return lay is None or lay.visible
 
     def shown_ids(self) -> list[int]:
         return [i for i in self.bodies if self.is_shown(i)]
+
+    # ---- the view's own changes (DISPLAY, FADE) ------------------------------
+    def set_view_shown(self, bid: int, shown: bool) -> None:
+        """Show or hide a body for the view only (not a history entry)."""
+        self.body(bid)
+        before = self.is_shown(bid)
+        if shown:
+            self.view_hidden.discard(bid)
+            if bid in self.hidden:
+                self.view_shown.add(bid)
+        else:
+            self.view_shown.discard(bid)
+            self.view_hidden.add(bid)
+        if self.is_shown(bid) != before:
+            self._emit(Event("visibility", bid))
+
+    def set_fade(self, bid: int, amount: float) -> None:
+        """Draw a body see-through by ``amount`` (0 = solid again)."""
+        self.body(bid)
+        old = self.faded.get(bid, 0.0)
+        if amount > 0:
+            self.faded[bid] = amount
+        else:
+            self.faded.pop(bid, None)
+        if self.faded.get(bid, 0.0) != old:
+            self._emit(Event("style", bid))
+
+    def forget_view(self, bid: int) -> None:
+        """Drop the view's show/hide override of one body (a HIDE or SHOW step now decides)."""
+        self.view_hidden.discard(bid)
+        self.view_shown.discard(bid)
+
+    def has_view_changes(self) -> bool:
+        live = self.bodies.keys()
+        return bool((self.view_hidden | self.view_shown | set(self.faded)) & live)
+
+    def view_state(self) -> dict:
+        """The view's changes as plain data (for the project file), only for bodies that exist."""
+        live = self.bodies.keys()
+        return {
+            "hidden": sorted(self.view_hidden & live),
+            "shown": sorted(self.view_shown & live),
+            "faded": {str(b): a for b, a in sorted(self.faded.items()) if b in live},
+        }
+
+    def set_view_state(self, state: dict | None, emit: bool = True) -> None:
+        """Put back what view_state() gave (unknown bodies are ignored)."""
+        state = state or {}
+        old = {b: (self.is_shown(b), self.display_transparency(b)) for b in self.bodies}
+        self.view_hidden = {int(b) for b in state.get("hidden", ())}
+        self.view_shown = {int(b) for b in state.get("shown", ())}
+        self.faded = {int(b): float(a) for b, a in (state.get("faded") or {}).items()}
+        if emit:
+            for b, (shown, see) in old.items():
+                if (self.is_shown(b), self.display_transparency(b)) != (shown, see):
+                    self._emit(Event("visibility", b))
 
     # ---- layers, colours, materials ------------------------------------------
     def layer(self, name: str) -> Layer:
@@ -492,13 +556,15 @@ class Model:
         return None
 
     def display_transparency(self, bid: int) -> float:
-        """How see-through a body is drawn: its material's (glass), else 0."""
+        """How see-through a body is drawn: the more of its material's (glass)
+        and the view's fade (FADE), else 0."""
         body = self.body(bid)
+        see = self.faded.get(bid, 0.0)
         if body.material:
             mat = self.materials.get(body.material.upper())
             if mat is not None:
-                return mat.transparency
-        return 0.0
+                return max(see, mat.transparency)
+        return see
 
     def density(self, bid: int) -> float:
         """kg/m3 from the body's material, 0 if it has none."""

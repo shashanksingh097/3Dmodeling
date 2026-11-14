@@ -172,6 +172,7 @@ class OccViewport(QWidget):
     ready = Signal()
     edit_dimension = Signal(str)  # double-click on a sketch size: its label (C4)
     sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
+    body_menu = Signal(int, object)  # right click without dragging: (body under the cursor or 0, global QPoint)
 
     def __init__(self, model: Model, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -314,6 +315,23 @@ class OccViewport(QWidget):
             self._sync_size()
             self.view.FitAll(0.1, False)
             self.view.Redraw()
+
+    def fit_bodies(self, ids: list[int]) -> None:
+        """Zoom so these bodies fill the view (FIT, b)."""
+        if not self._initialized:
+            return
+        from OCP.Bnd import Bnd_Box
+        from OCP.BRepBndLib import BRepBndLib
+
+        box = Bnd_Box()
+        for bid in ids:
+            if bid in self.model.bodies:
+                BRepBndLib.Add_s(self.model.bodies[bid].shape, box)
+        if box.IsVoid():
+            return
+        self._sync_size()
+        self.view.FitAll(box, 0.1, False)
+        self.view.Redraw()
 
     def set_pick_mode(self, kind: str) -> None:
         self.pick_mode = kind
@@ -1043,6 +1061,17 @@ class OccViewport(QWidget):
                 return None
         return None
 
+    def body_at(self, x: int, y: int) -> int | None:
+        """The body under device pixel (x, y), whatever is being picked."""
+        self.context.MoveTo(x, y, self.view, False)
+        if not self.context.HasDetected():
+            return None
+        detected = self.context.DetectedInteractive()
+        for bid, ais in self._ais.items():
+            if ais is detected:
+                return bid
+        return None
+
     def click(self, x: int, y: int, modifiers=Qt.NoModifier) -> str | None:
         """Turn a click at device pixel (x, y) into a command and emit it."""
         hit = self.pick_at(x, y)
@@ -1158,6 +1187,9 @@ class OccViewport(QWidget):
             return
         if not moved and e.button() == Qt.LeftButton:
             self.click(x, y, e.modifiers())
+        elif not moved and e.button() == Qt.RightButton:  # a right drag pans; a right click opens the menu
+            bid = self.body_at(x, y)
+            self.body_menu.emit(bid or 0, e.globalPosition().toPoint())
 
     def mouseDoubleClickEvent(self, e) -> None:
         if not (self._initialized and self._sketching() and self.sketcher.tool == "SELECT"):

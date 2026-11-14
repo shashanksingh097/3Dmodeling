@@ -204,6 +204,7 @@ def save_project(p: Processor, path: str) -> int:
             "entries": p.cursor,
             "files": files,
             "history": history,
+            "view": p.model.view_state(),  # hidden and faded by the view (not history)
         }
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
@@ -232,6 +233,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.reset()
     p.file_map = mapping
     results = p.run_script(script, meta.get("history"))
+    p.model.set_view_state(meta.get("view"))
     errors = [f"'{first_code_line(r.line)}': {r.message}" for r in results if not r.ok]
     return len([r for r in results if r.ok]), errors
 
