@@ -71,7 +71,7 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 
 | Part | What it does |
 |------|--------------|
-| **3D view** (middle) | the model. Left drag orbits, middle or right drag pans, the wheel zooms, **F** fits everything in view |
+| **3D view** (middle) | the model. Left drag orbits, middle or right drag pans, the wheel zooms, **F** fits everything in view. A right click (without dragging) opens a menu for the body under the mouse |
 | **Command line** (below the view) | type any command and press Enter. It suggests command names as you type and shows the arguments of the one you are typing |
 | **Form** button, **F2** | opens a fill-in form for the command you are typing, so you never need to remember argument order |
 | **Output** (bottom) | what each command did, and errors in plain words |
@@ -255,6 +255,14 @@ right-click, and choose **Make a part from steps**. Details:
 The **Layers** panel shows, hides, locks and colours groups of bodies.
 `MATERIAL, b, STEEL` gives a body a material, so `MASSPROP` reports its mass.
 `ISOLATE, b` shows one body alone; `SHOW` brings everything back.
+
+**Right-click a body** in the 3D view for a menu: Hide, Show only this,
+Fade this, Fade all others (to see one part clearly inside an assembly),
+Show everything, Zoom to, Rename, Colour, Layer, Material, Find the step
+that made it, and Delete. Right-click empty space to show everything again.
+Hiding and fading from this menu are view steps (`DISPLAY`, `FADE`,
+`UNFADE`): they do not add history steps, but they are saved with the
+project.
 Details: [LANGUAGE.md](LANGUAGE.md) section 22.
 
 ---

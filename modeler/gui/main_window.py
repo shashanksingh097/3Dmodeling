@@ -40,6 +40,7 @@ from ..lang.expr import format_value
 from ..lang.script import strip_comment
 from ..viewport.occ_view import OccViewport
 from . import assist
+from . import body_menu as bm
 from . import feature_actions as fa
 from . import form_dialog as fd
 from .progress import RebuildProgress
@@ -243,6 +244,11 @@ class HistoryPanel(QTableWidget):
             sk = self._sketch_of(row)
             if sk:
                 menu.addAction(f"Sizes of sketch {sk}…", lambda: self.win.sketch_ui.edit_sizes(sk))
+            made = bm.entry_bodies(p, row)
+            if made:
+                what = f"body {made[0]}" if len(made) == 1 else f"{len(made)} bodies"
+                sub = menu.addMenu(f"Made by this step ({what})")
+                self.win.fill_menu(sub, bm.entry_items(p, row))
             menu.addSeparator()
             back = p.cursor - n
             if back:
@@ -253,6 +259,15 @@ class HistoryPanel(QTableWidget):
         menu.addAction("Add at the end…", lambda: self._insert(p.cursor + 1))
         menu.addAction("Replay all", lambda: self.win.execute("HIST, REPLAY"))
         menu.exec(self.viewport().mapToGlobal(pos))
+
+    def select_entry(self, uid: int) -> bool:
+        """Select and show the row of the history entry with this uid."""
+        for i, e in enumerate(self.win.processor.history):
+            if e.uid == uid:
+                self.selectRow(i)
+                self.scrollToItem(self.item(i, 0))
+                return True
+        return False
 
     def make_part(self, first: int, last: int, name: str | None = None) -> None:
         """Turn history steps into a reusable part, placed once where it was."""
@@ -370,6 +385,7 @@ class MainWindow(QMainWindow):
 
         self.viewport = OccViewport(self.processor.model)
         self.viewport.command.connect(self.execute)
+        self.viewport.body_menu.connect(self.show_body_menu)
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
         self.processor.progress = self.rebuild_progress
@@ -592,6 +608,48 @@ class MainWindow(QMainWindow):
         from .sweep_editor import open_editor
 
         return open_editor(self, row)
+
+    # ---- right-click menus on bodies (gui/body_menu.py says what they hold) ----
+    def show_body_menu(self, bid: int, global_pos) -> None:
+        """The menu for a right click in the 3D view: on a body, or on empty space."""
+        m = self.processor.model
+        items = bm.body_items(m, bid) if bid in m.bodies else bm.empty_items(m)
+        menu = QMenu(self)
+        self.fill_menu(menu, items)
+        self._body_menu = menu  # tests read it
+        menu.popup(global_pos)
+
+    def fill_menu(self, menu: QMenu, items: list) -> None:
+        for item in items:
+            if not item.label:
+                menu.addSeparator()
+            elif item.title:
+                act = menu.addAction(item.label)
+                f = act.font()
+                f.setBold(True)
+                act.setFont(f)
+                act.setEnabled(False)
+            else:
+                act = menu.addAction(item.label, lambda it=item: self.run_menu_item(it))
+                act.setEnabled(item.enabled)
+
+    def run_menu_item(self, item) -> None:
+        if item.find_entry:
+            if self.history_panel.select_entry(item.find_entry):
+                self.history_panel.setFocus()
+            return
+        if item.form:
+            self.open_form(item.form, item.commands[0] if item.commands else "")
+            return
+        cmds = list(item.commands)
+        if item.ask:
+            text, ok = QInputDialog.getText(self, "3Dmodeling", item.ask)
+            if not ok or not text.strip():
+                return
+            cmds = [c.replace("{}", text.strip()) for c in cmds]
+        for c in cmds:
+            if not self.execute(c).ok:
+                break
 
     def open_form(self, name: str, text: str = "", edit_row: int | None = None):
         """Open a command's fill-in form (see gui/forms.py)."""

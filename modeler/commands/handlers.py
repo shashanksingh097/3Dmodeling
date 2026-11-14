@@ -591,6 +591,7 @@ def keep(p: Processor, mode):
 
 @command("HIDE", Arg("b", BodyRef), help="Hide a body in the viewport (it stays in the model).")
 def hide(p: Processor, b):
+    p.model.forget_view(b)
     p.model.set_hidden(b, True)
     return f"hid body {b}"
 
@@ -598,11 +599,18 @@ def hide(p: Processor, b):
 @command("SHOW", Arg("b", Raw, "ALL", "a body, or ALL"), help="Show a hidden body again (default: all of them).")
 def show(p: Processor, b):
     if b.strip().upper() == "ALL":
+        for bid in sorted(p.model.view_hidden & p.model.bodies.keys()):
+            p.model.set_view_shown(bid, True)
         for bid in sorted(p.model.hidden):
             p.model.set_hidden(bid, False)
+        p.model.view_hidden.clear()
+        p.model.view_shown.clear()
         off = [lay.name for lay in p.model.layers.values() if not lay.visible]
         return "showing all bodies" + (f" (layer {', '.join(off)} is off: LAYER, ALL, ON shows it)" if off else "")
     bid = p._body_arg(REGISTRY["SHOW"], b)
+    if bid in p.model.view_hidden:
+        p.model.set_view_shown(bid, True)
+    p.model.forget_view(bid)
     p.model.set_hidden(bid, False)
     return f"showing body {bid}"
 
@@ -1195,10 +1203,19 @@ def view(p: Processor, name):
     return f"view {name}"
 
 
-@command("FIT", logged=False, help="Zoom to fit all bodies.")
-def fit(p: Processor):
-    if p.view:
-        p.view.fit()
+@command("FIT", Arg("target", Raw, "", "a body, SEL or several bodies (3 5 7); empty: everything"), logged=False,
+         help="Zoom to fit all bodies, or only some: FIT, bracket · FIT, SEL.")
+def fit(p: Processor, target):
+    if not target.strip():
+        if p.view:
+            p.view.fit()
+        return None
+    from .view_handlers import view_targets
+
+    ids = view_targets(p, "FIT", target)
+    if p.view and hasattr(p.view, "fit_bodies"):
+        p.view.fit_bodies(ids)
+    return f"zoomed to {len(ids)} bod{'y' if len(ids) == 1 else 'ies'}"
 
 
 @command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS, MATERIALS"),
@@ -1224,6 +1241,8 @@ def list_(p: Processor, what):
                 look.append(color_text(b.color))
             if not m.is_shown(b.id):
                 look.append("hidden")
+            if b.id in m.faded:
+                look.append("faded")
             lines.append(f"  body {b.id} {b.name}: {n['FACE']} faces, {n['EDGE']} edges, {n['VERTEX']} vertices"
                          + (f"  [instance of {inst}]" if inst else "") + (f"  ({', '.join(look)})" if look else ""))
     if what in ("ALL", "PARAMS") and p.params:

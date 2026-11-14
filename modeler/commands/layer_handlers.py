@@ -296,6 +296,9 @@ def isolate(p: Processor, target):
         ids = target_bodies(p, "ISOLATE", s)
     keep = set(ids)
     for bid in sorted(m.bodies):
+        if bid in keep and bid in m.view_hidden:
+            m.set_view_shown(bid, True)
+        m.forget_view(bid)
         m.set_hidden(bid, bid not in keep)
     off = [lay.name for i in ids for lay in [m.layer_of(i)] if not lay.visible]
     msg = f"showing only {_ids_text(ids)}"

@@ -67,6 +67,7 @@ class ViewHooks(Protocol):
 
     def set_view(self, name: str) -> None: ...
     def fit(self) -> None: ...
+    def fit_bodies(self, ids: list[int]) -> None: ...
     def set_pick_mode(self, kind: str) -> None: ...
 
 
@@ -484,6 +485,10 @@ class Processor:
         Each entry asks for the same IDs it handed out last time.
         """
         self._drop_redo_tail()
+        m = self.model
+        # the view's own changes are not history: keep them through the re-run
+        # (a CLEAR or HIDE step that runs again must not wipe them)
+        view = (set(m.view_hidden), set(m.view_shown), dict(m.faded))
         self._restore(self._snaps[start], emit=False)
         floor: dict[str, int] = {}
         for e in self.history[start:]:
@@ -516,6 +521,7 @@ class Processor:
         finally:
             for kind in floor:
                 self.model.id_floor[kind] = 1
+            m.view_hidden, m.view_shown, m.faded = view
         self.model.restore(self.model.snapshot())  # one refresh for listeners
         self._history_changed()
         n = self.cursor - start

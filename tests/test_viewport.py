@@ -19,7 +19,7 @@ from OCP.BRep import BRep_Tool  # noqa: E402
 from OCP.BRepGProp import BRepGProp  # noqa: E402
 from OCP.GProp import GProp_GProps  # noqa: E402
 from OCP.TopoDS import TopoDS  # noqa: E402
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -285,3 +285,48 @@ def test_glass_bodies_are_see_through(win):
     assert 0 < ais[2].Transparency() < 1
     assert win.execute("MATERIAL, 2, STEEL").ok
     assert ais[2].Transparency() == 0
+
+
+def _menu_action(menu, label):
+    for act in menu.actions():
+        if act.text() == label:
+            return act
+    raise AssertionError(f"no menu item {label!r} in {[a.text() for a in menu.actions()]}")
+
+
+def test_right_click_opens_the_body_menu_and_fades_the_others(win, app):
+    vp = win.viewport
+    x, y = to_px(win, *face_centre(win, 7))  # the cylinder's side (body 2)
+    n = len(win.processor.history)
+    seen = []
+    vp.body_menu.connect(lambda bid, pos: seen.append(bid))
+    r = vp.devicePixelRatioF()
+    QTest.mouseClick(vp, Qt.RightButton, Qt.NoModifier, QPoint(int(x / r), int(y / r)))
+    app.processEvents()
+    assert seen == [2]
+    menu = win._body_menu
+    assert menu.actions()[0].text() == "body 2"
+    _menu_action(menu, "Fade all others").trigger()
+    menu.close()
+    app.processEvents()
+    assert 0 < vp._ais[1].Transparency() < 1 and vp._ais[2].Transparency() == 0
+    assert len(win.processor.history) == n  # view steps add no history
+    win.show_body_menu(0, vp.mapToGlobal(vp.rect().center()))
+    _menu_action(win._body_menu, "Show everything").trigger()
+    win._body_menu.close()
+    assert vp._ais[1].Transparency() == 0
+
+
+def test_view_hide_and_history_row_menu(win, app):
+    vp = win.viewport
+    assert win.execute("DISPLAY, HIDE, 1").ok
+    assert 1 not in vp._ais
+    assert win.execute("DISPLAY, SHOW, 1").ok
+    assert 1 in vp._ais
+    from modeler.gui import body_menu as bm
+
+    items = bm.entry_items(win.processor, 1)  # the CYL row made body 2
+    win.run_menu_item(next(i for i in items if i.label == "Show only this"))
+    assert 1 not in vp._ais and 2 in vp._ais
+    win.run_menu_item(next(i for i in bm.body_items(win.processor.model, 2) if i.label.startswith("Find the step")))
+    assert win.history_panel.currentRow() == 1

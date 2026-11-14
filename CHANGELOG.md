@@ -4,6 +4,20 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Model tree and right-click menu (first part)
+
+- Right-click a body in the 3D view for a menu: hide, show only this, fade
+  this, fade all others, show everything, zoom to, rename, colour, layer,
+  material, explode an instance, find the step that made it, delete. It acts
+  on the whole selection when you right-click a selected body. A right drag
+  still pans.
+- History rows have a "Made by this step" submenu with the same view
+  actions for the bodies that step made.
+- New view steps `FADE`, `UNFADE` and `DISPLAY` (`HIDE`, `SHOW`, `ONLY`,
+  `ALL`, `MODEL`): they change only what the view shows, add no history
+  steps, survive undo and rebuilds, and are saved with the project.
+- `FIT, b` zooms to some bodies.
+
 ## [0.2.0] - 2026-11-14
 
 The second release: freeform NURBS surfaces and deformers, an assistant

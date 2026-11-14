@@ -450,13 +450,14 @@ section 7). Like everything else, the tree and the menu only send commands.
 
 **What is new**
 
-1. `FADE, b|SEL|OTHERS[, amount]` and `UNFADE, b|ALL`: a view state kept on
-   the model next to `hidden`, drawn through `display_transparency`. Hide,
+1. Done (M10a): `FADE, b|SEL|OTHERS[, amount]`, `UNFADE, b|ALL` and
+   `DISPLAY, HIDE|SHOW|ONLY|ALL|MODEL`: a view state kept on the model next
+   to `hidden`, drawn through `display_transparency`. Hide,
    show, fade and isolate from the menu become view steps: saved with the
    project but not history entries, so clicking around does not fill the
    history. (`HIDE` and `SHOW` are history entries today; scripts that use
    them keep working.)
-2. A right click without dragging opens the menu in the viewport (a right
+2. Done (M10a): a right click without dragging opens the menu in the viewport (a right
    drag still pans). The menu acts on the body under the cursor, or on the
    whole selection when the cursor is on a selected body.
 3. Lineage: each history entry records which bodies it read and which it
@@ -648,17 +649,39 @@ Still open in the milestones already started, in the suggested order:
    `DESIGNCHECK`). Sign-in confirmed on Windows. Released as 0.2.0 (NURBS
    freeform, the new formats and the assistant). "Use your own key"
    (OpenAI, Anthropic, a local model) for people without GitHub moves to
-   the rest of M9c (item 7).
-4. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
+   the rest of M9c (item 8).
+4. M10, the model tree and right-click menu (section 5.9), in three pull
+   requests. M10a (in progress): `FADE`/`UNFADE` and the view steps
+   (`DISPLAY`), the right-click menu in the 3D view and on History rows.
+5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
-5. M3 leftovers: undo for history edits, skipping unchanged steps on
+6. M3 leftovers: undo for history edits, skipping unchanged steps on
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.
-6. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
-7. The rest of M9c: "use your own key", picking for the assistant,
-   pictures as a fallback, the benchmark of modelling requests.
-8. M7 sculpt mode.
+7. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
+8. The rest of M9c: "use your own key", picking for the assistant,
+   pictures as a fallback, the benchmark of modelling requests, and these
+   improvements to the Assistant panel asked for by the user after 0.2.0:
+   - A **Debug tab** in the Assistant panel that shows in detail what is
+     going on: the exact prompt and system message sent, each tool call
+     with its arguments, its JSON answer and how long it took, errors, and
+     the model's reply, in order and easy to read, so the user can see
+     where the assistant went wrong and tell it. With a copy button and a
+     way to save the whole conversation log to a file.
+   - The **first prompt of every chat carries every command** with a one-line
+     summary of what it does and its arguments (from the command registry),
+     plus the basics of the language (parameters, selection, history), so
+     the assistant does not have to look up each command first.
+     `find_commands` and `command_help` stay for the details.
+   - **Reading files from the project folder, only with permission**: a
+     `read_file` (and `list_files`) tool limited to the project folder (or
+     the assistant's working folder), where each read asks the user first
+     (allow once, allow for this chat, deny), and the Debug tab shows what
+     was read.
+   - **New chat**: a button that ends the current conversation and starts a
+     fresh one (with the full first prompt again), keeping the sign-in.
+9. M7 sculpt mode.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

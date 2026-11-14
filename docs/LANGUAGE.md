@@ -1349,6 +1349,42 @@ command, so it lands in the history like typed text. `COLOR`, `MATERIAL` and
 `ISOLATE` have forms in the Commands menu under "Layers, colours,
 materials".
 
+### Hiding and fading for the view: DISPLAY, FADE, UNFADE
+
+`HIDE`, `SHOW` and `ISOLATE` are history steps, so a script can rely on
+them. Looking around a model is different: hiding a cover to see inside, or
+fading everything but one bolt, should not fill the history. These commands
+are **view steps**: they change only how bodies are drawn, are not history
+entries (undo does not take them back, and a rebuild keeps them), and are
+saved with the project.
+
+| Command | What it does |
+|---------|--------------|
+| `FADE [, b/SEL/ALL [, amount]]` | draws bodies see-through; `amount` from 0.05 (nearly solid) to 0.95 (nearly invisible), 0.8 if not given |
+| `FADE, OTHERS [, amount [, b/SEL]]` | fades every body but these (default: the selection), which stay solid |
+| `UNFADE [, b/SEL/ALL]` | solid again (default: all of them) |
+| `DISPLAY, HIDE, b/SEL` · `DISPLAY, SHOW, b/SEL/ALL` | hides or shows for the view only |
+| `DISPLAY, ONLY, b/SEL` | shows only these bodies |
+| `DISPLAY, FADE, b/SEL [, amount]` · `DISPLAY, UNFADE, b/SEL/ALL` | the same as `FADE` and `UNFADE` |
+| `DISPLAY, ALL` | every body shown and solid (except bodies on a layer that is off) |
+| `DISPLAY, MODEL` | drops the view's own changes: back to what the history shows |
+| `FIT [, b/SEL]` | zooms to these bodies (no argument: everything) |
+
+Where a body is named, several can be given separated by spaces:
+`FADE, 3 5 7` or `DISPLAY, HIDE, 3 5`. A view step wins over `HIDE` and
+`SHOW` in the history until a new `HIDE`, `SHOW`, `SHOW, ALL` or `ISOLATE`
+names the body again. A faded body made of glass keeps whichever is more
+see-through. `LIST, BODIES` marks faded bodies.
+
+In the window, a **right click** without dragging opens a menu on the body
+under the mouse (a right drag still pans): hide, show only this, fade this,
+fade all others, show everything, zoom to, rename, colour, layer,
+material, explode (for a part instance), find the step that made it, and
+delete. When the body is one of several selected, the menu acts on the
+whole selection. A right click on empty space offers Show everything, Make
+all solid and Fit all. On the History panel, a step that made bodies has a
+"Made by this step" submenu with the same view actions.
+
 ## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF, CONTACT, CLEARANCE, RELATE, COMPARE, DESIGNCHECK
 
 These commands say exactly what the model is and whether it is right,
