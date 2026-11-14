@@ -253,6 +253,8 @@ Details: [LANGUAGE.md](LANGUAGE.md) section 22.
 | **Angle**, `ANGLE` | angle between two faces or edges |
 | **Mass**, `MASSPROP` | volume, area, centre of mass, inertia, and mass with a material |
 | **Clash**, `CLASH` | whether bodies overlap, and by how much |
+| `CONTACT` | whether parts touch (on a face, a line or a point), how far apart they are, or how much they overlap; alone, which parts hold together and which touch nothing |
+| `CLEARANCE` | the clearance or interference of each shaft in a hole |
 | **Section**, `SECTION` | cuts the view open on a plane |
 | `CHECK`, `HEAL`, `CLEAN` | finds and repairs broken bodies (often from imports) |
 | `THICK`, `PROFILE`, `PROBE` | wall thickness, a cut through a body as text, what a ray hits |

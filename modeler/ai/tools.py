@@ -30,6 +30,7 @@ from . import expect
 from . import lint as ln
 from . import experiments as ex
 from . import probe as pb
+from . import contact as cx
 from . import selectors as sl
 from .sandbox import Sandbox, SandboxError
 
@@ -153,7 +154,8 @@ class Toolbox:
             Tool("undo", "Take back the last n entries in the sandbox.", {"n": {"type": "integer"}}, (), self.undo),
             Tool("check", "Test expectations exactly; each is the arguments of ASSERT: 'VOL(b), BETWEEN, 1, 2', "
                  "'BBOX(b).dz, EQ, 12, 0.01', 'HOLES(b, 8), EQ, 6', 'VALID(b)', 'PIECES(b), EQ, 1', "
-                 "'SYMMETRIC(b, \"YZ\")', 'GAP(a, b), EQ, 0'. Checks the sandbox when one is open.",
+                 "'SYMMETRIC(b, \"YZ\")', 'GAP(a, b), EQ, 0', 'TOUCH(a, b)', 'OVERLAP(a, b), EQ, 0', "
+                 "'GROUPS(), EQ, 1', 'CLEARANCE(pin, plate), GE, 0.05'. Checks the sandbox when one is open.",
                  {"expectations": {"type": "array", "items": {"type": "string"}}, "where": _WHERE},
                  ("expectations",), self.check),
             Tool("diff", "What changed between two history positions (0 is the empty start; default: the "
@@ -181,6 +183,24 @@ class Toolbox:
                  "over every face: thickness, the two faces and points. With below, every wall thinner than that.",
                  {"body": {"type": ["string", "integer"]}, "below": {"type": "number"}, "limit": {"type": "integer"},
                   "where": _WHERE}, ("body",), self.wall_thickness),
+            Tool("contact", "Do two bodies touch? state 'apart' (gap, nearest points and faces), 'touch' (on "
+                 "faces with the area, along a line with its length, or at a point; the faces in contact) or "
+                 "'overlap' (volume in common, its box, the faces that dig in). tol: closer than this counts "
+                 "as touching (default a millionth of the size).",
+                 {"a": {"type": ["string", "integer"]}, "b": {"type": ["string", "integer"]},
+                  "tol": {"type": "number"}, "where": _WHERE}, ("a", "b"), self.contact),
+            Tool("assembly_check", "Check how all the parts sit together: every pair of solid bodies, with "
+                 "the overlaps (clashes), the touching pairs and how, pairs closer than near, the groups of "
+                 "bodies held together through contacts and the bodies touching nothing (floating). against "
+                 "checks only those bodies against the rest.",
+                 {"bodies": _BODIES, "against": {"type": ["string", "integer", "array"]},
+                  "tol": {"type": "number"}, "near": {"type": "number", "description": "also list gaps up to this"},
+                  "where": _WHERE}, (), self.assembly_check),
+            Tool("fit_check", "Shafts in holes between two bodies (a bolt in a plate, a pin in a bush): both "
+                 "diameters, clearance (negative: interference), state clearance / line to line / interference, "
+                 "axis offset, tightest gap and engaged length.",
+                 {"a": {"type": ["string", "integer"]}, "b": {"type": ["string", "integer"]},
+                  "where": _WHERE}, ("a", "b"), self.fit_check),
             Tool("vary", "Re-run the history with each value of a parameter (set by a plain 'NAME = value' "
                  "entry) and report which values make a step fail or an expectation fail. Checks that the model "
                  "is really parametric. Uses the sandbox when one is open.",
@@ -314,6 +334,16 @@ class Toolbox:
 
     def wall_thickness(self, body, below: float = 0.0, limit: int = 5, where: str = "model"):
         return pb.wall_thickness(self._p(where), body, float(below), int(limit))
+
+    # contact
+    def contact(self, a, b, tol: float = 0.0, where: str = "model"):
+        return cx.contact(self._p(where), a, b, float(tol or 0))
+
+    def assembly_check(self, bodies=None, against=None, tol: float = 0.0, near: float = 0.0, where: str = "model"):
+        return cx.assembly(self._p(where), bodies, against, float(tol or 0), float(near or 0))
+
+    def fit_check(self, a, b, where: str = "model"):
+        return cx.fit(self._p(where), a, b)
 
     # experiments
     def vary(self, param: str, values: list, expectations: list[str] | None = None):
