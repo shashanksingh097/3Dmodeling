@@ -55,6 +55,43 @@ SELECT_KINDS = ("BODY",) + ENTITY_KINDS
 UNITS = {"MM": 1.0, "CM": 10.0, "M": 1000.0, "IN": 25.4}
 
 
+class Lineage:
+    """What one history entry did to bodies, recorded while it runs.
+
+    ``made``: bodies it added (a body rebuilt under the same ID counts);
+    ``used``: bodies it removed; ``changed``: bodies it restyled, hid or
+    showed; ``reads``: every body it looked at. A body's steps are found by
+    walking these back (commands/lineage.py).
+    """
+
+    def __init__(self) -> None:
+        self.reads: set[int] = set()
+        self.made: set[int] = set()
+        self.used: set[int] = set()
+        self.changed: set[int] = set()
+        # body made -> the bodies the command that made it read (one command,
+        # not the whole entry: a loop of INST does not tie every bolt together)
+        self.inputs: dict[int, set[int]] = {}
+        self._current: set[int] = set()
+
+    def start_command(self) -> None:
+        self._current = set()
+
+    def read(self, bid: int) -> None:
+        self.reads.add(bid)
+        self._current.add(bid)
+
+    def note(self, kind: str, bid: int) -> None:
+        if kind == "body_added":
+            self.made.add(bid)
+            self.inputs[bid] = self.inputs.get(bid, set()) | (self._current - {bid})
+        elif kind == "body_removed":
+            self.used.add(bid)
+            self.read(bid)
+        elif kind in ("style", "visibility", "renamed"):
+            self.changed.add(bid)
+
+
 class ModelError(Exception):
     """Raised for invalid requests against the model (unknown IDs, etc.)."""
 
@@ -175,6 +212,9 @@ class Model:
         self._listeners: list[Callable[[Event], None]] = []
         self.revision = 0  # bumps on every change event
         self.pins: IdPins | None = None
+        # while a history entry runs: which bodies it reads, makes, uses up
+        # and restyles (see Lineage); None otherwise
+        self.lineage: Lineage | None = None
         # Fresh IDs never go below this (set while replaying history so new
         # steps do not take IDs that later steps have pinned).
         self.id_floor: dict[str, int] = {k: 1 for k in ID_KINDS}
@@ -227,6 +267,8 @@ class Model:
 
     def _emit(self, event: Event) -> None:
         self.revision += 1
+        if self.lineage is not None and event.body_id:
+            self.lineage.note(event.kind, event.body_id)
         for fn in list(self._listeners):
             fn(event)
 
@@ -577,6 +619,8 @@ class Model:
         self._emit(Event("cleared"))
 
     def body(self, bid: int) -> Body:
+        if self.lineage is not None:
+            self.lineage.read(bid)
         try:
             return self.bodies[bid]
         except KeyError:
@@ -603,6 +647,7 @@ class Model:
         body = self.body(bid)
         self._check_name_free(name, bid)
         self.bodies[bid] = replace(body, name=name)
+        self._emit(Event("renamed", bid))
 
     # ---- entities --------------------------------------------------------
     def entity_count(self, kind: str) -> int:

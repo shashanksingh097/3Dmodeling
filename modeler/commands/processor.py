@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
-from ..core.model import ID_KINDS, IdPins, Model, ModelError
+from ..core.model import ID_KINDS, IdPins, Lineage, Model, ModelError
 from ..core.refs import RefLog
 from ..lang.expr import Evaluator, ExprError, Vec, fmt_num, format_value
 from ..lang.script import (
@@ -142,6 +142,9 @@ class Entry:
     # set when the entry ran but needs attention (a repaired pick, say)
     warning: str = ""
     uid: int = 0  # stays with the entry for good; says which step made an entity
+    # what the entry did to bodies the last time it ran (core/model.py Lineage);
+    # not saved: every replay records it again
+    lineage: object = None
 
     @property
     def label(self) -> str:
@@ -648,6 +651,8 @@ class Processor:
         self.model.pins = pins
         self.entry_uid = entry.uid  # which step is running (sketch constraints remember it)
         self.refs = refs = RefLog(entry.refs)
+        outer = self.model.lineage  # (a HIST entry can run entries inside it)
+        self.model.lineage = lineage = Lineage()
         single = len(stmts) == 1 and isinstance(stmts[0], (Cmd, Assign))
         self._quiet = single
         try:
@@ -665,6 +670,8 @@ class Processor:
         finally:
             self.model.pins = None
             self.refs = None
+            self.model.lineage = outer
+        entry.lineage = lineage
         entry.pins = pins.merged()
         entry.refs = refs.merged()
         entry.warning = "\n".join(dict.fromkeys(self._warnings))
@@ -736,6 +743,8 @@ class Processor:
         if cmd.session:
             raise CommandError(f"{cmd.name} can only be used on its own line")
         values, shown = self._bind(cmd, st.args)
+        if self.model.lineage is not None:
+            self.model.lineage.start_command()
         msg = cmd.fn(self, **values) or ""
         if self._quiet:
             self._say(msg)

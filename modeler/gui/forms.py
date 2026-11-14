@@ -131,6 +131,8 @@ NO_FORM = {
     "UNDO", "REDO", "HIST", "OPEN", "SAVE", "NEW", "RUN",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
+    # the model tree lists the steps of the picked body
+    "STEPS",
     # the Control points button (Features toolbar); dragging a point sends MOVEPT
     "CPOINTS",
     # drawn by mouse in sketch mode (Sketch toolbar)
