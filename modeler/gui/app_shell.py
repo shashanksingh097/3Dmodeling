@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QInputDialog,
     QLineEdit,
     QMessageBox,
     QTextBrowser,
@@ -126,6 +127,10 @@ class AppShell:
         self.update_title()
 
     def file_label(self) -> str:
+        doc = self.p.part_doc
+        if doc is not None:
+            where = os.path.basename(doc.file) if doc.file else (doc.where or "not saved")
+            return f"part {doc.name} ({where})"
         return os.path.basename(self.p.project_path) if self.p.project_path else "Untitled"
 
     def update_title(self) -> None:
@@ -170,9 +175,55 @@ class AppShell:
             self.win.execute(f"OPEN, {_quote(path)}")
 
     def save(self) -> bool:
+        doc = self.p.part_doc
+        if doc is not None:  # a part document: write its *PART block
+            if doc.file is None and doc.sink is None:
+                return self.save_part_as()
+            return self.win.execute("SAVEPART").ok
         if not self.p.project_path:
             return self.save_as()
         return self.win.execute("SAVE").ok
+
+    def save_part_as(self) -> bool:
+        doc = self.p.part_doc
+        start = doc.file or os.path.join(self._start_dir(), f"{doc.name.lower()}.cmd")
+        path, _ = QFileDialog.getSaveFileName(self.win, "Save part as", start, "Part files (*.cmd)")
+        if not path:
+            return False
+        return self.win.execute(f"SAVEPART, {_quote(path)}").ok
+
+    def new_part(self, name: str | None = None) -> None:
+        if not self.confirm_discard("start a new part"):
+            return
+        if name is None:
+            name, ok = QInputDialog.getText(self.win, "New part", "Name of the part (for example bolt):")
+            if not ok or not name.strip():
+                return
+        self.win.execute(f"NEWPART, {name.strip()}")
+
+    def open_part(self, path: str | None = None, name: str = "") -> None:
+        if not self.confirm_discard("open a part"):
+            return
+        if path is None:
+            path, _ = QFileDialog.getOpenFileName(self.win, "Open part", self._start_dir(),
+                                                  "Part files (*.cmd);;All files (*)")
+        if not path:
+            return
+        if not name:
+            from ..commands.partdoc_handlers import _source_name, part_blocks
+
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    blocks = part_blocks(fh.read())
+            except Exception:  # noqa: BLE001 - OPENPART below says what is wrong
+                blocks = []
+            if len(blocks) > 1:
+                names = [_source_name(b) for b in blocks]
+                name, ok = QInputDialog.getItem(self.win, "Open part", "This file holds several parts. Open:",
+                                                names, 0, False)
+                if not ok:
+                    return
+        self.win.execute(f"OPENPART, {_quote(path)}" + (f", {name}" if name else ""))
 
     def save_as(self) -> bool:
         start = self.p.project_path or os.path.join(self._start_dir(), "model.m3d")
@@ -266,7 +317,7 @@ class AppShell:
             return
         words = [w.strip() for w in res.line.split(",")]
         name = words[0].upper()
-        if name in ("SAVE", "NEW"):
+        if name in ("SAVE", "NEW", "NEWPART", "OPENPART", "SAVEPART"):
             if name == "SAVE" and self.p.project_path:
                 self._remember_recent(self.p.project_path)
             self.mark_saved()
@@ -296,6 +347,10 @@ class AppShell:
         a = self._action
         self.new_action = a(m, "&New", self.new, QKeySequence.New, "Start an empty model. Runs: NEW")
         self.open_action = a(m, "&Open…", self.open, QKeySequence.Open, "Open a project (.m3d). Runs: OPEN, file")
+        self.new_part_action = a(m, "New &part…", self.new_part, None,
+                                 "Design one part on its own; Save writes it as a part file. Runs: NEWPART, name")
+        self.open_part_action = a(m, "Open p&art…", self.open_part, None,
+                                  "Open one part of a part file (.cmd) as its steps. Runs: OPENPART, file")
         self.recent_menu = m.addMenu("Open &recent")
         self.recent_menu.aboutToShow.connect(self._fill_recent)
         self._fill_recent()

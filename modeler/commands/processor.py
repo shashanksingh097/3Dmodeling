@@ -199,6 +199,7 @@ class Processor:
         self.file_map: dict[str, str] = {}
         self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
         self.project_path: str | None = None  # the last SAVE/OPEN file
+        self.part_doc = None  # a part document (commands/partdoc_handlers.py PartDoc), or None for a project
         self.section = None  # SECTION view: (datum plane, "ABOVE"/"BELOW") or None; a view setting only
         self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
         self.analysis = None  # ANALYZE: what the view colours (analysis_handlers.Analysis), a view setting only
@@ -336,6 +337,7 @@ class Processor:
         self.macros = {}
         self.parts = {}
         self.file_map = {}
+        self.part_doc = None
         self.model.clear()
         self.history = []
         self._uid = 0

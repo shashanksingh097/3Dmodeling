@@ -516,7 +516,7 @@ the right-click menu. Like everything else, it only sends commands.
 
 **What is new**
 
-1. **Part documents.** File > New part and Open part. A part document is a
+1. Done (M11a): **Part documents.** File > New part and Open part. A part document is a
    normal model whose steps show in History (each opens in its form or the
    sweep editor), whose sizes show in the Parameters panel marked as the
    part's inputs, with a default for each. Saving writes the part file: the
@@ -533,8 +533,9 @@ the right-click menu. Like everything else, it only sends commands.
 3. **Editing a part from the assembly.** In the tree and the right-click
    menu, a copy of a linked part offers Open part, which opens the part
    document in its own window. Saving it there updates the assembly
-   window. For a part defined inside the project, Edit part opens the same
-   part view on its `*PART` block and writes `HIST, EDIT` back.
+   window. Done (M11a): for a part defined inside the project, Edit part
+   opens the same part view on its `*PART` block and writes `HIST, EDIT`
+   back.
 4. **Mates.** `MATE, a, b, COINCIDENT|CONCENTRIC|DISTANCE|ANGLE [, value]`
    between faces, edges or axes of two copies, solved in order as placement
    steps (each moves the second copy; a full solver comes later if needed).
@@ -728,7 +729,8 @@ Still open in the milestones already started, in the suggested order:
    menu), M10b (lineage, `STEPS`, the Model tree dock) and M10c (the item
    panel that edits an item's steps, the exit test).
    Right after M10: M11, separate part and assembly design (section
-   5.10): part documents, parts linked into assemblies, mates.
+   5.10). Done: M11a (part documents, Edit part). Next: M11b (linked
+   parts, Open part from a copy), then M11c (mates).
 5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.

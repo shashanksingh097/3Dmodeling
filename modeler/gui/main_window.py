@@ -51,6 +51,14 @@ def _mono() -> QFont:
     return f
 
 
+def strip_comment_lines(text: str) -> str:
+    """An entry's text without its leading comment and blank lines."""
+    lines = text.splitlines()
+    while lines and (not lines[0].strip() or lines[0].lstrip().startswith("!")):
+        lines.pop(0)
+    return "\n".join(lines)
+
+
 def hist_command(action: str, n: int, text: str | None = None) -> str:
     """Command text for a history action, e.g. HIST, EDIT, 3, "W = 60"."""
     return f"HIST, {action}, {n}" + (f", {format_value(text)}" if text is not None else "")
@@ -240,6 +248,11 @@ class HistoryPanel(QTableWidget):
             menu.addAction("Resume" if e.suppressed else "Suppress",
                            lambda: self.win.execute(hist_command("RESUME" if e.suppressed else "SUPPRESS", n)))
             menu.addAction("Delete", lambda: self.win.execute(hist_command("DELETE", n)))
+            import re
+
+            pm = re.match(r"\s*\*PART\s*,\s*([A-Za-z_][A-Za-z0-9_]*)", strip_comment_lines(e.text))
+            if pm:
+                menu.addAction(f"Edit part {pm.group(1).lower()}…", lambda: self.win.edit_part(pm.group(1)))
             sk = self._sketch_of(row)
             if sk:
                 menu.addAction(f"Sizes of sketch {sk}…", lambda: self.win.sketch_ui.edit_sizes(sk))
@@ -334,12 +347,22 @@ class ParamPanel(QTableWidget):
 
     def refresh(self) -> None:
         p = self.win.processor
+        inputs: set[str] = set()
+        if p.part_doc is not None:
+            from ..commands.partdoc_handlers import part_inputs
+
+            inputs = {k for k, _ in part_inputs(p)}
         self._filling = True
         try:
             self.setRowCount(len(p.params))
             for row, (name, value) in enumerate(sorted(p.params.items())):
                 key = QTableWidgetItem(name)
                 key.setFlags(key.flags() & ~Qt.ItemIsEditable)
+                if name in inputs:
+                    f = key.font()
+                    f.setBold(True)
+                    key.setFont(f)
+                    key.setToolTip(f"An input of part {p.part_doc.name}: its value here is the part's default")
                 val = QTableWidgetItem(format_value(value))
                 entry = p.entry_for_param(name)
                 if entry is None:
@@ -644,7 +667,54 @@ class MainWindow(QMainWindow):
                 act = menu.addAction(item.label, lambda it=item: self.run_menu_item(it))
                 act.setEnabled(item.enabled)
 
+    def edit_part(self, name: str):
+        """Open a part defined in this project (its *PART step) in a part window of
+        its own; saving there writes the new block back with HIST, EDIT."""
+        from ..commands import CommandError
+        from ..commands.lineage import part_entry
+        from ..commands.partdoc_handlers import open_part_text
+
+        p = self.processor
+        row = part_entry(p, name, p.cursor)
+        if row is None:
+            self.statusBar().showMessage(
+                f"Part {name.lower()} is not defined in this project's history (it may come from a part file: "
+                "use File > Open part)", 8000)
+            return None
+
+        def sink(block: str) -> str:
+            at = part_entry(p, name, p.cursor)  # the history may have moved since the window opened
+            if at is None:
+                raise CommandError(f"SAVEPART: part {name.lower()} is no longer in the project")
+            lines = p.history[at].text.splitlines()
+            head = next(i for i, ln in enumerate(lines) if ln.lstrip().upper().startswith("*PART"))
+            text = "\n".join(lines[:head] + [block])  # keep the comments above the block
+            res = self.execute(hist_command("EDIT", at + 1, text))
+            if not res.ok:
+                raise CommandError(f"SAVEPART: the project did not take the new part: {res.message}")
+            return f"part {name.lower()} updated in the project (history step {at + 1}); every copy is rebuilt"
+
+        w = MainWindow(Processor(), autosave="off")  # (never touch this window's autosave)
+        if self.shell.keep_layout:  # the app: ask before unsaved part edits are closed
+            w.shell.ask_unsaved = w.shell._ask_unsaved_dialog
+        try:
+            open_part_text(w.processor, p.history[row].text, name, sink=sink,
+                           where=f"step {row + 1} of {self.shell.file_label()}")
+        except CommandError as exc:
+            w.close()
+            self.statusBar().showMessage(str(exc), 8000)
+            return None
+        w.shell.mark_saved()
+        w.output.appendPlainText(f"Editing part {name.lower()} from {self.shell.file_label()}. "
+                                 "File > Save puts it back into that project.")
+        w.show()
+        self._part_windows = [x for x in getattr(self, "_part_windows", []) if x.isVisible()] + [w]
+        return w
+
     def run_menu_item(self, item) -> None:
+        if item.edit_part:
+            self.edit_part(item.edit_part)
+            return
         if item.find_entry:
             if self.history_panel.select_entry(item.find_entry):
                 self.history_panel.setFocus()
