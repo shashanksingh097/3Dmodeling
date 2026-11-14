@@ -93,8 +93,25 @@ def everything_items(model) -> list[MenuItem]:
     return items
 
 
-def body_items(model, bid: int) -> list[MenuItem]:
-    """The menu for a right click on body ``bid`` in the 3D view (or a tree row)."""
+def part_item(part: str, sources: dict | None) -> MenuItem:
+    """Edit part (defined in this project) or Open part (read from a part file)."""
+    import os
+
+    got = (sources or {}).get(part.upper())
+    name = part.lower()
+    if not got:
+        return MenuItem(f"Edit part {name}…", edit_part=part)
+    path, kind = got
+    if kind == "linked":
+        return MenuItem(f"Open part {name} ({os.path.basename(path)})…", edit_part=part)
+    if kind == "copy":
+        return MenuItem(f"Open part {name} (its file is missing)", edit_part=part, enabled=False)
+    return MenuItem(f"Open part file {name} ({os.path.basename(path)}, loaded as a copy)…", edit_part=part)
+
+
+def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
+    """The menu for a right click on body ``bid`` in the 3D view (or a tree row).
+    ``sources`` is the processor's ``part_files``: which parts come from a file."""
     ids = menu_target(model, bid)
     one = len(ids) == 1
     t = target_text(ids)
@@ -113,7 +130,7 @@ def body_items(model, bid: int) -> list[MenuItem]:
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]
-            items.append(MenuItem(f"Edit part {part.lower()}…", edit_part=part))
+            items.append(part_item(part, sources))
             items.append(MenuItem(f"Explode (instance of {part})", [f"EXPLODE, {bid}"]))
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))

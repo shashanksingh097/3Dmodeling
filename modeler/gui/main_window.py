@@ -488,6 +488,9 @@ class MainWindow(QMainWindow):
             "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
         )
         self._setup_autosave(autosave)
+        from .link_watch import LinkWatcher
+
+        self.link_watch = LinkWatcher(self)  # linked part files changed on disk: RELOAD
         self._on_history()
         self.shell.update_title()
         self.shell.restore_layout()
@@ -647,7 +650,7 @@ class MainWindow(QMainWindow):
     def show_body_menu(self, bid: int, global_pos) -> None:
         """The menu for a right click in the 3D view: on a body, or on empty space."""
         m = self.processor.model
-        items = bm.body_items(m, bid) if bid in m.bodies else bm.empty_items(m)
+        items = bm.body_items(m, bid, self.processor.part_files) if bid in m.bodies else bm.empty_items(m)
         menu = QMenu(self)
         self.fill_menu(menu, items)
         self._body_menu = menu  # tests read it
@@ -676,6 +679,8 @@ class MainWindow(QMainWindow):
 
         p = self.processor
         row = part_entry(p, name, p.cursor)
+        if row is None and name.upper() in p.part_files:
+            return self.open_file_part(name)
         if row is None:
             self.statusBar().showMessage(
                 f"Part {name.lower()} is not defined in this project's history (it may come from a part file: "
@@ -694,9 +699,7 @@ class MainWindow(QMainWindow):
                 raise CommandError(f"SAVEPART: the project did not take the new part: {res.message}")
             return f"part {name.lower()} updated in the project (history step {at + 1}); every copy is rebuilt"
 
-        w = MainWindow(Processor(), autosave="off")  # (never touch this window's autosave)
-        if self.shell.keep_layout:  # the app: ask before unsaved part edits are closed
-            w.shell.ask_unsaved = w.shell._ask_unsaved_dialog
+        w = self._part_window()
         try:
             open_part_text(w.processor, p.history[row].text, name, sink=sink,
                            where=f"step {row + 1} of {self.shell.file_label()}")
@@ -710,6 +713,62 @@ class MainWindow(QMainWindow):
         w.show()
         self._part_windows = [x for x in getattr(self, "_part_windows", []) if x.isVisible()] + [w]
         return w
+
+    def _part_window(self) -> MainWindow:
+        w = MainWindow(Processor(), autosave="off")  # (never touch this window's autosave)
+        if self.shell.keep_layout:  # the app: ask before unsaved part edits are closed
+            w.shell.ask_unsaved = w.shell._ask_unsaved_dialog
+        return w
+
+    def open_file_part(self, name: str):
+        """Open a part read from a part file (LIB, LINK or LOAD) in a part window.
+        Saving there writes the file; for a linked part this window then
+        re-reads it, so every copy updates."""
+        from ..commands import CommandError
+        from ..commands.partdoc_handlers import open_part_text
+
+        p = self.processor
+        path, kind = p.part_files[name.upper()]
+        if kind == "copy" or not os.path.isfile(path):
+            self.statusBar().showMessage(f"The part file of {name.lower()} is missing: {path}", 8000)
+            return None
+        w = self._part_window()
+        try:
+            with open(path, encoding="utf-8") as fh:
+                open_part_text(w.processor, fh.read(), name, file=path)
+        except (OSError, CommandError) as exc:
+            w.close()
+            self.statusBar().showMessage(str(exc), 8000)
+            return None
+        w.shell.mark_saved()
+        if kind == "linked":
+            w.output.appendPlainText(f"Editing part {name.lower()} from {path}. File > Save writes the file, and "
+                                     f"{self.shell.file_label()} updates every copy.")
+        else:
+            w.output.appendPlainText(f"Editing part {name.lower()} from {path}. {self.shell.file_label()} loaded a "
+                                     "copy of it (LIB, LOAD), so saving here changes the file only; link it with "
+                                     "LIB, LINK to follow the file.")
+
+        def saved(res) -> None:
+            if res.ok and res.line and res.line.split(",")[0].strip().upper() == "SAVEPART":
+                QTimer.singleShot(0, self.reload_links)
+
+        w.processor.listeners.append(saved)
+        w.show()
+        self._part_windows = [x for x in getattr(self, "_part_windows", []) if x.isVisible()] + [w]
+        return w
+
+    def reload_links(self) -> bool:
+        """Re-read linked part files that changed (RELOAD); True when it ran."""
+        from ..commands.part_handlers import links_changed
+
+        p = self.processor
+        if p.pending or not links_changed(p):
+            return False
+        res = self.execute("RELOAD")
+        if res.ok:
+            self.statusBar().showMessage(res.message.splitlines()[0], 8000)
+        return True
 
     def run_menu_item(self, item) -> None:
         if item.edit_part:

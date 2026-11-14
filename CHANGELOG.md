@@ -4,6 +4,20 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Linked part files (separate part design, second part)
+
+- `LIB, LINK, file` (**File > Link part file…**): an assembly follows a part
+  file. Every open, rebuild and `RELOAD` reads the file itself, and the
+  window reloads by itself when the file changes, so every copy updates.
+  When the file is missing the copy saved in the project is used, with a
+  warning. A saved project finds the file again next to it after the folder
+  is moved.
+- **Open part** on a copy of a part from a file (right-click, the Model
+  tree, the item panel) opens the part file in its own window; saving it
+  updates the assembly.
+- `LIST, PARTS` and the Model tree say whether each part is linked, loaded
+  as a copy, or defined in the project. The `LIB` form links by default.
+
 ### Part documents (separate part design, first part)
 
 - **File > New part…** and **File > Open part…**: design one part on its own.

@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..commands.lineage import body_steps
+from ..commands.part_handlers import part_source
 
 
 @dataclass
@@ -89,7 +90,12 @@ def tree_nodes(p) -> list[Node]:
         for name in sorted(by_part):
             kids = [_body_node(p, b, cache) for b in by_part[name]]
             node = _group(f"part:{name}", name.lower(), "part", kids)
-            node.tip = f"part {name.lower()}: {len(kids)} placed"
+            node.tip = f"part {name.lower()}: {len(kids)} placed, {part_source(p, name)}"
+            got = p.part_files.get(name)
+            if got:
+                node.state = {"linked": "linked", "copy": "file missing", "loaded": "loaded copy"}[got[1]]
+                if got[1] == "copy":
+                    node.badge = "warning"
             parts.append(node)
         out.append(Node("group:parts", f"Parts ({len(parts)})", "group",
                         [i for n in parts for i in n.ids], parts,

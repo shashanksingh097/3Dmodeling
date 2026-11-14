@@ -209,3 +209,56 @@ def test_edit_part_from_a_project_writes_back(win, app):
         assert abs(box.CornerMax().Z() - box.CornerMin().Z() - 25) < 0.1
     pw.shell.ask_unsaved = lambda *_: "discard"
     pw.close()
+
+
+def test_open_linked_part_updates_every_copy(win, app, tmp_path):
+    """The M11 exit test without mates: link a bolt file, place copies, open the
+    part from one copy, change it, save, and see every copy follow."""
+    f = tmp_path / "bolt.cmd"
+    f.write_text("*PART, bolt, D=8, L=30\n  CYL, 0, 0, 0, D, 5\n  CYL, 0, 0, -L, D/2, L\n  UNION, 1, 2\n*ENDPART\n",
+                 encoding="utf-8")
+    win.shell.link_part(str(f))
+    for i in range(4):
+        assert win.execute(f"INST, bolt, {20 * i}, 0, 0").ok
+    p = win.processor
+    assert str(f) in win.link_watch.paths()
+    bid = max(p.model.bodies)
+    from modeler.gui import body_menu as bm
+
+    item = next(i for i in bm.body_items(p.model, bid, p.part_files) if i.edit_part)
+    assert item.label == "Open part bolt (bolt.cmd)…"
+    pump(app)
+    tree_items = win.model_tree.menu_items("part:BOLT")
+    assert any(i.label == "Open part bolt (bolt.cmd)…" for i in tree_items)
+    win.processor.run(f"PICK, BODY, {bid}")
+    pump(app)
+    win.item_panel.refresh()
+    assert win.item_panel.part_button.text() == "Open part…"
+    assert "linked to" in win.item_panel.note.text()
+
+    pw = win.edit_part(item.edit_part)
+    assert pw is not None and pw.processor.part_doc.file == str(f)
+    q = pw.processor
+    row = next(j for j, e in enumerate(q.history) if e.text.startswith("L ="))
+    assert pw.execute(f'HIST, EDIT, {row + 1}, "L = 50"').ok
+    assert pw.shell.save()
+    assert "L=50" in f.read_text(encoding="utf-8")
+    pump(app, 20)  # the window re-reads the file after the save
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    assert len(p.model.instances) == 4
+    for b in p.model.bodies.values():
+        box = Bnd_Box()
+        BRepBndLib.Add_s(b.shape, box)
+        assert abs(box.CornerMax().Z() - box.CornerMin().Z() - 55) < 0.1
+    assert "bolt updated from bolt.cmd" in win.output.toPlainText()
+    pw.close()
+
+    # a change made outside the app is picked up when the watcher fires
+    f.write_text(f.read_text(encoding="utf-8").replace("L=50", "L=20"), encoding="utf-8")
+    assert win.link_watch.check()
+    box = Bnd_Box()
+    BRepBndLib.Add_s(p.model.bodies[bid].shape, box)
+    assert abs(box.CornerMax().Z() - box.CornerMin().Z() - 25) < 0.1
+    assert not win.link_watch.check()  # nothing new

@@ -192,6 +192,15 @@ class Processor:
         # because a key never changes meaning
         self.part_cache: dict = {}
         self.lib_files: dict[str, str] = {}  # LIB, LOAD names as written -> the file read
+        # LIB, LINK names as written -> what the last run read (part_handlers.Link);
+        # not undo state: it says what the file held, which RELOAD compares
+        self.links: dict = {}
+        # where a project last found each linked file ({name: {"abs": .., "rel": ..}}),
+        # so a reopened project reads the live part file, not its saved copy
+        self.link_paths: dict[str, dict] = {}
+        self.project_dir: str = ""  # the folder of the opened project (linked files may sit next to it)
+        # part name -> (file, "linked" | "copy" | "loaded") for parts read from a part file
+        self.part_files: dict[str, tuple[str, str]] = {}
         # parameters fixed from outside (batch runner -D): assignments keep these values
         self.overrides = {k.upper(): v for k, v in (overrides or {}).items()}
         # IMPORT file names as written in the script -> the file to read
@@ -336,7 +345,11 @@ class Processor:
         self.params = {}
         self.macros = {}
         self.parts = {}
+        self.part_files = {}
         self.file_map = {}
+        self.links = {}
+        self.link_paths = {}
+        self.project_dir = ""
         self.part_doc = None
         self.model.clear()
         self.history = []
@@ -586,12 +599,13 @@ class Processor:
 
     def _state(self) -> dict:
         return {"model": self.model.snapshot(), "params": dict(self.params), "macros": dict(self.macros),
-                "parts": dict(self.parts)}
+                "parts": dict(self.parts), "part_files": dict(self.part_files)}
 
     def _restore(self, state: dict, emit: bool = True) -> None:
         self.params = dict(state["params"])
         self.macros = dict(state["macros"])
         self.parts = dict(state.get("parts", {}))
+        self.part_files = dict(state.get("part_files", {}))
         if emit:
             self.model.restore(state["model"])
         else:

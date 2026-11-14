@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass, field
 
 from ..commands.lineage import body_steps
+from ..commands.part_handlers import part_source
 from ..lang.expr import format_value
 from ..lang.script import strip_comment
 from . import forms as F
@@ -44,6 +45,8 @@ class ItemInfo:
     part: str = ""  # for an instance: the part's name
     copies: int = 0  # for an instance: how many bodies come from the same part
     values: str = ""  # for an instance: its own values, "D=8, L=30"
+    source: str = ""  # for an instance: where its part comes from ("linked to bolt.cmd")
+    from_file: bool = False  # the part is read from a part file (Open part, not Edit part)
 
 
 def _has_form(text: str) -> bool:
@@ -107,6 +110,8 @@ def item_info(p, bid: int) -> ItemInfo:
     if bid in m.instances:
         part, values = m.instances[bid]
         info.part = part.lower()
+        info.source = part_source(p, part)
+        info.from_file = part.upper() in p.part_files
         info.copies = sum(1 for v in m.instances.values() if v[0].upper() == part.upper())
         info.values = ", ".join(f"{k}={format_value(v)}" for k, v in values)
         info.title = f"{info.title}: {info.part}" + (f" ({info.values})" if info.values else "")

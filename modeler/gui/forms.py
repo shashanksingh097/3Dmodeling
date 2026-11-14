@@ -131,6 +131,8 @@ NO_FORM = {
     "UNDO", "REDO", "HIST", "OPEN", "SAVE", "NEW", "RUN",
     # part documents: File > New part, Open part, Save (part)
     "NEWPART", "OPENPART", "SAVEPART",
+    # the window re-reads linked part files by itself (File > Reload linked parts)
+    "RELOAD",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
     # the model tree lists the steps of the picked body
@@ -470,7 +472,9 @@ def _hand() -> dict[str, FormSpec]:
         _F("values", "Part values", "params",
            help="the part's parameters for this copy; left empty, they keep the part's defaults"),
     ])])
-    add("LIB", [Variant("", "", [_F("action", "", "choice", "LOAD", choices=("LOAD",)),
+    add("LIB", [Variant("", "", [_F("action", "How", "choice", "LINK", required=True, choices=("LINK", "LOAD"),
+                                    help="LINK follows the file: copies update when it changes; "
+                                         "LOAD keeps the version read now"),
                                  _F("file", "Part file", "path", required=True,
                                     help="a part name in the library folder, or a .cmd file")])])
     add("NURBS", [Variant("", "", [

@@ -157,7 +157,7 @@ def _imports_in(p: Processor) -> list[str]:
             name = getattr(st, "name", None)
             args = getattr(st, "args", [])
             if (name == "IMPORT" and len(args) >= 2) or (name == "LIB" and len(args) >= 2
-                                                          and args[0].strip().upper() == "LOAD"):
+                                                          and args[0].strip().upper() in ("LOAD", "LINK")):
                 raw = st.args[1].strip()
                 if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
                     raw = raw[1:-1]
@@ -176,6 +176,20 @@ def _imports_in(p: Processor) -> list[str]:
     return files
 
 
+def _link_paths(p: Processor, project: str) -> dict:
+    out = dict(p.link_paths)
+    for name, lk in p.links.items():
+        if lk.copy or not os.path.isfile(lk.path):
+            continue  # missing: keep where it was last seen
+        full = os.path.abspath(lk.path)
+        try:
+            rel = os.path.relpath(full, os.path.dirname(os.path.abspath(project)))
+        except ValueError:  # another drive on Windows
+            rel = ""
+        out[name] = {"abs": full, "rel": rel}
+    return out
+
+
 def save_project(p: Processor, path: str) -> int:
     """Write the project zip; returns the number of history entries."""
     os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
@@ -185,6 +199,8 @@ def save_project(p: Processor, path: str) -> int:
         z.writestr("script.cmd", p.script())
         for i, name in enumerate(_imports_in(p)):
             real = p.file_map.get(name) or p.lib_files.get(name) or name
+            if name in p.links:  # a linked part file: keep a copy of what it holds now
+                real = p.links[name].path
             if os.path.isfile(real):
                 stored = f"files/{i}_{os.path.basename(name)}"
                 z.write(real, stored)
@@ -205,6 +221,8 @@ def save_project(p: Processor, path: str) -> int:
             "files": files,
             "history": history,
             "view": p.model.view_state(),  # hidden and faded by the view (not history)
+            # where each linked part file is, so reopening reads the file itself
+            "links": _link_paths(p, path),
         }
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
@@ -232,6 +250,8 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
             mapping[name] = os.path.join(tmpdir, stored)
     p.reset()
     p.file_map = mapping
+    p.link_paths = dict(meta.get("links", {}))
+    p.project_dir = os.path.dirname(os.path.abspath(path))
     results = p.run_script(script, meta.get("history"))
     p.model.set_view_state(meta.get("view"))
     errors = [f"'{first_code_line(r.line)}': {r.message}" for r in results if not r.ok]
@@ -254,6 +274,7 @@ def save(p: Processor, file):
         raise CommandError("SAVE: give a file name, e.g. SAVE, bracket.m3d")
     n = save_project(p, file)
     p.project_path = file
+    p.project_dir = os.path.dirname(os.path.abspath(file))
     return f"saved {n} entr{'y' if n == 1 else 'ies'} to {file}"
 
 
