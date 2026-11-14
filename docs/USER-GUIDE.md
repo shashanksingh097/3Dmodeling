@@ -257,6 +257,14 @@ project with `LIB, LOAD, washer`. In the GUI, select some History steps,
 right-click, and choose **Make a part from steps**. Details:
 [M4-parts.md](M4-parts.md).
 
+**Design a part on its own.** **File > New part…** starts an empty part:
+set its sizes first (`D = 8`), then model it as usual. **File > Save** writes
+it as a part file (`.cmd`) that any project can load. **File > Open part…**
+opens a part file again with every step editable. To change a part that
+lives inside a project, right-click one of its copies and choose **Edit
+part**: it opens in its own window, and **Save** there updates every copy.
+Details: [LANGUAGE.md](LANGUAGE.md) section 17.
+
 ---
 
 ## 9. Layers, colours and materials

@@ -129,6 +129,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
 NO_FORM = {
     # history and session: toolbar buttons, the History panel, file dialogs
     "UNDO", "REDO", "HIST", "OPEN", "SAVE", "NEW", "RUN",
+    # part documents: File > New part, Open part, Save (part)
+    "NEWPART", "OPENPART", "SAVEPART",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
     # the model tree lists the steps of the picked body

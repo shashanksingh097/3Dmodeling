@@ -18,3 +18,4 @@ from . import deform_handlers  # noqa: F401  (BEND, TWIST, TAPER, STRETCH, FLOW,
 from . import contact_handlers  # noqa: F401  (CONTACT, CLEARANCE, RELATE, DESIGNCHECK, COMPARE)
 from . import view_handlers  # noqa: F401  (FADE, UNFADE, DISPLAY: the view's own steps)
 from . import lineage  # noqa: F401  (STEPS: the history steps that made a body)
+from . import partdoc_handlers  # noqa: F401  (NEWPART, OPENPART, SAVEPART: part documents)

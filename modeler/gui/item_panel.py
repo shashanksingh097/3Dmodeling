@@ -51,6 +51,9 @@ class ItemPanel(QWidget):
         self.edit_button.clicked.connect(lambda: self.edit(self.steps.currentRow()))
         self.show_button = QPushButton("Show in History")
         self.show_button.clicked.connect(self._show_in_history)
+        self.part_button = QPushButton("Edit part…")
+        self.part_button.setToolTip("Open the part's recipe in a window of its own; saving it updates every copy")
+        self.part_button.clicked.connect(lambda: self.info and self.info.part and self.win.edit_part(self.info.part))
         self.params = QTableWidget(0, 2)
         self.params.setHorizontalHeaderLabels(["Parameter", "Value"])
         self.params.verticalHeader().hide()
@@ -62,6 +65,7 @@ class ItemPanel(QWidget):
         buttons = QHBoxLayout()
         buttons.addWidget(self.edit_button)
         buttons.addWidget(self.show_button)
+        buttons.addWidget(self.part_button)
         buttons.addStretch(1)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(4, 4, 4, 4)
@@ -104,6 +108,7 @@ class ItemPanel(QWidget):
                 self.params.setRowCount(0)
                 self.edit_button.setEnabled(False)
                 self.show_button.setEnabled(False)
+                self.part_button.setVisible(False)
                 return
             info = self.info
             self.title.setText(f"<b>{info.title}</b>")
@@ -135,6 +140,7 @@ class ItemPanel(QWidget):
                 self.params.setItem(r, 1, val)
             self.edit_button.setEnabled(bool(info.lines))
             self.show_button.setEnabled(bool(info.lines))
+            self.part_button.setVisible(bool(info.part))
         finally:
             self._filling = False
 

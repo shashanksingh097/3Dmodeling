@@ -161,3 +161,51 @@ def test_error_in_a_slot_is_reported_not_fatal(win, app, tmp_path):
     assert win.shell.last_error_box.isVisible()
     win.shell.last_error_box.close()
     guard.clean_exit()
+
+
+def test_new_part_save_and_open_part(win, app, tmp_path):
+    labels = [a.text().replace("&", "") for a in win.shell.file_menu.actions() if a.text()]
+    assert "New part…" in labels and "Open part…" in labels
+    win.shell.new_part("peg")
+    assert win.windowTitle().startswith("part peg (not saved)")
+    win.execute("D = 4")
+    win.execute("CYL, 0,0,0, D/2, 10")
+    assert win.isWindowModified()
+    pump(app)
+    key = win.param_panel.item(0, 0)
+    assert key.text() == "D" and key.font().bold()  # a part input
+    path = str(tmp_path / "peg.cmd").replace("\\", "/")
+    assert win.execute(f'SAVEPART, "{path}"').ok
+    assert win.windowTitle().startswith("part peg (peg.cmd)") and not win.isWindowModified()
+    win.execute('HIST, EDIT, 1, "D = 6"')
+    assert win.shell.save()  # File > Save writes the part file again
+    assert "*PART, peg, D=6" in open(path, encoding="utf-8").read()
+    win.shell.new()
+    win.shell.open_part(path)
+    assert win.processor.part_doc.name == "peg" and win.processor.log[0] == "D = 6"
+
+
+def test_edit_part_from_a_project_writes_back(win, app):
+    win.execute("*PART, peg, D=4\n  CYL, 0,0,0, D/2, 10\n*ENDPART")
+    win.execute("INST, peg, 0,0,0")
+    win.execute("INST, peg, 20,0,0")
+    bid = max(win.processor.model.bodies)
+    from modeler.gui import body_menu as bm
+
+    item = next(i for i in bm.body_items(win.processor.model, bid) if i.edit_part)
+    assert item.label == "Edit part peg…"
+    pw = win.edit_part(item.edit_part)
+    assert pw is not None and pw.processor.part_doc.sink is not None
+    assert pw.windowTitle().startswith("part peg (step 1 of")
+    assert pw.execute('HIST, EDIT, 2, "CYL, 0,0,0, D/2, 25"').ok
+    assert pw.shell.save()
+    assert "D/2, 25" in win.processor.history[0].text
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    for b in win.processor.model.bodies.values():  # both copies follow
+        box = Bnd_Box()
+        BRepBndLib.Add_s(b.shape, box)
+        assert abs(box.CornerMax().Z() - box.CornerMin().Z() - 25) < 0.1
+    pw.shell.ask_unsaved = lambda *_: "discard"
+    pw.close()

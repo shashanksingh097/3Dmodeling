@@ -958,6 +958,38 @@ saved project keeps a copy of every part file it loaded, like imported
 files, so it opens on a computer without your library.
 
 
+### Part documents: design one part on its own
+
+A **part document** is a session that holds one part: its steps are normal
+history entries (each opens in its form), and the parameters set first are
+the part's inputs, with their values as defaults.
+
+| Command | What it does |
+|---------|--------------|
+| `NEWPART, name` | starts an empty part document (the session is replaced) |
+| `OPENPART, file [, name]` | opens one part of a part file (`.cmd`, a path or a name in the part library): its inputs become parameters (`D = 8`), its steps history entries. A file with several parts needs the name |
+| `SAVEPART [, file]` | wraps the steps into one `*PART` block (the leading `NAME = value` entries become its inputs `NAME=value`) and writes it into the file: in place of the part of the same name, other parts and comments stay. With no file, the one it came from |
+
+```
+NEWPART, peg
+D = 4                  ! inputs: the values set first
+H = 3*D
+CYL, 0,0,0, D/2, H
+SEL, S, EDGE, AT, D/2, 0, H
+FILLET, D/8
+SAVEPART, peg.cmd      ! *PART, peg, D=4, H=3*D ... *ENDPART
+```
+
+A project loads the file with `LIB, LOAD, peg.cmd` and places copies with
+`INST`. In the window: **File > New part…**, **File > Open part…**, and
+**File > Save** writes the part file; the title shows the part and its
+file, and the Parameters panel shows the inputs in bold.
+
+**Edit part** (right-click a copy of a part, the item panel under the model
+tree, or a `*PART` step in History) opens a part defined in the project in a
+window of its own, as a part document. **File > Save** there writes the new
+block back into that history step (`HIST, EDIT`), and every copy is rebuilt.
+
 ## 18. Screw threads and springs
 
 ### THREAD

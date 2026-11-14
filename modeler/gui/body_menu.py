@@ -22,6 +22,7 @@ class MenuItem:
     form: str = ""  # open this command's fill-in form instead, pre-filled with ``commands[0]``
     ask: str = ""  # ask for a text first; "{}" in the command takes it (rename)
     find_entry: int = 0  # select this history entry (by uid) instead of running anything
+    edit_part: str = ""  # open this part's recipe in a part window (Edit part)
     enabled: bool = True
     title: bool = False  # a heading, not an action
 
@@ -112,6 +113,7 @@ def body_items(model, bid: int) -> list[MenuItem]:
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]
+            items.append(MenuItem(f"Edit part {part.lower()}…", edit_part=part))
             items.append(MenuItem(f"Explode (instance of {part})", [f"EXPLODE, {bid}"]))
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))

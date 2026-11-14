@@ -4,6 +4,17 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Part documents (separate part design, first part)
+
+- **File > New part…** and **File > Open part…**: design one part on its own.
+  Its steps are normal history entries and its first parameters are the
+  part's inputs (bold in the Parameters panel). **File > Save** writes one
+  `*PART` block into a part file, keeping other parts in the file.
+- Commands `NEWPART`, `OPENPART`, `SAVEPART`.
+- **Edit part** (on a copy of a part, the item panel, or a `*PART` step in
+  History) opens a part defined in the project in its own window; saving
+  it there updates every copy.
+
 ### Model tree and right-click menu (first part)
 
 - Right-click a body in the 3D view for a menu: hide, show only this, fade
