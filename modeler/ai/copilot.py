@@ -1,6 +1,6 @@
 """The in-app assistant on GitHub Copilot: each user signs in with their own GitHub account.
 
-Copilot runs through the GitHub Copilot SDK (``pip install "3Dmodeling[ai]"``).
+Copilot runs through the GitHub Copilot SDK (the ``ai`` extra: ``pip install -e ".[ai]"``).
 Nothing is billed to this app: every request counts against the signed-in
 user's own Copilot plan, Copilot Free included. The SDK starts a Copilot
 runtime (downloaded once, about 190 MB, to the user's cache folder) and talks
@@ -37,7 +37,7 @@ from typing import Any
 
 from .tools import Toolbox
 
-SDK_HINT = 'The assistant needs the GitHub Copilot SDK and Python 3.11 or newer: pip install "3Dmodeling[ai]"'
+SDK_HINT = 'The assistant needs the GitHub Copilot SDK and Python 3.11 or newer: pip install -e ".[ai]" in a checkout, or pip install "modeler3d[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"'
 DEVICE_URL = "https://github.com/login/device"
 FREE_SIGNUP_URL = "https://github.com/settings/copilot"
 

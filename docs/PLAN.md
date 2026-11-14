@@ -643,10 +643,12 @@ Still open in the milestones already started, in the suggested order:
    account and any Copilot plan, Copilot Free included. First part done:
    sign-in, the Assistant panel, the modeler's tools, proposals with a Run
    button (new steps or edits of existing steps), imported bodies described
-   as exact or faceted, and `python -m modeler copilot check`. Next: the
-   user's Copilot Free test, then "use your own key" (OpenAI, Anthropic, a
-   local model) for people without GitHub. Then release 0.2.0 (NURBS
-   freeform, the new formats and the assistant).
+   as exact or faceted, and `python -m modeler copilot check`, plus checks
+   for assemblies (`CONTACT`, `CLEARANCE`, `RELATE`, `COMPARE`,
+   `DESIGNCHECK`). Sign-in confirmed on Windows. Released as 0.2.0 (NURBS
+   freeform, the new formats and the assistant). "Use your own key"
+   (OpenAI, Anthropic, a local model) for people without GitHub moves to
+   the rest of M9c (item 7).
 4. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
@@ -654,8 +656,8 @@ Still open in the milestones already started, in the suggested order:
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.
 6. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
-7. The rest of M9c: picking for the assistant, pictures as a fallback,
-   the benchmark of modelling requests.
+7. The rest of M9c: "use your own key", picking for the assistant,
+   pictures as a fallback, the benchmark of modelling requests.
 8. M7 sculpt mode.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being

@@ -75,6 +75,10 @@ jobs:
           "$dir/3Dmodeling-cli" check
           "$dir/3Dmodeling-cli" run scripts/flange.cmd -q
           "$dir/3Dmodeling-cli" run scripts/threaded_bolts.cmd -q
+          # the assistant is bundled: its Copilot runtime downloads and starts (nobody is signed in here)
+          out=$("$dir/3Dmodeling-cli" copilot status 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "not signed in"
       - name: Pack
         shell: bash
         run: |

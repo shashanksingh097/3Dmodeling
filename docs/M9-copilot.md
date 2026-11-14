@@ -34,7 +34,7 @@ Sources: <https://github.com/github/copilot-sdk>,
 
 `modeler/ai/copilot.py` holds everything that talks to Copilot.
 
-* **Install.** An optional extra: `pip install "3Dmodeling[ai]"` (skipped on
+* **Install.** An optional extra: `pip install -e ".[ai]"` in a checkout (skipped on
   Python 3.10, so the rest of the app still installs there). The release
   builds include it. The Copilot runtime (about 190 MB) downloads once to the
   user's cache folder the first time the assistant starts.

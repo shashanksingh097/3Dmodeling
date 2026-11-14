@@ -342,9 +342,11 @@ script sit together):
 | `check_design(body, min_wall, min_edge)` (plan 3.4) | `DESIGNCHECK`; `PROBLEMS()` query | valid, closed, solid, pieces, inside out, small edges, sliver faces, self-intersection (up to 400 faces), thin walls. Draft and overhang rules are not in yet (`ANALYZE` covers draft) |
 | `compare_bodies(a, b)` | `COMPARE, a, b`; `SAMESHAPE()` query | volume, area, faces by type, inertia; then a moved copy (with the move) or a mirror image in a plane square to X, Y or Z, tested by the overlap of the moved body |
 
-The checks found that the nuts of `threaded_bolts.cmd` overlap their bolts
-by about 13 mm3 each: each nut's thread starts where the nut starts, not in
-step with the bolt's thread.
+The checks found that the nuts of `threaded_bolts.cmd` overlapped their
+bolts by about 13 mm3 each: each nut's thread started where the nut starts,
+not in step with the bolt's thread. The script now turns each nut by the
+angle that lines its thread up with the bolt's, and `CONTACT` finds them
+touching on the thread flanks.
 
 Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
 `user_context`, `since` on every tool, `outline`, the rest of

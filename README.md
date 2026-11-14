@@ -54,26 +54,26 @@ The language (parameters, expressions, loops, conditions, macros, selection
 by criteria, the editable history) is described in
 [docs/LANGUAGE.md](docs/LANGUAGE.md).
 
-## What it can do (0.1)
+## What it can do (0.2)
 
 - **Model by mouse or by text.** Toolbars, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
 - **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant.
 - **Sketches** with constraints and sizes, trim, extend, fillet, offset, mirror, pattern; extrude and revolve.
 - **Features:** holes (plain, counterbore, countersink, threaded), fillets, chamfers, shell, draft, offset, split, push/pull and delete faces, patterns of features.
 - **Shapes from curves:** loft, sweep with twist and scale laws (and a graphical sweep editor), morph, pipe, rail sweeps, spine lofts, real ISO threads, springs, text, shapes from equations.
+- **NURBS freeform:** curves and surfaces from control points you can drag, networks, fills, G1/G2 blends, extend, trim, guide-curve lofts, zebra and curvature analysis, and deformers (bend, twist, taper, stretch, flow along a curve).
 - **Parts** with parameters, placed many times, and a part library.
-- **Layers, colours, materials**, mass properties, distances, angles, clash checks, section views.
+- **Layers, colours, materials**, mass properties, distances, angles, clash checks, section views, and assembly checks: do parts touch, how much clearance a shaft has in its hole, where one part sits relative to another.
 - **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
 - **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (Gmsh, Abaqus, Nastran); export STEP, IGES, BREP, STL, OBJ, 3MF, glTF.
 - **Assistant:** chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works); it reads the model with exact tools, tests scripts in a sandbox and proposes them with a Run button.
-- **Text tools for an AI assistant** (describe a body, probe it with rays, check expectations), ready for the chat panel in a later release.
 
 ## Install from source
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[test]"
+pip install -e ".[test]"                # add ,ai for the assistant (Python 3.11+)
 python -m modeler                                      # the app
 python -m modeler scripts/flange.cmd                   # the app with a parametric flange
 python -m modeler run scripts/flange.cmd -D N_BOLTS=8  # same script, headless
@@ -94,7 +94,7 @@ kernel, installs with pip) and numpy.
 | `modeler/sketch/` | the 2D sketcher and its constraint solver |
 | `modeler/viewport/` | 3D view and picking (picks emit commands, never change the model) |
 | `modeler/gui/` | main window, forms, panels, menus |
-| `modeler/ai/` | text tools for an AI assistant |
+| `modeler/ai/` | the assistant (GitHub Copilot) and its text tools |
 | `scripts/` | example scripts (also under **File > Open example**) |
 | `packaging/` | the desktop build recipe ([docs/RELEASING.md](docs/RELEASING.md)) |
 
@@ -102,5 +102,5 @@ kernel, installs with pip) and numpy.
 
 - [User guide](docs/USER-GUIDE.md), [examples with pictures](docs/EXAMPLES.md) and [command language](docs/LANGUAGE.md)
 - [Changelog](CHANGELOG.md) and [how releases are made](docs/RELEASING.md)
-- [Product and technical plan](docs/PLAN.md), with what comes after 0.1
-- Design notes per milestone: [M0](docs/M0.md), [M1](docs/M1.md), [M2](docs/M2.md), [forms](docs/M2-forms.md), [M3](docs/M3.md), [sketcher](docs/M3-sketcher.md), [sketch tools](docs/M3-sketch-tools.md), [sweep editor](docs/M3-sweep-editor.md), [parts](docs/M4-parts.md), [threads](docs/M4-threads.md), [rails](docs/M4-rails.md), [M4 shapes](docs/M4-shapes.md), [speed](docs/speed-patterns.md), [AI tools](docs/M9-ai-tools.md)
+- [Product and technical plan](docs/PLAN.md), with what comes after 0.2
+- Design notes per milestone: [M0](docs/M0.md), [M1](docs/M1.md), [M2](docs/M2.md), [forms](docs/M2-forms.md), [M3](docs/M3.md), [sketcher](docs/M3-sketcher.md), [sketch tools](docs/M3-sketch-tools.md), [sweep editor](docs/M3-sweep-editor.md), [parts](docs/M4-parts.md), [threads](docs/M4-threads.md), [rails](docs/M4-rails.md), [M4 shapes](docs/M4-shapes.md), [speed](docs/speed-patterns.md), [NURBS](docs/M5-nurbs.md), [AI tools](docs/M9-ai-tools.md), [assistant](docs/M9-copilot.md)

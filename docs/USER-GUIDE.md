@@ -5,7 +5,7 @@ is turned into a short line of text, a **command**, and kept in the
 **History**. So every model is also a script: you can edit any step later,
 change a number and watch the part rebuild, or write the whole part as text.
 
-This guide covers version 0.1. The full command language is in
+This guide covers version 0.2. The full command language is in
 [LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**.
 
 Contents:
@@ -37,9 +37,9 @@ Get the zip for your system from the
 
 | System | Download | Start it |
 |--------|----------|----------|
-| Windows 10 or 11 (64-bit) | `3Dmodeling-0.1.0-windows-x64.zip` | unzip, open the folder, run `3Dmodeling.exe` |
-| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-0.1.0-macos-arm64.zip` | unzip, move `3Dmodeling.app` to Applications, open it |
-| Linux (64-bit, X11 or XWayland) | `3Dmodeling-0.1.0-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
+| Windows 10 or 11 (64-bit) | `3Dmodeling-0.2.0-windows-x64.zip` | unzip, open the folder, run `3Dmodeling.exe` |
+| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-0.2.0-macos-arm64.zip` | unzip, move `3Dmodeling.app` to Applications, open it |
+| Linux (64-bit, X11 or XWayland) | `3Dmodeling-0.2.0-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
 
 The builds are not signed yet, so the first start shows a warning:
 
@@ -60,7 +60,7 @@ modeler                            # or: python -m modeler
 ```
 
 For the assistant (section 15) you need Python 3.11 or newer and
-`pip install "3Dmodeling[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"`.
+`pip install "modeler3d[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"`.
 
 `modeler check` prints the versions and tests the 3D kernel. If the window
 does not open, see [When something goes wrong](#14-when-something-goes-wrong).
@@ -210,9 +210,23 @@ All of these are in the **Commands** menu with forms, and in
 | Special | `THREAD` (real ISO threads), `SPRING`, `TEXT`, `SURFACE, PARAM` (shapes from equations) |
 | Edit faces | `PUSHPULL` (move faces), `DELFACE` (remove a hole or fillet and close the gap); handy on imported parts |
 | Build on | `PLANE`, `AXIS`, `POINT` datums and `WORKPLANE` to draw on any plane |
+| Freeform (NURBS) | `NURBS` curves and `NSURF` surfaces from control points, `NETWORK` through a grid of curves, `FILL` a hole, `SEW` surfaces into a solid, `REBUILD`, `MOVEPT`, `WEIGHT`, `KNOT`, `DEGREE` |
+| Freeform edits | `BLEND` two surfaces smoothly (G1 or G2), `EXTEND`, `TRIM`, `MOVEFACE`, `REPLACEFACE`, `LOFT, ..., GUIDE` (lofts steered by guide curves), `PROJECT` a curve onto a surface |
+| Deform | `BEND`, `TWIST`, `TAPER`, `STRETCH` whole bodies, `FLOW` a body (a text, say) along a curve, `SWEEPVOL` the volume a cutter sweeps |
 
 The **Sweep editor** on the Features toolbar shapes a sweep's twist and
 scale by dragging handles on a graph, with a live preview.
+
+**Control points.** Pick a NURBS curve or surface and press **Control
+points**: its control points appear in the 3D view and you can drag them.
+Each drag becomes a `MOVEPT` step in the History, so it can be edited later
+like any other step.
+
+**Surface quality.** `ANALYZE` (and the **Zebra** button) colours a body
+with zebra stripes, curvature or draft for moulding, and says in words
+which joins are smooth (G2), tangent (G1) or creased. Details:
+[M5-nurbs.md](M5-nurbs.md); a worked example is the computer mouse,
+`scripts/mouse.cmd`.
 
 ---
 
@@ -393,7 +407,8 @@ files, web) are switched off in this app.
 The first time, the app downloads the Copilot runtime (about 190 MB) to
 your cache folder, so you need internet then.
 
-From a shell, `python -m modeler copilot check` tests everything for your
+From a shell, `python -m modeler copilot check` (in the downloaded app:
+`3Dmodeling-cli copilot check`) tests everything for your
 account: sign-in, allowance, models, and one question that Copilot must
 answer with the modeler's tools. It prints PASS or FAIL per step. Add
 `--folder DIR` to use another working folder.
