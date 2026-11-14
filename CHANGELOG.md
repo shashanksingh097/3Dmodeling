@@ -17,6 +17,16 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   `ALL`, `MODEL`): they change only what the view shows, add no history
   steps, survive undo and rebuilds, and are saved with the project.
 - `FIT, b` zooms to some bodies.
+- A **Model** tree in a left dock: parts with their placed instances,
+  bodies, sketches, datums and named sets, with colour, shown/hidden tick
+  boxes, faded and hidden markers and a warning mark. Picking in the tree and
+  in the 3D view stay in step; double-click zooms; right-click opens the body
+  menu (on a part or group it acts on all its bodies).
+- Each history step now records which bodies it read, made, used up and
+  changed. `STEPS, b` lists the steps that made a body, including the
+  `*PART` of an instance.
+- Bodies picked in the tree are highlighted in the 3D view whatever a click
+  picks (face, edge or body).
 
 ## [0.2.0] - 2026-11-14
 

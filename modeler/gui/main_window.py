@@ -434,6 +434,11 @@ class MainWindow(QMainWindow):
         self.assistant_dock = assistant
         params.raise_()
         self.layers_dock = layers
+        from .model_tree import ModelTree
+
+        self.model_tree = ModelTree(self)
+        self.tree_dock = self._dock("Model", self.model_tree, Qt.LeftDockWidgetArea)
+        self.resizeDocks([self.tree_dock], [260], Qt.Horizontal)
         self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)
         self.resizeDocks([hist, params], [520, 260], Qt.Vertical)
         self.resizeDocks([out], [170], Qt.Vertical)

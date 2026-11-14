@@ -330,3 +330,50 @@ def test_view_hide_and_history_row_menu(win, app):
     assert 1 not in vp._ais and 2 in vp._ais
     win.run_menu_item(next(i for i in bm.body_items(win.processor.model, 2) if i.label.startswith("Find the step")))
     assert win.history_panel.currentRow() == 1
+
+
+def test_model_tree_lists_bodies_and_follows_picks(win, app):
+    tree = win.model_tree
+    app.processEvents()
+    assert tree.item("body:1") is not None and tree.item("body:2") is not None
+    # a pick in the view selects the row
+    win.execute("PICK, BODY, 2")
+    assert tree.item("body:2").isSelected() and not tree.item("body:1").isSelected()
+    # a click on a row picks the body (and the view highlights it in face mode too)
+    tree._clicked(tree.item("body:1"), 0)
+    assert win.processor.model.selection == [1] and win.processor.model.selection_kind == "BODY"
+    assert win.viewport.context.NbSelected() == 1
+    # the eye hides for the view only
+    n = len(win.processor.history)
+    tree.item("body:2").setCheckState(0, Qt.Unchecked)
+    app.processEvents()
+    assert 2 not in win.viewport._ais and not win.processor.model.is_shown(2)
+    assert "hidden" in tree.item("body:2").text(1)
+    tree.item("body:2").setCheckState(0, Qt.Checked)
+    app.processEvents()
+    assert 2 in win.viewport._ais
+    # the right-click menu is the body menu
+    labels = [i.label for i in tree.menu_items("body:2")]
+    assert "Fade all others" in labels and "Zoom to" in labels
+    win.run_menu_item(next(i for i in tree.menu_items("body:2") if i.label == "Fade this"))
+    app.processEvents()
+    assert "faded" in tree.item("body:2").text(1)
+    assert len(win.processor.history) == n  # the eye and the menu are view steps
+    # renaming shows in the tree
+    win.execute("NAME, 1, plate")
+    app.processEvents()
+    assert tree.item("body:1").text(0).startswith("plate")
+
+
+def test_model_tree_groups_part_instances(win, app):
+    win.execute("*PART, peg, D=4\nCYL, 0,0,0, D/2, 10\n*ENDPART")
+    win.execute("INST, peg, 60,0,0")
+    win.execute("INST, peg, 70,0,0")
+    app.processEvents()
+    part = win.model_tree.node("part:PEG")
+    assert part is not None and len(part.children) == 2
+    assert part.children[0].label.startswith("peg")
+    assert "*PART, peg" in part.children[0].tip
+    items = win.model_tree.menu_items("part:PEG")
+    fade = next(i for i in items if i.label == "Fade all of them")
+    assert fade.commands == [f"FADE, {' '.join(map(str, part.ids))}"]
