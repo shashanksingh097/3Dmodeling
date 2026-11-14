@@ -160,6 +160,42 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
 
         return distance(m.body(body_id(a, "GAP")).shape, m.body(body_id(b, "GAP")).shape)[0]
 
+    def _contact(fn, a, b):
+        from ..ai import contact as cx
+        from ..ai.describe import DescribeError
+
+        try:
+            return cx.pair_state(p, body_id(a, fn), body_id(b, fn))
+        except (DescribeError, ValueError) as exc:
+            raise ExprError(f"{fn}(): {exc}") from None
+
+    def touch(a, b):
+        return 1 if _contact("TOUCH", a, b).state == "touch" else 0
+
+    def overlap(a, b):
+        return _contact("OVERLAP", a, b).volume
+
+    def contact_area(a, b):
+        return _contact("CONTACTAREA", a, b).area
+
+    def groups():
+        from ..ai import contact as cx
+        from ..ai.describe import DescribeError
+
+        try:
+            return cx.group_count(p)
+        except DescribeError as exc:
+            raise ExprError(f"GROUPS(): {exc}") from None
+
+    def fitgap(a, b):
+        from ..ai import contact as cx
+        from ..ai.describe import DescribeError
+
+        try:
+            return cx.tightest_fit(p, body_id(a, "CLEARANCE"), body_id(b, "CLEARANCE"))
+        except DescribeError as exc:
+            raise ExprError(f"CLEARANCE(): {exc}") from None
+
     def pitch(d):
         from ..geometry.threads import coarse_for_shaft
 
@@ -276,6 +312,11 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         "ORIGIN": origin,
         "DIR": direction,
         "GAP": gap,
+        "TOUCH": touch,
+        "OVERLAP": overlap,
+        "CONTACTAREA": contact_area,
+        "GROUPS": groups,
+        "CLEARANCE": fitgap,
         "VOL": vol,
         "AREA": area,
         "LENGTH": length,

@@ -329,6 +329,19 @@ Step M9b, first part:
 | `wall_thickness`, `MINWALL` | `THICK` command, `MINWALL()` query | inward rays from 5 x 5 points per face; a wall seen from both sides is listed once |
 | `vary`, `round_trip` | `modeler/ai/experiments.py` | in sandbox copies; `round_trip` compares IDs, volumes, selection and named sets |
 
+Contact and fits (asked for so the assistant can check that the parts of a
+script sit together):
+
+| Tool | Built as | Notes |
+|------|----------|-------|
+| `contact(a, b)` | `CONTACT, a, b`; `TOUCH()`, `OVERLAP()`, `CONTACTAREA()` queries; `modeler/geometry/contact.py`, `modeler/ai/contact.py` | apart (gap, nearest points and faces), touching on faces (area), along a line (length) or at a point, or overlapping (volume, its box, the faces that dig in). A body buried inside another is an overlap. The gap is measured face against face, nearest boxes first, which took a threaded bolt against its nut from 35 s to under 2 s |
+| `assembly_check(bodies, against, near)` | `CONTACT` alone or with one body; `GROUPS()` query | every pair whose boxes come close: clashes, touching pairs, near misses, groups of bodies held together through contacts, bodies touching nothing. 13 bodies of `bolted_plate.cmd` in 1.2 s, 17 threaded bolts, nuts and plate in 21 s; stops after 60 s and says so |
+| `fit_check(a, b)` | `CLEARANCE, a, b`; `CLEARANCE()` query | every full round shaft of one body in a full round hole of the other: diameters, clearance or interference, axis offset, engaged length. A threaded shaft in a threaded hole is reported as a thread; a threaded bolt in a plain hole is a fit on its major diameter |
+
+The checks found that the nuts of `threaded_bolts.cmd` overlap their bolts
+by about 13 mm3 each: each nut's thread starts where the nut starts, not in
+step with the bolt's thread.
+
 Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
 `user_context`, `since` on every tool, `outline`, `check_design`, the rest of
 feature recognition (fillets, pockets, bosses), and M9c.

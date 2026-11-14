@@ -1342,7 +1342,7 @@ command, so it lands in the history like typed text. `COLOR`, `MATERIAL` and
 `ISOLATE` have forms in the Commands menu under "Layers, colours,
 materials".
 
-## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF
+## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF, CONTACT, CLEARANCE
 
 These commands say exactly what the model is and whether it is right,
 in words and numbers. They are what the AI assistant uses instead of
@@ -1464,6 +1464,49 @@ both sides; `THICK, housing, 2` lists every wall thinner than 2.
 `ASSERT, MINWALL(housing), GE, 2` keeps a part printable or castable. The
 measurement samples 25 points per face, so a thin spot smaller than that
 spacing can be missed.
+
+### CONTACT and CLEARANCE: do the parts touch?
+
+`CONTACT, a, b` says how two solid bodies meet:
+
+```
+bodies 5 (plate) and 6 (block) touch on faces, area 100 (faces [6] and [17])
+bodies 5 (plate) and 9 (roller) touch along a line, length 30 (faces [6] and [31])
+bodies 10 (ball) and 5 (plate) touch at a point (85, 20, 10) (faces [34] and [6])
+bodies 5 (plate) and 8 (lid) are apart: gap 2 from (70, 70, 10) to (70, 70, 12) (faces [6] and [25])
+bodies 5 (plate) and 7 (peg) OVERLAP: 500 in common (33.33% of the smaller), overlap box (10, 10, 5) ...
+```
+
+Closer than a tolerance counts as touching: a millionth of the parts' size
+by default, or give one (`CONTACT, a, b, 0.01`). A body buried completely
+inside another is an overlap too. `CONTACT, bolt` checks one body against
+every other shown body. `CONTACT` alone checks every pair of shown solid
+bodies and adds the **groups** of bodies that hold together through
+contacts and the bodies that touch nothing (a bolt floating above its
+washer, a part placed in the wrong spot). `CONTACT, , , 0, 0.5` also lists
+the pairs that are less than 0.5 apart, which is where a part meant to sit
+on another usually turns out to be. `FMT JSON` (fifth argument) gives the
+answer as JSON.
+
+`CLEARANCE, bolt, plate` finds every round shaft of one body inside a round hole
+of the other and gives both diameters, the clearance (negative for an
+interference fit), how far the axes are apart and how long the shaft is
+engaged:
+
+```
+shaft d 9.6 of body 12 in hole d 10 of body 5: clearance, clearance 0.4 (0.2 a side), engaged 10
+```
+
+Threads and part cylinders (fillets, slots) are not counted as shafts or
+holes. All of it is in expressions, so a script can keep its own checks:
+
+```
+ASSERT, TOUCH(bolt, washer)                 ! touch without overlapping
+ASSERT, OVERLAP(bolt, nut), EQ, 0           ! no clash (the volume in common)
+ASSERT, CONTACTAREA(foot, floor), GE, 100   ! sits flat, not on an edge
+ASSERT, GROUPS(), EQ, 1                     ! every shown part is connected
+ASSERT, CLEARANCE(pin, plate), GE, 0.05        ! the tightest gap of the pin in its hole
+```
 
 ### The same, for the AI assistant
 

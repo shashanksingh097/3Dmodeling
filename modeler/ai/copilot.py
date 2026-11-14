@@ -64,6 +64,11 @@ How to work:
   FILLET, SHELL, PUSHPULL, MOVEFACE, DELFACE, booleans) or "faceted" (a mesh: every triangle is a
   flat face; booleans, SPLIT, sections, measuring and export work, fillets, shells and offsets do
   not). When asked what can be done with an import, check it first, then explain in those terms.
+- To check how parts sit together, use contact (two bodies: apart with the gap, touching on a
+  face, line or point, or overlapping with the volume), assembly_check (every pair: clashes,
+  touching pairs, near misses, groups that hold together, parts touching nothing) and fit_check
+  (shafts in holes: clearance or interference). Keep such checks in scripts as expectations:
+  'TOUCH(a, b)', 'OVERLAP(a, b), EQ, 0', 'GROUPS(), EQ, 1', 'CLEARANCE(pin, plate), GE, 0.05'.
 - Picks by number break when the history is edited: prefer SEL criteria (selector_for).
 - Keep answers short and plain. Give sizes with units.
 """
