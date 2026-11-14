@@ -274,6 +274,14 @@ choose **Open part** to open the part file in its own window; **Save**
 there updates the assembly. If the part file is missing when a project
 opens, the copy saved in the project is used and the `LIB` step shows a
 warning. The Model tree says for each part whether it is linked.
+
+**Put copies together with mates.** Place a copy anywhere, then pick a
+face or edge on the part that stays and one on the copy (click, then
+Ctrl+click), right-click and choose **Mate the two picked…**. Concentric
+lines up two axes (a shank in a hole), Coincident puts two flat faces
+against each other (a bolt head on the plate), Distance leaves a gap and
+Angle turns the copy. Mates are steps in History, so when the part changes
+the copies are placed again. Give a copy its axis first, then its seat.
 Details: [LANGUAGE.md](LANGUAGE.md) section 17.
 
 ---

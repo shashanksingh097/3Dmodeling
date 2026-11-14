@@ -109,6 +109,17 @@ def part_item(part: str, sources: dict | None) -> MenuItem:
     return MenuItem(f"Open part file {name} ({os.path.basename(path)}, loaded as a copy)…", edit_part=part)
 
 
+def mate_ready(model) -> bool:
+    """Two faces, edges or vertices picked on two different bodies: they can be mated."""
+    if model.selection_kind not in ("FACE", "EDGE", "VERTEX") or len(model.selection) != 2:
+        return False
+    try:
+        a, b = (model.entity_owner(model.selection_kind, g)[0] for g in model.selection)
+    except Exception:  # noqa: BLE001 - a stale pick
+        return False
+    return a != b
+
+
 def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     """The menu for a right click on body ``bid`` in the 3D view (or a tree row).
     ``sources`` is the processor's ``part_files``: which parts come from a file."""
@@ -121,6 +132,8 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items += everything_items(model)
     items.append(SEPARATOR)
     items.append(MenuItem("Zoom to", [f"FIT, {t}"]))
+    if mate_ready(model):
+        items.append(MenuItem("Mate the two picked…", form="MATE"))
     if one:
         items.append(MenuItem("Rename…", [f"NAME, {bid}, {{}}"], ask=f"New name for {_name(model, bid)}:"))
     sel = "SEL" if not one else str(bid)

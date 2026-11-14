@@ -121,7 +121,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT")),
-    ("Parts", ("INST", "EXPLODE", "LIB", "LIBSAVE")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT")),
 ]
 
@@ -596,6 +596,32 @@ def _hand() -> dict[str, FormSpec]:
     two("DIST")
     two("ANGLE")
 
+    def mate_fields(value: str = "") -> list[Field]:
+        fixed = ("FACE", "EDGE", "VERTEX", "DATUM", "XY", "YZ", "ZX")
+        out = [
+            _F("k1", "Stays: a", "choice", "FACE", choices=fixed,
+               help="the item that stays where it is (XY, YZ, ZX need no ID)"),
+            _F("i1", "ID or name", "word", help="the form fills both items from the two picked (Ctrl+click)"),
+            _F("k2", "Moves: a", "choice", "FACE", choices=("FACE", "EDGE", "VERTEX"),
+               help="an item on the copy that moves"),
+            _F("i2", "ID", "word"),
+        ]
+        if value:
+            out.append(_F("value", value, required=True))
+        out.append(_F("flip", "Turn the copy the other way (FLIP)", "flag", word="FLIP"))
+        return out
+
+    add("MATE", [
+        Variant("CONCENTRIC", "Concentric: axes in line", mate_fields(),
+                help="Two round faces, round or straight edges, or datum axes; the copy keeps its place along "
+                     "the axis"),
+        Variant("COINCIDENT", "Coincident: faces against each other", mate_fields(),
+                help="Two flat faces or planes face each other in one plane; or axes, round edges or points "
+                     "together"),
+        Variant("DISTANCE", "Distance: faces a gap apart", mate_fields("Distance")),
+        Variant("ANGLE", "Angle between them", mate_fields("Angle (degrees)")),
+    ], word_slot=0)
+
     add("SKETCH", [
         Variant("PLANE", "On a plane", [replace(_NAME), _F("on", "Plane", "datum", "", choices=("XY", "YZ", "ZX"),
                                                         help="empty: the work plane, or XY")]),
@@ -832,6 +858,9 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
         if f.kind == "bool" and not val:
             val = f.default or "1"
         vals[f.key] = val
+    # a mate: the two picked faces, edges or vertices (the first stays, the second moves)
+    if sp.command == "MATE" and len(m.selection) == 2 and m.selection_kind in ("FACE", "EDGE", "VERTEX"):
+        vals.update(k1=m.selection_kind, i1=str(m.selection[0]), k2=m.selection_kind, i2=str(m.selection[1]))
     # names: the next free one
     prefix = {"PLANE": "P", "AXIS": "A", "POINT": "PT", "SKETCH": "s", "CM": "set"}.get(sp.command)
     if prefix and "name" in vals and not vals["name"]:
@@ -1034,6 +1063,10 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
                 args = args[:2] + ["ID"] + args[2:]
         elif sp.command in ("DIST", "ANGLE"):
             variant = "BY_ID" if args else ""
+        elif sp.command == "MATE" and len(args) > 1 and args[1].upper() in ("XY", "YZ", "ZX") \
+                and (len(args) < 3 or args[2].upper() in ("FACE", "EDGE", "VERTEX")):
+            variant = args[0].upper()
+            args = args[1:2] + [""] + args[2:]  # XY has no ID: keep the fields in their places
         elif sp.command == "SKETCH":
             variant = "FACE" if len(args) > 1 and args[1].upper() == "FACE" else "PLANE"
             if variant == "FACE":

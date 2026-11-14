@@ -4,6 +4,17 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Mates (separate part design, third part)
+
+- `MATE, kind, item, item [, value] [, FLIP]` places a copy against another
+  by faces, edges, vertices, datums or base planes: `CONCENTRIC`,
+  `COINCIDENT`, `DISTANCE`, `ANGLE`. Mates are history steps, solved in
+  order, so copies are placed again when a part changes.
+- A mate that cannot be met names both items and moves nothing; flat faces
+  put in one plane that do not overlap give a warning.
+- **Mate the two picked…** in the right-click menu, and a Mate form (under
+  Parts) filled in from the two picked items.
+
 ### Linked part files (separate part design, second part)
 
 - `LIB, LINK, file` (**File > Link part file…**): an assembly follows a part

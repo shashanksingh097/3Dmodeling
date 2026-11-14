@@ -374,7 +374,7 @@ spring is a short script whose numbers you can change later.
 - Undo for history edits themselves (`HIST, EDIT/DELETE/MOVE` are not yet undoable) `[M3]`
 - Warning state for history entries (ran, but needs a look) `[done]`
 - Separate namespaces, or a clear error, when a parameter and a body share a name `[M3]`
-- Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[M11]` (section 5.10)
+- Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[done]` (section 5.10, `MATE`)
 - Regression corpus: example scripts whose volumes, face counts and validity are checked in CI, so a kernel upgrade cannot change models unnoticed, plus hard cases for the shapes made from curves `[done]`
 - Configurations: named sets of parameter values for one model (sizes of a family of parts), switchable from the Parameters panel and from the batch runner `[M4]`
 
@@ -536,12 +536,12 @@ the right-click menu. Like everything else, it only sends commands.
    window. Done (M11a): for a part defined inside the project, Edit part
    opens the same part view on its `*PART` block and writes `HIST, EDIT`
    back.
-4. **Mates.** `MATE, a, b, COINCIDENT|CONCENTRIC|DISTANCE|ANGLE [, value]`
+4. Done (M11c): **Mates.** `MATE, a, b, COINCIDENT|CONCENTRIC|DISTANCE|ANGLE [, value]`
    between faces, edges or axes of two copies, solved in order as placement
    steps (each moves the second copy; a full solver comes later if needed).
    The result is checked with `CONTACT` and `CLEARANCE`, and a mate that
    cannot be met is an error that names both items.
-5. Tests that run headless: part document round trip (open, edit a step,
+5. Done (M11a-c): Tests that run headless: part document round trip (open, edit a step,
    save, same volume), a linked part changed on disk updates every copy, the
    missing-file fallback, each mate kind on the bolted plate example, and GUI
    tests for New part, Open part and the menu entry.
@@ -730,7 +730,7 @@ Still open in the milestones already started, in the suggested order:
    panel that edits an item's steps, the exit test).
    Right after M10: M11, separate part and assembly design (section
    5.10). Done: M11a (part documents, Edit part), M11b (linked
-   parts, `RELOAD`, Open part from a copy). Next: M11c (mates).
+   parts, `RELOAD`, Open part from a copy) and M11c (`MATE`).
 5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
