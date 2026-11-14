@@ -1385,6 +1385,35 @@ whole selection. A right click on empty space offers Show everything, Make
 all solid and Fit all. On the History panel, a step that made bodies has a
 "Made by this step" submenu with the same view actions.
 
+### The model tree and STEPS
+
+The **Model** dock (left) lists what the model holds: **Parts** with their
+placed instances (a bolt part and its 8 bolts), loose **Bodies**,
+**Sketches**, **Datums** and **Named sets**. Each body row shows its colour,
+a tick box for shown or hidden, "faded" or "hidden" when the view changed
+it, and ⚠ when a step that made it needs a look. Its tooltip lists those
+steps. Clicking a row picks the body (`PICK, BODY, b`; Ctrl or Shift adds
+or removes) and a pick in the 3D view selects its row. A double click
+zooms to it (`FIT, b`). The tick box hides or shows for the view
+(`DISPLAY, HIDE` / `SHOW`), and so does the tick box of a part or group for
+all of its bodies. A right click opens the same menu as on a body in the
+3D view; on a part or a group it acts on all of its bodies.
+
+Under the tree, the **item panel** shows the picked body's steps (from
+`STEPS`) and the model parameters they use. A step that is a block, a
+`*PART` recipe or a `*DO` loop, is shown line by line; each line opens in
+its own form, and OK puts the new line back in its place in that entry with
+`HIST, EDIT` (keeping its indent and comment), so the model rebuilds. A
+line of a part's recipe changes every copy of the part.
+
+`STEPS, b` lists the history steps that made a body, in order: the steps
+that made or changed it (`COLOR`, `NAME`, `HIDE` count), the steps of the
+bodies it was made from (the block and the cylinder before a `SUBTRACT`),
+and for a part instance the `*PART` it came from. Each history step records
+which bodies it read, made, used up and changed while it ran; a step with
+a loop is followed one command at a time, so 8 bolts placed in one `*DO`
+do not depend on each other.
+
 ## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF, CONTACT, CLEARANCE, RELATE, COMPARE, DESIGNCHECK
 
 These commands say exactly what the model is and whether it is right,

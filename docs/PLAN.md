@@ -460,15 +460,19 @@ section 7). Like everything else, the tree and the menu only send commands.
 2. Done (M10a): a right click without dragging opens the menu in the viewport (a right
    drag still pans). The menu acts on the body under the cursor, or on the
    whole selection when the cursor is on a selected body.
-3. Lineage: each history entry records which bodies it read and which it
+3. Done (M10b): lineage: each history entry records which bodies it read and which it
    made or changed. This is the same record that "skip entries whose inputs
    did not change" needs (risk 3), so both are built on it. A body's list of
    steps is its lineage walked back through its inputs.
-4. The tree widget: built from model events and history refreshes, kept in
+4. Done (M10b): the tree widget: built from model events and history refreshes, kept in
    step with the selection, its layout saved with the window.
-5. An item panel under the tree: the steps of the picked item with Edit
-   buttons, its parameters, and for an instance "this one" or "the part".
-6. Tests that run headless: the new commands, lineage on the example scripts
+5. Done (M10c): an item panel under the tree: the steps of the picked item
+   with Edit buttons (a line inside a `*PART` recipe or a loop opens in its
+   own form and is written back into that entry), and the parameters they
+   use. For an instance the panel says that a line of the part's recipe
+   changes every copy. Left for later: changing one instance alone when a
+   loop placed several (it needs the instance pulled out of the loop).
+6. Done (M10c): tests that run headless: the new commands, lineage on the example scripts
    (bolted plate, threaded bolts, the car), and GUI tests for the tree and
    the menus under a virtual display.
 
@@ -651,8 +655,9 @@ Still open in the milestones already started, in the suggested order:
    (OpenAI, Anthropic, a local model) for people without GitHub moves to
    the rest of M9c (item 8).
 4. M10, the model tree and right-click menu (section 5.9), in three pull
-   requests. M10a (in progress): `FADE`/`UNFADE` and the view steps
-   (`DISPLAY`), the right-click menu in the 3D view and on History rows.
+   requests. Done: M10a (`FADE`/`UNFADE`, `DISPLAY`, the right-click
+   menu), M10b (lineage, `STEPS`, the Model tree dock) and M10c (the item
+   panel that edits an item's steps, the exit test).
 5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.

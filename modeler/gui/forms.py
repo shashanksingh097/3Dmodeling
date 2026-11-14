@@ -131,6 +131,8 @@ NO_FORM = {
     "UNDO", "REDO", "HIST", "OPEN", "SAVE", "NEW", "RUN",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
+    # the model tree lists the steps of the picked body
+    "STEPS",
     # the Control points button (Features toolbar); dragging a point sends MOVEPT
     "CPOINTS",
     # drawn by mouse in sketch mode (Sketch toolbar)
@@ -1161,6 +1163,18 @@ def has_form(text: str) -> bool:
     except FormError:
         return False
     return True
+
+
+def replace_line(old: str, index: int, new: str) -> str:
+    """Put a new command in place of line ``index`` (0-based) of an entry,
+    keeping that line's indent and comment (a line inside a *PART or loop)."""
+    lines = old.splitlines()
+    raw = lines[index]
+    code = strip_comment(raw)
+    indent = raw[: len(raw) - len(raw.lstrip())]
+    comment = raw[len(code):].strip()
+    lines[index] = indent + new + (f"    {comment}" if comment else "")
+    return "\n".join(lines)
 
 
 def replace_code_line(old: str, new: str) -> str:

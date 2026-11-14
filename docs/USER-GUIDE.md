@@ -75,6 +75,7 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 | **Command line** (below the view) | type any command and press Enter. It suggests command names as you type and shows the arguments of the one you are typing |
 | **Form** button, **F2** | opens a fill-in form for the command you are typing, so you never need to remember argument order |
 | **Output** (bottom) | what each command did, and errors in plain words |
+| **Model** (left) | every part with its placed copies, every body, sketch, datum and named set. Click a row to pick the body, untick it to hide it, double-click to zoom to it, right-click for the same menu as in the 3D view |
 | **History** (right) | every step that built the model, in order. Grey steps are undone; red steps failed; amber steps ran but want a look |
 | **Parameters** (right, tab) | named numbers such as `W = 80`. Change one and the model rebuilds |
 | **Layers** (right, tab) | show, hide, lock and colour groups of bodies |
@@ -162,6 +163,14 @@ Right-click a step in the **History** panel:
 | **Delete** | remove the step |
 | **Roll back to here** | undo back to this step (Redo brings the rest back) |
 | **Make a part from steps …** | with several steps selected, turn them into a reusable part |
+
+**From the model tree.** Pick a body in the **Model** tree (or in the 3D
+view): the panel under the tree lists every step that made it, and the
+parameters those steps use. Double-click a step (or **Edit step…**) to change
+it in its form. For a body placed from a part, such as one of 8 bolts, the
+list holds the lines of the part's recipe (head, shank, `THREAD`): change
+the thread's pitch there and all 8 bolts are rebuilt. Type a new value next
+to a parameter to change it.
 
 When a step is edited, picks made after it still point at the same faces
 and edges where possible. If the app had to guess, the step turns amber and
