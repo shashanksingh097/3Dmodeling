@@ -17,14 +17,19 @@ Built shapes are kept by (definition text, values given), so placing the
 same bolt fifty times builds it once.
 
 The part library is a folder of ``.cmd`` files holding ``*PART`` blocks
-(``MODELER_LIBRARY``, default ``~/.modeler/parts``). ``LIB, LOAD`` reads
-one into the session; a saved project keeps a copy of every file it loaded.
+(``MODELER_LIBRARY``, default ``~/.modeler/parts``). ``LIB, LINK`` follows
+one: every open, rebuild and ``RELOAD`` reads the file itself, so the copies
+update when it changes (the copy a saved project keeps is used only when the
+file is missing). ``LIB, LOAD`` reads it once; a saved project keeps a copy
+of every file it loaded and reads that copy from then on.
 """
 
 from __future__ import annotations
 
+import hashlib
 import math
 import os
+from dataclasses import dataclass
 
 from OCP.BRep import BRep_Builder
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
@@ -84,6 +89,7 @@ def define_part(p: Processor, st: PartDef) -> str:
     if p._scopes:
         raise CommandError("*PART: parts are defined at the top level, not inside a macro")
     p.parts[st.name] = st
+    p.part_files.pop(st.name, None)  # (LIB says where it came from, after this)
     sig = _signature(st)
     if any(d is None for _, d in st.params):
         return f"part {st.name.lower()}({sig}) defined (it is built when placed: some values have no default)"
@@ -276,19 +282,50 @@ def resolve_library(p: Processor, name: str) -> str:
     raise CommandError(f"LIB: no part file {name!r} (looked for it as a path and in {library_dir()})")
 
 
-@command(
-    "LIB",
-    Arg("action", str, help="LOAD"),
-    Arg("file", Path, help="a part name in the library folder, or a .cmd file"),
-    help="Load parts from the part library: LIB, LOAD, bolt reads bolt.cmd from the library folder "
-         "(MODELER_LIBRARY, default ~/.modeler/parts), or LIB, LOAD, \"path/parts.cmd\". The file holds *PART "
-         "blocks. A saved project keeps a copy of every file it loaded. Save a part there with LIBSAVE.",
-)
-def lib(p: Processor, action, file):
-    if action != "LOAD":
-        raise CommandError("LIB: use LIB, LOAD, name (save with LIBSAVE, list with LIST, PARTS)")
-    path = resolve_library(p, file)
-    p.lib_files[file] = path
+@dataclass
+class Link:
+    """What the last run of ``LIB, LINK, name`` read."""
+
+    path: str  # the file read (the project's saved copy when ``copy`` is set)
+    digest: str  # of its text, so a changed file is seen
+    row: int  # 0-based history entry of the LIB, LINK
+    copy: bool = False  # the part file was missing: read the copy saved in the project
+    parts: tuple[str, ...] = ()  # the part names it defined
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+
+
+def link_candidates(p: Processor, name: str) -> list[str]:
+    """Where a linked part file may be, best first (the saved copy is not one)."""
+    out: list[str] = []
+    known = p.link_paths.get(name) or {}
+    if known.get("abs"):
+        out.append(known["abs"])
+    if p.project_dir:  # the project and its parts moved together (another PC)
+        if known.get("rel"):
+            out.append(os.path.normpath(os.path.join(p.project_dir, known["rel"])))
+        if not os.path.isabs(name):
+            out.append(os.path.join(p.project_dir, name))
+    out.append(name)
+    out.append(os.path.join(library_dir(), name if name.lower().endswith(".cmd") else name + ".cmd"))
+    return out
+
+
+def resolve_link(p: Processor, name: str) -> tuple[str, bool]:
+    """The file ``LIB, LINK, name`` reads: the part file itself, or (missing)
+    the copy saved in the project. Returns (path, is the saved copy)."""
+    for cand in link_candidates(p, name):
+        if os.path.isfile(cand):
+            return cand, False
+    if name in p.file_map and os.path.isfile(p.file_map[name]):
+        return p.file_map[name], True
+    raise CommandError(f"LIB: no part file {name!r} (looked for it as a path, next to the project and in "
+                       f"{library_dir()}, and the project has no saved copy)")
+
+
+def _read_parts(path: str) -> tuple[str, list[PartDef]]:
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     try:
@@ -298,8 +335,92 @@ def lib(p: Processor, action, file):
     parts = [st for st in stmts if isinstance(st, PartDef)]
     if len(parts) != len(stmts) or not parts:
         raise CommandError(f"LIB: {path} must hold only *PART blocks (and comments)")
+    return text, parts
+
+
+@command(
+    "LIB",
+    Arg("action", str, help="LOAD or LINK"),
+    Arg("file", Path, help="a part name in the library folder, or a .cmd file"),
+    help="Read parts from a part file: LIB, LINK, bolt follows bolt.cmd, so every open, rebuild and RELOAD "
+         "reads the file itself and the copies update when it changes (a saved project keeps a copy, used only "
+         "when the file is missing). LIB, LOAD, bolt reads it once and the project keeps that version. The name "
+         "is looked up as a path and in the library folder (MODELER_LIBRARY, default ~/.modeler/parts). The file "
+         "holds *PART blocks; save a part there with LIBSAVE or File > New part.",
+)
+def lib(p: Processor, action, file):
+    if action not in ("LOAD", "LINK"):
+        raise CommandError("LIB: use LIB, LINK, name (follows the file) or LIB, LOAD, name (a copy); "
+                           "save with LIBSAVE, list with LIST, PARTS")
+    if action == "LOAD":
+        path, copy = resolve_library(p, file), False
+    else:
+        path, copy = resolve_link(p, file)
+    p.lib_files[file] = path
+    text, parts = _read_parts(path)
     msgs = [define_part(p, st) for st in parts]
-    return f"loaded {len(parts)} part{'s' if len(parts) != 1 else ''} from {path}\n  " + "\n  ".join(msgs)
+    kind = "loaded" if action == "LOAD" else ("copy" if copy else "linked")
+    shown = p.link_paths.get(file, {}).get("abs") or path if copy else path
+    for st in parts:
+        p.part_files[st.name] = (path if not copy else shown, kind)
+    head = f"loaded {len(parts)} part{'s' if len(parts) != 1 else ''} from {path}"
+    if action == "LINK":
+        old = p.links.get(file)
+        digest = _digest(text)
+        p.links[file] = Link(path, digest, p.entry_index, copy, tuple(st.name for st in parts))
+        names = ", ".join(st.name.lower() for st in parts)
+        if copy:
+            p.warn(f"part file {file} is missing; using the copy saved in the project ({names} may be out of date)")
+            head = f"linked {names}: {file} is missing, read the copy saved in the project"
+        elif old is not None and old.digest != digest:
+            head = f"{names} updated from {os.path.basename(path)}"
+        else:
+            head = f"linked {len(parts)} part{'s' if len(parts) != 1 else ''} from {path}"
+    return head + "\n  " + "\n  ".join(msgs)
+
+
+def links_changed(p: Processor) -> list[str]:
+    """The linked names whose file now differs from what the last run read
+    (or that came back after being missing, or went missing)."""
+    out = []
+    for name, link in p.links.items():
+        if not (0 <= link.row < p.cursor):
+            continue
+        try:
+            path, copy = resolve_link(p, name)
+            with open(path, encoding="utf-8") as fh:
+                digest = _digest(fh.read())
+        except (OSError, CommandError):
+            continue
+        if digest != link.digest or copy != link.copy:
+            out.append(name)
+    return out
+
+
+def link_rows(p: Processor) -> dict[str, int]:
+    """Linked names -> the row of their LIB, LINK, for the applied history."""
+    return {n: lk.row for n, lk in p.links.items() if 0 <= lk.row < p.cursor}
+
+
+@command("RELOAD", logged=False,
+         help="Read linked part files (LIB, LINK) again; when one changed, re-run the history from its LIB, LINK, "
+              "so every copy of its parts updates. The window does this by itself when a linked file changes.")
+def reload_(p: Processor):
+    if not link_rows(p):
+        return "no linked part files (link one with LIB, LINK, name)"
+    changed = links_changed(p)
+    if not changed:
+        return "linked part files are unchanged"
+    start = min(p.links[n].row for n in changed)
+    msg = p.rebuild(start)
+    said = []
+    for n in changed:
+        lk = p.links[n]
+        names = ", ".join(x.lower() for x in lk.parts) or n
+        count = sum(1 for v in p.model.instances.values() if v[0].upper() in lk.parts)
+        what = "read the saved copy (the file is missing)" if lk.copy else f"updated from {os.path.basename(lk.path)}"
+        said.append(f"{names} {what}: {count} cop{'y' if count == 1 else 'ies'}")
+    return "; ".join(said) + "\n" + msg
 
 
 @command(
@@ -321,12 +442,26 @@ def libsave(p: Processor, part, file):
     return f"saved part {pd.name.lower()} to {path}"
 
 
+def part_source(p: Processor, name: str) -> str:
+    """Where a part comes from, in words: "linked to bolt.cmd", "loaded from ..."."""
+    got = p.part_files.get(name.upper())
+    if not got:
+        return "defined in this project"
+    path, kind = got
+    if kind == "linked":
+        return f"linked to {path}"
+    if kind == "copy":
+        return f"linked to {path}, which is missing (using the copy saved in the project)"
+    return f"loaded from {path} (a copy: LIB, LINK follows the file)"
+
+
 def parts_listing(p: Processor) -> list[str]:
     m = p.model
     lines = []
     for name, pd in p.parts.items():
         count = sum(1 for bid, (pn, _) in m.instances.items() if pn == name and bid in m.bodies)
-        lines.append(f"  {name.lower()}({_signature(pd)}): {count} instance{'s' if count != 1 else ''}")
+        lines.append(f"  {name.lower()}({_signature(pd)}): {count} instance{'s' if count != 1 else ''}, "
+                     f"{part_source(p, name)}")
     return lines
 
 

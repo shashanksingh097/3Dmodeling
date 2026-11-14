@@ -177,11 +177,14 @@ class ModelTree(QTreeWidget):
         if n is None:
             return []
         if n.kind == "body":
-            return bm.body_items(m, n.ids[0])
+            return bm.body_items(m, n.ids[0], self.win.processor.part_files)
         if n.ids:
             head = [bm.MenuItem(n.label, enabled=False, title=True)]
-            return (head + bm.view_items(m, n.ids, "these" if n.kind == "group" else "all of them")
-                    + bm.everything_items(m) + [bm.SEPARATOR, bm.MenuItem("Zoom to", [f"FIT, {bm.target_text(n.ids)}"])])
+            items = (head + bm.view_items(m, n.ids, "these" if n.kind == "group" else "all of them")
+                     + bm.everything_items(m) + [bm.SEPARATOR, bm.MenuItem("Zoom to", [f"FIT, {bm.target_text(n.ids)}"])])
+            if n.kind == "part":
+                items.append(bm.part_item(n.key.split(":", 1)[1], self.win.processor.part_files))
+            return items
         return bm.everything_items(m)
 
     def _menu(self, pos) -> None:

@@ -32,6 +32,9 @@ class Sandbox:
         p.part_cache = source.part_cache  # keys never change meaning, so sharing is safe
         p.lib_files = dict(source.lib_files)
         p.file_map = dict(source.file_map)
+        p.links = dict(source.links)
+        p.link_paths = dict(source.link_paths)
+        p.project_dir = source.project_dir
         if start == "empty":
             self.start = "empty"
         else:

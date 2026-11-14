@@ -200,7 +200,8 @@ def test_place_a_part_form(p):
     assert back["values"] == "D=10, L=40" and back["x"] == "10, 0, 0"
     vals["values"] = "Q=1"
     assert "has no Q" in F.check(p, sp, vals)[1]["values"]
-    assert F.build(F.spec("LIB"), {"file": "bolt"}) == 'LIB, LOAD, "bolt"'
+    assert F.build(F.spec("LIB"), {"action": "LOAD", "file": "bolt"}) == 'LIB, LOAD, "bolt"'
+    assert F.initial(p, F.spec("LIB"))["action"] == "LINK"  # the form links by default
     assert F.part_params(p, "bolt") == [("D", "8"), ("L", "30"), ("K", "0.7*D")]
 
 

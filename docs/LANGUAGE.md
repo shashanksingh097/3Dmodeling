@@ -256,7 +256,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `LIB, LOAD, name/file` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -957,6 +957,32 @@ folder (`MODELER_LIBRARY`, default `~/.modeler/parts`), or `LIBSAVE, bolt,
 saved project keeps a copy of every part file it loaded, like imported
 files, so it opens on a computer without your library.
 
+### Linked part files: copies that follow the file
+
+`LIB, LINK, bolt` reads the same files as `LIB, LOAD`, but follows the file:
+every open, rebuild and `RELOAD` reads the part file itself, so when the
+bolt file changes every copy placed from it is rebuilt.
+
+| | `LIB, LOAD` | `LIB, LINK` |
+|---|---|---|
+| reads the file | once; the saved project reads its own copy from then on | on every open, rebuild and `RELOAD` |
+| the file changes | the project keeps the old version | every copy updates ("bolt updated from bolt.cmd") |
+| the file is missing | the saved copy | the saved copy, with a warning on the `LIB` step |
+
+`RELOAD` reads the linked files again and, when one changed, re-runs the
+history from its `LIB, LINK` step. It is not kept in the history. The window
+does it by itself when a linked file changes on disk, or when you come back
+to the app after changing it.
+
+A saved project remembers where each linked file was, both as a full path
+and relative to the project, so a folder holding the project and its parts
+can be moved to another computer. The file is looked for there in this
+order: the full path, next to the project, as written, then in the part
+library; the copy saved in the project comes last.
+
+`LIST, PARTS` says for each part where it comes from: `linked to ...`,
+`loaded from ... (a copy)`, or `defined in this project`.
+
 
 ### Part documents: design one part on its own
 
@@ -980,8 +1006,8 @@ FILLET, D/8
 SAVEPART, peg.cmd      ! *PART, peg, D=4, H=3*D ... *ENDPART
 ```
 
-A project loads the file with `LIB, LOAD, peg.cmd` and places copies with
-`INST`. In the window: **File > New part…**, **File > Open part…**, and
+A project links the file with `LIB, LINK, peg.cmd` (or loads a copy with
+`LIB, LOAD`) and places copies with `INST`. In the window: **File > New part…**, **File > Open part…**, and
 **File > Save** writes the part file; the title shows the part and its
 file, and the Parameters panel shows the inputs in bold.
 
@@ -989,6 +1015,12 @@ file, and the Parameters panel shows the inputs in bold.
 tree, or a `*PART` step in History) opens a part defined in the project in a
 window of its own, as a part document. **File > Save** there writes the new
 block back into that history step (`HIST, EDIT`), and every copy is rebuilt.
+
+**Open part** does the same for a copy of a part read from a part file
+(`LIB, LINK` or `LIB, LOAD`): the part file opens in its own window, and
+**File > Save** there writes the file. For a linked part the project then
+reads the file again, so every copy updates; a loaded copy stays as it was
+(the window says so).
 
 ## 18. Screw threads and springs
 

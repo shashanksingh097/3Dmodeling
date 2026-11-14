@@ -201,6 +201,13 @@ class AppShell:
                 return
         self.win.execute(f"NEWPART, {name.strip()}")
 
+    def link_part(self, path: str | None = None) -> None:
+        if path is None:
+            path, _ = QFileDialog.getOpenFileName(self.win, "Link part file", self._start_dir(),
+                                                  "Part files (*.cmd);;All files (*)")
+        if path:
+            self.win.execute(f'LIB, LINK, "{path}"')
+
     def open_part(self, path: str | None = None, name: str = "") -> None:
         if not self.confirm_discard("open a part"):
             return
@@ -367,6 +374,12 @@ class AppShell:
         self.export_action = a(m, "&Export…", self.export_file, "Ctrl+E",
                                "Write all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP. "
                                "Runs: EXPORT, format, file")
+        self.link_part_action = a(m, "&Link part file…", self.link_part, None,
+                                  "Use the parts of a part file here, following the file: when it changes, every "
+                                  "copy updates. Runs: LIB, LINK, file")
+        self.reload_action = a(m, "Reload linked parts", lambda: self.win.execute("RELOAD"), None,
+                               "Read linked part files again and update the copies (the window also does this by "
+                               "itself when a file changes). Runs: RELOAD")
         m.addSeparator()
         a(m, "Run &script…", self.run_script, None, "Run a .cmd script. Runs: RUN, file")
         a(m, "Save &log…", self.win._save_log, None, "Save the history as a script that rebuilds this model")

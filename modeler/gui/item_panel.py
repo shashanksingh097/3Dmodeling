@@ -112,7 +112,10 @@ class ItemPanel(QWidget):
                 return
             info = self.info
             self.title.setText(f"<b>{info.title}</b>")
-            if info.part:
+            if info.part and info.from_file:
+                self.note.setText(f"Placed from part {info.part} ({info.copies} cop{'y' if info.copies == 1 else 'ies'}), "
+                                  f"{info.source}. Open part edits the part file; the INST line places this copy.")
+            elif info.part:
                 self.note.setText(f"Placed from part {info.part} ({info.copies} cop{'y' if info.copies == 1 else 'ies'}). "
                                   "Lines of the part's recipe change every copy; the INST line places it.")
             else:
@@ -141,6 +144,8 @@ class ItemPanel(QWidget):
             self.edit_button.setEnabled(bool(info.lines))
             self.show_button.setEnabled(bool(info.lines))
             self.part_button.setVisible(bool(info.part))
+            self.part_button.setText("Open part…" if info.from_file else "Edit part…")
+            self.part_button.setEnabled(not info.source.endswith("saved in the project)"))
         finally:
             self._filling = False
 

@@ -263,6 +263,17 @@ it as a part file (`.cmd`) that any project can load. **File > Open part…**
 opens a part file again with every step editable. To change a part that
 lives inside a project, right-click one of its copies and choose **Edit
 part**: it opens in its own window, and **Save** there updates every copy.
+
+
+**Use a part file in an assembly, and keep it up to date.** **File > Link
+part file…** (`LIB, LINK, file`) makes the file's parts available for
+placing copies, and follows the file: when you change and save the part,
+every copy in the assembly updates by itself (**File > Reload linked parts**
+does it by hand). Right-click a copy, or its part in the Model tree, and
+choose **Open part** to open the part file in its own window; **Save**
+there updates the assembly. If the part file is missing when a project
+opens, the copy saved in the project is used and the `LIB` step shows a
+warning. The Model tree says for each part whether it is linked.
 Details: [LANGUAGE.md](LANGUAGE.md) section 17.
 
 ---

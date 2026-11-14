@@ -523,14 +523,14 @@ the right-click menu. Like everything else, it only sends commands.
    steps wrapped into one `*PART` block, with the same code as
    `HIST, PART`. Opening a part file unwraps its block back into steps.
    A part file that holds several parts asks which one to open.
-2. **Linked parts in an assembly.** `LIB, LINK, file` (next to `LIB, LOAD`)
+2. Done (M11b): **Linked parts in an assembly.** `LIB, LINK, file` (next to `LIB, LOAD`)
    reads the part file itself on every open and rebuild, not a frozen copy.
    When the file changed since the last run, every copy of the part is
    rebuilt and the assembly says so ("bolt updated from bolt.cmd"). `SAVE`
    still keeps a copy in the project, used only when the file is missing,
    with a warning. `LIST, PARTS` shows each part's file and whether it is
    linked or loaded.
-3. **Editing a part from the assembly.** In the tree and the right-click
+3. Done (M11a, M11b): **Editing a part from the assembly.** In the tree and the right-click
    menu, a copy of a linked part offers Open part, which opens the part
    document in its own window. Saving it there updates the assembly
    window. Done (M11a): for a part defined inside the project, Edit part
@@ -729,8 +729,8 @@ Still open in the milestones already started, in the suggested order:
    menu), M10b (lineage, `STEPS`, the Model tree dock) and M10c (the item
    panel that edits an item's steps, the exit test).
    Right after M10: M11, separate part and assembly design (section
-   5.10). Done: M11a (part documents, Edit part). Next: M11b (linked
-   parts, Open part from a copy), then M11c (mates).
+   5.10). Done: M11a (part documents, Edit part), M11b (linked
+   parts, `RELOAD`, Open part from a copy). Next: M11c (mates).
 5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
