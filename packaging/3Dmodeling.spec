@@ -17,6 +17,7 @@ from modeler import __version__  # noqa: E402
 # re-export names. Take them all, except the VTK bridge the app never uses.
 hidden = [m for m in collect_submodules("OCP") if ".IVtk" not in m] + collect_submodules("modeler")
 hidden += collect_submodules("meshio")  # mesh file readers, imported when a mesh is read
+hidden += ["manifold3d"]  # mesh booleans, imported when a mesh body is combined
 try:  # the assistant (pip install ".[ai]"); its Copilot runtime downloads on first use
     hidden += collect_submodules("copilot")
 except Exception:  # noqa: BLE001 - built without the assistant

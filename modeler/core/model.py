@@ -218,6 +218,9 @@ class Model:
         # Fresh IDs never go below this (set while replaying history so new
         # steps do not take IDs that later steps have pinned).
         self.id_floor: dict[str, int] = {k: 1 for k in ID_KINDS}
+        # False while a command that cannot work on mesh bodies runs: it then
+        # cannot reach a mesh body's face through a pick (the processor sets it)
+        self.mesh_entities_ok = True
         self._reset()
 
     def _reset(self) -> None:
@@ -664,7 +667,14 @@ class Model:
         if kind == "BODY":
             return self.body(gid).shape
         bid, idx = self.entity_owner(kind, gid)
-        return self.bodies[bid].maps[kind].FindKey(idx)
+        shape = self.bodies[bid].maps[kind].FindKey(idx)
+        if not self.mesh_entities_ok:
+            from ..geometry import meshbody
+
+            if meshbody.is_mesh(shape):
+                raise ModelError(f"{kind} {gid} is the surface of mesh body {bid}, which has no separate faces "
+                                 f"or edges; TOSOLID, {bid} makes a faceted solid of it first")
+        return shape
 
     def entity_owner(self, kind: str, gid: int) -> tuple[int, int]:
         """Return (body id, local 1-based index) for a global entity ID."""

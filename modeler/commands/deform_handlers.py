@@ -26,6 +26,8 @@ def _axis(p: Processor, bid: int, word: str, what: str) -> str:
 
         box = Bnd_Box()
         BRepBndLib.AddOptimal_s(p.model.body(bid).shape, box, False, False)
+        if box.IsVoid():  # a mesh body has only triangles
+            BRepBndLib.Add_s(p.model.body(bid).shape, box, True)
         lo, hi = box.CornerMin(), box.CornerMax()
         d = [hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z()]
         return "XYZ"[int(np.argmax(d))]

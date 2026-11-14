@@ -290,6 +290,11 @@ def _unplaced(shape):
 def deform(shape, fn: Map, tol: float | None = None, max_spans: int = 64):
     """The shape pushed through ``fn``. Returns (new shape, worst error,
     faceted?). Raises DeformError if the result is not a valid shape."""
+    from . import meshbody
+
+    if meshbody.is_mesh(shape):  # a mesh body: every point moves, it stays a mesh
+        pts, t = meshbody.arrays(shape)
+        return meshbody.make_shape(fn(np.asarray(pts, float)), t), 0.0, True
     if faceted(shape):
         return _deform_faceted(shape, fn), 0.0, True
     size = max(robust.diagonal(shape), 1e-9)
@@ -403,6 +408,8 @@ def frame_of(shape, axis: str, up: str | None = None) -> Frame:
 
     box = Bnd_Box()
     BRepBndLib.AddOptimal_s(shape, box, False, False)
+    if box.IsVoid():  # a mesh body has only triangles
+        BRepBndLib.Add_s(shape, box, True)
     if box.IsVoid():
         raise DeformError("the body is empty")
     lo, hi = np.array(_xyz(box.CornerMin())), np.array(_xyz(box.CornerMax()))

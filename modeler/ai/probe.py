@@ -21,7 +21,26 @@ if TYPE_CHECKING:
 def _face_id(p: "Processor", bid: int, face) -> int | None:
     body = p.model.bodies[bid]
     k = body.maps["FACE"].FindIndex(face)
+    if not k and face is not None and len(body.entity_ids["FACE"]) == 1:
+        from ..geometry import meshbody
+
+        if meshbody.is_mesh(body.shape):  # a triangle of a mesh body: the body's one face
+            return body.entity_ids["FACE"][0]
     return body.entity_ids["FACE"][k - 1] if k else None
+
+
+def _kernel_shape(p: "Processor", bid: int):
+    """The body's shape for the kernel's ray and distance tools: a mesh body is
+    measured through a faceted copy (None when it is too big for that)."""
+    from ..geometry import meshbody
+
+    shape = p.model.bodies[bid].shape
+    if meshbody.is_mesh(shape):
+        try:
+            return meshbody.as_faceted(shape)
+        except meshbody.MeshError:
+            return None
+    return shape
 
 
 def _bodies(p: "Processor", bodies) -> list[int]:
@@ -45,8 +64,8 @@ def probe_ray(p: "Processor", origin, direction, bodies=None, limit: int = 50) -
     o = tuple(float(c) for c in origin)
     hits, spans = [], []
     for bid in _bodies(p, bodies):
-        shape = p.model.bodies[bid].shape
-        if not robust.solids(shape):
+        shape = _kernel_shape(p, bid)
+        if shape is None or not robust.solids(shape):
             continue
         found = pr.Rays(shape).hits(o, d)
         inside = pr.classify(shape, o) == "inside"
@@ -82,7 +101,9 @@ def probe_point(p: "Processor", points: list, bodies=None) -> dict[str, Any]:
         best = None
         state_row = None
         for bid in ids:
-            shape = p.model.bodies[bid].shape
+            shape = _kernel_shape(p, bid)
+            if shape is None:
+                continue
             dist, at, face = pr.nearest(shape, q)
             state = pr.classify(shape, q) if robust.solids(shape) else ("on" if dist < 1e-6 else "outside")
             if dist < 1e-6 and state != "inside":

@@ -35,6 +35,7 @@ _COMMAND_CHOICES = {
     ("HIST", "action"): ("LIST", "EDIT", "INSERT", "DELETE", "SUPPRESS", "RESUME", "MOVE", "REPLAY", "PART"),
     ("EXPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF"),
     ("IMPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH"),
+    ("IMPORT", "kind"): ("AUTO", "SOLID", "MESH"),
     ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "SKETCH", "LAYERS", "MATERIALS"),
     ("LAYER", "action"): ("CURRENT", "NEW", "ON", "OFF", "LOCK", "UNLOCK", "COLOR", "ADD", "RENAME", "DELETE"),
     ("LIB", "action"): ("LOAD",),

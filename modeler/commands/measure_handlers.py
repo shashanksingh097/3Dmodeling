@@ -161,7 +161,10 @@ def massprop(p: Processor, b, density):
         ids = list(m.selection)
     else:
         ids = m.shown_ids()
-    ids = [i for i in ids if robust.solids(m.body(i).shape)]
+    from ..geometry import meshbody
+
+    ids = [i for i in ids if robust.solids(m.body(i).shape)
+           or (meshbody.is_mesh(m.body(i).shape) and meshbody.info(m.body(i).shape).closed)]
     if not ids:
         raise CommandError("MASSPROP: no solid bodies to measure")
     u = m.units.lower()
@@ -219,7 +222,10 @@ def clash(p: Processor, a, b):
     elif a or b:
         raise CommandError("CLASH: give two bodies, or none to check every pair")
     else:
-        ids = [i for i in m.shown_ids() if robust.solids(m.bodies[i].shape)]
+        from ..geometry import meshbody
+
+        ids = [i for i in m.shown_ids() if robust.solids(m.bodies[i].shape)
+               or (meshbody.is_mesh(m.bodies[i].shape) and meshbody.info(m.bodies[i].shape).closed)]
         if len(ids) > 200:
             raise CommandError("CLASH: more than 200 bodies; name the two to check")
         pairs = [(x, y) for k, x in enumerate(ids) for y in ids[k + 1:]]
@@ -233,7 +239,17 @@ def clash(p: Processor, a, b):
         bx, by = bbox(sx), bbox(sy)
         apart = any(bx[i + 3] < by[i] or by[i + 3] < bx[i] for i in range(3))
         overlap = 0.0
-        if not apart:
+        from ..geometry import meshbody
+
+        if not apart and (meshbody.is_mesh(sx) or meshbody.is_mesh(sy)):
+            # a mesh body: the common volume is found on triangles
+            from .mesh_handlers import default_deflection
+
+            try:
+                overlap = meshbody.overlap_volume(sx, sy, default_deflection(p, sx if not meshbody.is_mesh(sx) else sy))
+            except meshbody.MeshError as exc:
+                raise CommandError(f"CLASH: bodies {x} and {y}: {exc}") from None
+        elif not apart:
             common = BRepAlgoAPI_Common(sx, sy)
             if common.IsDone() and not robust.is_empty(common.Shape()):
                 overlap = robust.volume(common.Shape())
@@ -241,7 +257,10 @@ def clash(p: Processor, a, b):
             hits += 1
             lines.append(f"bodies {x} and {y} OVERLAP: {_n(overlap)} {m.units.lower()}3 in common")
         elif len(pairs) == 1 or not apart:
-            d, _, _ = ft.distance(sx, sy)
+            try:
+                d, _, _ = ft.distance(sx, sy)
+            except ft.FeatureError as exc:
+                raise CommandError(f"CLASH: bodies {x} and {y}: {exc}") from None
             lines.append(f"bodies {x} and {y} " + ("touch (no overlap)" if d < 1e-7 else f"are clear: gap {_n(d)}"))
     if len(pairs) > 1:
         lines.append(f"{len(pairs)} pairs checked: " + (f"{hits} overlap" if hits else "no overlaps"))

@@ -58,6 +58,11 @@ def triangulate(shape, deflection: float, name: str = "", color=None) -> Mesh:
     """The faces of ``shape`` as one triangle mesh, normals pointing outwards.
 
     Meshes a copy, so the model's own shape is not changed."""
+    from . import meshbody
+
+    if meshbody.is_mesh(shape):  # a mesh body already is triangles
+        pts, t = meshbody.arrays(shape)
+        return Mesh(name, np.asarray(pts, float), np.asarray(t, np.int64), color)
     shape = BRepBuilderAPI_Copy(shape).Shape()
     BRepMesh_IncrementalMesh(shape, deflection, False, 0.3, True)
     pts: list[np.ndarray] = []

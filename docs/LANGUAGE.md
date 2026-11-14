@@ -269,7 +269,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name]` (section 10) · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance`; `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
@@ -471,8 +472,10 @@ are read as the model's units.
 
 Faceted bodies take booleans, `SPLIT`, `SECTION`, measuring and export,
 but not fillets or shells across facets. Up to 100,000 triangles become a
-body; reduce a bigger mesh in a mesh tool first. Editing meshes as meshes
-(smoothing, sculpting, fast mesh booleans) is planned for M6 and M7.
+faceted body. A bigger file becomes a **mesh body** instead (section 25),
+and so does any file imported with the kind `MESH`:
+`IMPORT, STL, "scan.stl", scan, MESH`. `SOLID` asks for a faceted body
+whatever the size (up to the limit), and `AUTO` (the default) picks.
 
 `EXPORT` writes STEP, IGES or BREP (exact) or STL, OBJ, 3MF or GLTF
 (triangles, 0.1 mm fine). OBJ, 3MF and glTF keep one object per body with
@@ -1983,3 +1986,64 @@ whose top takes the shape of a wavy surface and whose side is moved in).
 Example: `scripts/nurbs_freeform.cmd` (a dome through a network of curves,
 closed with a flat patch and sewn into a solid; an edited curve; a surface
 from rows of control points with one point pulled up).
+
+## 25. Mesh bodies: big triangle meshes, fast mesh booleans, smoothing
+
+A **mesh body** keeps its triangles as one mesh. A faceted body (section
+10) has one flat face per triangle, which gets slow past about 100,000
+triangles; a mesh body has one face that carries all of its triangles, so a
+scan or a print file of a few million triangles stays quick to show, move
+and combine. It has a body ID and one face ID like any body, so names,
+picks, the Model tree, colours, layers, `HIDE`, `FADE` and the history work
+as before.
+
+```
+SPHERE, 0, 0, 0, 30
+NAME, LAST, shade
+TOMESH, shade                ! the sphere becomes a mesh body, same ID
+SPHERE, 0, 0, 0, 28
+SUBTRACT, shade, LAST        ! mesh boolean: a 2 mm shell
+CYL, -32, 0, 0, 6, 64, 1, 0, 0
+SUBTRACT, shade, LAST        ! a solid cut from a mesh: meshed first, then cut
+```
+
+**Making and unmaking.** `TOMESH, b [, deflection]` turns a solid into a
+mesh body; curved faces are cut into triangles that sit at most
+`deflection` from the true face (default: a thousandth of the body's size,
+at most 0.1 mm). `TOSOLID, b` turns a mesh body into a faceted solid (up to
+100,000 triangles), for the commands that need faces and edges. `IMPORT`
+makes mesh bodies from big files, or from any mesh file with the kind
+`MESH` (section 10). Both keep the body's ID.
+
+**Booleans.** When any body in `UNION`, `SUBTRACT` or `INTERSECT` is a mesh
+body, the whole boolean runs on triangles (in the manifold3d library) and
+the result is a mesh body; exact solids in it are meshed first. Mesh
+booleans always give a closed mesh and are fast: two spheres of 245,000
+triangles each are subtracted in about a second. A mesh with holes or loose
+edges has no inside, so it is refused with that reason. `SEL` and `KEEP`
+work as for any boolean.
+
+**Shaping the mesh.**
+
+| Command | What it does |
+|---------|--------------|
+| `SMOOTH, b [, steps [, strength]]` | Bumps and noise go and the body keeps its size (Taubin smoothing: each pass pulls every point towards its neighbours, then pushes it back a little). Long thin triangles next to small ones are split first, so a corner is not pulled far in. Default 5 passes at strength 0.5. |
+| `REMESH, b, length` | More triangles: every edge longer than `length` is split, and the shape stays exactly the same. Use it before `SMOOTH`, and to give flat regions enough points to bend (`TWIST`, `BEND`). |
+| `SIMPLIFY, b, tolerance` | Fewer triangles: no point of the surface moves more than `tolerance`. Flat regions lose the most. |
+
+`MOVE`, `ROTATE`, `COPY`, `MIRROR` and the deformers (`BEND`, `TWIST`,
+`TAPER`, `STRETCH`, `FLOW`) move every point of a mesh body, and it stays a
+mesh body. `MASSPROP`, `VOL()`, `DESCRIBE` (which says `representation:
+mesh` and what works), `DIST`, `CLASH` and `PROBE` measure it, and `EXPORT`
+writes it to STL, OBJ, 3MF or GLTF. STEP, IGES and BREP hold exact faces,
+so they refuse a mesh body: `TOSOLID` it first.
+
+Commands that need faces and edges (`FILLET`, `HOLE`, `SHELL`, `SPLIT`,
+`SECTION`, `CHECK` ...) refuse a mesh body with a message that says so and
+points to `TOSOLID`, rather than failing inside the kernel.
+
+The view shades a sharp edge of a mesh body sharp (its points are split
+there for drawing only), and smooth regions smooth.
+
+See `scripts/mesh_bodies.cmd`: a ball lamp shade cut as a mesh, a box
+smoothed into a pebble, and a mesh bar twisted and simplified.

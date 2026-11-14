@@ -13,6 +13,7 @@ dependencies = [
     "cadquery-ocp>=7.7",
     "numpy>=1.24",
     "meshio>=5.3",  # mesh files: VTK, PLY, OBJ, OFF, Gmsh and other simulation formats
+    "manifold3d>=3.0",  # mesh bodies: fast, always-closed booleans on triangles
 ]
 
 [project.optional-dependencies]

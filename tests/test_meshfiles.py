@@ -193,7 +193,13 @@ def test_mesh_import_errors(tmp_path, monkeypatch):
     assert "no surface triangles" in err(p, f'IMPORT, VTK, "{lines}"')
     ok(p, f'SPHERE, 0,0,0, 5\nEXPORT, STL, "{tmp_path}/s.stl"')
     monkeypatch.setattr(project_handlers, "MAX_MESH_TRIANGLES", 100)
-    assert "Reduce the mesh" in err(Processor(), f'IMPORT, STL, "{tmp_path}/s.stl"')
+    # too many triangles for a faceted solid: AUTO makes a mesh body, SOLID says why it cannot
+    assert "kind MESH" in err(Processor(), f'IMPORT, STL, "{tmp_path}/s.stl", , SOLID')
+    p2 = Processor()
+    ok(p2, f'IMPORT, STL, "{tmp_path}/s.stl"')
+    from modeler.geometry import meshbody
+
+    assert meshbody.is_mesh(p2.model.body(1).shape)
     assert "format" in err(p, f'EXPORT, PLY, "{tmp_path}/x.ply"')
 
 

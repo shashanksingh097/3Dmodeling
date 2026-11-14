@@ -49,6 +49,8 @@ def centre(kind: str, shape) -> Vec:
 def bbox(shape) -> tuple[float, ...]:
     box = Bnd_Box()
     BRepBndLib.AddOptimal_s(shape, box, False, False)  # tight box, no tolerance gap
+    if box.IsVoid():  # a mesh body has only triangles
+        BRepBndLib.Add_s(shape, box, True)
     lo, hi = box.CornerMin(), box.CornerMax()
     return lo.X(), lo.Y(), lo.Z(), hi.X(), hi.Y(), hi.Z()
 
