@@ -77,7 +77,7 @@ def contact_cmd(p: Processor, a, b, tol, near, fmt):
     lines = [pair_text(r) for r in out["overlaps"] + out["touching"] + out.get("near", [])]
     if a and not lines:
         lines.append(f"body {a} touches nothing")
-    if not a and len(out["groups"]) > 1:
+    if not a and 1 < len(out["groups"]) <= 10:
         for g in out["groups"]:
             lines.append(f"group: {', '.join(map(str, g))}")
     lines.append(f"{out['bodies']} bodies, {out['pairs']} pairs: {out['summary']}")
