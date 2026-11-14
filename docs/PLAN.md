@@ -374,7 +374,7 @@ spring is a short script whose numbers you can change later.
 - Undo for history edits themselves (`HIST, EDIT/DELETE/MOVE` are not yet undoable) `[M3]`
 - Warning state for history entries (ran, but needs a look) `[done]`
 - Separate namespaces, or a clear error, when a parameter and a body share a name `[M3]`
-- Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[M4]`
+- Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[M11]` (section 5.10)
 - Regression corpus: example scripts whose volumes, face counts and validity are checked in CI, so a kernel upgrade cannot change models unnoticed, plus hard cases for the shapes made from curves `[done]`
 - Configurations: named sets of parameter values for one model (sizes of a family of parts), switchable from the Parameters panel and from the batch runner `[M4]`
 
@@ -487,6 +487,74 @@ Exit test: open the threaded bolts example, right-click a bolt in the view
 and fade the others, find the same bolt in the tree, open its `THREAD`
 step, change the pitch, and see every bolt of that part update.
 
+### 5.10 Separate part and assembly design (after the model tree)
+
+Asked for by the user after 0.2.0: design one part on its own, with only that
+part loaded, and design an assembly separately by adding the finished parts.
+This is milestone **M11**, built right after M10 (section 5.9) and before
+M6, because "Open part" and "this copy or the part" use the model tree and
+the right-click menu. Like everything else, it only sends commands.
+
+**What exists today**
+
+- "Make a part from steps" in the History panel (`HIST, PART`) turns steps
+  into a `*PART` block with its own sizes (`D`, `L`); `LIBSAVE` writes the
+  block to a `.cmd` file in the part library; `LIB, LOAD` and `INST` place
+  copies in another project, and editing the block there updates every
+  copy.
+- The whole `*PART` block is one history entry, so its inner steps can only
+  be edited as text; opening a part file shows nothing until something
+  places it.
+- A saved project keeps a frozen copy of each part file it loaded, and a
+  reopened project reads that copy first, so later edits of the part file
+  never reach the assemblies that use it.
+- Copies are placed by position and angle only; there are no mates.
+
+**What is new**
+
+1. **Part documents.** File > New part and Open part. A part document is a
+   normal model whose steps show in History (each opens in its form or the
+   sweep editor), whose sizes show in the Parameters panel marked as the
+   part's inputs, with a default for each. Saving writes the part file: the
+   steps wrapped into one `*PART` block, with the same code as
+   `HIST, PART`. Opening a part file unwraps its block back into steps.
+   A part file that holds several parts asks which one to open.
+2. **Linked parts in an assembly.** `LIB, LINK, file` (next to `LIB, LOAD`)
+   reads the part file itself on every open and rebuild, not a frozen copy.
+   When the file changed since the last run, every copy of the part is
+   rebuilt and the assembly says so ("bolt updated from bolt.cmd"). `SAVE`
+   still keeps a copy in the project, used only when the file is missing,
+   with a warning. `LIST, PARTS` shows each part's file and whether it is
+   linked or loaded.
+3. **Editing a part from the assembly.** In the tree and the right-click
+   menu, a copy of a linked part offers Open part, which opens the part
+   document in its own window. Saving it there updates the assembly
+   window. For a part defined inside the project, Edit part opens the same
+   part view on its `*PART` block and writes `HIST, EDIT` back.
+4. **Mates.** `MATE, a, b, COINCIDENT|CONCENTRIC|DISTANCE|ANGLE [, value]`
+   between faces, edges or axes of two copies, solved in order as placement
+   steps (each moves the second copy; a full solver comes later if needed).
+   The result is checked with `CONTACT` and `CLEARANCE`, and a mate that
+   cannot be met is an error that names both items.
+5. Tests that run headless: part document round trip (open, edit a step,
+   save, same volume), a linked part changed on disk updates every copy, the
+   missing-file fallback, each mate kind on the bolted plate example, and GUI
+   tests for New part, Open part and the menu entry.
+
+**Pull requests**
+
+- **M11a:** part documents (1), Edit part for parts inside a project (3,
+  second half), the round-trip tests.
+- **M11b:** linked parts (2), Open part from the tree and the menu (3), the
+  file-changed tests.
+- **M11c:** mates (4), their tests, and the USER-GUIDE.md and LANGUAGE.md
+  sections for parts and assemblies.
+
+Exit test: make a bolt in a part document and save it, start an assembly,
+link the bolt and place eight copies on a plate with concentric and
+coincident mates, then open the bolt from one copy, change its length, save,
+and see all eight copies in the assembly update.
+
 ---
 
 ## 6. Architecture
@@ -557,6 +625,7 @@ Each milestone ends with something a person can use, plus tests.
 | **M8** | Polish & release | Preferences, themes, help browser from command metadata, 2D drawing export, installers | Installable app with docs and example library |
 | **M9** | AI assistant | Chat panel, commands as AI tools, model-state queries, "explain this script", "write a script for ..." | Plain request "make a 50 mm flange with 6 bolt holes" produces a correct script the user accepts |
 | **M10** | Model tree and right-click menu (after 0.2.0) | Model tree dock; right-click menu in the tree and the 3D view (hide, show, fade this, fade the others, isolate); the design history of each item editable from the tree (section 5.9) | Fade the others around a bolt by right click, open its `THREAD` step from the tree, change the pitch, and every bolt of that part updates |
+| **M11** | Separate part and assembly design (after M10) | Part documents (open and save one part on its own), parts linked into an assembly that follow edits of the part file, Open part from a copy, mates (section 5.10) | Edit a linked bolt in its own window, save, and all eight copies in the assembly update |
 
 M0 through M2 are the critical path; once the command core and viewport are
 solid, M3 to M7 are mostly independent sets of handlers and can be built in
@@ -653,6 +722,8 @@ Still open in the milestones already started, in the suggested order:
 4. M10, the model tree and right-click menu (section 5.9), in three pull
    requests. M10a (in progress): `FADE`/`UNFADE` and the view steps
    (`DISPLAY`), the right-click menu in the 3D view and on History rows.
+   Right after M10: M11, separate part and assembly design (section
+   5.10): part documents, parts linked into assemblies, mates.
 5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
    imported mesh editable as a mesh), then implicit shapes and lattices,
    then knife and freehand cuts.
