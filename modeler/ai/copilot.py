@@ -8,8 +8,8 @@ to it over a pipe.
 
 Sign-in uses the runtime's own GitHub sign-in with a one-time code: the app
 shows a code, the user enters it at github.com/login/device, and the runtime
-keeps the credential in the system keychain, as the Copilot command-line tool
-does. A user already signed in to Copilot on this computer is signed in here
+keeps the credential in a file in the user's own app-data folder (see
+:func:`runtime_dir`), after asking. A user already signed in to Copilot on this computer is signed in here
 too.
 
 The assistant gets only this app's tools (``modeler.ai.tools``: reading the
@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import tempfile
 import threading
 from collections.abc import Callable
@@ -79,13 +80,32 @@ def default_home() -> str:
     return path
 
 
-def runtime_dir(home: str) -> str:
-    """Where the Copilot runtime keeps its settings and session state: ``.copilot`` in the
-    working folder. The SDK's clean (``empty``) mode needs this folder named: it never falls
-    back to ``~/.copilot``. The GitHub sign-in itself stays in the system keychain."""
-    path = os.path.join(home, ".copilot")
-    os.makedirs(path, exist_ok=True)
+def runtime_dir() -> str:
+    """Where the Copilot runtime keeps its settings and the GitHub sign-in: a per-user folder,
+    ``%APPDATA%\\3Dmodeling\\copilot`` on Windows, ``~/Library/Application Support/3Dmodeling/
+    copilot`` on macOS, ``$XDG_DATA_HOME/3Dmodeling/copilot`` (``~/.local/share``) elsewhere;
+    ``MODELER_COPILOT_DATA`` overrides it.
+
+    The SDK's clean (``empty``) mode needs this folder named (it never falls back to
+    ``~/.copilot``), and it switches the system keychain off, so the sign-in is kept in a file
+    here. That is why it is not the working folder: a temporary folder gets cleaned up, and a
+    project folder gets copied and shared.
+    """
+    path = os.environ.get("MODELER_COPILOT_DATA")
+    if not path:
+        if sys.platform == "win32":
+            base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+        elif sys.platform == "darwin":
+            base = os.path.expanduser("~/Library/Application Support")
+        else:
+            base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+        path = os.path.join(base, "3Dmodeling", "copilot")
+    os.makedirs(path, mode=0o700, exist_ok=True)  # Windows: the user's profile is private already
     return path
+
+
+# the runtime's answer to needs-plaintext-consent; anything else declines
+PLAINTEXT_ALLOW = "allow"
 FOLDER_PROMPT = """- The user's working folder is {0}. Put files from EXPORT and SAVE there and look
   for IMPORT and RUN files there, unless the user names another folder. Always write full paths.
 """
@@ -185,7 +205,7 @@ class CopilotAssistant:
         try:
             if not self.home:
                 self.home = default_home()
-            base = runtime_dir(self.home)
+            base = runtime_dir()
         except OSError as exc:
             raise AssistantError(f"could not use the folder {self.home}: {exc}") from None
         kwargs: dict[str, Any] = {"mode": "empty", "log_level": "error", "base_directory": base}
@@ -226,7 +246,7 @@ class CopilotAssistant:
 
         ``show_code(url, code, seconds)`` tells the user where to enter the code.
         ``allow_plaintext()`` asks whether the credential may be stored in a
-        plain file when the system has no keychain."""
+        file in the user's app-data folder (the SDK's clean mode has no keychain)."""
         from copilot.generated import rpc as R
 
         session = await self._session()
@@ -257,7 +277,7 @@ class CopilotAssistant:
                         return res.login if res and res.login else ""
                     if status == "needs-plaintext-consent":
                         step = await login.advance(R.AuthLoginAdvanceRequest(
-                            flow, "yes" if allow_plaintext() else "no"))
+                            flow, PLAINTEXT_ALLOW if allow_plaintext() else "deny"))
                     elif status == "needs-account-selection" and res.accounts:
                         first = res.accounts[0]
                         step = await login.advance(R.AuthLoginAdvanceRequest(
@@ -554,7 +574,7 @@ python -m modeler copilot check           the whole test for one account (Copilo
                                           sign-in, allowance, models, and a question that must
                                           use the modeler's tools; prints PASS or FAIL per step
 --folder DIR                              the assistant's working folder (default: a temporary
-                                          folder); Copilot keeps its own files in DIR/.copilot
+                                          folder)
 """
 
 
@@ -604,8 +624,8 @@ def _show_code(url: str, code: str, seconds: int) -> None:
 
 def _ask_plaintext() -> bool:
     try:
-        return input("This computer has no keychain. Store the GitHub credential in a plain file? [y/N] ")\
-            .strip().lower().startswith("y")
+        return input(f"Keep the GitHub sign-in in a file in {runtime_dir()} (only your user account can "
+                     "read it)? Without it you cannot sign in. [y/N] ").strip().lower().startswith("y")
     except EOFError:
         return False
 

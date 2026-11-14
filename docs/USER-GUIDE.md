@@ -351,10 +351,12 @@ errors, reads your model, and writes scripts for you.
 
 **Sign in with your own GitHub account.** Press **Sign in with GitHub**.
 The panel shows a short code and opens <https://github.com/login/device>;
-enter the code there and allow access. The sign-in is kept in your
-system's keychain, so you do this once. If you already use Copilot on this
-computer (for example the Copilot command-line tool), you may be signed in
-already.
+enter the code there and allow access. The app then asks to keep the
+sign-in in a file in your own app-data folder (`%APPDATA%\3Dmodeling\copilot`
+on Windows, `~/Library/Application Support/3Dmodeling/copilot` on macOS,
+`~/.local/share/3Dmodeling/copilot` on Linux), which only your user
+account can read. Answer **Yes**; you then sign in only once. To sign
+out, delete that folder.
 
 **The working folder.** The line under the account shows the folder
 Copilot works in: where it puts files it exports and looks for files to
@@ -367,8 +369,8 @@ import. Choose it with **Folder**:
   temporary folder is used.
 * **Choose a folder…**: any folder you like.
 
-Copilot keeps its own small files (settings, the conversation state) in a
-`.copilot` folder inside the working folder. The app remembers your choice.
+The app remembers your choice. Your sign-in is never kept in the working
+folder, so sharing a project folder never shares it.
 
 **Any Copilot plan works, Copilot Free too.** Requests count against your
 own plan; the panel shows how much of this month's allowance is left. If

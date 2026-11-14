@@ -41,15 +41,18 @@ Sources: <https://github.com/github/copilot-sdk>,
 * **Sign-in.** The runtime's own GitHub sign-in with a one-time code
   (`session.accounts.login.begin` with `method: device-code`, then
   `advance`): the app shows the code and opens github.com/login/device. The
-  runtime stores the credential in the system keychain, as the Copilot
-  command-line tool does, and asks first before using a plain file where
-  there is no keychain. This uses GitHub's Copilot sign-in, so the project
-  needs no OAuth app and ships no secret. A user already signed in to
-  Copilot on the computer is signed in here too. This sign-in call is
+  runtime stores the credential in a file in a per-user app-data folder
+  (`runtime_dir()`, the client's `base_directory`), because the SDK's
+  `empty` mode switches the keychain off (`COPILOT_DISABLE_KEYTAR=1`). It
+  asks first (`needs-plaintext-consent`; the answer that accepts is
+  `allow`, anything else declines). This uses GitHub's Copilot sign-in, so
+  the project needs no OAuth app and ships no secret. A sign-in of the
+  Copilot command-line tool is not shared (no keychain). This sign-in call is
   marked experimental in the SDK, so the SDK is pinned below 2.0.
 * **Working folder.** `empty` mode refuses to start without a folder of its
   own (it never falls back to `~/.copilot`), so the client always gets
-  `base_directory = <working folder>/.copilot`. The working folder is
+  `base_directory = runtime_dir()` (per user, `MODELER_COPILOT_DATA`
+  overrides it), never the working folder. The working folder is
   temporary by default (`<temp>/3Dmodeling-assistant`, or
   `MODELER_COPILOT_HOME`); the panel's **Folder** menu picks the project's
   folder or any folder (QSettings `assistant/folder_mode`,

@@ -158,7 +158,7 @@ def test_sign_in_asks_before_storing_in_plain_text(plate):
     login = FakeLogin([_step("device-code", user_code="X"), _done("needs-plaintext-consent"), _done()])
     a = _assistant(plate, FakeSession(login))
     assert run(a.sign_in(lambda *x: None, allow_plaintext=lambda: True)) == "octo"
-    assert login.inputs[-1] == "yes"
+    assert login.inputs[-1] == "allow"  # the runtime's word: "yes" counts as declined
 
 
 def test_sign_in_failure_is_explained_and_cancelled(plate):
@@ -302,11 +302,13 @@ def test_the_client_always_gets_a_folder(plate, tmp_path, monkeypatch):
 
     monkeypatch.setattr(copilot, "CopilotClient", FakeClient)
     monkeypatch.setenv("MODELER_COPILOT_HOME", str(tmp_path / "temp"))
+    monkeypatch.setenv("MODELER_COPILOT_DATA", str(tmp_path / "data"))
     a = cp.CopilotAssistant(plate)  # no folder chosen: a temporary one
     run(a.start())
     assert FakeClient.seen["mode"] == "empty"
     assert a.home == str(tmp_path / "temp")
-    assert FakeClient.seen["base_directory"] == os.path.join(a.home, ".copilot")
+    # the sign-in lives in a per-user folder, never in the (temporary or project) working folder
+    assert FakeClient.seen["base_directory"] == str(tmp_path / "data")
     assert os.path.isdir(FakeClient.seen["base_directory"])
 
 
@@ -314,9 +316,10 @@ def test_a_chosen_folder_is_used(plate, tmp_path, monkeypatch):
     import copilot
 
     monkeypatch.setattr(copilot, "CopilotClient", FakeClient)
-    a = cp.CopilotAssistant(plate, home=str(tmp_path))
+    monkeypatch.setenv("MODELER_COPILOT_DATA", str(tmp_path / "data"))
+    a = cp.CopilotAssistant(plate, home=str(tmp_path / "proj"))
     run(a.start())
-    assert FakeClient.seen["base_directory"] == str(tmp_path / ".copilot")
+    assert FakeClient.seen["base_directory"] == str(tmp_path / "data")
     assert str(tmp_path) in cp.FOLDER_PROMPT.format(a.home)
 
 
@@ -325,3 +328,13 @@ def test_default_folder_is_temporary(monkeypatch):
 
     monkeypatch.delenv("MODELER_COPILOT_HOME", raising=False)
     assert cp.default_home() == os.path.join(tempfile.gettempdir(), "3Dmodeling-assistant")
+
+
+def test_sign_in_data_folder_per_platform(tmp_path, monkeypatch):
+    monkeypatch.delenv("MODELER_COPILOT_DATA", raising=False)
+    monkeypatch.setattr(cp.sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    assert cp.runtime_dir() == os.path.join(str(tmp_path / "Roaming"), "3Dmodeling", "copilot")
+    monkeypatch.setattr(cp.sys, "platform", "linux")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "share"))
+    assert cp.runtime_dir() == os.path.join(str(tmp_path / "share"), "3Dmodeling", "copilot")
