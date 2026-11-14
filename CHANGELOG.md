@@ -4,8 +4,21 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-14
+
+The second release: freeform NURBS surfaces and deformers, an assistant
+on GitHub Copilot that signs in with your own GitHub account, checks for
+whether parts touch and fit, and many more file formats.
+
+**Downloads** for Windows (x64), macOS (Apple silicon) and Linux (x64) are
+attached below and need no Python; the assistant is included. They are not
+code-signed yet; the
+[user guide](https://github.com/shashanksingh097/3Dmodeling/blob/main/docs/USER-GUIDE.md#1-install)
+says how to open them the first time. Projects and scripts from 0.1.0 open
+unchanged.
+
 ### Assistant
-- An **Assistant** panel with GitHub Copilot (Help > Ask the assistant, Ctrl+Shift+A). Sign in with your own GitHub account using a one-time code; any Copilot plan works, Copilot Free included, and requests count against your own plan. Copilot reads the model with the modeler's text tools, tries scripts in a sandbox, and shows a proposal with a Run button; it never changes the model by itself, and its own coding tools are switched off. Needs `pip install "3Dmodeling[ai]"` (Python 3.11+); the Copilot runtime downloads on first use (about 190 MB).
+- An **Assistant** panel with GitHub Copilot (Help > Ask the assistant, Ctrl+Shift+A). Sign in with your own GitHub account using a one-time code; any Copilot plan works, Copilot Free included, and requests count against your own plan. Copilot reads the model with the modeler's text tools, tries scripts in a sandbox, and shows a proposal with a Run button; it never changes the model by itself, and its own coding tools are switched off. Included in the downloads; from source it needs `pip install -e ".[ai]"` in a checkout (Python 3.11+). The Copilot runtime downloads on first use (about 190 MB).
 - The assistant can change existing steps (a size, a step that fails): it tries the edits on a copy first, and the panel shows each step's old and new text before you press Run. It can also explain what works on an imported body: `DESCRIBE` and its tools now say whether a body is exact (STEP, IGES, BREP) or faceted (a mesh) and which file it came from.
 - A working folder for the assistant (**Folder** in the panel): a temporary folder by default, the project's folder, or one you choose. This also fixes "Copilot is not available: CopilotClient(mode='empty') requires base_directory" when signing in.
 - Signing in works on Windows: the sign-in is kept in your own app-data folder (`%APPDATA%\3Dmodeling\copilot`) after you agree. Before, pressing Yes still ended with "the credential could not be stored".
@@ -38,6 +51,7 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Face edges are drawn in a darker shade of the body's colour, so panel lines and small gaps read at any zoom.
 
 ### Fixes
+- The nuts in the threaded bolts example (`scripts/threaded_bolts.cmd`) no longer overlap their bolts by about 13 mm³ each: each nut is turned so its thread lines up with the bolt's, and `CONTACT` finds them touching on the thread flanks. [LANGUAGE.md](docs/LANGUAGE.md) shows the formula for your own bolts and nuts.
 - `ANALYZE` no longer calls a join G1 between two nearly flat faces whose tiny curvatures differ (a bend wider than 100 times the body counts as flat).
 - `python -m modeler run` marks the line that failed inside a block or macro with `ERROR:`, not the block's first line.
 

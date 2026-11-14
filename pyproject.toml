@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "modeler3d"
-version = "0.1.0"
+version = "0.2.0"
 description = "Command-driven 3D modeler: every GUI action is a text command."
 readme = "README.md"
 requires-python = ">=3.10"

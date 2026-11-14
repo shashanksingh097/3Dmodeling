@@ -154,3 +154,6 @@ def test_threaded_bolt_in_nut_is_a_thread_not_a_fit():
     assert [r["state"] for r in rows] == ["thread"] and "note" in rows[0]
     plain = cx.fit(p, bolt, "plate")["fits"]  # the threaded bolt in its plain 9 mm hole
     assert [r["state"] for r in plain] == ["clearance"] and plain[0]["per_side"] == pytest.approx(0.5)
+    # each nut is turned so its thread lines up with the bolt's: they touch, not overlap
+    assert p.evaluate(f"OVERLAP({bolt}, {nut})") == pytest.approx(0, abs=1e-3)
+    assert p.evaluate(f"TOUCH({bolt}, {nut})") == 1

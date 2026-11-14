@@ -1024,6 +1024,13 @@ A threaded bolt and nut as parts (from `scripts/threaded_bolts.cmd`):
 *ENDPART
 ```
 
+A thread's groove starts at the free end it is cut from, so a nut placed on
+a bolt usually needs a turn about the axis for its thread to line up with
+the bolt's (otherwise the two overlap a little). The script works it out:
+`TURN = 360*((L - T - D/10 - PITCH(D)/2) % PITCH(D))/PITCH(D)` for a nut
+whose top is `T` below the head, then `INST, nut, x, y, z, TURN, D=D`.
+`CONTACT, bolt, nut` then reports them touching, not overlapping.
+
 ### SPRING
 
 `SPRING, x, y, z, r, pitch, turns, d [, dx, dy, dz] [, RIGHT|LEFT] [, closed] [, PLAIN|GROUND]`
