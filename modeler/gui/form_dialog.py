@@ -240,11 +240,15 @@ class _FieldWidget(QWidget):
 
 class FormDialog(QDialog):
     def __init__(self, win: "MainWindow", spec: F.FormSpec, variant: str = "",
-                 values: dict[str, str] | None = None, edit_row: int | None = None) -> None:
+                 values: dict[str, str] | None = None, edit_row: int | None = None,
+                 edit_line: int | None = None) -> None:
         super().__init__(win)
         self.win, self.spec = win, spec
         self.edit_row = edit_row  # 0-based history row being edited, or None
-        self.setWindowTitle(f"{spec.title}" + (f" (history entry {edit_row + 1})" if edit_row is not None else ""))
+        self.edit_line = edit_line  # with edit_row: the line inside that entry (a *PART or loop), or None
+        where = "" if edit_row is None else f" (history entry {edit_row + 1}" + (
+            f", line {edit_line + 1})" if edit_line is not None else ")")
+        self.setWindowTitle(f"{spec.title}{where}")
         self.setModal(False)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setMinimumWidth(520)
@@ -366,6 +370,10 @@ class FormDialog(QDialog):
         if self._filling:
             return
         text, problems = F.check(self.win.processor, self.spec, self.values(), self.variant)
+        if self.edit_line is not None:
+            # a line inside a *PART or loop uses its own names (D, B, i) and the
+            # part's own bodies: they cannot be checked here; the rebuild checks them
+            problems = {k: m for k, m in problems.items() if k == ""}
         for k, w in self.fields.items():
             w.mark(problems.get(k, ""))
         self.preview.setText(text or "…")
@@ -389,7 +397,8 @@ class FormDialog(QDialog):
             return False
         if self.edit_row is not None:
             old = self.win.processor.history[self.edit_row].text
-            new = _replace_code_line(old, text)
+            new = (F.replace_line(old, self.edit_line, text) if self.edit_line is not None
+                   else _replace_code_line(old, text))
             from .main_window import hist_command
 
             res = self.win.execute(hist_command("EDIT", self.edit_row + 1, new))
@@ -422,7 +431,8 @@ class FormDialog(QDialog):
             self.fields["name"].set_value(fresh)
 
 
-def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None = None) -> FormDialog | None:
+def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None = None,
+              edit_line: int | None = None) -> FormDialog | None:
     """Open the form for a command (filled from ``text`` if given). Returns
     None, with a note in the status bar, when there is no form for it."""
     try:
@@ -439,7 +449,7 @@ def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None
         except F.FormError as exc2:
             win.statusBar().showMessage(str(exc2), 6000)
             return None
-    dlg = FormDialog(win, sp, variant, values, edit_row)
+    dlg = FormDialog(win, sp, variant, values, edit_row, edit_line)
     dlg.show()
     dlg.raise_()
     return dlg

@@ -1399,6 +1399,13 @@ zooms to it (`FIT, b`). The tick box hides or shows for the view
 all of its bodies. A right click opens the same menu as on a body in the
 3D view; on a part or a group it acts on all of its bodies.
 
+Under the tree, the **item panel** shows the picked body's steps (from
+`STEPS`) and the model parameters they use. A step that is a block, a
+`*PART` recipe or a `*DO` loop, is shown line by line; each line opens in
+its own form, and OK puts the new line back in its place in that entry with
+`HIST, EDIT` (keeping its indent and comment), so the model rebuilds. A
+line of a part's recipe changes every copy of the part.
+
 `STEPS, b` lists the history steps that made a body, in order: the steps
 that made or changed it (`COLOR`, `NAME`, `HIDE` count), the steps of the
 bodies it was made from (the block and the cylinder before a `SUBTRACT`),

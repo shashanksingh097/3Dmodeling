@@ -100,3 +100,58 @@ def test_steps_has_no_form_but_is_listed():
     from modeler.gui import forms as F
 
     assert F.missing_forms() == []
+
+
+# ---- the item panel's contents (gui/item_model.py) --------------------------------
+
+from modeler.gui import forms as F  # noqa: E402
+from modeler.gui import item_model as im  # noqa: E402
+from modeler.lang.expr import format_value  # noqa: E402
+
+BOLTS = """D = 6
+N = 3
+*PART, pin, D=6, L=20
+  CYL, 0, 0, -L, D/2, L        ! shank
+  SEL, S, FACE, AT, D/2, 0, -L/2
+  THREAD, , 8
+*ENDPART
+BLOCK, -10, -10, -5, 20 + 10*N, 20, 5
+NAME, LAST, base
+*DO, i, 0, N - 1
+  INST, pin, 10*i, 0, 0, D=D
+*ENDDO
+"""
+
+
+def test_item_lists_the_part_recipe_and_the_placing_line(p):
+    assert all(r.ok for r in p.run_script(BOLTS))
+    pin = next(b for b in p.model.bodies if b in p.model.instances)
+    info = im.item_info(p, pin)
+    texts = [ln.text for ln in info.lines]
+    assert texts[0].startswith("*PART, pin") and "THREAD, , 8" in texts
+    assert any(t.startswith("INST, pin") for t in texts)
+    assert info.part == "pin" and info.copies == 3 and "D=6" in info.values
+    assert [n for n, _ in info.params] == ["N", "D"]  # i is a loop variable: not listed
+    thread = next(ln for ln in info.lines if ln.text.startswith("THREAD"))
+    assert thread.form and thread.depth == 1
+    assert "all 3 placed copies" in im.line_note(p, info, thread)
+    base = p.model.body_by_name("base")
+    base = base.id if hasattr(base, "id") else base
+    assert not any(ln.text.startswith("INST") for ln in im.item_info(p, base).lines)
+
+
+def test_editing_a_line_inside_the_part_rebuilds_every_copy(p):
+    """The M10 exit test, headless: change the thread pitch in the part recipe."""
+    assert all(r.ok for r in p.run_script(BOLTS))
+    pins = sorted(b for b in p.model.bodies if b in p.model.instances)
+    before = [len(p.model.bodies[b].entity_ids["FACE"]) for b in pins]
+    info = im.item_info(p, pins[0])
+    thread = next(ln for ln in info.lines if ln.text.startswith("THREAD"))
+    new = F.replace_line(p.history[thread.row].text, thread.line, "THREAD, 0.5, 8")
+    assert "  THREAD, 0.5, 8" in new.splitlines()
+    ok(p, f"HIST, EDIT, {thread.row + 1}, {format_value(new)}")
+    assert sorted(b for b in p.model.bodies if b in p.model.instances) == pins  # same IDs
+    after = [len(p.model.bodies[b].entity_ids["FACE"]) for b in pins]
+    assert after != before and len(set(after)) == 1  # every copy rebuilt alike
+    ok(p, im.param_edit(p, "D", "8"))
+    assert p.params["D"] == 8
