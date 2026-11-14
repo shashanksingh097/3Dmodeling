@@ -31,6 +31,7 @@ from . import lint as ln
 from . import experiments as ex
 from . import probe as pb
 from . import contact as cx
+from . import relate as rl
 from . import selectors as sl
 from .sandbox import Sandbox, SandboxError
 
@@ -155,7 +156,7 @@ class Toolbox:
             Tool("check", "Test expectations exactly; each is the arguments of ASSERT: 'VOL(b), BETWEEN, 1, 2', "
                  "'BBOX(b).dz, EQ, 12, 0.01', 'HOLES(b, 8), EQ, 6', 'VALID(b)', 'PIECES(b), EQ, 1', "
                  "'SYMMETRIC(b, \"YZ\")', 'GAP(a, b), EQ, 0', 'TOUCH(a, b)', 'OVERLAP(a, b), EQ, 0', "
-                 "'GROUPS(), EQ, 1', 'CLEARANCE(pin, plate), GE, 0.05'. Checks the sandbox when one is open.",
+                 "'GROUPS(), EQ, 1', 'CLEARANCE(pin, plate), GE, 0.05', 'PROBLEMS(b), EQ, 0', 'SAMESHAPE(a, b)'. Checks the sandbox when one is open.",
                  {"expectations": {"type": "array", "items": {"type": "string"}}, "where": _WHERE},
                  ("expectations",), self.check),
             Tool("diff", "What changed between two history positions (0 is the empty start; default: the "
@@ -201,6 +202,23 @@ class Toolbox:
                  "axis offset, tightest gap and engaged length.",
                  {"a": {"type": ["string", "integer"]}, "b": {"type": ["string", "integer"]},
                   "where": _WHERE}, ("a", "b"), self.fit_check),
+            Tool("placement", "Where body a sits relative to body b: per axis X, Y, Z on which side and the gap, "
+                 "or within / around / overlapping; the centre offset and the axes they are centred on; contact; "
+                 "which face of a rests on b; flush flat faces; round faces on the same axis. Checks 'the lid "
+                 "sits centred on the box' without a picture.",
+                 {"a": {"type": ["string", "integer"]}, "b": {"type": ["string", "integer"]},
+                  "where": _WHERE}, ("a", "b"), self.placement),
+            Tool("check_design", "Rule checks on one body, each problem with IDs: not valid, open edges, not a "
+                 "solid, loose pieces, inside out, edges shorter than min_edge, sliver faces, faces cutting "
+                 "through each other, and walls thinner than min_wall when given. ok is true when none.",
+                 {"body": {"type": ["string", "integer"]}, "min_wall": {"type": "number"},
+                  "min_edge": {"type": "number", "description": "default: a thousandth of the body's size"},
+                  "where": _WHERE}, ("body",), self.check_design),
+            Tool("compare_bodies", "Are two bodies the same shape? Compares volume, area, faces by type and "
+                 "inertia; when they match, says whether b is a moved copy (with the move) or a mirror image "
+                 "of a; otherwise lists what differs.",
+                 {"a": {"type": ["string", "integer"]}, "b": {"type": ["string", "integer"]},
+                  "where": _WHERE}, ("a", "b"), self.compare_bodies),
             Tool("vary", "Re-run the history with each value of a parameter (set by a plain 'NAME = value' "
                  "entry) and report which values make a step fail or an expectation fail. Checks that the model "
                  "is really parametric. Uses the sandbox when one is open.",
@@ -344,6 +362,15 @@ class Toolbox:
 
     def fit_check(self, a, b, where: str = "model"):
         return cx.fit(self._p(where), a, b)
+
+    def placement(self, a, b, where: str = "model"):
+        return rl.placement(self._p(where), a, b)
+
+    def check_design(self, body, min_wall: float = 0.0, min_edge: float = 0.0, where: str = "model"):
+        return rl.design_check(self._p(where), body, float(min_wall or 0), float(min_edge or 0))
+
+    def compare_bodies(self, a, b, where: str = "model"):
+        return rl.compare(self._p(where), a, b)
 
     # experiments
     def vary(self, param: str, values: list, expectations: list[str] | None = None):

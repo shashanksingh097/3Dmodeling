@@ -69,6 +69,8 @@ How to work:
   touching pairs, near misses, groups that hold together, parts touching nothing) and fit_check
   (shafts in holes: clearance or interference). Keep such checks in scripts as expectations:
   'TOUCH(a, b)', 'OVERLAP(a, b), EQ, 0', 'GROUPS(), EQ, 1', 'CLEARANCE(pin, plate), GE, 0.05'.
+  placement says where a part sits relative to another (centred, rests on, gaps), compare_bodies
+  whether two bodies are copies or mirror images, check_design whether a body breaks design rules.
 - Picks by number break when the history is edited: prefer SEL criteria (selector_for).
 - Keep answers short and plain. Give sizes with units.
 """

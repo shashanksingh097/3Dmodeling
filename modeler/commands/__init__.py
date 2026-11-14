@@ -15,4 +15,4 @@ from . import nurbs_handlers  # noqa: F401  (NURBS, MOVEPT, WEIGHT, KNOT, DEGREE
 from . import surface_handlers  # noqa: F401  (BLEND, EXTEND, TRIM, PROJECT, MOVEFACE, REPLACEFACE)
 from . import analysis_handlers  # noqa: F401  (ANALYZE)
 from . import deform_handlers  # noqa: F401  (BEND, TWIST, TAPER, STRETCH, FLOW, SWEEPVOL)
-from . import contact_handlers  # noqa: F401  (CONTACT, CLEARANCE)
+from . import contact_handlers  # noqa: F401  (CONTACT, CLEARANCE, RELATE, DESIGNCHECK, COMPARE)

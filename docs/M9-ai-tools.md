@@ -338,10 +338,14 @@ script sit together):
 | `assembly_check(bodies, against, near)` | `CONTACT` alone or with one body; `GROUPS()` query | every pair whose boxes come close: clashes, touching pairs, near misses, groups of bodies held together through contacts, bodies touching nothing. 13 bodies of `bolted_plate.cmd` in 1.2 s, 17 threaded bolts, nuts and plate in 21 s; stops after 60 s and says so |
 | `fit_check(a, b)` | `CLEARANCE, a, b`; `CLEARANCE()` query | every full round shaft of one body in a full round hole of the other: diameters, clearance or interference, axis offset, engaged length. A threaded shaft in a threaded hole is reported as a thread; a threaded bolt in a plain hole is a fit on its major diameter |
 
+| `placement(a, b)` | `RELATE, a, b` | per axis: side and gap, within, around or overlapping; centre offset and the axes they are centred on; what a rests on; flush flat faces; round faces on one axis |
+| `check_design(body, min_wall, min_edge)` (plan 3.4) | `DESIGNCHECK`; `PROBLEMS()` query | valid, closed, solid, pieces, inside out, small edges, sliver faces, self-intersection (up to 400 faces), thin walls. Draft and overhang rules are not in yet (`ANALYZE` covers draft) |
+| `compare_bodies(a, b)` | `COMPARE, a, b`; `SAMESHAPE()` query | volume, area, faces by type, inertia; then a moved copy (with the move) or a mirror image in a plane square to X, Y or Z, tested by the overlap of the moved body |
+
 The checks found that the nuts of `threaded_bolts.cmd` overlap their bolts
 by about 13 mm3 each: each nut's thread starts where the nut starts, not in
 step with the bolt's thread.
 
 Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
-`user_context`, `since` on every tool, `outline`, `check_design`, the rest of
+`user_context`, `since` on every tool, `outline`, the rest of
 feature recognition (fillets, pockets, bosses), and M9c.

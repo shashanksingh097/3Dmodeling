@@ -1342,7 +1342,7 @@ command, so it lands in the history like typed text. `COLOR`, `MATERIAL` and
 `ISOLATE` have forms in the Commands menu under "Layers, colours,
 materials".
 
-## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF, CONTACT, CLEARANCE
+## 23. Checking and describing: ASSERT, DESCRIBE, SELFOR, LINT, DIFF, CONTACT, CLEARANCE, RELATE, COMPARE, DESIGNCHECK
 
 These commands say exactly what the model is and whether it is right,
 in words and numbers. They are what the AI assistant uses instead of
@@ -1507,6 +1507,36 @@ ASSERT, CONTACTAREA(foot, floor), GE, 100   ! sits flat, not on an edge
 ASSERT, GROUPS(), EQ, 1                     ! every shown part is connected
 ASSERT, CLEARANCE(pin, plate), GE, 0.05        ! the tightest gap of the pin in its hole
 ```
+
+### RELATE, COMPARE and DESIGNCHECK: placement, same shape, design rules
+
+`RELATE, lid, box` says where one body sits relative to another, so "the
+lid sits centred on the box" can be checked without a picture:
+
+```
+body 2 (lid) relative to body 1 (box):
+  X: within, overlap 30
+  Y: within, overlap 30
+  Z: on the +Z side, gap 0
+  centres (0, 0, 12) apart; centred on X, Y
+  contact: touch (face)
+  a rests on top of b (a's -Z face on b)
+```
+
+It also lists flat faces that are flush (in one plane, facing the same way)
+and round faces on one axis (a shaft and the hole it should line up with).
+
+`COMPARE, left, right` compares volume, area, faces by type and inertia.
+When they match it says whether the second body is a moved copy of the
+first (and by how much) or its mirror image (and in which plane), otherwise
+what differs. `SAMESHAPE(a, b)` is 1 or 0.
+
+`DESIGNCHECK, housing` runs rule checks and gives the IDs of what breaks
+them: not valid, open edges, not a solid, loose pieces in one body, inside
+out, edges shorter than a thousandth of the size (or `minedge`), narrow
+sliver faces, and faces cutting through each other. `DESIGNCHECK, housing, 2`
+also reports walls thinner than 2. `PROBLEMS(b)` counts the problems:
+`ASSERT, PROBLEMS(housing, 2), EQ, 0`.
 
 ### The same, for the AI assistant
 
