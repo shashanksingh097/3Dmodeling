@@ -303,8 +303,9 @@ class AssistantPanel(QWidget):
     def _ask_plaintext(self) -> bool:
         return bool(self.calls.run(lambda: QMessageBox.question(
             self, "Store the GitHub sign-in",
-            "This computer has no keychain for passwords. Store the GitHub sign-in in a plain file in "
-            "your home folder?") == QMessageBox.Yes))
+            "The assistant keeps your GitHub sign-in in a file in your own app-data folder, which only "
+            f"your user account can read:\n\n{cp.runtime_dir()}\n\nKeep it there? Without it you cannot "
+            "sign in. Sign out later by deleting that folder.") == QMessageBox.Yes))
 
     def _signed_in(self, fut: Future) -> None:
         self.sign_in_button.setEnabled(True)
