@@ -196,6 +196,24 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         except DescribeError as exc:
             raise ExprError(f"CLEARANCE(): {exc}") from None
 
+    def sameshape(a, b):
+        from ..ai import relate as rl
+        from ..ai.describe import DescribeError
+
+        try:
+            return 1 if rl.compare(p, body_id(a, "SAMESHAPE"), body_id(b, "SAMESHAPE"))["same"] else 0
+        except DescribeError as exc:
+            raise ExprError(f"SAMESHAPE(): {exc}") from None
+
+    def problems(b, min_wall=0.0):
+        from ..ai import relate as rl
+        from ..ai.describe import DescribeError
+
+        try:
+            return len(rl.design_check(p, body_id(b, "PROBLEMS"), float(min_wall))["problems"])
+        except DescribeError as exc:
+            raise ExprError(f"PROBLEMS(): {exc}") from None
+
     def pitch(d):
         from ..geometry.threads import coarse_for_shaft
 
@@ -316,6 +334,8 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         "OVERLAP": overlap,
         "CONTACTAREA": contact_area,
         "GROUPS": groups,
+        "SAMESHAPE": sameshape,
+        "PROBLEMS": problems,
         "CLEARANCE": fitgap,
         "VOL": vol,
         "AREA": area,

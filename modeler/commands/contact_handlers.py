@@ -125,3 +125,123 @@ def fit_cmd(p: Processor, a, b, fmt):
             text += f", tilted {_n(r['tilt_deg'])} deg"
         lines.append(text + f", engaged {_n(r['engaged'])}")
     return "\n".join(lines)
+
+
+# ---- placement, design rules, same shape -------------------------------------------------------
+
+
+@command(
+    "RELATE",
+    Arg("a", Raw, help="a body"),
+    Arg("b", Raw, help="the body to compare its place with"),
+    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    logged=False,
+    help=(
+        "Where a body sits relative to another: RELATE, lid, box gives, along X, Y and Z, on which side "
+        "and how far, or within, around or overlapping; how far their centres are apart and on which axes "
+        "they are centred; what it rests on; flat faces that are flush; round faces on the same axis"
+    ),
+)
+def relate_cmd(p: Processor, a, b, fmt):
+    from ..ai import describe as ds
+    from ..ai import relate as rl
+
+    try:
+        out = rl.placement(p, a.strip(), b.strip())
+    except ds.DescribeError as exc:
+        raise CommandError(f"RELATE: {exc}") from None
+    if fmt == "JSON":
+        return json.dumps(out, separators=(",", ":"))
+    lines = [f"body {_name(out['a'])} relative to body {_name(out['b'])}:"]
+    for ax, r in out["axes"].items():
+        how = r["a_is"].replace("- side", f"-{ax} side").replace("+ side", f"+{ax} side")
+        extra = f", gap {_n(r['gap'])}" if "gap" in r else f", overlap {_n(r['overlap'])}"
+        lines.append(f"  {ax}: {how}{extra}")
+    lines.append(f"  centres {_p3(out['centre_offset'])} apart"
+                 + (f"; centred on {', '.join(out['centred_on'])}" if out["centred_on"] else ""))
+    if "contact" in out:
+        lines.append(f"  contact: {out['contact']}")
+    for r in out.get("rests", []):
+        lines.append(f"  {r}")
+    if out.get("flush"):
+        lines.append(f"  flush faces: " + ", ".join(f"{f['face_a']} with {f['face_b']}" for f in out["flush"][:10]))
+    for c in out.get("coaxial", [])[:10]:
+        kinds = ["hole" if c["a_hole"] else "shaft", "hole" if c["b_hole"] else "shaft"]
+        lines.append(f"  on one axis {_p3(c['axis'])}: {kinds[0]} d {_n(c['d_a'])} and {kinds[1]} d {_n(c['d_b'])}")
+    return "\n".join(lines)
+
+
+@command(
+    "DESIGNCHECK",
+    Arg("b", Raw, help="the body"),
+    Arg("minwall", float, 0.0, help="also report walls thinner than this"),
+    Arg("minedge", float, 0.0, help="edges shorter and faces narrower than this (0: a thousandth of the size)"),
+    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    logged=False,
+    help=(
+        "Rule checks on a body, each problem with IDs: broken or open, not a solid, loose pieces, tiny edges, "
+        "sliver faces, faces cutting through each other, and with minwall thin walls: DESIGNCHECK, housing, 2. "
+        "PROBLEMS(b) counts them: ASSERT, PROBLEMS(housing), EQ, 0"
+    ),
+)
+def designcheck_cmd(p: Processor, b, minwall, minedge, fmt):
+    from ..ai import describe as ds
+    from ..ai import relate as rl
+
+    if minwall < 0 or minedge < 0:
+        raise CommandError("DESIGNCHECK: minwall and minedge cannot be negative")
+    try:
+        out = rl.design_check(p, b.strip(), minwall, minedge)
+    except ds.DescribeError as exc:
+        raise CommandError(f"DESIGNCHECK: {exc}") from None
+    if fmt == "JSON":
+        return json.dumps(out, separators=(",", ":"))
+    head = f"body {_name(out['body'])}: "
+    if out["ok"]:
+        return head + "no problems (" + ", ".join(out["checked"]) + ")"
+    n = len(out["problems"])
+    lines = [head + f"{n} problem{'s' if n != 1 else ''}"]
+    for pr in out["problems"]:
+        ids = pr.get("edges") or pr.get("faces")
+        lines.append(f"  {pr['rule']}: {pr['message']}" + (f" ({'edges' if 'edges' in pr else 'faces'} {ids})" if ids else ""))
+    return "\n".join(lines)
+
+
+@command(
+    "COMPARE",
+    Arg("a", Raw, help="a body"),
+    Arg("b", Raw, help="the other body"),
+    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    logged=False,
+    help=(
+        "Are two bodies the same shape? COMPARE, left, right compares volume, area, faces and inertia and "
+        "says whether b is a moved copy or a mirror image of a, or what differs. SAMESHAPE(a, b) is 1 or 0"
+    ),
+)
+def compare_cmd(p: Processor, a, b, fmt):
+    from ..ai import describe as ds
+    from ..ai import relate as rl
+
+    try:
+        out = rl.compare(p, a.strip(), b.strip())
+    except ds.DescribeError as exc:
+        raise CommandError(f"COMPARE: {exc}") from None
+    if fmt == "JSON":
+        return json.dumps(out, separators=(",", ":"))
+    head = f"bodies {_name(out['a'])} and {_name(out['b'])}: "
+    if out["same"]:
+        if out["how"] == "moved copy":
+            return head + f"the same shape, moved by {_p3(out['move'])}"
+        if out["how"] == "mirror image":
+            text = head + f"mirror images across the plane {out['mirror_normal'].lower()} = {_n(out['plane_at'])}"
+            return text + (f", then moved {_p3(out['then_moved'])}" if "then_moved" in out else "")
+        return head + out["how"]
+    lines = [head + "not the same shape"]
+    for k, d in out["differs"].items():
+        if k == "faces":
+            lines.append(f"  faces: {d['a']} against {d['b']}")
+        elif k == "inertia":
+            lines.append(f"  inertia: {d['a']} against {d['b']}")
+        else:
+            lines.append(f"  {k}: {_n(d['a'])} against {_n(d['b'])} (b - a = {_n(d['b_minus_a'])})")
+    return "\n".join(lines)
