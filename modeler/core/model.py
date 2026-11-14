@@ -261,6 +261,8 @@ class Model:
         # body ID -> (part name, ((PARAM, value), ...)) for bodies placed by INST;
         # moving or copying keeps it, any other change makes plain geometry
         self.instances: dict[int, tuple] = {}
+        # implicit fields by upper-case name (IMPLICIT, geometry/implicit.py FieldDef)
+        self.fields: dict = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -304,6 +306,7 @@ class Model:
             "sketches": dict(self.sketches),
             "active_sketch": self.active_sketch,
             "instances": dict(self.instances),
+            "fields": dict(self.fields),
         }
 
     def restore(self, snap: dict) -> None:
@@ -327,6 +330,7 @@ class Model:
         self.sketches = dict(snap.get("sketches", {}))
         self.active_sketch = snap.get("active_sketch")
         self.instances = dict(snap.get("instances", {}))
+        self.fields = dict(snap.get("fields", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 

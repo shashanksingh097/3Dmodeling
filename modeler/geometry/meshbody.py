@@ -287,10 +287,17 @@ def _mf():
 
 def to_manifold(pts: np.ndarray, t: np.ndarray, what: str = "the mesh"):
     mf = _mf()
-    mesh = mf.Mesh64(vert_properties=np.ascontiguousarray(pts, dtype=np.float64),
-                     tri_verts=np.ascontiguousarray(t, dtype=np.uint64))
-    mesh.merge()
-    man = mf.Manifold(mesh)
+
+    def build(merge: bool):
+        mesh = mf.Mesh64(vert_properties=np.ascontiguousarray(pts, dtype=np.float64),
+                         tri_verts=np.ascontiguousarray(t, dtype=np.uint64))
+        if merge:  # points that are the same but were stored twice become one
+            mesh.merge()
+        return mf.Manifold(mesh)
+
+    man = build(False)  # our own meshes share their points already: no merge needed
+    if man.status() != mf.Error.NoError:
+        man = build(True)
     if man.status() != mf.Error.NoError:
         raise MeshError(f"{what} is not closed (it has holes or loose edges), so it has no inside; "
                         "close it in a mesh tool first")

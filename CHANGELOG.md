@@ -4,6 +4,17 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Implicit shapes and lattices (M6, second part)
+
+- `IMPLICIT, name, f(x,y,z), box [, step]` makes a shape from an equation:
+  the body is where the field is at most 0, as a closed mesh body. Building
+  blocks `BALL`, `BOX`, `ROD`, `TORUS`, `CYLZ`, `GYROID`, `SCHWARZ`,
+  `DIAMOND`; smooth blends `SMIN`, `SMAX`, `SDIFF`; earlier shapes by name.
+- `LATTICE, b, kind, cell, thickness [, skin]` fills a solid with gyroid,
+  Schwarz or diamond walls, or cubic, BCC or octet struts, optionally
+  inside a solid outer skin.
+- New example `scripts/implicit_lattices.cmd`; LANGUAGE.md section 26.
+
 ### Mesh bodies (M6, first part)
 
 - **Mesh bodies** keep big triangle meshes as meshes: one body, one face,
