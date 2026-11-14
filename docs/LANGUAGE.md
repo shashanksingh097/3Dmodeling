@@ -256,7 +256,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -1021,6 +1021,59 @@ block back into that history step (`HIST, EDIT`), and every copy is rebuilt.
 **File > Save** there writes the file. For a linked part the project then
 reads the file again, so every copy updates; a loaded copy stays as it was
 (the window says so).
+
+### Mates: place copies by their faces and axes
+
+`MATE, kind, <item that stays>, <item that moves> [, value] [, FLIP]` moves
+the body that owns the second item so the two items meet. Items are written
+as in `DIST`: `FACE, 12` · `EDGE, 4` · `VERTEX, 9` · `DATUM, name`, and for
+the item that stays also `XY`, `YZ` or `ZX`. With no items, the two picked
+ones are used (the first picked stays).
+
+| Kind | Items | What happens |
+|------|-------|--------------|
+| `CONCENTRIC` | two axes: round faces, round or straight edges, datum axes | the axes line up; the copy keeps its place along the axis |
+| `COINCIDENT` | two flat faces or planes | they face each other in one plane; the copy can still slide in it |
+| | two round edges | same centre and axis |
+| | two axes, two points, a point and a plane | in line, together, on the plane |
+| `DISTANCE, d` | flat faces or planes, a point and a plane, two points, two parallel axes | as `COINCIDENT`, `d` apart |
+| `ANGLE, a` | flat faces, planes, axes, edges | their normals or axes `a` degrees apart |
+
+`FLIP` turns the copy the other way: faces that look the same way instead
+of at each other, or an axis reversed (a bolt put in from the other side).
+
+```
+*PART, bolt, D=8, L=30
+  CYL, 0, 0, 0, D, 5             ! head
+  CYL, 0, 0, -L, D/2, L          ! shank
+  UNION, 1, 2
+*ENDPART
+CYL, 0, 0, -12, 60, 12
+NAME, LAST, plate
+HOLE, plate, 45, 0, 0, 8.5
+INST, bolt, 200, 80, 40          ! anywhere: the mates place it
+MATE, CONCENTRIC, FACE, 4, FACE, 8     ! the hole's wall, the shank: axes 0 apart
+MATE, COINCIDENT, FACE, 2, FACE, 7     ! the plate's top, the head's underside: distance now 0
+```
+
+(The face IDs are the ones this script gets; in the window you pick the
+faces instead.)
+
+Mates are placement steps, solved in the order they are written: each one
+turns and shifts the copy as little as it can and keeps the freedom it does
+not fix. Because they are history steps, a changed part, a moved hole or a
+reloaded part file places the copies again. A later mate on the same copy
+can undo an earlier one, so give a copy's mates in the order you would
+assemble it (first the axis, then the seat). The result line says what was
+checked ("distance now 0"); two flat faces put in one plane that do not
+overlap give a warning. Check the whole assembly with `CONTACT`,
+`CLEARANCE` or `DESIGNCHECK`. A mate that cannot be met (a flat face and
+an axis for `CONCENTRIC`, two items on one body) is an error that names
+both items, and nothing moves.
+
+In the window: pick the two items (click, then Ctrl+click), right-click and
+choose **Mate the two picked…**, or **Parts > Mate** in the command forms.
+The form opens with the two picks filled in.
 
 ## 18. Screw threads and springs
 

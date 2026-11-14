@@ -257,3 +257,37 @@ def test_sweep_editor_drag_a_twist_handle_and_apply(app, win):
     assert text.startswith("SWEEP, LAST, LAST-1, TABLE(t, 0, 0,")
     assert win.processor.history[2].ok
     assert win.viewport._ghost_ais == []  # the preview went away with the editor
+
+
+def test_mate_the_two_picked_from_the_right_click_menu(app, win):
+    from modeler.gui import body_menu as bm
+
+    p = win.processor
+    win.execute("BLOCK, 0, 0, 0, 10, 10, 10")
+    win.execute("BLOCK, 30, 0, 20, 4, 4, 4")
+    m = p.model
+    from modeler.geometry import features as ft
+
+    def face(bid, n):
+        return next(g for g in m.bodies[bid].entity_ids["FACE"]
+                    if (fp := ft.face_plane(m.entity_shape("FACE", g))) and all(abs(a - b) < 1e-9 for a, b in zip(fp[1], n)))
+
+    top, under = face(1, (0, 0, 1)), face(2, (0, 0, -1))
+    win.execute(f"PICK, FACE, {top}")
+    win.execute(f"PICK, FACE, {under}, A")
+    item = next(i for i in bm.body_items(m, 2, p.part_files) if i.form == "MATE")
+    win.run_menu_item(item)
+    pump(app)
+    dlg = [d for d in win.findChildren(FormDialog) if d.isVisible()][-1]
+    dlg.variant_box.setCurrentIndex(dlg.variant_box.findData("COINCIDENT"))
+    pump(app)
+    assert dlg.fields["i1"].value() == str(top) and dlg.fields["i2"].value() == str(under)
+    assert dlg.preview.text() == f"MATE, COINCIDENT, FACE, {top}, FACE, {under}"
+    assert dlg.submit(close=True)
+    from modeler.commands.queries import bbox
+
+    assert abs(bbox(m.bodies[2].shape)[2] - 10) < 1e-6
+    # the step opens in its form again from History
+    dlg = win.open_form("", p.history[-1].text, len(p.history) - 1)
+    assert dlg is not None and dlg.fields["i2"].value() == str(under)
+    dlg.close()
