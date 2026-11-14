@@ -75,6 +75,7 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 | **Command line** (below the view) | type any command and press Enter. It suggests command names as you type and shows the arguments of the one you are typing |
 | **Form** button, **F2** | opens a fill-in form for the command you are typing, so you never need to remember argument order |
 | **Output** (bottom) | what each command did, and errors in plain words |
+| **Model** (left) | every part with its placed copies, every body, sketch, datum and named set. Click a row to pick the body, untick it to hide it, double-click to zoom to it, right-click for the same menu as in the 3D view |
 | **History** (right) | every step that built the model, in order. Grey steps are undone; red steps failed; amber steps ran but want a look |
 | **Parameters** (right, tab) | named numbers such as `W = 80`. Change one and the model rebuilds |
 | **Layers** (right, tab) | show, hide, lock and colour groups of bodies |

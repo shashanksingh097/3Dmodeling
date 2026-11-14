@@ -1028,7 +1028,9 @@ class OccViewport(QWidget):
         ctx.ClearSelected(False)
         m = self.model
         kind = m.selection_kind
-        if m.selection and kind == self.pick_mode and not m.active_sketch:  # sketch mode has its own selection
+        # bodies picked in the model tree show whatever a click picks; faces,
+        # edges and vertices only in their own pick mode
+        if m.selection and (kind == self.pick_mode or kind == "BODY") and not m.active_sketch:
             for gid in m.selection:
                 if kind == "BODY":
                     bid, shape = gid, m.bodies[gid].shape
