@@ -33,7 +33,7 @@ import numpy as np
 
 from . import solver
 
-GEO_KINDS = ("POINT", "LINE", "ARC", "CIRCLE")
+GEO_KINDS = ("POINT", "LINE", "ARC", "CIRCLE", "SPLINE")
 CON_KINDS = ("COINCIDENT", "ON", "HORIZONTAL", "VERTICAL", "PARALLEL", "PERPENDICULAR", "TANGENT", "EQUAL",
              "MIDPOINT", "SYMMETRIC", "CONCENTRIC", "FIX")
 DIM_KINDS = ("DIST", "HDIST", "VDIST", "LENGTH", "RADIUS", "DIAMETER", "ANGLE")
@@ -54,6 +54,7 @@ class Geo:
     pts: dict[str, int]  # role (P, S, E, C) -> index of the point's u in x
     r: int | None = None  # index of a circle's radius in x
     construction: bool = False
+    closed: bool = False  # a spline that runs back to its start (it has no E)
 
 
 @dataclass
@@ -75,7 +76,7 @@ class Con:
         return f"C{self.n}"
 
 
-_REF = re.compile(r"^\s*(\d+)\s*(?:\.\s*([SECP]))?\s*$", re.I)
+_REF = re.compile(r"^\s*(\d+)\s*(?:\.\s*(K\d+|[SECP]))?\s*$", re.I)
 
 
 @dataclass
@@ -179,7 +180,9 @@ class Sketch:
         if role == "P":
             role = "P" if g.kind == "POINT" else "?"
         if role not in g.pts:
-            have = ", ".join(f"{n}.{r}" for r in g.pts if r != "P") or str(n)
+            have = ", ".join(f"{n}.{r}" for r in g.pts if r != "P" and not r.startswith("K")) or str(n)
+            if g.kind == "SPLINE":
+                have += f", or the points it passes through, {n}.K1 to {n}.K{len(g.pts) - (1 if g.closed else 2)}"
             raise SketchError(f"{g.kind.lower()} {n} has no point {t} (use {have})")
         return Ref(t, point=g.pts[role], geo=g)
 
@@ -192,6 +195,10 @@ class Sketch:
             return f"line {n} {f(self.pt(g.pts['S']))} to {f(self.pt(g.pts['E']))}"
         if g.kind == "CIRCLE":
             return f"circle {n} at {f(self.pt(g.pts['C']))}, r {_n(self.radius(g))}"
+        if g.kind == "SPLINE":
+            pts = self.spline_points(g)
+            ends = "closed" if g.closed else f"{f(pts[0])} to {f(pts[-1])}"
+            return f"spline {n} through {len(pts)} points, {ends}"
         a1, a2 = self.arc_angles(g)
         return f"arc {n} at {f(self.pt(g.pts['C']))}, r {_n(self.radius(g))}, {_n(a1)} to {_n(a2)} deg"
 
@@ -279,6 +286,29 @@ class Sketch:
         g = self.add_arc((ux, uy), r, a1, a3, uid, construction)
         self._tie([(f"{g.n}.S", ra), (f"{g.n}.E", rc)], uid)
         return g
+
+    def add_spline(self, pts: list, close: bool, uid: int = 0, construction: bool = False) -> Geo:
+        """A smooth curve through the points (u, v or point names). Its ends
+        are .S and .E, the points between .K1, .K2 ...; a closed one runs back
+        to .S and has no .E."""
+        if len(pts) < (3 if close else 2):
+            raise SketchError("a spline needs at least two points (three when closed)")
+        vals = [self.point_value(q) for q in pts]
+        if close and len(vals) > 3 and math.dist(vals[0][0], vals[-1][0]) <= 1e-9 * max(1.0, self.extent()):
+            vals = vals[:-1]  # the last point repeats the first
+        for i in range(len(vals) - 1):
+            if math.dist(vals[i][0], vals[i + 1][0]) < 1e-9:
+                raise SketchError(f"points {i + 1} and {i + 2} of the spline are the same")
+        roles = ["S"] + [f"K{i}" for i in range(1, len(vals) - (0 if close else 1))] + ([] if close else ["E"])
+        g = self._geo("SPLINE", {r: self._new_point(*uv) for r, (uv, _) in zip(roles, vals)}, construction=construction)
+        g.closed = bool(close)
+        self._tie([(f"{g.n}.{r}", ref) for r, (_, ref) in zip(roles, vals)], uid)
+        return g
+
+    def spline_points(self, g: Geo) -> list[tuple[float, float]]:
+        """A spline's points in order (S, K1, K2 ... E)."""
+        order = sorted(g.pts, key=lambda r: (r == "E", 0 if r == "S" else int(r[1:]) if r[0] == "K" else 0))
+        return [self.pt(g.pts[r]) for r in order]
 
     def add_rect(self, a, b, uid: int = 0, construction: bool = False) -> list[Geo]:
         (u1, v1), ra = self.point_value(a)

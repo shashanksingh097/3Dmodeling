@@ -154,6 +154,9 @@ def _mark_position(sk, c):
             dx, dy = b[0] - a[0], b[1] - a[1]
             L = (dx * dx + dy * dy) ** 0.5 or 1.0
             return ((a[0] + b[0]) / 2 + dy / L * off * 1.4 + dx / L * off, (a[1] + b[1]) / 2 - dx / L * off * 1.4 + dy / L * off)
+        if g.kind == "SPLINE":
+            p = sk.pt(g.pts["S"])
+            return (p[0] + off, p[1] + off)
         c0 = sk.pt(g.pts["C"])
         rad = sk.radius(g)
         return (c0[0] - rad * 0.7 - off, c0[1] + rad * 0.7 + off)
@@ -173,6 +176,7 @@ class OccViewport(QWidget):
     edit_dimension = Signal(str)  # double-click on a sketch size: its label (C4)
     sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
     body_menu = Signal(int, object)  # right click without dragging: (body under the cursor or 0, global QPoint)
+    knife_changed = Signal(bool)  # the Knife tool went on or off
 
     def __init__(self, model: Model, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -193,6 +197,10 @@ class OccViewport(QWidget):
         self._shown_active: str | None = None  # the open sketch the view last turned to
         self._mode_pending = False
         self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
+        self.knife = False  # the Knife tool is on: a left drag draws a stroke to cut along
+        self.knife_width = 0.0  # 0: split; more: cut a slot this wide
+        self._knife_px: list[tuple[int, int]] = []
+        self._knife_ais = None
         self._initialized = False
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "sketch", "point" (a control point)
@@ -992,6 +1000,69 @@ class OccViewport(QWidget):
         for c in cmds:
             self.command.emit(c)
 
+    # ---- knife ----------------------------------------------------------
+    def set_knife(self, on: bool) -> None:
+        """Turn the Knife tool on or off (Esc ends it)."""
+        self.knife = bool(on)
+        self._knife_px = []
+        self._draw_knife()
+        self.setCursor(Qt.CrossCursor if self.knife else Qt.ArrowCursor)
+        self.knife_changed.emit(self.knife)
+
+    def _draw_knife(self) -> None:
+        """The stroke being drawn, in front of everything."""
+        if not self._initialized:
+            return
+        from OCP.AIS import AIS_Shape
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon
+        from OCP.gp import gp_Pnt
+        from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
+
+        ctx = self.context
+        if self._knife_ais is not None:
+            ctx.Remove(self._knife_ais, False)
+            self._knife_ais = None
+        pts = self._knife_px
+        if len(pts) >= 2:
+            poly = BRepBuilderAPI_MakePolygon()
+            last = None
+            for x, y in pts:
+                if (x, y) == last:
+                    continue
+                last = (x, y)
+                poly.Add(gp_Pnt(*self._ray(int(x), int(y))[0]))
+            if poly.IsDone():
+                ais = AIS_Shape(poly.Shape())
+                ais.SetColor(Quantity_Color(1.0, 0.2, 0.2, Quantity_TOC_RGB))
+                ais.SetWidth(2.5)
+                ctx.Display(ais, False)
+                ctx.Deactivate(ais)
+                _on_top(ctx, ais)
+                self._knife_ais = ais
+        ctx.UpdateCurrentViewer()
+
+    def _knife_cut(self) -> None:
+        """The stroke is finished: send the SPLINE and KNIFE for the body it crossed."""
+        from ..gui import knife_tool as kt
+
+        px, self._knife_px = self._knife_px, []
+        self._draw_knife()
+        m = self.model
+        sel = m.selection[0] if (m.selection_kind == "BODY" and len(m.selection) == 1) else None
+        body = kt.target_body(px, self.body_at, sel)
+        if body is None or body not in m.bodies:
+            self.sketch_hover.emit("Knife: draw the stroke across a body (or pick the body first)")
+            return
+        from OCP.Bnd import Bnd_Box
+        from OCP.BRepBndLib import BRepBndLib
+
+        box = Bnd_Box()
+        BRepBndLib.Add_s(m.bodies[body].shape, box, True)
+        lo, hi = box.CornerMin(), box.CornerMax()
+        centre = ((lo.X() + hi.X()) / 2, (lo.Y() + hi.Y()) / 2, (lo.Z() + hi.Z()) / 2)
+        for c in kt.knife_commands(px, self._ray, centre, body, self.knife_width):
+            self.command.emit(c)
+
     # ---- section view ---------------------------------------------------
     def set_section(self, section) -> None:
         """Cut the view open along a plane (SECTION). section = (datum, side) or None."""
@@ -1101,14 +1172,18 @@ class OccViewport(QWidget):
         x, y = self._px(self._press)
         if self._sketching() and e.button() == Qt.LeftButton:
             uv = self.plane_point(x, y)
-            if uv is not None and self.sketcher.tool == "SELECT":
+            if uv is not None and self.sketcher.tool in ("SELECT", "FREEHAND"):
                 self.sketcher.press(*uv, self._tol(x, y))
-                if self.sketcher.drag:
+                if self.sketcher.drag or self.sketcher.stroke is not None:
                     self._drag = "sketch"
                     return
             if self.sketcher.tool != "SELECT":
                 self._drag = "pan" if e.modifiers() & Qt.ShiftModifier else ""
                 return
+        if self.knife and not self._sketching() and e.button() == Qt.LeftButton:
+            self._knife_px = [(x, y)]
+            self._drag = "knife"
+            return
         if (self._cp is not None and e.button() == Qt.LeftButton
                 and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
             self._drag = "point"
@@ -1133,6 +1208,10 @@ class OccViewport(QWidget):
                     pv = self.sketcher.move(*uv, self._tol(x, y))
                     self.set_preview(pv)
                 self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
+            return
+        if self._drag == "knife":
+            self._knife_px.append((x, y))
+            self._draw_knife()
             return
         if self._drag == "point":
             if moved:
@@ -1160,6 +1239,8 @@ class OccViewport(QWidget):
         if self._sketching():
             uv = self.plane_point(x, y)
             if drag == "sketch":
+                stroke = self.sketcher.stroke
+                moved = moved or bool(stroke and len(stroke) > 2)  # a closed stroke ends where it began
                 cmds = self.sketcher.release(*uv, self._tol(x, y)) if (moved and uv is not None) else []
                 self.sketcher.drag = None
                 if not moved and uv is not None:
@@ -1178,6 +1259,10 @@ class OccViewport(QWidget):
                 add = bool(e.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier))
                 self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
                 self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
+            return
+        if drag == "knife":
+            self._knife_px.append((x, y))
+            self._knife_cut()
             return
         if drag == "point":
             if not moved:
@@ -1205,6 +1290,13 @@ class OccViewport(QWidget):
             self.edit_dimension.emit(name)
 
     def keyPressEvent(self, e) -> None:
+        if self._drag == "knife" and e.key() == Qt.Key_Escape:
+            self._drag, self._press, self._knife_px = "", None, []
+            self._draw_knife()
+            return
+        if self.knife and e.key() == Qt.Key_Escape:
+            self.set_knife(False)
+            return
         if self._drag == "point" and e.key() == Qt.Key_Escape:
             self._cp.cancel()
             self._drag, self._press = "", None

@@ -44,6 +44,11 @@
   "faces": 6,
   "volume": 29838.505
  },
+ "knife_cuts.cmd": {
+  "bodies": 10,
+  "faces": 32,
+  "volume": 38897.438
+ },
  "layers_demo.cmd": {
   "bodies": 6,
   "faces": 31,

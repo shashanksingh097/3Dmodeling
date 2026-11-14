@@ -27,7 +27,7 @@ from ..sketch.sketch import CON_KINDS, DIM_KINDS, Sketch, SketchError
 from .feature_handlers import _check_name, _face_plane, axis_ref, plane_ref
 from .processor import Arg, BodyRef, CommandError, Processor, Raw, Text, command
 
-_POINT_NAME = re.compile(r"^\s*(\d+\s*\.\s*[SECP]|O|ORIGIN)\s*$", re.I)
+_POINT_NAME = re.compile(r"^\s*(\d+\s*\.\s*(K\d+|[SECP])|O|ORIGIN)\s*$", re.I)
 _FLAGS = ("H", "V", "CONSTR", "CLOSE")
 
 
@@ -298,6 +298,23 @@ def spoly(p: Processor, **raws):
     with _sketch_error("SPOLY"):
         geos = sk.add_poly(pts, "CLOSE" in r.flags, p.entry_uid, "CONSTR" in r.flags)
     return _drawn(p, sk, geos, r, "SPOLY")
+
+
+@command("SSPLINE", *_vals(400),
+         help="A smooth sketch curve through points: SSPLINE, 0,0, 20,10, 40,0 (CLOSE at the end runs it back to the "
+              "first point, for a closed shape to EXTRUDE). Its ends are .S and .E, the points between .K1, .K2 ...; "
+              "drag them, or tie them with SCON. The sketcher's Freehand tool writes this from a drawn stroke.")
+def sspline(p: Processor, **raws):
+    sk = _active(p, "SSPLINE")
+    r = _Reader(p, "SSPLINE", raws.values())
+    r.allowed = {"CONSTR", "CLOSE"}
+    pts = []
+    while r.more():
+        pts.append(r.point(f"point {len(pts) + 1}"))
+    r.done()
+    with _sketch_error("SSPLINE"):
+        g = sk.add_spline(pts, "CLOSE" in r.flags, p.entry_uid, "CONSTR" in r.flags)
+    return _drawn(p, sk, [g], r, "SSPLINE")
 
 
 @command("SRECT", *_vals(5),

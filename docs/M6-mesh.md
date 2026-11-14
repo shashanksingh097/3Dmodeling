@@ -8,7 +8,8 @@ PLAN.md: triangle meshes that stay meshes. It comes in three parts:
 2. **M6b, implicit shapes and lattices**: shapes given by an equation
    `f(x, y, z) ≤ 0`, smooth blends between them, lattice infill of a solid.
    They come out as mesh bodies.
-3. **M6c, knife and freehand cuts.**
+3. **M6c, knife and freehand cuts**: `KNIFE` and the Knife button, sketch
+   splines and the sketcher's Freehand tool (LANGUAGE.md section 27).
 
 ## Part 1: mesh bodies
 
@@ -176,4 +177,79 @@ script, about 13 s.
   sampling, marching tetrahedra, lattice fields.
 - `modeler/commands/implicit_handlers.py`: `IMPLICIT`, `LATTICE`.
 - `scripts/implicit_lattices.cmd`, `tests/test_implicit.py`.
+
+## Part 3: knife and freehand cuts
+
+### KNIFE
+
+`geometry/knife.py` turns a stroke into cutting tools. The stroke's wire is
+projected, edge by edge, onto a plane across the direction (placed
+behind the body), so only the stroke's shape as seen from the direction
+counts. An open stroke gets a straight line added at each end, along its
+end tangent, long enough to leave the body. Then:
+
+- **Split** (width 0, solid): the flat stroke is swept along the direction
+  into a sheet and handed to the kernel's splitter, as `SPLIT` does with a
+  cutting body, so the pieces' faces keep their history.
+- **Slot** (a width): the slot outline is the flat stroke offset by half the
+  width each way (the kernel's 2D offset, round at the ends and bends), swept
+  into a solid and subtracted. A straight stroke gets a rectangle instead,
+  since the 2D offset cannot tell which plane a straight line is in (it
+  guessed one, and a side-on slot came out as a plain split). A closed stroke
+  gives a ring: the outline offset outwards with the inward offset as its
+  hole.
+- **Cookie cutter** (a closed stroke, width 0): the face inside the stroke
+  is swept into a solid; on a solid the splitter does the work, on a mesh
+  body the pieces are `body ∩ inside` and `body − inside`.
+- **Mesh bodies**: everything runs in manifold3d. A split along an open
+  stroke has no closed tool to subtract, so it subtracts a hairline slot
+  (1e-5 of the body's size) and the separate pieces are found by
+  manifold3d's `decompose`.
+
+The biggest piece keeps the body's ID, as with `SPLIT`. The stroke is a body
+of its own (a `SPLINE`), hidden afterwards, so editing it in the history
+moves the cut.
+
+### The Knife button
+
+The 3D view records the stroke in pixels while the left button is down and
+draws it in front of everything. On release (`gui/knife_tool.py`) the
+stroke is thinned (Douglas-Peucker, 2 pixels, at most 40 points), each
+point's line of sight is met with the plane across the view through the
+middle of the body, and two commands are sent: `SPLINE` (or `LINE`, or a
+closed `SPLINE` when the stroke ends within 14 pixels of its start) and
+`KNIFE, b, LAST, 0, view direction`. The body is the picked one, else the
+one the stroke passes over most.
+
+### Sketch splines and the Freehand tool
+
+A sketch spline (`SSPLINE`) is a new kind of sketch geometry. Its points
+(`S`, `K1` ... `Kn`, `E`) are ordinary sketch points: solver variables that
+can be dragged, fixed and tied, so a freehand curve is not frozen. The curve
+is OCCT's interpolation through them (`Geom2dAPI_Interpolate`, periodic
+when closed) in the sketch's (u, v), carried onto the sketch plane exactly
+(`GeomAPI::To3d`), so the profile and what is drawn are the same curve. The
+loop finder treats a closed spline like a circle (one curve that is a loop)
+and an open one like an arc (two ends that join other curves).
+
+The Freehand tool records the stroke in sketch coordinates while the
+button is down. On release the stroke is thinned by Douglas-Peucker at 0.4
+of the pick tolerance (raised until there are at most 60 points) and
+written as `SSPLINE`; ends on sketch points are tied there, and a stroke
+that ends within two pick tolerances of its start is closed.
+
+Not yet for splines: trim, extend, fillet and offset (they refuse them with
+a message), tangent and on-curve constraints.
+
+### Files
+
+- `modeler/geometry/knife.py`: stroke to sheet, slot and cutter.
+- `modeler/commands/knife_handlers.py`: `KNIFE`.
+- `modeler/gui/knife_tool.py`: the Knife button's stroke to commands;
+  `viewport/occ_view.py`: recording and drawing the stroke.
+- `modeler/sketch/sketch.py` (`add_spline`), `sketch/profile.py`
+  (`spline2d`), `commands/sketch_handlers.py` (`SSPLINE`),
+  `gui/sketch_tools.py` (Freehand, `freehand_commands`).
+- `scripts/knife_cuts.cmd`, `tests/test_knife.py`, GUI tests in
+  `tests/test_sketch_gui.py`.
 

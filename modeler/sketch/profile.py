@@ -33,7 +33,44 @@ class Loop:
         return ", ".join(str(p.geo.n) for p in self.pieces)
 
 
+def spline2d(sk: Sketch, g: Geo):
+    """A sketch spline as an OCCT 2D curve in (u, v): through every point,
+    periodic (smooth all round) when closed."""
+    from OCP.Geom2dAPI import Geom2dAPI_Interpolate
+    from OCP.gp import gp_Pnt2d
+
+    try:  # OCP 8
+        from OCP.collections import HArray1_gp_Pnt2d as TColgp_HArray1OfPnt2d
+    except ImportError:  # OCP 7
+        from OCP.TColgp import TColgp_HArray1OfPnt2d
+
+    pts = sk.spline_points(g)
+    arr = TColgp_HArray1OfPnt2d(1, len(pts))
+    for i, (u, v) in enumerate(pts, 1):
+        arr.SetValue(i, gp_Pnt2d(u, v))
+    it = Geom2dAPI_Interpolate(arr, bool(g.closed), 1e-9)
+    it.Perform()
+    if not it.IsDone():
+        raise SketchError(f"spline {g.n}: no smooth curve goes through its points (are two of them the same?)")
+    return it.Curve()
+
+
+def spline_samples(sk: Sketch, g: Geo, n: int = 0) -> list[tuple[float, float]]:
+    """Points along a spline, start to end (a closed one ends at its start)."""
+    c = spline2d(sk, g)
+    n = n or max(16, 8 * len(g.pts))
+    t0, t1 = c.FirstParameter(), c.LastParameter()
+    out = []
+    for i in range(n + 1):
+        q = c.Value(t0 + (t1 - t0) * i / n)
+        out.append((q.X(), q.Y()))
+    return out
+
+
 def _arc_points(sk: Sketch, g: Geo, reverse: bool, n: int = 24):
+    if g.kind == "SPLINE":
+        pts = spline_samples(sk, g)
+        return pts[::-1] if reverse else pts
     c = sk.pt(g.pts["C"])
     r = sk.radius(g)
     if g.kind == "CIRCLE":
@@ -71,9 +108,9 @@ def loops(sk: Sketch) -> list[Loop]:
     end that joins nothing, or a point where three curves meet, is an error
     that names the place, since a profile there is not clear."""
     tol = 1e-6 * sk.extent()
-    curves = [g for g in sk.geos.values() if not g.construction and g.kind in ("LINE", "ARC", "CIRCLE")]
+    curves = [g for g in sk.geos.values() if not g.construction and g.kind in ("LINE", "ARC", "CIRCLE", "SPLINE")]
     if not curves:
-        raise SketchError(f"sketch {sk.name} has no lines, arcs or circles to make a profile from "
+        raise SketchError(f"sketch {sk.name} has no lines, arcs, circles or splines to make a profile from "
                           "(construction geometry does not count)")
     out: list[Loop] = []
     open_ones = []
@@ -81,6 +118,10 @@ def loops(sk: Sketch) -> list[Loop]:
         if g.kind == "CIRCLE":
             poly = _arc_points(sk, g, False, 48)[:-1]
             p = sk.pt(g.pts["C"])
+            out.append(Loop([Piece(g, p, p, False)], poly, _area(poly)))
+        elif g.kind == "SPLINE" and g.closed:
+            poly = spline_samples(sk, g)[:-1]
+            p = sk.pt(g.pts["S"])
             out.append(Loop([Piece(g, p, p, False)], poly, _area(poly)))
         else:
             open_ones.append(g)
@@ -237,6 +278,10 @@ def edge(sk: Sketch, g: Geo):
     f = sk.frame
     if g.kind == "LINE":
         return BRepBuilderAPI_MakeEdge(_gp(sk, sk.pt(g.pts["S"])), _gp(sk, sk.pt(g.pts["E"]))).Edge()
+    if g.kind == "SPLINE":
+        from OCP.GeomAPI import GeomAPI
+
+        return BRepBuilderAPI_MakeEdge(GeomAPI.To3d_s(spline2d(sk, g), _plane(sk))).Edge()
     c = sk.pt(g.pts["C"])
     circ = gp_Circ(gp_Ax2(gp_Pnt(*f.point(*c)), gp_Dir(*f.z), gp_Dir(*f.x)), sk.radius(g))
     if g.kind == "CIRCLE":

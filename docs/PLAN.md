@@ -357,8 +357,8 @@ spring is a short script whose numbers you can change later.
 - Patterns: linear, polar, along a path `[M2]`
 
 ### 5.6 Freehand
-- **Knife**: draw a stroke on screen, it is projected through the view and cuts or splits the body (`KNIFE`) `[M6]`
-- **Freehand sketch**: draw a closed stroke on a face or plane, it is fitted to a spline, then extruded as cut or boss `[M6]`
+- **Knife**: draw a stroke on screen, it is projected through the view and cuts or splits the body (`KNIFE`) `[done]` (the Knife button; also a slot of a given width, and a closed stroke cuts out its inside; solids and mesh bodies)
+- **Freehand sketch**: draw a closed stroke on a face or plane, it is fitted to a spline, then extruded as cut or boss `[done]` (the sketcher's Freehand tool writes `SSPLINE`; sketch splines can be dragged and constrained by their points)
 - **Sculpt mode** on mesh bodies: draw, clay, inflate, smooth, flatten, crease, grab, mask; symmetry; remesh/dynamic resolution `[M7]`
 - Every brush stroke is logged as `SCULPT, brush, radius, strength, stroke-file-ref`, so sculpting is replayable too (stroke points saved in the project zip)
 
@@ -737,7 +737,9 @@ Still open in the milestones already started, in the suggested order:
    booleans (`TOMESH`, `TOSOLID`, `SMOOTH`, `REMESH`, `SIMPLIFY`, `IMPORT`
    kind `MESH`; LANGUAGE.md section 25, docs/M6-mesh.md), and M6b,
    implicit shapes, smooth blends and lattices (`IMPLICIT`, `LATTICE`;
-   section 26). Next: M6c, knife and freehand cuts.
+   section 26), and M6c, knife and freehand cuts (`KNIFE`, the Knife
+   button, sketch splines `SSPLINE` and the Freehand tool; section 27).
+   M6 is done.
 6. M3 leftovers: undo for history edits, skipping unchanged steps on
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.

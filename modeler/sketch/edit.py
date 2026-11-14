@@ -64,6 +64,9 @@ def _curve(sk: Sketch, n: int, what: str) -> Geo:
     if g is None:
         have = ", ".join(map(str, sorted(sk.geos))) or "none yet"
         raise SketchError(f"sketch {sk.name} has no geometry {n} (it has: {have})")
+    if g.kind == "SPLINE":
+        raise SketchError(f"{n} is a spline, which {what.split(':')[0] or 'this'} does not work on yet; give a line, "
+                          "arc or circle (drag the spline's points to change it)")
     if g.kind not in CURVES:
         raise SketchError(f"{n} is a point; give a line, arc or circle")
     return g
@@ -720,6 +723,10 @@ def _copy_geo(sk: Sketch, g: Geo, f, uid: int, flip: bool) -> Geo:
         cp = sk._new_point(*f(sk.pt(g.pts["C"])))
         sk.x.append(abs(sk.x[g.r]))
         new = sk._geo("CIRCLE", {"C": cp}, r=len(sk.x) - 1, construction=g.construction)
+    elif g.kind == "SPLINE":  # every point moved; a mirrored spline needs no flip
+        new = sk._geo("SPLINE", {r: sk._new_point(*f(sk.pt(i))) for r, i in g.pts.items()},
+                      construction=g.construction)
+        new.closed = g.closed
     else:
         s, e = f(sk.pt(g.pts["S"])), f(sk.pt(g.pts["E"]))
         if flip:
