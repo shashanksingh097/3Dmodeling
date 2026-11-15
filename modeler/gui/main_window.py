@@ -629,6 +629,15 @@ class MainWindow(QMainWindow):
         act("Control points", "Show the control points of the picked curve or surface; drag one to move it "
                               "(press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
             lambda: fa.control_points_toggle(p))
+        knife = QAction("Knife", self)
+        knife.setCheckable(True)
+        knife.setToolTip("Draw a stroke across a body to cut it straight through, along the view direction; "
+                         "end where you started to cut out the inside (Esc ends the tool)\n"
+                         "Each stroke runs: SPLINE, ... then KNIFE, body, LAST, 0, view direction (a width in place of the 0 cuts a slot)")
+        knife.toggled.connect(lambda on: self.viewport.set_knife(on) if self.viewport.knife != on else None)
+        self.viewport.knife_changed.connect(lambda on: knife.setChecked(on) if knife.isChecked() != on else None)
+        tb.addAction(knife)
+        self.knife_action = knife
         act("Zebra", "Zebra stripes on the picked body, and each join between its faces judged G2, G1 or "
                      "creased (press again to end it; the form has curvature and draft maps)\n"
                      "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))

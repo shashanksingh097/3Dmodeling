@@ -114,3 +114,73 @@ def test_fillet_and_trim_by_mouse_and_offset_from_the_toolbar(app, win, monkeypa
     win.sketch_ui.edit_actions["Offset"].trigger()
     pump(app, 5)
     assert win.processor.history[win.processor.cursor - 1].text == "SOFFSET, 2, 1, 2, 3, 4, 7"
+
+
+def _drag(app, vp, pts):
+    QTest.mousePress(vp, Qt.LeftButton, Qt.NoModifier, pts[0])
+    pump(app, 2)
+    for p in pts[1:]:
+        QTest.mouseMove(vp, p)
+        pump(app, 1)
+    QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, pts[-1])
+    pump(app, 5)
+
+
+def test_freehand_stroke_becomes_a_closed_spline_to_extrude(app, win):
+    import math
+
+    vp = win.viewport
+    win.execute("SKETCH, s, XY")
+    pump(app, 20)
+    vp.view.SetSize(120)
+    vp.view.Redraw()
+    pump(app)
+
+    def at(u, v):
+        x, y = vp.pixel_of(u, v)
+        r = vp.devicePixelRatioF()
+        return QPoint(int(x / r), int(y / r))
+
+    win.sketch_ui.tool_actions["FREEHAND"].trigger()
+    loop = [at(20 * math.cos(a / 40 * 2 * math.pi), 12 * math.sin(a / 40 * 2 * math.pi)) for a in range(41)]
+    _drag(app, vp, loop)
+    sk = win.processor.model.sketches["S"]
+    assert [g.kind for g in sk.geos.values()] == ["SPLINE"] and sk.geos[1].closed
+    assert win.processor.history[-1].text.startswith("SSPLINE") and win.processor.history[-1].text.endswith("CLOSE")
+    win.execute("EXTRUDE, s, 5")
+    pump(app, 20)
+    from modeler.geometry import robust
+
+    (body,) = win.processor.model.bodies.values()
+    assert abs(robust.volume(body.shape) - math.pi * 20 * 12 * 5) < 0.05 * math.pi * 20 * 12 * 5
+
+
+def test_knife_stroke_cuts_a_block_along_the_view(app, win):
+    vp = win.viewport
+    win.execute("BLOCK, -20, -10, 0, 40, 20, 10")
+    win.execute("VIEW, TOP")
+    win.execute("FIT")
+    pump(app, 20)
+    win.knife_action.trigger()
+    assert vp.knife
+    r = vp.devicePixelRatioF()
+
+    def at(x, y, z=5.0):
+        px, py = vp.view.Convert(x, y, z)
+        return QPoint(int(px / r), int(py / r))
+
+    _drag(app, vp, [at(-5 + i * 0.5, -16 + i * 1.6) for i in range(21)])
+    texts = [e.text for e in win.processor.history]
+    assert texts[-1].startswith("KNIFE, 1, LAST, 0"), texts[-2:]
+    m = win.processor.model
+    assert texts[-2].startswith(("SPLINE", "LINE")) and m.last_body in m.bodies
+    assert len(m.hidden) == 1  # the stroke
+    assert len([b for b in m.bodies.values() if robust_solid(b.shape)]) == 2
+    vp.set_knife(False)
+    assert not win.knife_action.isChecked()
+
+
+def robust_solid(shape):
+    from modeler.geometry import robust
+
+    return bool(robust.solids(shape))

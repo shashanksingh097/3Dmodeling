@@ -23,7 +23,7 @@ from ..lang.expr import fmt_num
 from ..sketch import edit as sedit
 from ..sketch.sketch import Sketch, SketchError
 
-TOOLS = ("SELECT", "LINE", "RECT", "CIRCLE", "ARC", "SLOT", "POINT", "TRIM", "EXTEND", "FILLET")
+TOOLS = ("SELECT", "LINE", "RECT", "CIRCLE", "ARC", "SLOT", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET")
 HINTS = {
     "SELECT": "Click to select sketch geometry (Ctrl adds); drag a point to move it; double-click a size to change it",
     "LINE": "Click the start, then each next point; click the first point again or press Esc to finish",
@@ -32,6 +32,7 @@ HINTS = {
     "ARC": "Click the start, then the end, then a point the arc passes through",
     "SLOT": "Click the first centre, then the second, then a point on the side",
     "POINT": "Click to place a point",
+    "FREEHAND": "Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude",
     "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it)",
     "EXTEND": "Click near the end of a line or arc to make it reach the next curve",
     "FILLET": "Click a corner where two lines meet to round it (double-click the radius to change it)",
@@ -84,6 +85,8 @@ class SketchController:
         self.chain_start: tuple[tuple[float, float], str | None] | None = None
         self.drag: str | None = None  # SELECT: the point being dragged
         self.drag_at: tuple[float, float] | None = None
+        self.stroke: list[tuple[float, float]] | None = None  # FREEHAND: the points drawn so far
+        self.stroke_snap: str | None = None  # FREEHAND: the point the stroke started on
         self.preview = Preview()
 
     # ---- state -------------------------------------------------------------
@@ -102,6 +105,8 @@ class SketchController:
         self.chain_start = None
         self.drag = None
         self.drag_at = None
+        self.stroke = None
+        self.stroke_snap = None
         self.preview = Preview()
 
     # ---- finding things under the mouse -----------------------------------------
@@ -162,6 +167,9 @@ class SketchController:
             name = self.hit(u, v, tol)
             if name and ("." in name) and self.sketch is not None:
                 self.drag, self.drag_at = name, None
+        elif self.tool == "FREEHAND" and self.sketch is not None:
+            at, self.stroke_snap = self.snap(u, v, tol)
+            self.stroke = [at if self.stroke_snap else (u, v)]
         return []
 
     def move(self, u: float, v: float, tol: float) -> Preview:
@@ -178,6 +186,11 @@ class SketchController:
                 pv.sketch = sk
             except SketchError:
                 pass
+        elif self.tool == "FREEHAND":
+            if self.stroke is not None:
+                if math.dist(self.stroke[-1], (u, v)) > tol * 0.25:
+                    self.stroke.append((u, v))
+                pv.arcs.append(list(self.stroke))
         elif self.tool == "TRIM":
             piece = self.trim_preview(u, v, tol)
             if piece:
@@ -250,7 +263,14 @@ class SketchController:
         return [f"SEXTEND, {n}.{role}"]
 
     def release(self, u: float, v: float, tol: float) -> list[str]:
-        """Left button up after a drag (SELECT): move the point for real."""
+        """Left button up after a drag: move the point for real (SELECT), or
+        turn the drawn stroke into a spline (FREEHAND)."""
+        if self.tool == "FREEHAND" and self.stroke is not None:
+            stroke, start = self.stroke + [(u, v)], self.stroke_snap
+            self.stroke, self.stroke_snap = None, None
+            self.preview = Preview()
+            _, end = self.snap(u, v, tol)
+            return freehand_commands(stroke, tol, start, end)
         if self.drag and self.drag_at is not None:
             name, self.drag, self.drag_at = self.drag, None, None
             self.preview = Preview()
@@ -261,6 +281,7 @@ class SketchController:
     def click(self, u: float, v: float, tol: float, add: bool = False) -> list[str]:
         """A left click (press and release without moving)."""
         self.drag = None
+        self.stroke = None
         at, snap = self.snap(u, v, tol)
         t = self.tool
         if t == "SELECT":
@@ -755,6 +776,11 @@ def _bounds(sk: Sketch) -> tuple[float, float, float, float]:
 
 
 def _distance_to(sk: Sketch, g, q) -> float:
+    if g.kind == "SPLINE":
+        from ..sketch.profile import spline_samples
+
+        pts = spline_samples(sk, g)
+        return min(_segment_distance(q, pts[i], pts[i + 1]) for i in range(len(pts) - 1))
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         dx, dy = b[0] - a[0], b[1] - a[1]
@@ -773,6 +799,71 @@ def _distance_to(sk: Sketch, g, q) -> float:
             ends = [sk.pt(g.pts["S"]), sk.pt(g.pts["E"])]
             return min(math.hypot(q[0] - e[0], q[1] - e[1]) for e in ends)
     return d
+
+
+def simplify_stroke(pts, eps: float) -> list[tuple[float, float]]:
+    """Douglas-Peucker: the fewest of the drawn points that keep the stroke
+    within eps."""
+    if len(pts) < 3:
+        return list(pts)
+    keep = [False] * len(pts)
+    keep[0] = keep[-1] = True
+    todo = [(0, len(pts) - 1)]
+    while todo:
+        i, j = todo.pop()
+        best, k = -1.0, -1
+        for m in range(i + 1, j):
+            d = _segment_distance(pts[m], pts[i], pts[j])
+            if d > best:
+                best, k = d, m
+        if k > 0 and best > eps:
+            keep[k] = True
+            todo += [(i, k), (k, j)]
+    return [q for q, kp in zip(pts, keep) if kp]
+
+
+MAX_STROKE_POINTS = 60
+
+
+def freehand_commands(stroke, tol: float, start: str | None = None, end: str | None = None) -> list[str]:
+    """A drawn stroke as a sketch command: a closed SSPLINE when it ends near
+    where it started, else an open one (SLINE when it is nearly straight).
+    Ends drawn on a sketch point are tied to it."""
+    pts = [stroke[0]]
+    for q in stroke[1:]:
+        if math.dist(q, pts[-1]) > 1e-9:
+            pts.append(q)
+    length = sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+    if len(pts) < 2 or length < 3 * tol:
+        return []
+    closed = len(pts) > 4 and math.dist(pts[0], pts[-1]) <= 2 * tol and length > 8 * tol
+    if closed:
+        ring = pts[:-1] + [pts[0]]  # the end snaps onto the start; simplify the loop as a whole
+    else:
+        ring = pts
+    eps = tol * 0.4
+    simple = simplify_stroke(ring, eps)
+    while len(simple) > MAX_STROKE_POINTS:
+        eps *= 1.5
+        simple = simplify_stroke(ring, eps)
+    if closed:
+        simple = simple[:-1]
+        if len(simple) < 3:
+            return []
+        first = start or _uv(simple[0])
+        return [f"SSPLINE, {first}, " + ", ".join(_uv(q) for q in simple[1:]) + ", CLOSE"]
+    a = start or _uv(simple[0])
+    b = end if (end and end != start) else _uv(simple[-1])
+    if len(simple) == 2:
+        return [f"SLINE, {a}, {b}"]
+    return [f"SSPLINE, {a}, " + ", ".join(_uv(q) for q in simple[1:-1]) + f", {b}"]
+
+
+def _segment_distance(q, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L2 = dx * dx + dy * dy or 1e-12
+    t = max(0.0, min(1.0, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2))
+    return math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy)
 
 
 def _point_line_distance(q, a, b) -> float:

@@ -28,9 +28,9 @@ from . import feature_actions as fa
 from . import sketch_tools as st
 
 _TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "RECT": "Rectangle", "CIRCLE": "Circle", "ARC": "Arc",
-                "SLOT": "Slot", "POINT": "Point", "TRIM": "Trim", "EXTEND": "Extend", "FILLET": "Fillet"}
+                "SLOT": "Slot", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend", "FILLET": "Fillet"}
 _TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "SLOT": "", "POINT": "P",
-              "TRIM": "T", "EXTEND": "E", "FILLET": "F"}
+              "FREEHAND": "D", "TRIM": "T", "EXTEND": "E", "FILLET": "F"}
 _CONSTRAINTS = [
     ("Coincident", "COINCIDENT", "Join two points, or put a point on a curve\nRuns: SCON, COINCIDENT/ON, ..."),
     ("Horizontal", "HORIZONTAL", "Make lines level (or two points level with each other)\nRuns: SCON, HORIZONTAL, ..."),

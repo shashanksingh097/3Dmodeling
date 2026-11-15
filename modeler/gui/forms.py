@@ -111,7 +111,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "BLEND", "SEW", "EXTEND", "TRIM", "PROJECT",
                           "MOVEPT", "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES", "ANALYZE")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
-    ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT")),
+    ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "IMPLICIT", "LATTICE")),
@@ -141,7 +141,7 @@ NO_FORM = {
     # the Control points button (Features toolbar); dragging a point sends MOVEPT
     "CPOINTS",
     # drawn by mouse in sketch mode (Sketch toolbar)
-    "ENDSKETCH", "SPOINT", "SLINE", "SPOLY", "SRECT", "SCIRCLE", "SARC", "SARC3", "SSLOT",
+    "ENDSKETCH", "SPOINT", "SLINE", "SPOLY", "SSPLINE", "SRECT", "SCIRCLE", "SARC", "SARC3", "SSLOT",
     "SCON", "SDIM", "SDEL", "SMOVE", "SCONSTRUCT", "SSEL",
     # sketch editing: the Trim / Extend / Fillet tools and the Offset, Mirror, Pattern, Project buttons
     "STRIM", "SEXTEND", "SFILLET", "SOFFSET", "SMIRROR", "SPATTERN", "SPROJECT",

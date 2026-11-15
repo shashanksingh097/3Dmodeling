@@ -4,6 +4,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Knife and freehand cuts (M6, third part)
+
+- `KNIFE, b, stroke [, width [, dx, dy, dz]]` cuts a body along a curve seen
+  from a direction: splits it into pieces, cuts a slot, or with a closed
+  stroke cuts out what is inside. Works on solids and mesh bodies.
+- The **Knife** button in the Features toolbar: drag across a body in the 3D
+  view to cut it along the view direction.
+- Sketch splines: `SSPLINE, p1, p2, ... [, CLOSE]`, with points that can be
+  dragged and constrained (`3.K1` ...). The sketcher's **Freehand** tool
+  (key D) draws one with the mouse, for freehand pockets and bosses.
+- New example `scripts/knife_cuts.cmd`; LANGUAGE.md section 27.
+
 ### Implicit shapes and lattices (M6, second part)
 
 - `IMPLICIT, name, f(x,y,z), box [, step]` makes a shape from an equation:

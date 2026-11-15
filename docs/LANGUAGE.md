@@ -253,7 +253,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
-| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
+| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
@@ -271,6 +271,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance`; `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
@@ -761,6 +762,7 @@ DELETE` removes a sketch nothing uses yet.
 | `SCIRCLE, centre, r` | a circle |
 | `SARC, centre, r, a1, a2` · `SARC3, start, through, end` | an arc (degrees, counter-clockwise) or an arc through three points |
 | `SSLOT, c1, c2, r` | a slot: two half circles joined by tangent lines |
+| `SSPLINE, p1, p2, ... [, CLOSE]` | a smooth curve through the points; `CLOSE` runs it back to the first point, smooth all round (the Freehand tool writes this) |
 | `SPOINT, p` | a lone point |
 
 A point is `u, v`, a point value `(u, v)`, or the name of a point already in
@@ -775,6 +777,7 @@ the sketch. Giving a name ties the new geometry there:
 |------|----|
 | `3` | geometry 3 (the numbers the drawing commands print) |
 | `3.S`, `3.E`, `3.C` | its start, end, centre; `3.P` a lone point |
+| `3.K1`, `3.K2` ... | the points a spline passes through between its ends (drag them with `SMOVE`, hold them with `SCON`) |
 | `ORIGIN` (or `O`) | the sketch origin |
 | `H`, `V` | the sketch's horizontal and vertical axes |
 | `C4` | constraint or dimension 4 |
@@ -2116,4 +2119,69 @@ LATTICE, bracket, GYROID, 8, 1, 1.5     ! 1 thick walls inside a 1.5 skin
 A lattice body takes mesh booleans like any mesh body, so it can be cut
 open (`SUBTRACT`) or joined to solid bosses (`UNION`). See
 `scripts/implicit_lattices.cmd`.
+
+## 27. Knife and freehand cuts
+
+### KNIFE
+
+`KNIFE, b, stroke [, width [, dx, dy, dz]]` cuts body `b` along a curve
+(`LINE`, `POLYLINE`, `SPLINE` ...), straight through the body along a
+direction, the way a knife drawn across the screen cuts along the line of
+sight:
+
+- The stroke is seen from the direction: only its shape across the
+  direction counts, so it can be drawn anywhere in front of the body. The
+  direction defaults to the normal of the plane the stroke lies in.
+- An open stroke is carried on straight past the body at both ends, so a
+  short stroke still cuts right through.
+- Width 0 splits the body into pieces. The biggest keeps the body's ID and
+  name; the others are new bodies (the message names them).
+- A width cuts a slot that wide along the stroke, with round ends where it
+  turns; what is left may be one piece or several.
+- A closed stroke is a cookie cutter: the piece inside it and the piece
+  outside it (with a width: a ring-shaped slot).
+- The stroke is hidden afterwards; it stays in the history, so changing its
+  points there moves the cut.
+- It works on solids and on mesh bodies (section 25). A mesh body cut with
+  width 0 along an open stroke is cut with a hairline gap (a hundred
+  thousandth of its size), since a mesh piece needs a closed inside.
+
+```
+BLOCK, 0, 0, 0, 40, 24, 12
+SPLINE, (14, -4, 30), (22, 6, 30), (16, 14, 30), (24, 28, 30)
+KNIFE, 1, LAST                      ! seen from above (the stroke's plane)
+LINE, 20, -5, 5, 20, 30, 5
+KNIFE, 1, LAST, 2, 0, 0, 1          ! a straight stroke needs the direction
+CIRCLE, 20, 10, 30, 5
+KNIFE, 1, LAST                      ! cut out a round plug
+```
+
+**The Knife button** (Features toolbar) turns the tool on: drag across a
+body in the 3D view and let go. The stroke is laid on a plane across the
+view through the middle of the body under it (or of the picked body), and
+two lines are run: a `SPLINE` (or `LINE`) for the stroke and `KNIFE, b,
+LAST, 0, dx, dy, dz` with the view direction. End the stroke where it began
+to cut out what is inside it. Esc or the button again ends the tool. For a
+slot, change the 0 in the `KNIFE` line in History.
+
+### Freehand sketches
+
+In a sketch, the **Freehand** tool (key D) draws a curve with the mouse:
+hold the left button, draw, let go. The stroke is thinned to the points
+that matter and written as `SSPLINE` (a nearly straight stroke becomes
+`SLINE`). Ending near where it began closes it, ready for `EXTRUDE` as a
+cut or a boss, or `REVOLVE`; starting or ending on a sketch point ties the
+curve there. A spline's points are `3.S`, `3.K1` ... `3.E`: drag them to
+reshape it, or hold them with `SCON` (`FIX`, `COINCIDENT`). `SMIRROR` and
+`SPATTERN` copy splines; `STRIM`, `SEXTEND`, `SFILLET` and `SOFFSET` do not
+work on them yet.
+
+```
+SKETCH, pocket, top
+SSPLINE, 8, 46, 20, 66, 34, 70, 30, 52, 20, 48, CLOSE
+ENDSKETCH
+EXTRUDE, pocket, -3, CUT, plate
+```
+
+See `scripts/knife_cuts.cmd`.
 
