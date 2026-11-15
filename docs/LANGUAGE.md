@@ -271,6 +271,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance`; `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
 | View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
@@ -2047,3 +2048,72 @@ there for drawing only), and smooth regions smooth.
 
 See `scripts/mesh_bodies.cmd`: a ball lamp shade cut as a mesh, a box
 smoothed into a pebble, and a mesh bar twisted and simplified.
+
+## 26. Implicit shapes, smooth blends and lattices
+
+An **implicit shape** is given by an equation: the body is everywhere the
+field `f(x, y, z)` is at most 0. A ball of radius 10 is
+`SQRT(x**2 + y**2 + z**2) - 10`; a rounded box is a superquadric
+`ABS(x/12)**4 + ABS(y/9)**4 + ABS(z/6)**4 - 1`. `IMPLICIT` evaluates the
+field on a grid inside a box and makes a closed mesh body (section 25):
+
+```
+R = 10
+IMPLICIT, a, BALL(0, 0, 0, R), -11, -11, -11, 11, 11, 11
+IMPLICIT, b, BALL(16, 0, 0, 7), 8, -8, -8, 24, 8, 8
+IMPLICIT, blob, SMIN(a, b, 5), -12, -12, -12, 25, 12, 12, 0.4
+```
+
+`IMPLICIT, name, f, x0,y0,z0, x1,y1,z1 [, step]`: the box is where the
+field is looked at, and where the shape reaches the box it is cut flat
+there, so the body is always closed. `step` is the grid spacing (default:
+the box's largest side / 80); halving it gives about four times the
+triangles and takes about eight times as long. Up to about 4.5 million grid
+points are allowed; the message names the smallest step that fits.
+
+The field is written like any expression, in `x`, `y`, `z` and parameters,
+with `+ - * / **`, the usual functions (`SIN`, `COS` ... in degrees, `SQRT`,
+`ABS`, `EXP`, `LOG`, `MIN`, `MAX`, `MOD`, `CLAMP`, `SIGN`) and building
+blocks. Each building block is about the distance to its surface, so
+`f - 1` grows a shape by about 1 and `ABS(f) - t/2` makes a wall t thick
+around a surface:
+
+| Block | Shape |
+|-------|-------|
+| `BALL(cx,cy,cz, r)` | ball |
+| `BOX(cx,cy,cz, sx,sy,sz [, r])` | box of that size around the centre, with rounded edges of radius r |
+| `ROD(x1,y1,z1, x2,y2,z2, r)` | rod with round ends between two points |
+| `TORUS(cx,cy,cz, R, r)` | ring around the z direction |
+| `CYLZ(cx,cy, r)` | endless cylinder along z (cut it with the box) |
+| `GYROID(cell [, ox,oy,oz])`, `SCHWARZ(...)`, `DIAMOND(...)` | triply periodic surfaces repeating every `cell`: `ABS(GYROID(10)) - 0.5` is a gyroid wall 1 thick |
+| `SMIN(a, b, k)`, `SMAX(a, b, k)`, `SDIFF(a, b, k)` | smooth union, intersection and difference: a blend about k wide where the shapes meet |
+| `MIN(a, b, ...)`, `MAX(a, b, ...)` | sharp union and intersection; `MAX(a, -b)` cuts b out of a |
+
+The name of an earlier `IMPLICIT` shape stands for its field, so shapes
+combine and blend: `SMIN(a, b, 5)` above. Running `IMPLICIT` again with a
+name that is already a body gives that body the new shape (same ID).
+
+**Lattices.** `LATTICE, b, kind, cell, thickness [, skin [, step]]` fills
+a solid with a lattice, for light parts and 3D printing:
+
+- `GYROID`, `SCHWARZ` and `DIAMOND` are smooth walls `thickness` thick;
+  `CUBIC`, `BCC` (corners to the centre) and `OCTET` (face diagonals) are
+  round struts `thickness` across. `cell` is the size of one repeat.
+- With a `skin`, the body keeps a closed outer wall that thick and the
+  lattice fills the inside (found by offsetting the faces inwards, so this
+  needs an exact solid: fill before `TOMESH`). Without one the lattice runs
+  to the surface.
+- The body becomes a mesh body with the same ID; the message says how much
+  of the volume is left. `step` is the grid spacing (default: a third of the
+  thickness, at least cell / 40).
+
+```
+BLOCK, 0, 40, -10, 50, 25, 20
+NAME, LAST, bracket
+LATTICE, bracket, GYROID, 8, 1, 1.5     ! 1 thick walls inside a 1.5 skin
+```
+
+A lattice body takes mesh booleans like any mesh body, so it can be cut
+open (`SUBTRACT`) or joined to solid bosses (`UNION`). See
+`scripts/implicit_lattices.cmd`.
+

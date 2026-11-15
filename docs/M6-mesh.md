@@ -118,3 +118,62 @@ mesh.
 - `modeler/commands/mesh_handlers.py`: `TOMESH`, `TOSOLID`, `SMOOTH`,
   `REMESH`, `SIMPLIFY`, the mesh route of the booleans, `MESH_OK`.
 - `scripts/mesh_bodies.cmd`, `tests/test_meshbody.py`.
+
+## Part 2: implicit shapes, smooth blends, lattices
+
+### Fields
+
+`geometry/implicit.py` compiles a field written in the script language to a
+numpy function of x, y, z arrays (an AST walk that builds closures; the
+script evaluator itself works on single numbers and would take minutes for
+a million points). Trig is in degrees, as everywhere in the language.
+Building blocks take plain numbers (centres, sizes); a block given an
+expression in x, y, z is refused. Named fields live in `Model.fields`
+(`FieldDef`: name, text, box, compiled function), which is in snapshots, so
+undo and history edits see the right fields.
+
+### Meshing: marching tetrahedra
+
+The field is sampled on a grid with one spare layer outside the box, and
+cut by the box exactly (`max(f, box distance)`), so the cap where the box
+cuts a shape lies on the box face. Each grid cube is cut into six
+tetrahedra around its long diagonal, the same way in every cube, so
+neighbouring cubes meet triangle edge to triangle edge. Only cubes with
+corners on both sides are processed. A tetrahedron with one or three
+corners inside gives a triangle, with two a quad (two triangles). Each
+point on a grid edge is made once (keyed by the edge's two grid points), so
+triangles share points and the mesh is closed.
+
+Which way a triangle faces comes from the tetrahedron, not the geometry:
+corners are sorted inside-first, and a triangle of a tetrahedron with a
+negative volume (in grid steps) is turned over. The first version faced
+triangles away from an inside corner geometrically; slivers then faced the
+wrong way and lattices came out not closed.
+
+Grid meshes have many small triangles, so the result is simplified by a
+twentieth of the grid step in manifold3d.
+
+### Lattices
+
+Sheet lattices are `ABS(tpms) - t/2`, with the gyroid, Schwarz P and
+diamond surfaces scaled by their gradient so that t is about the wall
+thickness. Strut lattices are the distance to the struts of one unit cell
+(coordinates taken modulo the cell) minus the radius. `LATTICE` meshes the
+lattice over the body's box, then in manifold3d: `lattice ∩ body`, or with
+a skin `(body − inside) ∪ (lattice ∩ inside)`, where the inside is the
+kernel's offset of the exact solid. Everything stays as manifold3d objects
+until the end, since converting a million-triangle mesh to and from
+manifold3d is what took most of the time (7 s down to 4 s for a 50 × 25 ×
+20 bracket with a gyroid of cell 8).
+
+Measured: a 32 mm cube of gyroid walls at step 0.3, about 9 s (870,000
+triangles before simplifying); the bracket above, about 4 s; the example
+script, about 13 s.
+
+### Files
+
+- `modeler/geometry/implicit.py`: field compiler, building blocks, grid
+  sampling, marching tetrahedra, lattice fields.
+- `modeler/commands/implicit_handlers.py`: `IMPLICIT`, `LATTICE`.
+- `scripts/implicit_lattices.cmd`, `tests/test_implicit.py`.
+

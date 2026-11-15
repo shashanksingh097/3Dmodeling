@@ -39,6 +39,11 @@
   "faces": 10,
   "volume": 36472.611
  },
+ "implicit_lattices.cmd": {
+  "bodies": 6,
+  "faces": 6,
+  "volume": 29838.505
+ },
  "layers_demo.cmd": {
   "bodies": 6,
   "faces": 31,

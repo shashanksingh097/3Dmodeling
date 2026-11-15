@@ -221,7 +221,7 @@ language can't express. It is off by default for scripts from others.
 | Sketch-based features | `EXTRUDE`, `REVOLVE`, `HOLE`, `RIB`, `THREAD` |
 | Shapes on curves | `LOFT`, `SWEEP` (with twist/scale/offset laws, several profiles to morph, rails), `PIPE`, `SWEEPVOL`, `FLOW`, `BEND`, `TWIST`, `TAPER` (see 5.2) |
 | Surfaces | `NURBSSRF` (control net), `SURF, PARAM, x(u,v), y(u,v), z(u,v)`, `LOFTSRF`, `NETWORK` (curve network), `PATCH` (fill boundary), `BLENDSRF`, `PIPE`, `OFFSETSRF`, `EXTENDSRF`, `SEW` (surfaces to solid), `REBUILD` |
-| Implicit / equations | `IMPLICIT, f(x,y,z), bbox, res` (shape is where f ≤ 0), `GYROID`, `LATTICE`, smooth booleans `SUNION`/`SSUBTRACT` with blend radius |
+| Implicit / equations | `IMPLICIT, name, f(x,y,z), box [, step]` (shape is where f ≤ 0), `GYROID`, `LATTICE`, smooth blends `SMIN`/`SMAX`/`SDIFF` inside the field (done, M6b) |
 | Booleans | `UNION` (`VADD`), `SUBTRACT` (`VSBV`), `INTERSECT` (`VINV`), `SPLIT` (body by plane/surface/body), `IMPRINT`, `GLUE` |
 | Modify | `FILLET`, `CHAMFER`, `SHELL`, `DRAFT`, `OFFSET`, `THICKEN`, `DEFEATURE`, `PUSHPULL` (face), `MOVEFACE`, `DELFACE`, `REPLACEFACE` |
 | Transform/pattern | `MOVE`, `ROTATE`, `SCALE`, `MIRROR`, `ALIGN`, `COPY`, `ARRAY, LINEAR/POLAR/PATH` |
@@ -343,8 +343,8 @@ spring is a short script whose numbers you can change later.
 
 ### 5.4 Equation-based geometry
 - Parametric curves `x(t), y(t), z(t)` and surfaces `x(u,v), y(u,v), z(u,v)`, fitted to NURBS so they become exact geometry usable in booleans (`CURVE, PARAM`, `SURFACE, PARAM`; closed surfaces become solids) `[done]`
-- Implicit shapes `f(x,y,z) ≤ 0` (gyroids, metaballs, superquadrics), meshed by marching cubes; smooth blends between them `[M6]`
-- Lattice infill of a solid (gyroid, cubic, octet) `[M6]`
+- Implicit shapes `f(x,y,z) ≤ 0` (gyroids, metaballs, superquadrics), meshed by marching tetrahedra; smooth blends between them `[done]` (`IMPLICIT`, `SMIN`/`SMAX`; LANGUAGE.md section 26)
+- Lattice infill of a solid (gyroid, Schwarz, diamond, cubic, BCC, octet), with an optional solid skin `[done]` (`LATTICE`)
 - Driven dimensions: any number in any command can be an expression of parameters `[M2]`
 
 ### 5.5 Reuse and operations
@@ -735,9 +735,9 @@ Still open in the milestones already started, in the suggested order:
    parts, `RELOAD`, Open part from a copy) and M11c (`MATE`).
 5. M6, in three pull requests. Done: M6a, mesh bodies and `manifold3d`
    booleans (`TOMESH`, `TOSOLID`, `SMOOTH`, `REMESH`, `SIMPLIFY`, `IMPORT`
-   kind `MESH`; LANGUAGE.md section 25, docs/M6-mesh.md). Next: M6b,
-   implicit shapes, smooth blends and lattices; then M6c, knife and
-   freehand cuts.
+   kind `MESH`; LANGUAGE.md section 25, docs/M6-mesh.md), and M6b,
+   implicit shapes, smooth blends and lattices (`IMPLICIT`, `LATTICE`;
+   section 26). Next: M6c, knife and freehand cuts.
 6. M3 leftovers: undo for history edits, skipping unchanged steps on
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.
