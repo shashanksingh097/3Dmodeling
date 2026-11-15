@@ -62,6 +62,13 @@ VIEWS = ("ISO", "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT")
 def _added(p: Processor, body, what: str) -> str:
     n = {k: len(body.entity_ids[k]) for k in ENTITY_KINDS}
     name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
+    if n["FACE"] == 1 and not n["EDGE"]:
+        from ..geometry import meshbody
+
+        if meshbody.is_mesh(body.shape):
+            from .mesh_handlers import describe
+
+            return f"{what} -> body {body.id}{name} {describe(body.shape)}"
     return f"{what} -> body {body.id}{name} ({n['FACE']} faces, {n['EDGE']} edges, {n['VERTEX']} vertices)"
 
 
@@ -283,6 +290,25 @@ def combine(p: Processor, name: str, op, base, tool_shapes, a: int, merge: bool 
     return robust.unwrap(shape), maker
 
 
+class _Made:
+    """A finished shape with a maker's history, shaped like an OCCT builder."""
+
+    def __init__(self, shape, history) -> None:
+        self._shape, self._history = shape, history
+
+    def IsDone(self) -> bool:  # noqa: N802
+        return True
+
+    def Shape(self):  # noqa: N802
+        return self._shape
+
+    def IsDeleted(self, old) -> bool:  # noqa: N802
+        return self._history.IsDeleted(old)
+
+    def Modified(self, old):  # noqa: N802
+        return self._history.Modified(old)
+
+
 class _NoHistory:
     """A maker that knows nothing: IDs are then carried over by geometry."""
 
@@ -310,7 +336,15 @@ def _boolean(p: Processor, name: str, op, a: int, tools: list[int]) -> str:
         raise CommandError(f"{name}: a body cannot be used twice")
     base = m.body(a).shape
     tool_shapes = [m.body(t).shape for t in tools]
-    shape, maker = combine(p, name, op, base, tool_shapes, a, merge=name == "UNION")
+    from ..geometry import meshbody
+
+    if any(meshbody.is_mesh(s) for s in [base, *tool_shapes]):
+        # a mesh body is in it: the whole boolean runs on triangles, and the result is a mesh body
+        from . import mesh_handlers
+
+        shape, maker = mesh_handlers.boolean(p, name, a, tools), _NoHistory()
+    else:
+        shape, maker = combine(p, name, op, base, tool_shapes, a, merge=name == "UNION")
     kept = [(m.body(b).shape, m.body(b).name if b != a else "") for b in [a] + tools] if m.keep else []
     looks = [m.body(b) for b in [a] + tools]
     body = m.replace([a] + tools, shape, maker)
@@ -421,6 +455,14 @@ def chamfer(p: Processor, d):
 def _check_line(p: Processor, body, deep: bool = False) -> tuple[bool, str]:
     r = robust.report(body.shape)
     name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
+    if "mesh" in r:
+        mi = r["mesh"]
+        if not mi.closed:
+            return False, (f"body {body.id}{name}: PROBLEM: mesh body with holes or loose edges ({mi.triangles:,} "
+                           "triangles), so it has no inside and booleans refuse it")
+        if mi.volume <= 0:
+            return False, f"body {body.id}{name}: PROBLEM: mesh body inside out (its volume is not positive)"
+        return True, f"body {body.id}{name}: OK (mesh body, {mi.triangles:,} triangles, closed)"
     if not r["faces"]:
         return True, f"body {body.id}{name}: curve ({r['edges']} edges)"
     kind = (f"{r['solids']} solid{'s' if r['solids'] != 1 else ''}" if r["solids"] else "surface (not a solid)")
@@ -502,7 +544,15 @@ def clean(p: Processor, b):
 def _transform(p: Processor, bid: int, trsf: gp_Trsf, what: str, copy: bool) -> str:
     m = p.model
     shape = m.body(bid).shape
-    mk = BRepBuilderAPI_Transform(shape, trsf, True)
+    from ..geometry import meshbody
+
+    if meshbody.is_mesh(shape):  # a mesh body: move its points (a B-rep copy would drop the triangles)
+        from ..geometry.nurbs import SameTopology
+
+        new = meshbody.transformed(shape, trsf)
+        mk = _Made(new, SameTopology(shape, new))
+    else:
+        mk = BRepBuilderAPI_Transform(shape, trsf, True)
     if not mk.IsDone():
         raise CommandError(f"{what}: kernel failed")
     inst = m.instances.get(bid)  # a moved or copied instance is still one
@@ -1034,6 +1084,13 @@ def export(p: Processor, format, file, b):
     bodies = [m.body(b)] if b else list(m.bodies.values())
     if not bodies:
         raise CommandError("EXPORT: there are no bodies")
+    from ..geometry import meshbody
+
+    meshes = [x.id for x in bodies if meshbody.is_mesh(x.shape)]
+    if meshes and format in ("STEP", "IGES", "BREP"):
+        raise CommandError(f"EXPORT: {format} holds exact faces, and bod{'y' if len(meshes) == 1 else 'ies'} "
+                           f"{', '.join(map(str, meshes))} {'is a mesh' if len(meshes) == 1 else 'are meshes'}; "
+                           "export STL, OBJ, 3MF or GLTF, or TOSOLID first")
     shape = bodies[0].shape if len(bodies) == 1 else _compound([x.shape for x in bodies])
     path = os.path.abspath(file)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

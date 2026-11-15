@@ -58,6 +58,10 @@ def made_by(p: "Processor", kind: str, gid: int) -> int | None:
 
 
 def body_kind(shape) -> str:
+    from ..geometry import meshbody
+
+    if meshbody.is_mesh(shape):  # a mesh body: closed ones have an inside
+        return "solid" if meshbody.info(shape).closed else "surface"
     if robust.count(shape, TopAbs_SOLID):
         return "solid"
     if robust.count(shape, TopAbs_SHELL) or robust.count(shape, TopAbs_FACE):
@@ -71,12 +75,22 @@ FACETED_CAN = ("booleans (UNION, SUBTRACT, INTERSECT), SPLIT, SECTION, PROFILE, 
                "MOVE/ROTATE/SCALE/ARRAY, export")
 FACETED_CANNOT = ("FILLET, CHAMFER, SHELL, OFFSET and DRAFT across facets, HOLE on curved areas, and "
                   "PUSHPULL or MOVEFACE of curved areas: every triangle is its own flat face")
+MESH_CAN = ("UNION, SUBTRACT, INTERSECT with meshes or solids (fast, on triangles), SMOOTH, REMESH, SIMPLIFY, "
+            "MOVE/ROTATE/COPY/MIRROR, BEND/TWIST/TAPER/STRETCH/FLOW, MASSPROP, export to STL/OBJ/3MF/GLTF")
+MESH_CANNOT = ("anything that needs faces and edges (FILLET, HOLE, SHELL, SPLIT, SECTION, picks of single "
+               "triangles): TOSOLID turns it into a faceted solid first (up to 100,000 triangles)")
 _MESH_FORMATS = {"STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH"}
 
 
 def representation(shape, sample: int = 400) -> str:
-    """'faceted' when the faces are flat triangles (a mesh made into a body), else 'exact'."""
+    """'mesh' for a mesh body, 'faceted' when the faces are flat triangles (a mesh made into a
+    B-rep body), else 'exact'."""
     from OCP.TopAbs import TopAbs_EDGE
+
+    from ..geometry import meshbody
+
+    if meshbody.is_mesh(shape):
+        return "mesh"
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
@@ -155,8 +169,11 @@ def model_summary(p: "Processor", limit: int = LIMIT) -> dict[str, Any]:
         row: dict[str, Any] = {"id": bid, "name": b.name, "kind": kind}
         if kind == "solid":
             row["volume"] = num(robust.volume(b.shape))
-        if representation(b.shape) == "faceted":
+        rep = representation(b.shape)
+        if rep == "faceted":
             row["faceted"] = True
+        elif rep == "mesh":
+            row["mesh"] = True
         src = origin_info(p, bid)
         if src:
             row["imported"] = src.get("format", True)
@@ -241,6 +258,12 @@ def describe_body(p: "Processor", ref, detail: str = "summary", limit: int = LIM
     out["representation"] = representation(shape)
     if out["representation"] == "faceted":
         out["faceted"] = {"triangles": out["counts"]["faces"], "works": FACETED_CAN, "does_not_work": FACETED_CANNOT}
+    elif out["representation"] == "mesh":
+        from ..geometry import meshbody
+
+        info = meshbody.info(shape)
+        out["mesh"] = {"triangles": info.triangles, "closed": info.closed, "works": MESH_CAN,
+                       "does_not_work": MESH_CANNOT}
     elif out.get("imported"):
         out["note"] = ("exact shape from another program, without its feature history: edit it with HOLE, FILLET, "
                        "CHAMFER, SHELL, PUSHPULL, MOVEFACE, REPLACEFACE, DELFACE (remove holes/fillets), booleans; "

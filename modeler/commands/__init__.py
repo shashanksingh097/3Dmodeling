@@ -19,4 +19,5 @@ from . import contact_handlers  # noqa: F401  (CONTACT, CLEARANCE, RELATE, DESIG
 from . import view_handlers  # noqa: F401  (FADE, UNFADE, DISPLAY: the view's own steps)
 from . import lineage  # noqa: F401  (STEPS: the history steps that made a body)
 from . import partdoc_handlers  # noqa: F401  (NEWPART, OPENPART, SAVEPART: part documents)
+from . import mesh_handlers  # noqa: F401  (TOMESH, TOSOLID, SMOOTH, REMESH, SIMPLIFY: mesh bodies)
 from . import mate_handlers  # noqa: F401  (MATE: place copies by faces, edges and axes)

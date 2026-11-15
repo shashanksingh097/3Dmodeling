@@ -63,11 +63,13 @@ Sculpting, scanned data, STL editing and implicit shapes are mesh problems,
 not B-rep problems. The model has two body kinds:
 
 - **Solid / Surface bodies**: OCCT B-rep. Exact. Default for engineering.
-- **Mesh bodies**: triangle meshes (`numpy` arrays), edited with
-  `trimesh`, booleans with `manifold3d` (robust, fast mesh CSG).
+- **Mesh bodies**: triangle meshes, edited in `numpy`, booleans with
+  `manifold3d` (robust, fast mesh CSG). `[done]` A mesh body's shape is one
+  OCCT face that carries only a triangulation, so the model, IDs, picking,
+  the tree and the views treat it like any body (docs/M6-mesh.md).
 
-Conversion commands connect them: `MESHIFY` (B-rep to mesh, by tessellation),
-`SOLIDIFY` (mesh to B-rep as a faceted solid; true surface fitting is a
+Conversion commands connect them: `TOMESH` (B-rep to mesh, by tessellation),
+`TOSOLID` (mesh to B-rep as a faceted solid; true surface fitting is a
 later stretch goal).
 
 ### 2.3 Viewport: OCCT's own visualization (AIS / V3d) inside PySide6
@@ -224,7 +226,7 @@ language can't express. It is off by default for scripts from others.
 | Modify | `FILLET`, `CHAMFER`, `SHELL`, `DRAFT`, `OFFSET`, `THICKEN`, `DEFEATURE`, `PUSHPULL` (face), `MOVEFACE`, `DELFACE`, `REPLACEFACE` |
 | Transform/pattern | `MOVE`, `ROTATE`, `SCALE`, `MIRROR`, `ALIGN`, `COPY`, `ARRAY, LINEAR/POLAR/PATH` |
 | Freehand | `STROKE` (recorded mouse points), `KNIFE` (cut by stroke projected through view), `SLICE` (by plane), `SCULPT, brush, ...` |
-| Mesh | `MESHIFY`, `SOLIDIFY`, `REMESH`, `DECIMATE`, `SMOOTH`, `MESHBOOL` |
+| Mesh | `TOMESH`, `TOSOLID`, `REMESH`, `SIMPLIFY`, `SMOOTH`; `UNION`/`SUBTRACT`/`INTERSECT` run on triangles when a mesh body is in them `[done]` |
 | Parts/reuse | `PART ... ENDPART`, `INST`, `EXPLODE`, `LIB, SAVE/LOAD` |
 | Selection | `SEL, S/R/A/U/ALL/NONE/INVE, type, criterion, ...`, `CM` (named set), `CMSEL`, `PICK` (the raw GUI pick) |
 | Display/view | `VIEW, ISO/TOP/FRONT/...`, `ZOOM`, `FIT`, `SHOW`, `HIDE`, `COLOR`, `LAYER`, `SECTION`, `ANALYZE, ZEBRA/CURVATURE/DRAFT` |
@@ -650,7 +652,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 | 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 11 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Much reduced | Snapshot after every entry, so only entries from the edit onwards re-run; one kernel call for many cuts: `SUBTRACT, a, SEL`, `ARRAY ... CUT, target` and `PATTERN` (feature patterns): the 300 holes take 0.3 to 0.4 s, and an edit of the patterned hole re-runs in 0.4 s; a progress dialog with Cancel (which puts everything back) for long rebuilds | Skip entries whose inputs did not change (needs each entry to record which bodies and parameters it read); running the rebuild on a worker thread, if the kernel lets go of Python's lock |
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; planegcs as a faster back end if big sketches get slow (trim, extend, offset, fillet, mirror, pattern and projection are in) |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
-| 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Partly done | Export to STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of those plus PLY, OFF, VTK and simulation meshes; each closed mesh piece becomes a faceted solid that takes booleans (a 5,000-triangle sphere imports in 0.4 s; up to 100,000 triangles) | Mesh bodies with `manifold3d` booleans, smoothing and remeshing, so big meshes stay meshes (M6); fitting smooth surfaces to meshes (later) |
+| 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Mostly done | Export to STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of those plus PLY, OFF, VTK and simulation meshes; each closed mesh piece becomes a faceted solid that takes booleans (a 5,000-triangle sphere imports in 0.4 s; up to 100,000 triangles); mesh bodies for bigger meshes, with `manifold3d` booleans, `SMOOTH`, `REMESH`, `SIMPLIFY` and `TOMESH`/`TOSOLID` (a 1,000,000-triangle STL imports in 5 s and is subtracted from another in 5 s; 245,000 triangles in about 1 s) | Faster handing of triangles to OCCT for million-triangle meshes (now a Python loop); fitting smooth surfaces to meshes (later) |
 | 7 | Sculpting performance in Python | Not started | | numpy/numba brush kernels; a dedicated renderer if needed (measured in M7) |
 | 8 | Scope is huge | Managed | Each milestone is usable alone | Features after M2 are ordered by the user |
 
@@ -731,9 +733,11 @@ Still open in the milestones already started, in the suggested order:
    Right after M10: M11, separate part and assembly design (section
    5.10). Done: M11a (part documents, Edit part), M11b (linked
    parts, `RELOAD`, Open part from a copy) and M11c (`MATE`).
-5. M6, starting with mesh bodies and `manifold3d` booleans (what makes an
-   imported mesh editable as a mesh), then implicit shapes and lattices,
-   then knife and freehand cuts.
+5. M6, in three pull requests. Done: M6a, mesh bodies and `manifold3d`
+   booleans (`TOMESH`, `TOSOLID`, `SMOOTH`, `REMESH`, `SIMPLIFY`, `IMPORT`
+   kind `MESH`; LANGUAGE.md section 25, docs/M6-mesh.md). Next: M6b,
+   implicit shapes, smooth blends and lattices; then M6c, knife and
+   freehand cuts.
 6. M3 leftovers: undo for history edits, skipping unchanged steps on
    rebuild, a sketch fillet between a line and an arc, trimming to the
    sketch axes.

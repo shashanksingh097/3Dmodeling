@@ -580,7 +580,7 @@ suppress it or delete it.</li>
 <ul>
 <li><b>File &gt; Save</b> (Ctrl+S) writes a <code>.m3d</code> project with the whole history.</li>
 <li><b>File &gt; Export</b> writes STEP, IGES, STL, OBJ, 3MF, glTF or BREP for other programs; <b>Import</b>
-reads those and mesh files such as PLY, VTK and Gmsh (meshes become faceted bodies).</li>
+reads those and mesh files such as PLY, VTK and Gmsh (meshes become faceted bodies, or mesh bodies when they are big).</li>
 <li>Work is autosaved as you go. After a crash, press <b>Recover</b> on the toolbar.</li>
 </ul>
 <p>Try <b>File &gt; Open example</b> to see finished models and their scripts

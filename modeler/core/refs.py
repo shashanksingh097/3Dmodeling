@@ -97,6 +97,8 @@ def _describe(kind: str, shape) -> dict[str, Any]:
         if abs(g.Mass()) < 1e-12:  # a curve or a sheet: measure it by its box
             box = Bnd_Box()
             BRepBndLib.Add_s(shape, box, False)
+            if box.IsVoid():  # a mesh body has only triangles
+                BRepBndLib.Add_s(shape, box, True)
             if not box.IsVoid():
                 lo, hi = box.CornerMin(), box.CornerMax()
                 centre = [(a + b) / 2 for a, b in zip(_xyz(lo), _xyz(hi))]

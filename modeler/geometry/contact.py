@@ -45,6 +45,8 @@ P3 = tuple[float, float, float]
 def box_of(shape: TopoDS_Shape) -> tuple[float, ...]:
     box = Bnd_Box()
     BRepBndLib.AddOptimal_s(shape, box, False, False)
+    if box.IsVoid():  # a mesh body has only triangles
+        BRepBndLib.Add_s(shape, box, True)
     if box.IsVoid():
         return (0.0,) * 6
     lo, hi = box.CornerMin(), box.CornerMax()

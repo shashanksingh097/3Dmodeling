@@ -4,6 +4,27 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Mesh bodies (M6, first part)
+
+- **Mesh bodies** keep big triangle meshes as meshes: one body, one face,
+  up to 5 million triangles. `TOMESH, b` turns a solid
+  into one, `TOSOLID, b` turns it back into a faceted solid, and `IMPORT`
+  makes one from a mesh file with more than 100,000 triangles (which used to
+  be refused), or from any mesh file with the new kind `MESH`.
+- `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles in
+  the manifold3d library: fast (two 245,000-triangle spheres in about a
+  second) and always closed. Solids in the same boolean are meshed first.
+- `SMOOTH` (noise and bumps go, the size stays), `REMESH` (finer triangles,
+  same shape) and `SIMPLIFY` (fewer triangles within a tolerance).
+- Moving, copying, mirroring and the deformers keep a mesh body a mesh body;
+  `MASSPROP`, `CHECK`, `CLASH`, `DIST`, `PROBE` and `DESCRIBE` measure it;
+  `EXPORT` writes it to STL, OBJ, 3MF and GLTF.
+- Commands that need faces and edges refuse a mesh body with a message that
+  points to `TOSOLID`, instead of failing inside the kernel.
+- Sharp edges of a mesh body are shaded sharp.
+- New example `scripts/mesh_bodies.cmd`; LANGUAGE.md section 25; a Mesh
+  bodies group in the forms menu. New dependency: manifold3d.
+
 ### Mates (separate part design, third part)
 
 - `MATE, kind, item, item [, value] [, FLIP]` places a copy against another

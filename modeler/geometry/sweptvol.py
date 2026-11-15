@@ -89,6 +89,8 @@ def _kind(tool):
 
         box = Bnd_Box()
         BRepBndLib.AddOptimal_s(tool, box, False, False)
+        if box.IsVoid():  # a mesh body has only triangles
+            BRepBndLib.Add_s(tool, box, True)
         lo, hi = box.CornerMin(), box.CornerMax()
         corners = np.array([[x, y, z] for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z())])
         along = (corners - o) @ a

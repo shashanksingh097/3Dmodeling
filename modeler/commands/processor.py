@@ -642,11 +642,24 @@ class Processor:
                 raise CommandError(f"{cmd.name} does not belong in the history")
         return text
 
+    def _call(self, cmd: Command, values: dict) -> str:
+        """Run a handler. Commands that cannot work on mesh bodies cannot reach
+        a mesh body's face through a pick either (see mesh_handlers.MESH_OK)."""
+        from .mesh_handlers import MESH_OK
+
+        m = self.model
+        before = m.mesh_entities_ok
+        m.mesh_entities_ok = cmd.name in MESH_OK
+        try:
+            return cmd.fn(self, **values) or ""
+        finally:
+            m.mesh_entities_ok = before
+
     def _run_unlogged(self, cmd: Command, st: Cmd, label: str) -> Result:
         self._trace = []
         try:
             values, _ = self._bind(cmd, st.args)
-            msg = cmd.fn(self, **values) or ""
+            msg = self._call(cmd, values)
             return Result(label, True, msg)
         except (CommandError, ModelError, ExprError, ScriptError) as exc:
             return Result(label, False, str(exc))
@@ -761,7 +774,7 @@ class Processor:
         values, shown = self._bind(cmd, st.args)
         if self.model.lineage is not None:
             self.model.lineage.start_command()
-        msg = cmd.fn(self, **values) or ""
+        msg = self._call(cmd, values)
         if self._quiet:
             self._say(msg)
         else:
@@ -1014,6 +1027,14 @@ class Processor:
         return v.upper() if arg.type is str else v
 
     def _body_arg(self, cmd: Command, raw: str) -> int:
+        bid = self._body_ref(cmd, raw)
+        if bid != SELECTED:
+            from .mesh_handlers import check_mesh_use
+
+            check_mesh_use(self, cmd.name, bid)
+        return bid
+
+    def _body_ref(self, cmd: Command, raw: str) -> int:
         s = raw.strip()
         v: Any
         if s.upper() == "SEL" and cmd.name in SEL_AS_BODIES:

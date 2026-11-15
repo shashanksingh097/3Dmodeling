@@ -14,6 +14,8 @@
   A script that uses ``TEXT`` is checked for errors, validity and its
   number of bodies only: the letters come from a system font, and fonts
   differ between Linux, Windows and macOS (179, 186 and 194 faces).
+  A script with ``TOMESH`` gets 0.2% on its volume: the kernel version
+  decides exactly where curved faces are cut into triangles.
 """
 
 from __future__ import annotations
@@ -69,13 +71,16 @@ def measure(path: Path) -> dict:
     reports = {b.id: robust.report(b.shape) for b in bodies if b.entity_ids["FACE"]}
     # an open surface or skin (no solid) only has to be valid: its free edges are what it is
     bad = [i for i, r in reports.items() if not (r["ok"] or (r["valid"] and not r["solids"]))]
-    solids = [b for b in bodies if robust.solids(b.shape)]
+    from modeler.geometry import meshbody
+
+    solids = [b for b in bodies if robust.solids(b.shape) or meshbody.is_mesh(b.shape)]
     return {
         "errors": errors,
         "bad_bodies": bad,
         "bodies": len(bodies),
         "faces": sum(len(b.entity_ids["FACE"]) for b in bodies),
-        "volume": round(sum(robust.volume(b.shape) for b in solids), 3),
+        "volume": round(sum(reports[b.id]["volume"] if meshbody.is_mesh(b.shape) else robust.volume(b.shape)
+                            for b in solids), 3),
     }
 
 
@@ -90,7 +95,10 @@ def test_example_script(path):
     if re.search(r"^\s*TEXT\b", path.read_text(), re.M | re.I):
         return  # system fonts differ by platform (see above)
     assert got["faces"] == want["faces"]
-    assert got["volume"] == pytest.approx(want["volume"], rel=1e-4, abs=1e-3)
+    # curved faces cut into triangles (TOMESH, mesh booleans) may be cut a little
+    # differently by another kernel version
+    rel = 2e-3 if re.search(r"^\s*TOMESH\b", path.read_text(), re.M | re.I) else 1e-4
+    assert got["volume"] == pytest.approx(want["volume"], rel=rel, abs=1e-3)
 
 
 if __name__ == "__main__" and "--update" in sys.argv:

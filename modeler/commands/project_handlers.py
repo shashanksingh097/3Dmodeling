@@ -48,8 +48,8 @@ def _read_step_like(reader, path: str, what: str) -> TopoDS_Shape:
     return shape
 
 
-def _read_mesh(fmt: str, path: str, units: str) -> list:
-    """A mesh file as faceted bodies (:class:`meshfiles.Piece`), one per connected piece."""
+def _read_triangles(fmt: str, path: str, units: str):
+    """(points, triangles) of a mesh file, in the model's units."""
     from ..core.model import UNITS
     from ..geometry import meshfiles
 
@@ -57,7 +57,7 @@ def _read_mesh(fmt: str, path: str, units: str) -> list:
     try:
         if fmt == "3MF":
             pts, tris = meshfiles.read_3mf(path)
-            pts = pts / UNITS[units]  # millimetres to the model's units
+            pts = pts / UNITS[units]
         elif fmt == "GLTF":
             pts, tris = meshfiles.read_gltf(path)
             pts = pts / UNITS[units]
@@ -65,17 +65,11 @@ def _read_mesh(fmt: str, path: str, units: str) -> list:
             pts, tris = meshfiles.read_stl(path)
         else:
             pts, tris = meshfiles.read_with_meshio(path)
-        if len(tris) == 0:
-            raise CommandError(f"IMPORT: {name} has no surface triangles (only points or lines)")
-        if len(tris) > MAX_MESH_TRIANGLES:
-            raise CommandError(f"IMPORT: {name} has {len(tris)} triangles; up to {MAX_MESH_TRIANGLES} can "
-                               "become a body. Reduce the mesh in a mesh tool first.")
-        pieces = meshfiles.mesh_to_pieces(pts, tris)
     except meshfiles.MeshFileError as exc:
         raise CommandError(f"IMPORT: {name}: {exc}") from None
-    if not pieces:
-        raise CommandError(f"IMPORT: {name} has no triangles with area")
-    return pieces
+    if len(tris) == 0:
+        raise CommandError(f"IMPORT: {name} has no surface triangles (only points or lines)")
+    return pts, tris
 
 
 # each triangle becomes a face of the body: past this the body gets too slow to work with
@@ -118,12 +112,15 @@ def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
     Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK or MESH"),
     Arg("file", Path),
     Arg("name", Text, "", "name for the (first) imported body"),
+    Arg("kind", str, "AUTO", "for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body) "
+                             "or AUTO (SOLID up to 100,000 triangles, MESH above)"),
     help="Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, "
          "GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; "
-         "volume meshes keep their outer skin). MESH reads any other mesh file meshio knows, by its extension "
-         "(Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). Saved projects keep a copy of the file.",
+         "volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH "
+         "reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). "
+         "Saved projects keep a copy of the file.",
 )
-def import_(p: Processor, format, file, name):
+def import_(p: Processor, format, file, name, kind):
     if format not in _IMPORT_FORMATS:
         raise CommandError(f"IMPORT: format must be one of {', '.join(_IMPORT_FORMATS)}")
     path = p.file_map.get(file, file)
@@ -132,8 +129,37 @@ def import_(p: Processor, format, file, name):
     from .handlers import _added
 
     msgs = []
+    if kind not in ("AUTO", "SOLID", "MESH"):
+        raise CommandError("IMPORT: kind is AUTO, SOLID or MESH")
     if format in MESH_FORMATS:
-        pieces = _read_mesh(format, path, p.model.units)
+        from ..geometry import meshbody, meshfiles
+
+        pts, tris = _read_triangles(format, path, p.model.units)
+        fname = os.path.basename(path)
+        if kind == "MESH" or (kind == "AUTO" and len(tris) > MAX_MESH_TRIANGLES):
+            if len(tris) > meshbody.MAX_MESH_BODY_TRIANGLES:
+                raise CommandError(f"IMPORT: {fname} has {len(tris):,} triangles; a mesh body "
+                                   f"takes up to {meshbody.MAX_MESH_BODY_TRIANGLES:,}")
+            try:
+                pts, tris = meshfiles.clean(pts, tris)
+            except meshfiles.MeshFileError as exc:
+                raise CommandError(f"IMPORT: {fname}: {exc}") from None
+            if len(tris) == 0:
+                raise CommandError(f"IMPORT: {fname} has no triangles with area")
+            shape = meshbody.make_shape(pts, tris)
+            body = p.model.add_body(shape, name)
+            if not meshbody.info(shape).closed:
+                p.warn(f"IMPORT: {fname} is not closed, so the mesh body has no inside and cannot take booleans")
+            return _added(p, body, "IMPORT")
+        if len(tris) > MAX_MESH_TRIANGLES:
+            raise CommandError(f"IMPORT: {fname} has {len(tris):,} triangles; up to {MAX_MESH_TRIANGLES:,} can "
+                               "become a faceted solid. Import it with kind MESH, or reduce it first.")
+        try:
+            pieces = meshfiles.mesh_to_pieces(pts, tris)
+        except meshfiles.MeshFileError as exc:
+            raise CommandError(f"IMPORT: {fname}: {exc}") from None
+        if not pieces:
+            raise CommandError(f"IMPORT: {fname} has no triangles with area")
         for k, pc in enumerate(pieces):
             body = p.model.add_body(pc.shape, name if (name and k == 0) else "")
             note = "" if pc.closed else ", open surface, not a solid"

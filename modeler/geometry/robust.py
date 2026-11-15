@@ -119,6 +119,8 @@ def volume(shape: TopoDS_Shape) -> float:
 def diagonal(shape: TopoDS_Shape) -> float:
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box, False)
+    if box.IsVoid():  # a mesh body has only triangles
+        BRepBndLib.Add_s(shape, box, True)
     if box.IsVoid():
         return 0.0
     return box.CornerMin().Distance(box.CornerMax())
@@ -172,6 +174,13 @@ def _first_face(faces):
 
 def report(shape: TopoDS_Shape) -> dict:
     """Everything CHECK prints about one body."""
+    from . import meshbody
+
+    if meshbody.is_mesh(shape):  # a mesh body: closed triangles are its whole check
+        i = meshbody.info(shape)
+        return {"valid": True, "solids": int(i.closed), "shells": 1, "faces": 1, "edges": 0,
+                "open_edges": 0 if i.closed else 1, "volume": i.volume if i.closed else 0.0,
+                "ok": i.closed and i.volume > 0, "mesh": i}
     n_solids = len(solids(shape))
     info = {
         "valid": is_valid(shape),

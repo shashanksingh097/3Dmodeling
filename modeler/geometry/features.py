@@ -170,6 +170,13 @@ def plane_face(d: dt.Datum, around: dt.P3, half: float) -> TopoDS_Shape:
 
 
 def distance(a: TopoDS_Shape, b: TopoDS_Shape) -> tuple[float, dt.P3, dt.P3]:
+    from . import meshbody
+
+    try:  # a mesh body is measured through a faceted copy (one flat face per triangle)
+        a = meshbody.as_faceted(a) if meshbody.is_mesh(a) else a
+        b = meshbody.as_faceted(b) if meshbody.is_mesh(b) else b
+    except meshbody.MeshError as exc:
+        raise FeatureError(str(exc)) from None
     d = BRepExtrema_DistShapeShape(a, b)
     if not d.IsDone() or d.NbSolution() == 0:
         raise FeatureError("the kernel could not measure that distance")

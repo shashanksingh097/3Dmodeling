@@ -42,6 +42,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/deformers.png" width="160">](#bent-twisted-and-flowed-bodies-and-a-milled-slot) | [Bent, twisted and flowed bodies, and a milled slot](#bent-twisted-and-flowed-bodies-and-a-milled-slot) |
 | [<img src="examples/mouse.png" width="160">](#computer-mouse-shell-the-m5-exit-test) | [Computer mouse shell (the M5 exit test)](#computer-mouse-shell-the-m5-exit-test) |
 | [<img src="examples/car_body.png" width="160">](#car-body) | [Car body](#car-body) |
+| [<img src="examples/mesh_bodies.png" width="160">](#mesh-bodies-a-lamp-shade-cut-as-a-mesh-a-smoothed-pebble-a-twisted-bar) | [Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a twisted bar](#mesh-bodies-a-lamp-shade-cut-as-a-mesh-a-smoothed-pebble-a-twisted-bar) |
 
 ---
 
@@ -1706,6 +1707,69 @@ LAYER, build, OFF
 LAYER, paint
 VIEW, ISO
 FIT
+```
+
+</details>
+
+---
+
+## Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a twisted bar
+
+![Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a twisted bar](examples/mesh_bodies.png)
+
+Mesh bodies (M6 part 1): TOMESH, mesh booleans, SMOOTH, REMESH, SIMPLIFY, deformers on meshes. A mesh body keeps its triangles as one mesh, so booleans stay fast at any size (they run in manifold3d). It keeps its ID through every mesh command, like any other body.
+
+**Script:** [scripts/mesh_bodies.cmd](../scripts/mesh_bodies.cmd) (44 lines) · **Run:** `python -m modeler scripts/mesh_bodies.cmd`
+
+**You should get:** 3 bodies, volume 52,362.5 mm³, 3 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Mesh bodies (M6 part 1): TOMESH, mesh booleans, SMOOTH, REMESH, SIMPLIFY, deformers on meshes.
+! A mesh body keeps its triangles as one mesh, so booleans stay fast at any size (they run in
+! manifold3d). It keeps its ID through every mesh command, like any other body.
+
+! ---- a ball lamp shade: a thin sphere with 24 round windows, all cut as a mesh ----
+R = 30
+SPHERE, 0, 0, 0, R
+NAME, LAST, shade
+TOMESH, shade
+SPHERE, 0, 0, 0, R - 2
+SUBTRACT, shade, LAST
+! each cylinder goes right through, so it opens two windows
+*DO, i, 0, 5
+  CYL, -(R + 2)*COS(i*60)*COS(25), -(R + 2)*SIN(i*60)*COS(25), -(R + 2)*SIN(25), 6, 2*R + 4, COS(i*60)*COS(25), SIN(i*60)*COS(25), SIN(25)
+  SUBTRACT, shade, LAST
+  CYL, -(R + 2)*COS(i*60 + 30)*COS(25), -(R + 2)*SIN(i*60 + 30)*COS(25), (R + 2)*SIN(25), 6, 2*R + 4, COS(i*60 + 30)*COS(25), SIN(i*60 + 30)*COS(25), -SIN(25)
+  SUBTRACT, shade, LAST
+*ENDDO
+! a neck on top, joined on as a mesh too
+TUBE, 0, 0, R - 4, 8, 5, 14
+UNION, shade, LAST
+COLOR, shade, ORANGE
+
+! ---- a pebble: a box made fine enough to bend, then smoothed round ----
+BLOCK, 60, -20, -12, 44, 30, 20
+NAME, LAST, pebble
+TOMESH, pebble
+REMESH, pebble, 1.5
+SMOOTH, pebble, 40, 0.6
+COLOR, pebble, GREY
+
+! ---- a twisted bar: deformers move every point of a mesh body ----
+BLOCK, 125, -6, -15, 12, 12, 60
+NAME, LAST, bar
+TOMESH, bar
+REMESH, bar, 2
+TWIST, bar, 120, Z
+! fewer triangles where the bar is flat
+SIMPLIFY, bar, 0.02
+COLOR, bar, TEAL
+
+ASSERT, VOL(shade), GT, 0
+! smoothing keeps the size: the pebble holds about as much as the box it came from
+ASSERT, VOL(pebble), EQ, 44*30*20, 1500
 ```
 
 </details>

@@ -63,7 +63,9 @@ How to work:
   BREP: works like any body, but without the other program's feature history; edit it with HOLE,
   FILLET, SHELL, PUSHPULL, MOVEFACE, DELFACE, booleans) or "faceted" (a mesh: every triangle is a
   flat face; booleans, SPLIT, sections, measuring and export work, fillets, shells and offsets do
-  not). When asked what can be done with an import, check it first, then explain in those terms.
+  not) or "mesh" (a mesh body, any size: booleans with other bodies, SMOOTH, REMESH, SIMPLIFY,
+  moving, deformers, measuring and mesh export work; TOSOLID makes a faceted solid of it for the
+  rest). When asked what can be done with an import, check it first, then explain in those terms.
 - To check how parts sit together, use contact (two bodies: apart with the gap, touching on a
   face, line or point, or overlapping with the volume), assembly_check (every pair: clashes,
   touching pairs, near misses, groups that hold together, parts touching nothing) and fit_check
