@@ -1172,7 +1172,7 @@ class OccViewport(QWidget):
         x, y = self._px(self._press)
         if self._sketching() and e.button() == Qt.LeftButton:
             uv = self.plane_point(x, y)
-            if uv is not None and self.sketcher.tool in ("SELECT", "FREEHAND"):
+            if uv is not None and self.sketcher.tool in ("SELECT", "FREEHAND", "TRIM"):
                 self.sketcher.press(*uv, self._tol(x, y))
                 if self.sketcher.drag or self.sketcher.stroke is not None:
                     self._drag = "sketch"

@@ -79,9 +79,9 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 | **History** (right) | every step that built the model, in order. Grey steps are undone; red steps failed; amber steps ran but want a look |
 | **Parameters** (right, tab) | named numbers such as `W = 80`. Change one and the model rebuilds |
 | **Layers** (right, tab) | show, hide, lock and colour groups of bodies |
-| **Main toolbar** | undo and redo, quick shapes, what a click picks (body, face, edge, vertex), views, files |
-| **Features toolbar** | sketch, extrude, revolve, the sweep editor, datum and work planes, hole, shell, draft, push/pull, delete faces, measuring, section view |
-| **Menus** | **File**; **Commands**, a form for every command, by group; **Help** |
+| **Ribbon** (top) | one row of tabs, each holding a few labelled groups of buttons with an icon and a name: **Home** (File, Edit with undo, redo and find a command, Pick, View), **Model** (Shapes, Booleans, Patterns), **Features** (Sketch, Datums, and hole, fillet, chamfer, shell, draft, push/pull, delete faces), **Freeform** (control points, knife, zebra) and **Inspect** (measuring). While a sketch is open, **Sketch**, **Sketch edit** and **Constrain** tabs appear. Undo, redo, the pick modes and Fit stay as small icons at the right of the tabs on every tab. Double-click a tab to fold the ribbon to its tab names; click a tab to use it once. |
+| **Pick** and **View** (left of the 3D view) | what a click picks (body, face, edge, vertex), and the standard views and Fit |
+| **Menus** | **File**; **Commands**, a form for every command, by group; **View** (how toolbar buttons show: icons with names under or beside them, icons only, or names only; Collapse ribbon; Ribbon tab to jump to a tab); **Help** |
 
 **Picking.** A click picks what is under the mouse: a face by default, or
 an edge, vertex or body if you choose that on the toolbar. Ctrl+click adds
@@ -188,16 +188,25 @@ A sketch is a flat drawing held by constraints and sizes, which you then
 push (**Extrude**) or turn (**Revolve**) into a solid.
 
 1. Pick a flat face (or nothing, to choose a plane), then press **Sketch**.
-   The view turns to face the sketch and the **Sketch** toolbar appears.
-2. Draw with Line (L), Rectangle (R), Circle (C), Arc (A) and Point (P).
-   Clicks snap to points, middles, curves and the axes.
+   The view turns to face the sketch and the sketch groups appear:
+   **Sketch draw**, **Sketch edit**, **Sizes**, and **Constraints** at the
+   left.
+2. Draw with Line (L), Centreline, Rectangle (R), Centre rect, Angled rect,
+   Circle (C), 3-point circle, Arc (A), Tangent arc (N, click the end of a
+   line or arc, then where the arc ends), Slot, Arc slot, Polygon (G; the
+   number of sides is next to it) and Point (P). Clicks snap to points,
+   middles, curves and the axes.
 3. Select geometry and press a constraint button (horizontal, parallel,
    tangent, ...) or **Size…** to give a length, radius or angle. The sketch
    turns green when it is fully defined.
-4. Trim (T), Extend (E) and Fillet (F) tidy corners (a fillet works
-   between lines and arcs; switch on **Axes cut** to let the H and V axes
-   cut when trimming); **Offset…**,
-   **Mirror…**, **Pattern…** and **Project…** are on the toolbar too.
+4. Tidy up with Trim (T; click a piece, or drag across several pieces to
+   cut every one the mouse passes over), Extend (E), Fillet (F) and Chamfer
+   (K) at a corner, Split (B; click where a curve should be split) and
+   Corner (O; click the part of each of two curves to keep, and they are
+   trimmed or extended to meet). Switch on **Axes cut** to let the H and V
+   axes cut when trimming. **Offset…**, **Mirror…**, **Pattern…**,
+   **Move/Copy…** (move, turn or scale the selection, or copies of it) and
+   **Project…** are there too.
 5. Press **Extrude…** or **Revolve…**. Make a new body, add a boss to the
    body under the sketch, or cut a pocket.
 

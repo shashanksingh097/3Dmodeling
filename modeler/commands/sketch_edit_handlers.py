@@ -31,25 +31,38 @@ def _names(r: _Reader) -> list[str]:
     return out
 
 
-@command("STRIM", *_vals(4),
+@command("STRIM", *_vals(121),
          help="Trim a sketch curve back to the curves that cross it: STRIM, 3, u, v removes the piece of curve 3 "
               "nearest (u, v), between the crossings on either side. The new end stays ON the curve that cut it. "
               "A curve nothing crosses is deleted; a circle becomes an arc. "
-              "STRIM, 3, u, v, AXES lets the sketch's H and V axes cut too (the end then stays ON the axis).")
+              "STRIM, 3, u, v, AXES lets the sketch's H and V axes cut too (the end then stays ON the axis). "
+              "STRIM, 3, u, v, 5, u, v ... trims several pieces in one step, in order (what the Trim tool sends "
+              "when the mouse is dragged across curves).")
 def strim(p: Processor, **raws):
     sk = _active(p, "STRIM")
-    r = _Reader(p, "STRIM", raws.values())
+    vals = [str(x).strip() for x in raws.values()]
+    while vals and not vals[-1]:
+        vals.pop()
+    axes = bool(vals) and vals[-1].upper() == "AXES"
+    if axes:
+        vals.pop()
+    if not vals or len(vals) % 3:
+        raise CommandError("STRIM: give the curve and a point on the piece to remove (3, u, v), "
+                           "and as many more of those as you like")
+    r = _Reader(p, "STRIM", vals)
+    r.allowed = set()
     with _sketch_error("STRIM"):
-        n = ed._num(r.word("the curve"))
-        at = (r.num("u of the piece to remove"), r.num("v of the piece to remove"))
-        axes = False
-        if r.more():
-            w = r.word("AXES").upper()
-            if w != "AXES":
-                raise CommandError(f"STRIM: after the point only AXES may follow (got {w})")
-            axes = True
+        picks = []
+        while r.more():
+            n = ed._num(r.word("the curve"))
+            picks.append((n, (r.num("u of the piece to remove"), r.num("v of the piece to remove"))))
         r.done()
-        said = ed.trim(sk, n, at, p.entry_uid, axes)
+        if len(picks) == 1:
+            said = ed.trim(sk, picks[0][0], picks[0][1], p.entry_uid, axes)
+        else:
+            from ..sketch import edit_more as em
+
+            said = em.trim_many(sk, picks, p.entry_uid, axes)
     return _store(p, sk, said)
 
 

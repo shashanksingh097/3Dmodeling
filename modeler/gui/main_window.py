@@ -480,10 +480,11 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         self.shell.build_file_menu()
         fd.command_menu(self, self.menuBar().addMenu("&Commands"))
-        self.shell.build_help_menu()
         from .sketch_ui import SketchUI
 
         self.sketch_ui = SketchUI(self)
+        self.build_view_menu()
+        self.shell.build_help_menu()
         self.statusBar().showMessage(
             "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
         )
@@ -494,6 +495,9 @@ class MainWindow(QMainWindow):
         self._on_history()
         self.shell.update_title()
         self.shell.restore_layout()
+        from . import toolbars as _tbs
+
+        _tbs.restore(self)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
@@ -506,93 +510,88 @@ class MainWindow(QMainWindow):
         self.addDockWidget(area, dock)
         return dock
 
-    # ---- toolbar: every action is just command text ---------------------
+    # ---- toolbars: every button is just command text -----------------------
     def _build_toolbar(self) -> None:
-        tb = QToolBar("Main", self)
-        tb.setObjectName("main")
-        self.addToolBar(tb)
+        """The toolbar groups (gui/toolbars.py): each button has an icon and
+        keeps its name, and only builds command text and runs it."""
+        from . import toolbars as tbs
 
-        def cmd_action(label: str, text: str, tip: str = "", shortcut=None) -> QAction:
-            act = QAction(label, self)
-            act.setToolTip(f"{tip or label}\nRuns: {text}")
-            if shortcut:
-                act.setShortcut(QKeySequence(shortcut))
-            act.triggered.connect(lambda _=False, t=text: self.execute(t))
-            tb.addAction(act)
-            return act
+        def cmd(tb, label: str, icon: str, text: str, tip: str = "", shortcut=None) -> QAction:
+            return tbs.action(self, tb, label, icon, f"{tip or label}\nRuns: {text}",
+                              lambda _=False, t=text: self.execute(t), shortcut)
 
-        self.undo_action = cmd_action("Undo", "UNDO", "Undo the last step", QKeySequence.Undo)
-        self.redo_action = cmd_action("Redo", "REDO", "Redo", QKeySequence.Redo)
-        tb.addSeparator()
-        def form_action(label: str, name: str, tip: str) -> QAction:
-            act = QAction(label, self)
-            act.setToolTip(f"{tip}: opens its form\nRuns: {name}, ...")
-            act.triggered.connect(lambda _=False, n=name: self.open_form(n))
-            tb.addAction(act)
-            return act
+        def form(tb, label: str, icon: str, name: str, tip: str) -> QAction:
+            return tbs.action(self, tb, label, icon, f"{tip}: opens its form\nRuns: {name}, ...",
+                              lambda _=False, n=name: self.open_form(n))
 
-        form_action("Block…", "BLOCK", "Add a block")
-        form_action("Cylinder…", "CYL", "Add a cylinder")
-        form_action("Sphere…", "SPHERE", "Add a sphere")
-        commands = QAction("Commands…", self)
-        commands.setToolTip("Find any command by name or by what it does, and fill in its form (Ctrl+K)")
-        commands.setShortcut(QKeySequence("Ctrl+K"))
-        commands.triggered.connect(lambda: fd.find_command(self))
-        tb.addAction(commands)
-        tb.addSeparator()
+        def dlg(tb, label: str, icon: str, tip: str, slot, shortcut=None) -> QAction:
+            return tbs.action(self, tb, label, icon, tip, lambda _=False: slot(), shortcut)
 
+        tb = tbs.group(self, "File", "file", "Home")
+        dlg(tb, "Open…", "open", "Open a project (.m3d) (Ctrl+O)\nRuns: OPEN, file", self._open_project)
+        dlg(tb, "Save", "save", "Save the project (.m3d) (Ctrl+S)\nRuns: SAVE, file", self._save_project)
+        dlg(tb, "Import…", "import", "Import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, VTK... (Ctrl+I)\n"
+                                     "Runs: IMPORT, format, file", self._import_file)
+        dlg(tb, "Export…", "export", "Export all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP (Ctrl+E)\n"
+                                     "Runs: EXPORT, format, file", lambda: self.shell.export_file())
+        self.recover_action = cmd(tb, "Recover", "recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
+        self.recover_action.setVisible(False)
+        dlg(tb, "Save log…", "savelog", "Save the history as a script that rebuilds this model", self._save_log)
+        dlg(tb, "Run script…", "runscript", "Run a .cmd script\nRuns: RUN, file", self._run_file)
+
+        tb = tbs.group(self, "Edit", "edit", "Home")
+        self.undo_action = cmd(tb, "Undo", "undo", "UNDO", "Undo the last step", QKeySequence.Undo)
+        self.redo_action = cmd(tb, "Redo", "redo", "REDO", "Redo", QKeySequence.Redo)
+        tbs.action(self, tb, "Commands…", "commands",
+                   "Find any command by name or by what it does, and fill in its form (Ctrl+K)",
+                   lambda: fd.find_command(self), "Ctrl+K")
+        cmd(tb, "Clear", "clear", "CLEAR", "Delete every body")
+
+        tb = tbs.group(self, "Shapes", "shapes", "Model")
+        form(tb, "Block…", "block", "BLOCK", "Add a block")
+        form(tb, "Cylinder…", "cylinder", "CYL", "Add a cylinder")
+        form(tb, "Sphere…", "sphere", "SPHERE", "Add a sphere")
+        form(tb, "Cone…", "cone", "CONE", "Add a cone")
+        form(tb, "Torus…", "torus", "TORUS", "Add a torus")
+
+        tb = tbs.group(self, "Booleans", "booleans", "Model")
+        form(tb, "Union…", "union", "UNION", "Join bodies into one")
+        form(tb, "Subtract…", "subtract", "SUBTRACT", "Cut bodies out of a body")
+        form(tb, "Intersect…", "intersect", "INTERSECT", "Keep what bodies share")
+
+        tb = tbs.group(self, "Patterns", "patterns", "Model")
+        form(tb, "Array…", "array", "ARRAY", "Copies of a body in a row, a grid or round an axis")
+        form(tb, "Pattern…", "pattern", "PATTERN", "Repeat history steps (a hole, a boss) along a row or round an axis")
+        form(tb, "Mirror…", "mirror", "MIRROR", "A mirror copy of a body")
+
+        # picking and the view are on Home, and in the quick-access icons on every tab
+        tb = tbs.group(self, "Pick", "pick", "Home")
         group = QActionGroup(self)
         group.setExclusive(True)
         self._mode_actions: dict[str, QAction] = {}
         for kind in ("BODY", "FACE", "EDGE", "VERTEX"):
-            act = cmd_action(kind.title(), f"PICKMODE, {kind}", f"Pick {kind.lower()}s")
+            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", f"Pick {kind.lower()}s")
             act.setCheckable(True)
             group.addAction(act)
             self._mode_actions[kind] = act
         self._mode_actions["FACE"].setChecked(True)
-        tb.addSeparator()
 
+        tb = tbs.group(self, "View", "view", "Home")
         for name in ("ISO", "TOP", "FRONT", "RIGHT"):
-            cmd_action(name.title(), f"VIEW, {name}", f"{name.title()} view")
-        cmd_action("Fit", "FIT", "Zoom to fit", "F")
-        tb.addSeparator()
-        cmd_action("Clear", "CLEAR", "Delete every body")
-
-        def dlg_action(label: str, tip: str, slot, shortcut=None) -> QAction:
-            act = QAction(label, self)
-            act.setToolTip(tip)
-            if shortcut:
-                act.setShortcut(QKeySequence(shortcut))
-            act.triggered.connect(slot)
-            tb.addAction(act)
-            return act
-
-        dlg_action("Open…", "Open a project (.m3d) (Ctrl+O)\nRuns: OPEN, file", self._open_project)
-        dlg_action("Save", "Save the project (.m3d) (Ctrl+S)\nRuns: SAVE, file", self._save_project)
-        dlg_action("Import…", "Import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, VTK... (Ctrl+I)\nRuns: IMPORT, format, file", self._import_file)
-        dlg_action("Export…", "Export all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP (Ctrl+E)\nRuns: EXPORT, format, file",
-                   lambda: self.shell.export_file())
-        self.recover_action = cmd_action("Recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
-        self.recover_action.setVisible(False)
-        tb.addSeparator()
-        dlg_action("Save log…", "Save the history as a script that rebuilds this model", self._save_log)
-        dlg_action("Run script…", "Run a .cmd script\nRuns: RUN, file", self._run_file)
+            cmd(tb, name.title(), name.lower(), f"VIEW, {name}", f"{name.title()} view")
+        fit = cmd(tb, "Fit", "fit", "FIT", "Zoom to fit", "F")
         self._build_feature_toolbar()
+        tbs.quick_access(self, [self.undo_action, self.redo_action, None,
+                                *self._mode_actions.values(), None, fit])
 
     def _build_feature_toolbar(self) -> None:
-        """Datums, features and measuring. Each button reads the selection,
-        builds the command text and runs it, exactly as if it were typed."""
-        self.addToolBarBreak()
-        tb = QToolBar("Features", self)
-        tb.setObjectName("features")
-        self.addToolBar(tb)
+        """Sketches, datums, features and measuring, in groups. Each button
+        reads the selection, builds the command text and runs it, exactly as
+        if it were typed."""
+        from . import toolbars as tbs
 
-        def act(label: str, tip: str, build) -> QAction:
-            a = QAction(label, self)
-            a.setToolTip(tip)
-            a.triggered.connect(lambda _=False, b=build: self.run_feature(b))
-            tb.addAction(a)
-            return a
+        def act(tb, label: str, icon: str, tip: str, build) -> QAction:
+            return tbs.action(self, tb, label, icon, tip, lambda _=False, b=build: self.run_feature(b))
 
         def ask(title: str, label: str, value: float, lo: float = 0.0, hi: float = 1e6):
             v, ok = QInputDialog.getDouble(self, title, label, value, lo, hi, 3)
@@ -601,53 +600,76 @@ class MainWindow(QMainWindow):
             return v
 
         p = self.processor
-        act("Sketch", "Start a 2D sketch on the picked flat face, or on a plane you choose\n"
-                      "Runs: SKETCH, name, FACE, id / SKETCH, name, plane",
+        tb = tbs.group(self, "Sketch", "sketching", "Features")
+        act(tb, "Sketch", "sketch", "Start a 2D sketch on the picked flat face, or on a plane you choose\n"
+                                    "Runs: SKETCH, name, FACE, id / SKETCH, name, plane",
             lambda: self.sketch_ui.new_sketch() or [])
-        act("Extrude…", "Push a sketch into a solid: a new body, or added to / cut from a body\n"
-                        "Runs: EXTRUDE, sketch, d [, ADD/CUT, body]", lambda: self.sketch_ui.extrude() or [])
-        act("Revolve…", "Turn a sketch about an axis into a solid\nRuns: REVOLVE, sketch, axis, angle",
+        act(tb, "Extrude…", "extrude", "Push a sketch into a solid: a new body, or added to / cut from a body\n"
+                                       "Runs: EXTRUDE, sketch, d [, ADD/CUT, body]", lambda: self.sketch_ui.extrude() or [])
+        act(tb, "Revolve…", "revolve", "Turn a sketch about an axis into a solid\nRuns: REVOLVE, sketch, axis, angle",
             lambda: self.sketch_ui.revolve() or [])
-        act("Sweep editor…", "Shape the twist and scale of a SWEEP by dragging handles, with a preview\n"
-                             "Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT",
+        act(tb, "Sweep editor…", "sweep", "Shape the twist and scale of a SWEEP by dragging handles, with a preview\n"
+                                          "Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT",
             lambda: (self.open_sweep_editor(), [])[1])
-        tb.addSeparator()
-        act("Plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id", lambda: fa.plane_on_face(p))
-        act("Work plane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
-                          "Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1", lambda: fa.workplane_on_face(p))
-        tb.addSeparator()
-        act("Hole…", "Through hole at the middle of the picked flat face\nRuns: HOLE, body, x,y,z, d",
+
+        tb = tbs.group(self, "Datums", "datums", "Features")
+        act(tb, "Plane", "plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id",
+            lambda: fa.plane_on_face(p))
+        act(tb, "Work plane", "workplane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
+                                           "Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1", lambda: fa.workplane_on_face(p))
+
+        tb = tbs.group(self, "Features", "features", "Features")
+        act(tb, "Hole…", "hole", "Through hole at the middle of the picked flat face\nRuns: HOLE, body, x,y,z, d",
             lambda: fa.hole_on_face(p, ask("Hole", "Diameter:", 6.0, 0.001)))
-        act("Shell…", "Hollow the part, open at the selected faces (or closed, for selected bodies)\nRuns: SHELL, t",
+        tbs.action(self, tb, "Fillet…", "s_fillet", "Round the picked edges: opens its form\nRuns: FILLET, ...",
+                   lambda: self.open_form("FILLET"))
+        tbs.action(self, tb, "Chamfer…", "s_chamfer", "Bevel the picked edges: opens its form\nRuns: CHAMFER, ...",
+                   lambda: self.open_form("CHAMFER"))
+        act(tb, "Shell…", "shell", "Hollow the part, open at the selected faces (or closed, for selected bodies)\n"
+                                   "Runs: SHELL, t",
             lambda: fa.faces_selected(p, "SHELL", ask("Shell", "Wall thickness:", 2.0, 0.001)))
-        act("Draft…", "Tilt the selected side faces for moulding\nRuns: DRAFT, angle",
+        act(tb, "Draft…", "draft", "Tilt the selected side faces for moulding\nRuns: DRAFT, angle",
             lambda: fa.faces_selected(p, "DRAFT", ask("Draft", "Angle (degrees):", 3.0, -89, 89)))
-        act("Push/Pull…", "Move the selected faces along their normals (+ adds material, - removes it)\n"
-                          "Runs: PUSHPULL, d", lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
-        act("Delete faces", "Remove the selected faces and close the gap (a hole, boss or fillet goes away)\n"
-                            "Runs: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
-        act("Control points", "Show the control points of the picked curve or surface; drag one to move it "
-                              "(press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
+        act(tb, "Push/Pull…", "pushpull", "Move the selected faces along their normals (+ adds material, - removes it)\n"
+                                          "Runs: PUSHPULL, d",
+            lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
+        act(tb, "Delete faces", "delface", "Remove the selected faces and close the gap (a hole, boss or fillet goes "
+                                           "away)\nRuns: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
+
+        tb = tbs.group(self, "Freeform", "freeform", "Freeform")
+        act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
+                                             "move it (press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
             lambda: fa.control_points_toggle(p))
-        knife = QAction("Knife", self)
-        knife.setCheckable(True)
-        knife.setToolTip("Draw a stroke across a body to cut it straight through, along the view direction; "
-                         "end where you started to cut out the inside (Esc ends the tool)\n"
-                         "Each stroke runs: SPLINE, ... then KNIFE, body, LAST, 0, view direction (a width in place of the 0 cuts a slot)")
+        knife = tbs.action(self, tb, "Knife", "knife",
+                           "Draw a stroke across a body to cut it straight through, along the view direction; "
+                           "end where you started to cut out the inside (Esc ends the tool)\n"
+                           "Each stroke runs: SPLINE, ... then KNIFE, body, LAST, 0, view direction "
+                           "(a width in place of the 0 cuts a slot)", checkable=True)
         knife.toggled.connect(lambda on: self.viewport.set_knife(on) if self.viewport.knife != on else None)
         self.viewport.knife_changed.connect(lambda on: knife.setChecked(on) if knife.isChecked() != on else None)
-        tb.addAction(knife)
         self.knife_action = knife
-        act("Zebra", "Zebra stripes on the picked body, and each join between its faces judged G2, G1 or "
-                     "creased (press again to end it; the form has curvature and draft maps)\n"
-                     "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
-        tb.addSeparator()
-        act("Distance", "Shortest distance between the two selected things\nRuns: DIST", lambda: fa.two_selected(p, "DIST"))
-        act("Angle", "Angle between the two selected faces or edges\nRuns: ANGLE", lambda: fa.two_selected(p, "ANGLE"))
-        act("Mass", "Volume, centre and inertia of the bodies\nRuns: MASSPROP", lambda: ["MASSPROP"])
-        act("Clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
-        act("Section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
-                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+        act(tb, "Zebra", "zebra", "Zebra stripes on the picked body, and each join between its faces judged G2, G1 or "
+                                  "creased (press again to end it; the form has curvature and draft maps)\n"
+                                  "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
+
+        tb = tbs.group(self, "Measure", "measure", "Inspect")
+        act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
+            lambda: fa.two_selected(p, "DIST"))
+        act(tb, "Angle", "angle", "Angle between the two selected faces or edges\nRuns: ANGLE",
+            lambda: fa.two_selected(p, "ANGLE"))
+        act(tb, "Mass", "mass", "Volume, centre and inertia of the bodies\nRuns: MASSPROP", lambda: ["MASSPROP"])
+        act(tb, "Clash", "clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
+        act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
+                                      "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+
+    def build_view_menu(self) -> None:
+        """View > Toolbar buttons (icons and names, icons only ...), Collapse ribbon and Ribbon tab."""
+        from . import toolbars as tbs
+
+        m = self.menuBar().addMenu("&View")
+        tbs.style_menu(self, m)
+        tbs.ribbon_menu(self, m)
+        self.view_menu = m
 
     def open_sweep_editor(self, row: int | None = None):
         """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""
