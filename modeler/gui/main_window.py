@@ -495,6 +495,9 @@ class MainWindow(QMainWindow):
         self._on_history()
         self.shell.update_title()
         self.shell.restore_layout()
+        from . import toolbars as _tbs
+
+        _tbs.restore(self)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
@@ -524,7 +527,7 @@ class MainWindow(QMainWindow):
         def dlg(tb, label: str, icon: str, tip: str, slot, shortcut=None) -> QAction:
             return tbs.action(self, tb, label, icon, tip, lambda _=False: slot(), shortcut)
 
-        tb = tbs.group(self, "File", "file")
+        tb = tbs.group(self, "File", "file", "Home")
         dlg(tb, "Open…", "open", "Open a project (.m3d) (Ctrl+O)\nRuns: OPEN, file", self._open_project)
         dlg(tb, "Save", "save", "Save the project (.m3d) (Ctrl+S)\nRuns: SAVE, file", self._save_project)
         dlg(tb, "Import…", "import", "Import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, VTK... (Ctrl+I)\n"
@@ -536,7 +539,7 @@ class MainWindow(QMainWindow):
         dlg(tb, "Save log…", "savelog", "Save the history as a script that rebuilds this model", self._save_log)
         dlg(tb, "Run script…", "runscript", "Run a .cmd script\nRuns: RUN, file", self._run_file)
 
-        tb = tbs.group(self, "Edit", "edit")
+        tb = tbs.group(self, "Edit", "edit", "Home")
         self.undo_action = cmd(tb, "Undo", "undo", "UNDO", "Undo the last step", QKeySequence.Undo)
         self.redo_action = cmd(tb, "Redo", "redo", "REDO", "Redo", QKeySequence.Redo)
         tbs.action(self, tb, "Commands…", "commands",
@@ -544,25 +547,25 @@ class MainWindow(QMainWindow):
                    lambda: fd.find_command(self), "Ctrl+K")
         cmd(tb, "Clear", "clear", "CLEAR", "Delete every body")
 
-        tb = tbs.group(self, "Shapes", "shapes")
+        tb = tbs.group(self, "Shapes", "shapes", "Model")
         form(tb, "Block…", "block", "BLOCK", "Add a block")
         form(tb, "Cylinder…", "cylinder", "CYL", "Add a cylinder")
         form(tb, "Sphere…", "sphere", "SPHERE", "Add a sphere")
         form(tb, "Cone…", "cone", "CONE", "Add a cone")
         form(tb, "Torus…", "torus", "TORUS", "Add a torus")
 
-        tb = tbs.group(self, "Booleans", "booleans")
+        tb = tbs.group(self, "Booleans", "booleans", "Model")
         form(tb, "Union…", "union", "UNION", "Join bodies into one")
         form(tb, "Subtract…", "subtract", "SUBTRACT", "Cut bodies out of a body")
         form(tb, "Intersect…", "intersect", "INTERSECT", "Keep what bodies share")
 
-        tb = tbs.group(self, "Patterns", "patterns")
+        tb = tbs.group(self, "Patterns", "patterns", "Model")
         form(tb, "Array…", "array", "ARRAY", "Copies of a body in a row, a grid or round an axis")
         form(tb, "Pattern…", "pattern", "PATTERN", "Repeat history steps (a hole, a boss) along a row or round an axis")
         form(tb, "Mirror…", "mirror", "MIRROR", "A mirror copy of a body")
 
-        # picking and the view stand upright at the left of the 3D view
-        tb = tbs.group(self, "Pick", "pick", Qt.LeftToolBarArea)
+        # picking and the view are on Home, and in the quick-access icons on every tab
+        tb = tbs.group(self, "Pick", "pick", "Home")
         group = QActionGroup(self)
         group.setExclusive(True)
         self._mode_actions: dict[str, QAction] = {}
@@ -573,19 +576,19 @@ class MainWindow(QMainWindow):
             self._mode_actions[kind] = act
         self._mode_actions["FACE"].setChecked(True)
 
-        tb = tbs.group(self, "View", "view", Qt.LeftToolBarArea)
+        tb = tbs.group(self, "View", "view", "Home")
         for name in ("ISO", "TOP", "FRONT", "RIGHT"):
             cmd(tb, name.title(), name.lower(), f"VIEW, {name}", f"{name.title()} view")
-        cmd(tb, "Fit", "fit", "FIT", "Zoom to fit", "F")
+        fit = cmd(tb, "Fit", "fit", "FIT", "Zoom to fit", "F")
         self._build_feature_toolbar()
+        tbs.quick_access(self, [self.undo_action, self.redo_action, None,
+                                *self._mode_actions.values(), None, fit])
 
     def _build_feature_toolbar(self) -> None:
         """Sketches, datums, features and measuring, in groups. Each button
         reads the selection, builds the command text and runs it, exactly as
         if it were typed."""
         from . import toolbars as tbs
-
-        self.addToolBarBreak()
 
         def act(tb, label: str, icon: str, tip: str, build) -> QAction:
             return tbs.action(self, tb, label, icon, tip, lambda _=False, b=build: self.run_feature(b))
@@ -597,7 +600,7 @@ class MainWindow(QMainWindow):
             return v
 
         p = self.processor
-        tb = tbs.group(self, "Sketch", "sketching")
+        tb = tbs.group(self, "Sketch", "sketching", "Features")
         act(tb, "Sketch", "sketch", "Start a 2D sketch on the picked flat face, or on a plane you choose\n"
                                     "Runs: SKETCH, name, FACE, id / SKETCH, name, plane",
             lambda: self.sketch_ui.new_sketch() or [])
@@ -609,13 +612,13 @@ class MainWindow(QMainWindow):
                                           "Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT",
             lambda: (self.open_sweep_editor(), [])[1])
 
-        tb = tbs.group(self, "Datums", "datums")
+        tb = tbs.group(self, "Datums", "datums", "Features")
         act(tb, "Plane", "plane", "Datum plane on the picked flat face\nRuns: PLANE, P1, FACE, id",
             lambda: fa.plane_on_face(p))
         act(tb, "Work plane", "workplane", "Draw new shapes on the picked flat face (press again to go back to world XY)\n"
                                            "Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1", lambda: fa.workplane_on_face(p))
 
-        tb = tbs.group(self, "Features", "features")
+        tb = tbs.group(self, "Features", "features", "Features")
         act(tb, "Hole…", "hole", "Through hole at the middle of the picked flat face\nRuns: HOLE, body, x,y,z, d",
             lambda: fa.hole_on_face(p, ask("Hole", "Diameter:", 6.0, 0.001)))
         tbs.action(self, tb, "Fillet…", "s_fillet", "Round the picked edges: opens its form\nRuns: FILLET, ...",
@@ -633,7 +636,7 @@ class MainWindow(QMainWindow):
         act(tb, "Delete faces", "delface", "Remove the selected faces and close the gap (a hole, boss or fillet goes "
                                            "away)\nRuns: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
 
-        tb = tbs.group(self, "Freeform", "freeform")
+        tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
                                              "move it (press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",
             lambda: fa.control_points_toggle(p))
@@ -649,7 +652,7 @@ class MainWindow(QMainWindow):
                                   "creased (press again to end it; the form has curvature and draft maps)\n"
                                   "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
 
-        tb = tbs.group(self, "Measure", "measure")
+        tb = tbs.group(self, "Measure", "measure", "Inspect")
         act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
             lambda: fa.two_selected(p, "DIST"))
         act(tb, "Angle", "angle", "Angle between the two selected faces or edges\nRuns: ANGLE",
@@ -660,12 +663,12 @@ class MainWindow(QMainWindow):
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
     def build_view_menu(self) -> None:
-        """View > Toolbar buttons (icons and names, icons only ...) and Toolbars (show or hide a group)."""
+        """View > Toolbar buttons (icons and names, icons only ...), Collapse ribbon and Ribbon tab."""
         from . import toolbars as tbs
 
         m = self.menuBar().addMenu("&View")
         tbs.style_menu(self, m)
-        tbs.bars_menu(self, m)
+        tbs.ribbon_menu(self, m)
         self.view_menu = m
 
     def open_sweep_editor(self, row: int | None = None):

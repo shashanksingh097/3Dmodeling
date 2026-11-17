@@ -21,9 +21,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   (`SCIRCLE3`), centre rectangle (`SRECTC`), rectangle at an angle
   (`SRECT3`), regular polygon (`SNGON`), arc slot (`SSLOTARC`) and
   centreline, each with a mouse tool.
-- Toolbars are grouped and labelled (File, Edit, Shapes, Booleans,
-  Patterns, Sketch, Datums, Features, Freeform, Measure, and Sketch draw,
-  Sketch edit, Constraints, Sizes in sketch mode), every button has an icon
+- The toolbars are now a ribbon: one row of tabs (Home, Model, Features,
+  Freeform, Inspect, and Sketch, Sketch edit, Constrain while a sketch is
+  open), each with labelled groups of buttons, plus quick-access icons
+  (undo, redo, pick modes, fit) on every tab. Double-click a tab to fold
+  the ribbon. Every button has an icon
   drawn for light and dark themes and keeps its name, and **View > Toolbar
   buttons** switches between icons with names, icons only and names only.
   New buttons: Cone, Torus, Union, Subtract, Intersect, Array, Pattern,

@@ -82,10 +82,8 @@ class SketchUI:
         self.tool_actions: dict[str, QAction] = {}
         self.toolbars: list[QToolBar] = []
 
-        def bar(title: str, name: str, area=Qt.TopToolBarArea) -> QToolBar:
-            win.addToolBarBreak(area)
-            tb = tbs.group(win, title, name, area)
-            tb.setProperty("sketch", True)
+        def bar(title: str, name: str, tab: str) -> QToolBar:
+            tb = tbs.group(win, title, name, tab, sketch=True)
             self.toolbars.append(tb)
             return tb
 
@@ -97,7 +95,7 @@ class SketchUI:
             group.addAction(a)
             self.tool_actions[t] = a
 
-        tb = bar("Sketch draw", "sketch")
+        tb = bar("Sketch draw", "sketch", "Sketch")
         for t in ("SELECT",) + st.DRAW_TOOLS:
             tool(tb, t)
         self.sides = QSpinBox()
@@ -109,7 +107,7 @@ class SketchUI:
         tb.addWidget(self.sides)
         self.tool_actions["SELECT"].setChecked(True)
 
-        tb = bar("Sketch edit", "sketch_edit")
+        tb = bar("Sketch edit", "sketch_edit", "Sketch edit")
         for t in st.EDIT_TOOLS:
             tool(tb, t)
         a = tbs.action(win, tb, "Axes cut", "s_axes",
@@ -132,14 +130,12 @@ class SketchUI:
             a = tbs.action(win, tb, label, icon, tip, lambda _=False, f=slot: f())
             self.edit_actions[label.rstrip("…")] = a
 
-        tb = bar("Constraints", "sketch_constraints", Qt.LeftToolBarArea)
+        tb = bar("Constraints", "sketch_constraints", "Constrain")
         for label, kind, tip in _CONSTRAINTS:
             tbs.action(win, tb, label, "c_" + kind.lower(), tip,
                        lambda _=False, k=kind: self.run(lambda: st.constraint_command(self.p, k)))
 
-        tb = tbs.group(win, "Sizes", "sketch_sizes")
-        tb.setProperty("sketch", True)
-        self.toolbars.append(tb)
+        tb = bar("Sizes", "sketch_sizes", "Constrain")
         for label, icon, which, tip in (
                 ("Size…", "d_size", "AUTO", "Length of a line, diameter of a circle, radius of an arc, distance between "
                                              "two points or from a point to a line, angle between two lines\nRuns: SDIM, ..."),
@@ -159,9 +155,25 @@ class SketchUI:
                                                     "Runs: EXTRUDE, sketch, d [, mode, body]", self.extrude)
         return self.toolbars[0]
 
+    SKETCH_TABS = ("Sketch", "Sketch edit", "Constrain")
+
     def _show_bars(self, on: bool) -> None:
-        for tb in self.toolbars:
-            tb.setVisible(on)
+        """The sketch tabs come with sketch mode; opening a sketch shows its
+        drawing tab, and closing it goes back to the tab used before."""
+        rb = self.win.ribbon
+        self.shown = on
+        if on:
+            if rb.current_title() not in self.SKETCH_TABS:
+                self._tab_before = rb.current_title()
+            for t in self.SKETCH_TABS:
+                rb.show_tab(t, True)
+            rb.select("Sketch")
+        else:
+            back = getattr(self, "_tab_before", "")
+            for t in self.SKETCH_TABS:
+                rb.show_tab(t, False)
+            if back:
+                rb.select(back)
 
     def set_tool(self, tool: str) -> None:
         self.controller.set_tool(tool)
@@ -185,7 +197,7 @@ class SketchUI:
             sk = self.controller.sketch
             if sk is not None:
                 self.win.statusBar().showMessage(f"{sk.status()}    ·    {st.HINTS[self.controller.tool]}")
-            if on != self.toolbar.isVisible():
+            if on != self.shown:
                 self._show_bars(on)
                 if on:
                     self.set_tool("SELECT")

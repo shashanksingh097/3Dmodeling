@@ -67,11 +67,24 @@ The commands are in `commands/sketch_more_handlers.py`; the mouse tools in
 
 ## Toolbars
 
-* `gui/toolbars.py` makes each group a `QToolBar` that starts with its name
-  in small grey text. Groups: File, Edit, Shapes, Booleans, Patterns, then
-  Sketch, Datums, Features, Freeform, Measure; Pick and View stand upright
-  at the left of the 3D view. In sketch mode: Sketch draw, Sketch edit with
-  Sizes, and Constraints upright at the left.
+* The groups live on ribbon tabs (`gui/toolbars.py`, class `Ribbon`, a
+  `QTabWidget` in one fixed toolbar at the top), so all the buttons take
+  the height of one row. The first version put each group in a toolbar of
+  its own, which took four rows with icons; the user asked for tabs.
+  Each group is a `QToolBar` with its name in small grey text under it and
+  a thin line after it. Tabs: Home (File, Edit, Pick, View), Model
+  (Shapes, Booleans, Patterns), Features (Sketch, Datums, Features),
+  Freeform, Inspect (Measure). In sketch mode three tabs appear and the
+  first is opened: Sketch (Sketch draw), Sketch edit, Constrain
+  (Constraints and Sizes); closing the sketch hides them and goes back to
+  the tab used before.
+* Quick-access icons at the right of the tab names (Undo, Redo, the four
+  pick modes, Fit) stay in reach on every tab; they are the same actions as
+  on Home.
+* Double-click a tab, or **View > Collapse ribbon**, folds the ribbon to its
+  tab names; clicking a tab then opens it for one use. **View > Ribbon tab**
+  jumps to a tab. The open tab and the fold are kept in the settings
+  (`ribbonTab`, `ribbonCollapsed`).
 * `gui/icons.py` draws every icon in code from a small table of strokes on
   a 24 x 24 grid, in the palette's text colour with one accent colour for
   the part that matters, so one style covers light and dark themes. Icons
@@ -79,7 +92,7 @@ The commands are in `commands/sketch_more_handlers.py`; the mouse tools in
   preferences) will need them made again.
 * **View > Toolbar buttons**: icons with names under or beside them, icons
   only (names in the tooltips) or names only. Saved in the settings
-  (`toolbarButtons`). **View > Toolbars** shows or hides a group.
+  (`toolbarButtons`).
 * New buttons: Cone, Torus, Union, Subtract, Intersect, Array, Pattern,
   Mirror (forms), and Fillet and Chamfer (3D edges, forms).
 

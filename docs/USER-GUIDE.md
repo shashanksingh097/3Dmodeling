@@ -79,9 +79,9 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 | **History** (right) | every step that built the model, in order. Grey steps are undone; red steps failed; amber steps ran but want a look |
 | **Parameters** (right, tab) | named numbers such as `W = 80`. Change one and the model rebuilds |
 | **Layers** (right, tab) | show, hide, lock and colour groups of bodies |
-| **Toolbars** (top) | buttons in labelled groups, each with an icon and its name: **File**, **Edit** (undo, redo, find a command), **Shapes**, **Booleans**, **Patterns**, **Sketch** (sketch, extrude, revolve, sweep editor), **Datums**, **Features** (hole, fillet, chamfer, shell, draft, push/pull, delete faces), **Freeform** (control points, knife, zebra) and **Measure** |
+| **Ribbon** (top) | one row of tabs, each holding a few labelled groups of buttons with an icon and a name: **Home** (File, Edit with undo, redo and find a command, Pick, View), **Model** (Shapes, Booleans, Patterns), **Features** (Sketch, Datums, and hole, fillet, chamfer, shell, draft, push/pull, delete faces), **Freeform** (control points, knife, zebra) and **Inspect** (measuring). While a sketch is open, **Sketch**, **Sketch edit** and **Constrain** tabs appear. Undo, redo, the pick modes and Fit stay as small icons at the right of the tabs on every tab. Double-click a tab to fold the ribbon to its tab names; click a tab to use it once. |
 | **Pick** and **View** (left of the 3D view) | what a click picks (body, face, edge, vertex), and the standard views and Fit |
-| **Menus** | **File**; **Commands**, a form for every command, by group; **View** (how toolbar buttons show: icons with names under or beside them, icons only, or names only; and which groups show); **Help** |
+| **Menus** | **File**; **Commands**, a form for every command, by group; **View** (how toolbar buttons show: icons with names under or beside them, icons only, or names only; Collapse ribbon; Ribbon tab to jump to a tab); **Help** |
 
 **Picking.** A click picks what is under the mouse: a face by default, or
 an edge, vertex or body if you choose that on the toolbar. Ctrl+click adds

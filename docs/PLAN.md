@@ -789,7 +789,9 @@ Still open in the milestones already started, in the suggested order:
    Constraints, Sizes, View), each button with an icon and its name kept
    beside it (text under or beside the icon, so nothing is learned from the
    icon alone). One icon set in the app's own style, drawn for light and
-   dark themes, with a setting for icons only / icons and names.
+   dark themes, with a setting for icons only / icons and names. The groups
+   sit on ribbon tabs (Home, Model, Features, Freeform, Inspect, and three
+   sketch tabs), so they take one row, with quick-access icons on every tab.
 9. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
 10. The rest of M9c: "use your own key", picking for the assistant,
    pictures as a fallback, the benchmark of modelling requests, and these

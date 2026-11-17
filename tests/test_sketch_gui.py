@@ -13,7 +13,7 @@ if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
 
 from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QToolBar  # noqa: E402
 
 from modeler.gui.main_window import MainWindow  # noqa: E402
 
@@ -211,15 +211,44 @@ def test_toolbar_groups_have_icons_and_names_and_one_style_setting(app, win):
     assert win.shell.settings.value(tbs.SETTING) == "icons"
     win._style_actions["under"].trigger()
     assert all(tb.toolButtonStyle() == _Qt.ToolButtonTextUnderIcon for tb in tbs.groups(win))
-    # the sketch groups come and go together with sketch mode
+    # every group is on a ribbon tab: one row of tabs, not rows of toolbars
+    rb = win.ribbon
+    assert rb.visible_titles() == ["Home", "Model", "Features", "Freeform", "Inspect"]
+    assert all(tb.property("tab") for tb in tbs.groups(win))
+    for area in (_Qt.LeftToolBarArea, _Qt.RightToolBarArea, _Qt.BottomToolBarArea):
+        assert not [t for t in win.findChildren(QToolBar) if t.isVisible() and win.toolBarArea(t) == area]
+    rows = {win.toolBarArea(t) for t in win.findChildren(QToolBar) if t.parent() is win and t.isVisible()
+            and not t.property("group")}
+    assert rows == {_Qt.TopToolBarArea}
+    rb.select("Model")
+    pump(app, 5)
+    assert rb.current_title() == "Model"
+    assert win.shell.settings.value(tbs.TAB_SETTING) == "Model"
+    # the quick-access icons stay in reach on every tab
+    assert win.undo_action in win.quick_access.actions()
+    assert win._mode_actions["EDGE"] in win.quick_access.actions()
+    # the sketch tabs come and go together with sketch mode
     sketch_bars = win.sketch_ui.toolbars
     assert len(sketch_bars) == 4 and not any(tb.isVisible() for tb in sketch_bars)
     win.execute("SKETCH, s, XY")
     pump(app, 10)
-    assert all(tb.isVisible() for tb in sketch_bars)
+    assert rb.visible_titles()[-3:] == ["Sketch", "Sketch edit", "Constrain"]
+    assert rb.current_title() == "Sketch" and sketch_bars[0].isVisible()
+    rb.select("Constrain")
+    pump(app, 5)
+    assert sketch_bars[2].isVisible() and sketch_bars[3].isVisible()
     win.execute("ENDSKETCH")
     pump(app, 10)
     assert not any(tb.isVisible() for tb in sketch_bars)
+    assert rb.current_title() == "Model"  # back to the tab used before the sketch
+    # folding the ribbon to its tab names
+    full = rb.sizeHint().height()
+    win.collapse_ribbon_action.trigger()
+    pump(app, 5)
+    assert rb.collapsed and rb.maximumHeight() < full
+    rb.tabBarDoubleClicked.emit(0)
+    pump(app, 5)
+    assert not rb.collapsed and not win.collapse_ribbon_action.isChecked()
 
 
 def test_power_trim_by_dragging_across_curves(app, win):
