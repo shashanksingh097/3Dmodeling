@@ -146,7 +146,8 @@ NO_FORM = {
     # sketch editing: the Trim / Extend / Fillet tools and the Offset, Mirror, Pattern, Project buttons
     "STRIM", "SEXTEND", "SFILLET", "SOFFSET", "SMIRROR", "SPATTERN", "SPROJECT",
     # more sketch tools: Chamfer, Split, Corner, the drawing tools and the Move/Copy button
-    "SCHAMFER", "SSPLIT", "SCORNER", "STRANSFORM", "SARCT", "SCIRCLE3", "SRECTC", "SRECT3", "SNGON", "SSLOTARC",
+    "SCHAMFER", "SSPLIT", "SCORNER", "STRANSFORM", "SARCT", "SCIRCLE3", "SRECTC", "SRECT3", "SNGON", "SSLOTARC", "SELLIPSE", "SEARC",
+    "SCIRCLET", "SOFFSET2", "SINTERSECT",
 }
 
 # What a form opens with, so pressing OK on a fresh form already makes something.

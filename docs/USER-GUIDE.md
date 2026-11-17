@@ -188,16 +188,24 @@ A sketch is a flat drawing held by constraints and sizes, which you then
 push (**Extrude**) or turn (**Revolve**) into a solid.
 
 1. Pick a flat face (or nothing, to choose a plane), then press **Sketch**.
-   The view turns to face the sketch and the sketch groups appear:
-   **Sketch draw**, **Sketch edit**, **Sizes**, and **Constraints** at the
-   left.
+   The view turns to face the sketch and three tabs appear on the ribbon:
+   **Sketch** (drawing), **Sketch edit** and **Constrain** (constraints and
+   sizes).
 2. Draw with Line (L), Centreline, Rectangle (R), Centre rect, Angled rect,
    Circle (C), 3-point circle, Arc (A), Tangent arc (N, click the end of a
    line or arc, then where the arc ends), Slot, Arc slot, Polygon (G; the
-   number of sides is next to it) and Point (P). Clicks snap to points,
-   middles, curves and the axes.
+   number of sides is next to it), Ellipse (I; centre, end of one axis, then
+   the width), Elliptical arc, Tangent circle (click two or three curves,
+   then near where it goes) and Point (P). Clicks snap to points, middles,
+   curves and the axes. While you draw, a click on a curve puts the point on
+   it, and a line drawn on from an arc's end is made tangent to it: the
+   small mark by the cursor (On 3, Tangent, Perpendicular, H, V) shows what
+   the click adds. Hold Shift to draw without them, or switch off **Auto
+   constraints**.
 3. Select geometry and press a constraint button (horizontal, parallel,
-   tangent, ...) or **Size…** to give a length, radius or angle. The sketch
+   tangent, ...) or **Size…** to give a length, radius or angle (for an
+   ellipse its two radii; for a point and a circle how far it is from the
+   rim), or **Arc length…**. The sketch
    turns green when it is fully defined.
 4. Tidy up with Trim (T; click a piece, or drag across several pieces to
    cut every one the mouse passes over), Extend (E), Fillet (F) and Chamfer
@@ -205,8 +213,9 @@ push (**Extrude**) or turn (**Revolve**) into a solid.
    Corner (O; click the part of each of two curves to keep, and they are
    trimmed or extended to meet). Switch on **Axes cut** to let the H and V
    axes cut when trimming. **Offset…**, **Mirror…**, **Pattern…**,
-   **Move/Copy…** (move, turn or scale the selection, or copies of it) and
-   **Project…** are there too.
+   **Move/Copy…** (move, turn or scale the selection, or copies of it),
+   **Offset both…** (a slot along the selected path), **Project…** and
+   **Cut bodies…** (the section of bodies in the sketch plane) are there too.
 5. Press **Extrude…** or **Revolve…**. Make a new body, add a boss to the
    body under the sketch, or cut a pocket.
 

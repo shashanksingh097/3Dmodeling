@@ -11,7 +11,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .sketch import Geo, Sketch, SketchError
+from . import ellipse as el
+from .sketch import kname, ELLIPSES, Geo, Sketch, SketchError
 
 
 @dataclass
@@ -71,6 +72,9 @@ def _arc_points(sk: Sketch, g: Geo, reverse: bool, n: int = 24):
     if g.kind == "SPLINE":
         pts = spline_samples(sk, g)
         return pts[::-1] if reverse else pts
+    if g.kind in ELLIPSES:
+        pts = el.polyline(sk, g, 2 * n)
+        return pts[::-1] if reverse else pts
     c = sk.pt(g.pts["C"])
     r = sk.radius(g)
     if g.kind == "CIRCLE":
@@ -108,15 +112,19 @@ def loops(sk: Sketch) -> list[Loop]:
     end that joins nothing, or a point where three curves meet, is an error
     that names the place, since a profile there is not clear."""
     tol = 1e-6 * sk.extent()
-    curves = [g for g in sk.geos.values() if not g.construction and g.kind in ("LINE", "ARC", "CIRCLE", "SPLINE")]
+    curves = [g for g in sk.geos.values() if not g.construction and g.kind in ("LINE", "ARC", "CIRCLE", "SPLINE") + ELLIPSES]
     if not curves:
-        raise SketchError(f"sketch {sk.name} has no lines, arcs, circles or splines to make a profile from "
+        raise SketchError(f"sketch {sk.name} has no lines, arcs, circles, ellipses or splines to make a profile from "
                           "(construction geometry does not count)")
     out: list[Loop] = []
     open_ones = []
     for g in curves:
         if g.kind == "CIRCLE":
             poly = _arc_points(sk, g, False, 48)[:-1]
+            p = sk.pt(g.pts["C"])
+            out.append(Loop([Piece(g, p, p, False)], poly, _area(poly)))
+        elif g.kind == "ELLIPSE":
+            poly = el.polyline(sk, g, 96)[:-1]
             p = sk.pt(g.pts["C"])
             out.append(Loop([Piece(g, p, p, False)], poly, _area(poly)))
         elif g.kind == "SPLINE" and g.closed:
@@ -139,7 +147,7 @@ def loops(sk: Sketch) -> list[Loop]:
     for g in open_ones:
         s, e = node(sk.pt(g.pts["S"])), node(sk.pt(g.pts["E"]))
         if s == e:
-            raise SketchError(f"{g.kind.lower()} {g.n} starts and ends at the same point")
+            raise SketchError(f"{kname(g.kind)} {g.n} starts and ends at the same point")
         ends[g.n] = (s, e)
         at.setdefault(s, []).append(g.n)
         at.setdefault(e, []).append(g.n)
@@ -147,7 +155,7 @@ def loops(sk: Sketch) -> list[Loop]:
         p = nodes[i]
         where = f"({p[0]:.6g}, {p[1]:.6g})"
         if len(gs) == 1:
-            raise SketchError(f"the profile is not closed: {sk.geos[gs[0]].kind.lower()} {gs[0]} ends at {where} "
+            raise SketchError(f"the profile is not closed: {kname(sk.geos[gs[0]].kind)} {gs[0]} ends at {where} "
                               f"and nothing joins it there (draw to that point, or make {gs[0]} construction)")
         if len(gs) > 2:
             raise SketchError(f"{len(gs)} curves meet at {where} ({', '.join(map(str, gs))}), so the profile there "
@@ -218,7 +226,8 @@ def _nudge(lp: Loop) -> tuple[float, float]:
     """A point to test nesting with: a circle's centre, else the first outline point."""
     xs = [p[0] for p in lp.poly]
     ys = [p[1] for p in lp.poly]
-    return (sum(xs) / len(xs), sum(ys) / len(ys)) if len(lp.pieces) == 1 and lp.pieces[0].geo.kind == "CIRCLE" \
+    return (sum(xs) / len(xs), sum(ys) / len(ys)) if len(lp.pieces) == 1 and \
+        lp.pieces[0].geo.kind in ("CIRCLE", "ELLIPSE") \
         else lp.poly[0]
 
 
@@ -282,12 +291,36 @@ def edge(sk: Sketch, g: Geo):
         from OCP.GeomAPI import GeomAPI
 
         return BRepBuilderAPI_MakeEdge(GeomAPI.To3d_s(spline2d(sk, g), _plane(sk))).Edge()
+    if g.kind in ELLIPSES:
+        return _ellipse_edge(sk, g)
     c = sk.pt(g.pts["C"])
     circ = gp_Circ(gp_Ax2(gp_Pnt(*f.point(*c)), gp_Dir(*f.z), gp_Dir(*f.x)), sk.radius(g))
     if g.kind == "CIRCLE":
         return BRepBuilderAPI_MakeEdge(circ).Edge()
     a1, a2 = sk.arc_angles(g)
     arc = GC_MakeArcOfCircle(circ, math.radians(a1), math.radians(a2), True).Value()
+    return BRepBuilderAPI_MakeEdge(arc).Edge()
+
+
+def _ellipse_edge(sk: Sketch, g: Geo):
+    """An ellipse or elliptical arc as an edge. OCCT wants the bigger radius
+    first, so when the second radius is the bigger one the frame is turned a
+    quarter and the angles with it."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+    from OCP.GC import GC_MakeArcOfEllipse
+    from OCP.gp import gp_Ax2, gp_Dir, gp_Elips, gp_Pnt
+
+    f = sk.frame
+    c, ax, a, b = el.frame(sk, g)
+    shift = 0.0
+    if b > a:
+        ax, a, b, shift = (-ax[1], ax[0]), b, a, 90.0
+    xdir = [ax[0] * f.x[i] + ax[1] * f.y[i] for i in range(3)]
+    elips = gp_Elips(gp_Ax2(gp_Pnt(*f.point(*c)), gp_Dir(*f.z), gp_Dir(*xdir)), a, b)
+    if g.kind == "ELLIPSE":
+        return BRepBuilderAPI_MakeEdge(elips).Edge()
+    t1, t2 = el.arc_params(sk, g)
+    arc = GC_MakeArcOfEllipse(elips, math.radians(t1 - shift), math.radians(t2 - shift), True).Value()
     return BRepBuilderAPI_MakeEdge(arc).Edge()
 
 

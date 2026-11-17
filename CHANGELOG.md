@@ -4,6 +4,26 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Ellipses, constraints while drawing, and the last sketch tools
+
+- Sketch ellipses and elliptical arcs: `SELLIPSE, cu, cv, a, b [, angle]`,
+  `SEARC, ..., t1, t2`, the Ellipse (I) and Elliptical arc tools. Size them
+  with `SDIM, MAJOR` and `SDIM, MINOR`; trim, split, extend, mirror,
+  pattern, move and scale them; put points `ON` them and lines `TANGENT`
+  to them. `SPROJECT` brings flat ellipse edges in as ellipses.
+- Constraints made while drawing: a click on a curve puts the point on it,
+  a line drawn on from an arc's end is tangent, a square turn off a line is
+  perpendicular. A mark by the cursor shows it first; Shift skips them, and
+  **Auto constraints** switches them off.
+- `SCIRCLET` and the Tangent circle tool: a circle touching two curves at a
+  radius, or three curves.
+- `SOFFSET2, d, ...` and **Offset both…**: a slot along a path (round or
+  flat ends), or an outline inside and outside a closed chain.
+- `SINTERSECT, body` and **Cut bodies…**: the section of bodies in the
+  sketch plane, as fixed sketch curves.
+- New sizes: `ARCLEN` (length along an arc, **Arc length…**) and `DIST`
+  from a point to an arc or circle.
+
 ### More sketch tools, and toolbars with icons
 
 - Sketch chamfer: `SCHAMFER, 1.E, d [, d2]` or `SCHAMFER, 1.E, d, ANGLE, a`,

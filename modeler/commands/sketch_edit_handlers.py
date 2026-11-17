@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 from OCP.BRepAdaptor import BRepAdaptor_Curve
-from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Ellipse, GeomAbs_Line
 from OCP.TopAbs import TopAbs_EDGE
 from OCP.TopExp import TopExp_Explorer
 
@@ -201,6 +201,26 @@ def _project_edge(sk, edge, uid: int, construction: bool) -> list:
                 if cosn < 0:  # the circle turns the other way seen from the sketch
                     a1, a2 = a2, a1
                 made.append(sk.add_arc(cen, rad, a1, a2, uid, construction))
+    if kind == GeomAbs_Ellipse:
+        elips = c.Ellipse()
+        ax = elips.Axis().Direction().Coord()
+        cosn = ax[0] * z[0] + ax[1] * z[1] + ax[2] * z[2]
+        if abs(abs(cosn) - 1) < 1e-9:
+            cen = _flat(sk.frame, elips.Location().Coord())
+            P = elips.Location().Coord()
+            xd = elips.XAxis().Direction().Coord()
+            tip = _flat(sk.frame, tuple(P[i] + elips.MajorRadius() * xd[i] for i in range(3)))
+            minor = elips.MinorRadius()
+            if abs(t1 - t0 - 2 * math.pi) < 1e-9:
+                made.append(sk.add_ellipse(cen, tip, minor, uid, construction))
+            else:
+                g = sk.add_ellipse(cen, tip, minor, uid, construction, 0.0, 90.0)
+                a, b = _flat(sk.frame, pt(t0)), _flat(sk.frame, pt(t1))
+                if cosn < 0:
+                    a, b = b, a
+                for role, q in (("S", a), ("E", b)):
+                    sk.x[g.pts[role]], sk.x[g.pts[role] + 1] = q
+                made.append(g)
     if not made:
         if kind == GeomAbs_Line:
             ts = [t0, t1]

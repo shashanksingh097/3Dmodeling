@@ -10,7 +10,8 @@ Names used in commands (case does not matter):
 ====================  =====================================================
 ``3``                 geometry 3 (a point, line, arc or circle)
 ``3.S`` ``3.E``       start and end point of line or arc 3
-``3.C``               centre of arc or circle 3
+``3.C``               centre of arc, circle or ellipse 3
+``3.A``               the end of an ellipse's first axis
 ``ORIGIN`` (or ``O``)  the sketch origin (fixed)
 ``H`` ``V``           the sketch's horizontal and vertical axes (fixed lines)
 ``C4``                constraint or dimension 4 (for SDEL)
@@ -33,10 +34,17 @@ import numpy as np
 
 from . import solver
 
-GEO_KINDS = ("POINT", "LINE", "ARC", "CIRCLE", "SPLINE")
+GEO_KINDS = ("POINT", "LINE", "ARC", "CIRCLE", "SPLINE", "ELLIPSE", "EARC")
+ELLIPSES = ("ELLIPSE", "EARC")
+_KNAMES = {"EARC": "elliptical arc"}
+
+
+def kname(kind: str) -> str:
+    """A geometry kind as words (EARC is an elliptical arc)."""
+    return _KNAMES.get(kind, kind.lower())
 CON_KINDS = ("COINCIDENT", "ON", "HORIZONTAL", "VERTICAL", "PARALLEL", "PERPENDICULAR", "TANGENT", "EQUAL",
              "MIDPOINT", "SYMMETRIC", "CONCENTRIC", "FIX")
-DIM_KINDS = ("DIST", "HDIST", "VDIST", "LENGTH", "RADIUS", "DIAMETER", "ANGLE")
+DIM_KINDS = ("DIST", "HDIST", "VDIST", "LENGTH", "RADIUS", "DIAMETER", "ANGLE", "MAJOR", "MINOR", "ARCLEN")
 
 # fixed numbers: the origin and one point on each axis
 _O, _HX, _VY = 0, 2, 4
@@ -76,7 +84,7 @@ class Con:
         return f"C{self.n}"
 
 
-_REF = re.compile(r"^\s*(\d+)\s*(?:\.\s*(K\d+|[SECP]))?\s*$", re.I)
+_REF = re.compile(r"^\s*(\d+)\s*(?:\.\s*(K\d+|[SECPA]))?\s*$", re.I)
 
 
 @dataclass
@@ -129,7 +137,10 @@ class Sketch:
         if g.kind == "ARC":
             c, s = self.pt(g.pts["C"]), self.pt(g.pts["S"])
             return math.hypot(s[0] - c[0], s[1] - c[1])
-        raise SketchError(f"{g.n} is a {g.kind.lower()}, which has no radius")
+        if g.kind in ELLIPSES:
+            raise SketchError(f"{g.n} is an ellipse, which has two radii: size them with MAJOR (along "
+                              f"{g.n}.C to {g.n}.A) and MINOR (across)")
+        raise SketchError(f"{g.n} is a {kname(g.kind)}, which has no radius")
 
     def arc_angles(self, g: Geo) -> tuple[float, float]:
         """Start and end angle of an arc in degrees, end > start (counter-clockwise)."""
@@ -150,6 +161,10 @@ class Sketch:
             if g.kind in ("CIRCLE", "ARC"):
                 c = self.pt(g.pts["C"])
                 r = self.radius(g)
+                pts += [(c[0] - r, c[1] - r), (c[0] + r, c[1] + r)]
+            elif g.kind in ELLIPSES:
+                c = self.pt(g.pts["C"])
+                r = max(math.dist(c, self.pt(g.pts["A"])), abs(self.x[g.r]))
                 pts += [(c[0] - r, c[1] - r), (c[0] + r, c[1] + r)]
         if not pts:
             return 10.0
@@ -183,7 +198,7 @@ class Sketch:
             have = ", ".join(f"{n}.{r}" for r in g.pts if r != "P" and not r.startswith("K")) or str(n)
             if g.kind == "SPLINE":
                 have += f", or the points it passes through, {n}.K1 to {n}.K{len(g.pts) - (1 if g.closed else 2)}"
-            raise SketchError(f"{g.kind.lower()} {n} has no point {t} (use {have})")
+            raise SketchError(f"{kname(g.kind)} {n} has no point {t} (use {have})")
         return Ref(t, point=g.pts[role], geo=g)
 
     def describe(self, n: int) -> str:
@@ -195,6 +210,16 @@ class Sketch:
             return f"line {n} {f(self.pt(g.pts['S']))} to {f(self.pt(g.pts['E']))}"
         if g.kind == "CIRCLE":
             return f"circle {n} at {f(self.pt(g.pts['C']))}, r {_n(self.radius(g))}"
+        if g.kind in ELLIPSES:
+            from . import ellipse as el
+
+            c, ax, a, b = el.frame(self, g)
+            ang = math.degrees(math.atan2(ax[1], ax[0]))
+            text = f"ellipse {n} at {f(c)}, radii {_n(a)} and {_n(b)}, turned {_n(ang)} deg"
+            if g.kind == "EARC":
+                t1, t2 = el.arc_params(self, g)
+                text = "elliptical arc" + text[7:] + f", {_n(t1)} to {_n(t2)} deg round it"
+            return text
         if g.kind == "SPLINE":
             pts = self.spline_points(g)
             ends = "closed" if g.closed else f"{f(pts[0])} to {f(pts[-1])}"
@@ -219,7 +244,7 @@ class Sketch:
             return (float(at[0]), float(at[1])), None
         r = self.ref(at)
         if not r.is_point:
-            raise SketchError(f"{at} is a {r.geo.kind.lower()}, not a point (use {at}.S, {at}.E or {at}.C)")
+            raise SketchError(f"{at} is a {kname(r.geo.kind)}, not a point (use {at}.S, {at}.E or {at}.C)")
         return self.pt(r.point), r
 
     def _tie(self, made: list[tuple[str, Ref | None]], uid: int) -> None:
@@ -250,6 +275,36 @@ class Sketch:
         self.x.append(float(r))
         g = self._geo("CIRCLE", {"C": cp}, r=len(self.x) - 1, construction=construction)
         self._tie([(f"{g.n}.C", rc)], uid)
+        return g
+
+    def add_ellipse(self, c, a, b: float, uid: int = 0, construction: bool = False, t1: float | None = None,
+                    t2: float | None = None) -> Geo:
+        """An ellipse round centre c, its first axis out to point a (a position
+        or a point name), b across. With t1 and t2 (degrees round it) an
+        elliptical arc from t1 to t2 counter-clockwise."""
+        (u, v), rc = self.point_value(c)
+        (au, av), ra = self.point_value(a)
+        R = math.hypot(au - u, av - v)
+        if R < 1e-9:
+            raise SketchError("the axis point is at the centre: give a point away from it")
+        if b <= 0:
+            raise SketchError("the second radius must be positive")
+        cp, ap = self._new_point(u, v), self._new_point(au, av)
+        self.x.append(float(b))
+        ri = len(self.x) - 1
+        pts = {"C": cp, "A": ap}
+        kind = "ELLIPSE"
+        if t1 is not None:
+            if t2 is None or abs(t2 - t1) < 1e-6 or abs(t2 - t1) >= 360 - 1e-6:
+                raise SketchError("an elliptical arc needs two different angles less than 360 degrees apart "
+                                  "(use SELLIPSE without angles for the whole ellipse)")
+            kind = "EARC"
+            ax = ((au - u) / R, (av - v) / R)
+            for role, t in (("S", t1), ("E", t2)):
+                ct, st = math.cos(math.radians(t)), math.sin(math.radians(t))
+                pts[role] = self._new_point(u + R * ct * ax[0] - b * st * ax[1], v + R * ct * ax[1] + b * st * ax[0])
+        g = self._geo(kind, pts, r=ri, construction=construction)
+        self._tie([(f"{g.n}.C", rc), (f"{g.n}.A", ra)], uid)
         return g
 
     def add_arc(self, c, r: float, a1: float, a2: float, uid: int = 0, construction: bool = False) -> Geo:
@@ -444,7 +499,7 @@ class Sketch:
             del self.cons[k]
         self.solve()
         extra = f" and {len(gone)} constraint{'s' if len(gone) != 1 else ''} on it" if gone else ""
-        return f"deleted {g.kind.lower()} {g.n}{extra}"
+        return f"deleted {kname(g.kind)} {g.n}{extra}"
 
     def move(self, text: str, u: float, v: float) -> None:
         """Drag: put a point (or a whole piece of geometry, by its first point) at (u, v)."""
@@ -475,6 +530,11 @@ class Sketch:
             if g.kind == "ARC":  # both ends at the same distance from the centre
                 c, s, e = g.pts["C"], g.pts["S"], g.pts["E"]
                 cons.append(solver.Constraint(-2, (c, c + 1, s, s + 1, e, e + 1), _arc_rule))
+            elif g.kind == "EARC":  # both ends on the ellipse
+                c, a = g.pts["C"], g.pts["A"]
+                for role in ("S", "E"):
+                    p = g.pts[role]
+                    cons.append(solver.Constraint(-2, (p, p + 1, c, c + 1, a, a + 1, g.r), _on_ellipse))
         scale = self.extent()
         for con in self.cons.values():
             cons.extend(_build(self, con, scale))
@@ -504,12 +564,14 @@ class Sketch:
         size = max(self.extent(), 1.0)
         for g in self.geos.values():
             short = (g.kind == "LINE" and math.dist(self.pt(g.pts["S"]), self.pt(g.pts["E"])) < 1e-7 * size) or \
-                (g.kind in ("ARC", "CIRCLE") and self.radius(g) < 1e-7 * size)
+                (g.kind in ("ARC", "CIRCLE") and self.radius(g) < 1e-7 * size) or \
+                (g.kind in ELLIPSES and min(math.dist(self.pt(g.pts["C"]), self.pt(g.pts["A"])),
+                                            abs(self.x[g.r])) < 1e-7 * size)
             if short:
                 self.x = old
                 what = "that" if blame is None else f"C{blame} ({self.cons[blame].kind.lower()})" \
                     if blame in self.cons else "that"
-                raise SketchError(f"{what} would shrink {g.kind.lower()} {g.n} to nothing: "
+                raise SketchError(f"{what} would shrink {kname(g.kind)} {g.n} to nothing: "
                                   "the sketch is over-constrained there")
         # a repeat among the constraints a tool added itself (a fillet's corner
         # point ON both lines, ...) is harmless and not the user's to clean up
@@ -577,7 +639,8 @@ def _need(con: Con, rs: list[Ref], pattern: str, msg: str) -> None:
     def fits(r: Ref, ch: str) -> bool:
         k = r.geo.kind if r.geo is not None and not r.is_point else None
         return {"P": r.is_point, "L": k == "LINE", "R": k in ("ARC", "CIRCLE"), "G": k is not None, "*": True,
-                "C": k in ("LINE", "ARC", "CIRCLE")}[ch]
+                "C": k in ("LINE", "ARC", "CIRCLE") + ELLIPSES, "E": k in ELLIPSES,
+                "A": k in ("ARC", "EARC")}[ch]
 
     if len(rs) != len(pattern) or not all(fits(r, ch) for r, ch in zip(rs, pattern)):
         raise SketchError(f"{con.kind}: {msg}")
@@ -590,24 +653,28 @@ def _check_shape(sk: Sketch, con: Con, rs: list[Ref]) -> None:
         "ON": [("PC", "give a point and a line, arc or circle, e.g. 3.S, 1")],
         "HORIZONTAL": [("L", ""), ("PP", "")], "VERTICAL": [("L", ""), ("PP", "")],
         "PARALLEL": [("LL", "give two lines")], "PERPENDICULAR": [("LL", "give two lines")],
-        "TANGENT": [("LR", ""), ("RL", ""), ("RR", "")],
-        "EQUAL": [("LL", ""), ("RR", "")],
+        "TANGENT": [("LR", ""), ("RL", ""), ("RR", ""), ("LE", ""), ("EL", "")],
+        "EQUAL": [("LL", ""), ("RR", ""), ("EE", "")],
         "MIDPOINT": [("PL", "give a point and a line")],
         "SYMMETRIC": [("PPL", "give two points and the line they mirror about")],
-        "CONCENTRIC": [("RR", "give two arcs or circles")],
+        "CONCENTRIC": [("RR", ""), ("RE", ""), ("ER", ""), ("EE", "")],
         "FIX": [("P", ""), ("G", "")],
-        "DIST": [("PP", ""), ("PL", ""), ("LP", ""), ("LL", "")],
+        "DIST": [("PP", ""), ("PL", ""), ("LP", ""), ("LL", ""), ("PR", ""), ("RP", "")],
         "HDIST": [("PP", ""), ("L", "")], "VDIST": [("PP", ""), ("L", "")],
         "LENGTH": [("L", "give a line")],
-        "RADIUS": [("R", "give an arc or circle")], "DIAMETER": [("R", "give an arc or circle")],
+        "RADIUS": [("R", "give an arc or circle (an ellipse is sized with MAJOR and MINOR)")],
+        "DIAMETER": [("R", "give an arc or circle (an ellipse is sized with MAJOR and MINOR)")],
         "ANGLE": [("LL", ""), ("L", "")],
+        "MAJOR": [("E", "give an ellipse or elliptical arc")], "MINOR": [("E", "give an ellipse or elliptical arc")],
+        "ARCLEN": [("A", "give an arc or elliptical arc")],
     }[k]
     hints = {
         "HORIZONTAL": "give a line, or two points", "VERTICAL": "give a line, or two points",
-        "TANGENT": "give a line and an arc or circle, or two arcs/circles",
-        "EQUAL": "give two lines (same length) or two arcs/circles (same radius)",
+        "TANGENT": "give a line and an arc, circle or ellipse, or two arcs/circles",
+        "CONCENTRIC": "give two arcs, circles or ellipses",
+        "EQUAL": "give two lines (same length), two arcs/circles (same radius) or two ellipses (same radii)",
         "FIX": "give a point or one piece of geometry",
-        "DIST": "give two points, a point and a line, or two parallel lines",
+        "DIST": "give two points, a point and a line, two parallel lines, or a point and an arc or circle",
         "HDIST": "give two points, or a line", "VDIST": "give two points, or a line",
         "ANGLE": "give two lines (or one line, measured from H)",
     }
@@ -661,7 +728,11 @@ def _choose_sides(sk: Sketch, con: Con, rs: list[Ref]) -> None:
     inside or outside tangency, which way an angle turns), so a dimension
     keeps the shape and never flips it."""
     k, x, d = con.kind, sk.x, con.data
-    if k == "TANGENT":
+    if k == "TANGENT" and (rs[0].geo.kind in ELLIPSES or rs[1].geo.kind in ELLIPSES):
+        ln, el = (rs[0], rs[1]) if rs[0].geo.kind == "LINE" else (rs[1], rs[0])
+        s, e = _line(sk, ln)
+        d["side"] = 1.0 if _signed_dist(sk, el.geo.pts["C"], s, e) >= 0 else -1.0
+    elif k == "TANGENT":
         if rs[0].geo.kind == "LINE" or rs[1].geo.kind == "LINE":
             ln, rd = (rs[0], rs[1]) if rs[0].geo.kind == "LINE" else (rs[1], rs[0])
             s, e = _line(sk, ln)
@@ -680,6 +751,12 @@ def _choose_sides(sk: Sketch, con: Con, rs: list[Ref]) -> None:
             d["at"] = {role: [x[p], x[p + 1]] for role, p in g.pts.items()}
             if g.r is not None:
                 d["r"] = x[g.r]
+    elif k == "DIST" and any(r.geo is not None and not r.is_point and r.geo.kind in ("ARC", "CIRCLE") for r in rs):
+        pt, rd = (rs[0], rs[1]) if rs[0].is_point else (rs[1], rs[0])
+        c = rd.geo.pts["C"]
+        gap = math.hypot(x[pt.point] - x[c], x[pt.point + 1] - x[c + 1]) - sk.radius(rd.geo)
+        d["side"] = 1.0 if gap >= 0 else -1.0  # outside or inside the circle
+        d["now"] = abs(gap)
     elif k == "DIST":
         if rs[0].is_point and rs[1].is_point:
             p, q = rs[0].point, rs[1].point
@@ -709,6 +786,13 @@ def _choose_sides(sk: Sketch, con: Con, rs: list[Ref]) -> None:
         d["now"] = math.hypot(x[e] - x[s], x[e + 1] - x[s + 1])
     elif k in ("RADIUS", "DIAMETER"):
         d["now"] = sk.radius(rs[0].geo) * (2 if k == "DIAMETER" else 1)
+    elif k == "MAJOR":
+        g = rs[0].geo
+        d["now"] = math.dist(sk.pt(g.pts["C"]), sk.pt(g.pts["A"]))
+    elif k == "MINOR":
+        d["now"] = abs(x[rs[0].geo.r])
+    elif k == "ARCLEN":
+        d["now"] = arc_length(sk, rs[0].geo)
     elif k == "ANGLE":
         a = _cur_angle(sk, rs[0], rs[1] if len(rs) > 1 else None)
         d["side"] = 1.0 if a >= 0 else -1.0
@@ -743,6 +827,8 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
         elif g.kind == "CIRCLE":
             c = g.pts["C"]
             out.append(C(tag, pts(p, c) + (g.r,), lambda v: [math.hypot(v[0] - v[2], v[1] - v[3]) - abs(v[4])]))
+        elif g.kind in ELLIPSES:
+            out.append(C(tag, pts(p, g.pts["C"], g.pts["A"]) + (g.r,), _on_ellipse))
         else:
             c, s = g.pts["C"], g.pts["S"]
             out.append(C(tag, pts(p, c, s), lambda v: [math.hypot(v[0] - v[2], v[1] - v[3])
@@ -765,6 +851,12 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
             s2, e2 = _line(sk, rs[1])
         target = math.radians(val) * d.get("side", 1.0)
         out.append(C(tag, pts(s1, e1, s2, e2), lambda v, t=target: [_angle_err(v, t) * scale]))
+    elif k == "TANGENT" and (rs[0].geo.kind in ELLIPSES or rs[1].geo.kind in ELLIPSES):
+        ln, el = (rs[0], rs[1]) if rs[0].geo.kind == "LINE" else (rs[1], rs[0])
+        s, e = _line(sk, ln)
+        g = el.geo
+        out.append(C(tag, pts(s, e, g.pts["C"], g.pts["A"]) + (g.r,),
+                     lambda v, sd=d.get("side", 1.0): [_ellipse_touch(v, sd)]))
     elif k == "TANGENT":
         joint = _shared_end(sk, rs[0].geo, rs[1].geo)
         if joint is not None:
@@ -812,6 +904,11 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
                 return [dist - (abs(rr[0] - rr[1]) if inner else rr[0] + rr[1])]
 
             out.append(C(tag, tuple(idx), tan_cc))
+    elif k == "EQUAL" and rs[0].geo.kind in ELLIPSES:
+        g1, g2 = rs[0].geo, rs[1].geo
+        out.append(C(tag, pts(g1.pts["C"], g1.pts["A"], g2.pts["C"], g2.pts["A"]),
+                     lambda v: [math.hypot(v[2] - v[0], v[3] - v[1]) - math.hypot(v[6] - v[4], v[7] - v[5])]))
+        out.append(C(tag, (g1.r, g2.r), lambda v: [abs(v[0]) - abs(v[1])]))
     elif k == "EQUAL":
         if rs[0].geo.kind == "LINE":
             s1, e1 = _line(sk, rs[0])
@@ -865,6 +962,16 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
                 out.append(C(tag, pts(p), lambda v, a=a: [v[0] - a[0], v[1] - a[1]]))
             if g.r is not None:
                 out.append(C(tag, (g.r,), lambda v, r=d["r"]: [v[0] - r]))
+    elif k == "DIST" and any(r.geo is not None and not r.is_point and r.geo.kind in ("ARC", "CIRCLE") for r in rs):
+        pt, rd = (rs[0], rs[1]) if rs[0].is_point else (rs[1], rs[0])
+        c, ri, sp = _round(sk, rd)
+        t = val * d.get("side", 1.0)
+        if ri is not None:
+            out.append(C(tag, pts(pt.point, c) + (ri,), lambda v, t=t: [
+                math.hypot(v[0] - v[2], v[1] - v[3]) - abs(v[4]) - t]))
+        else:
+            out.append(C(tag, pts(pt.point, c, sp), lambda v, t=t: [
+                math.hypot(v[0] - v[2], v[1] - v[3]) - math.hypot(v[4] - v[2], v[5] - v[3]) - t]))
     elif k == "DIST":
         if rs[0].is_point and rs[1].is_point:
             out.append(C(tag, pts(rs[0].point, rs[1].point),
@@ -895,6 +1002,18 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
             out.append(C(tag, (ri,), lambda v, t=r: [abs(v[0]) - t]))
         else:
             out.append(C(tag, pts(c, sp), lambda v, t=r: [math.hypot(v[2] - v[0], v[3] - v[1]) - t]))
+    elif k == "MAJOR":
+        g = rs[0].geo
+        out.append(C(tag, pts(g.pts["C"], g.pts["A"]), lambda v, t=val: [math.hypot(v[2] - v[0], v[3] - v[1]) - t]))
+    elif k == "MINOR":
+        out.append(C(tag, (rs[0].geo.r,), lambda v, t=val: [abs(v[0]) - t]))
+    elif k == "ARCLEN":
+        g = rs[0].geo
+        if g.kind == "ARC":
+            out.append(C(tag, pts(g.pts["C"], g.pts["S"], g.pts["E"]), lambda v, t=val: [_arc_len(v) - t]))
+        else:
+            out.append(C(tag, pts(g.pts["C"], g.pts["A"], g.pts["S"], g.pts["E"]) + (g.r,),
+                         lambda v, t=val: [_earc_len(v) - t]))
     elif k == "OFFSET":
         out += _offset_eqs(sk, con, rs, pts)
     elif k == "COPY":
@@ -947,8 +1066,8 @@ def _copy_eqs(sk: Sketch, con: Con, rs: list[Ref], pts) -> list[solver.Constrain
     new, orig = rs[0].geo, rs[1].geo
     T, tag = con.data["T"], con.n
     roles = {r: r for r in new.pts}
-    if T == "MIRROR" and new.kind == "ARC":
-        roles = {"C": "C", "S": "E", "E": "S"}
+    if T == "MIRROR" and new.kind in ("ARC", "EARC"):
+        roles = {**roles, "S": "E", "E": "S"}
     out = []
     for rn, ro in roles.items():
         p, o = new.pts[rn], orig.pts[ro]
@@ -973,7 +1092,7 @@ def _copy_eqs(sk: Sketch, con: Con, rs: list[Ref], pts) -> list[solver.Constrain
                 x, y = v[2] - v[4], v[3] - v[5]
                 return [v[0] - (v[4] + x * ca - y * sa), v[1] - (v[5] + x * sa + y * ca)]
             out.append(C(tag, pts(p, o, c), turn))
-    if new.kind == "CIRCLE":
+    if new.kind in ("CIRCLE",) + ELLIPSES:
         out.append(C(tag, (new.r, orig.r), lambda v: [abs(v[0]) - abs(v[1])]))
     return out
 
@@ -1036,3 +1155,69 @@ def _angle_err(v, target: float) -> float:
     a = math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1])
     err = a - target
     return math.atan2(math.sin(err), math.cos(err))
+
+
+def _ellipse_parts(c, a, b):
+    """(unit first axis, first radius, second radius) from raw numbers."""
+    dx, dy = a[0] - c[0], a[1] - c[1]
+    R = math.hypot(dx, dy) or 1e-12
+    return (dx / R, dy / R), R, abs(b) or 1e-12
+
+
+def _on_ellipse(v):
+    """v = point, centre, axis point, second radius: about the distance of
+    the point off the ellipse."""
+    from .ellipse import level
+
+    ax, a, b = _ellipse_parts(v[2:4], v[4:6], v[6])
+    d = (v[0] - v[2], v[1] - v[3])
+    return [level(a, b, d[0] * ax[0] + d[1] * ax[1], -d[0] * ax[1] + d[1] * ax[0])]
+
+
+def _ellipse_touch(v, side: float) -> float:
+    """v = line start, line end, centre, axis point, second radius: the
+    line's distance from the centre minus the ellipse's reach across it
+    (zero when the line touches the ellipse, the centre on ``side``)."""
+    dx, dy = v[2] - v[0], v[3] - v[1]
+    L = math.hypot(dx, dy) or 1e-12
+    n = (-dy / L, dx / L)
+    ax, a, b = _ellipse_parts(v[4:6], v[6:8], v[8])
+    reach = math.hypot(a * (n[0] * ax[0] + n[1] * ax[1]), b * (-n[0] * ax[1] + n[1] * ax[0]))
+    dist = (v[4] - v[0]) * n[0] + (v[5] - v[1]) * n[1]
+    return dist - side * reach
+
+
+def _arc_len(v) -> float:
+    """v = centre, start, end of a circular arc (counter-clockwise)."""
+    r = math.hypot(v[2] - v[0], v[3] - v[1])
+    a1 = math.atan2(v[3] - v[1], v[2] - v[0])
+    a2 = math.atan2(v[5] - v[1], v[4] - v[0])
+    sweep = (a2 - a1) % (2 * math.pi) or 2 * math.pi
+    return r * sweep
+
+
+def _earc_len(v, n: int = 96) -> float:
+    """v = centre, axis point, start, end, second radius of an elliptical arc."""
+    ax, a, b = _ellipse_parts(v[0:2], v[2:4], v[8])
+
+    def t_of(px, py):
+        d = (px - v[0], py - v[1])
+        return math.atan2((-d[0] * ax[1] + d[1] * ax[0]) / b, (d[0] * ax[0] + d[1] * ax[1]) / a)
+
+    t1, t2 = t_of(v[4], v[5]), t_of(v[6], v[7])
+    sweep = (t2 - t1) % (2 * math.pi) or 2 * math.pi
+    h = sweep / n
+    total = 0.0
+    for i in range(n + 1):  # Simpson's rule on the speed
+        t = t1 + i * h
+        w = 1 if i in (0, n) else (4 if i % 2 else 2)
+        total += w * math.hypot(a * math.sin(t), b * math.cos(t))
+    return total * h / 3
+
+
+def arc_length(sk: Sketch, g: Geo) -> float:
+    """Length along an arc or elliptical arc."""
+    if g.kind == "ARC":
+        return _arc_len([*sk.pt(g.pts["C"]), *sk.pt(g.pts["S"]), *sk.pt(g.pts["E"])])
+    return _earc_len([*sk.pt(g.pts["C"]), *sk.pt(g.pts["A"]), *sk.pt(g.pts["S"]), *sk.pt(g.pts["E"]),
+                      sk.x[g.r]])

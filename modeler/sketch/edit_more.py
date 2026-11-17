@@ -10,9 +10,12 @@ message says which of the user's constraints had to go.
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 
+from . import edit as ed
+from . import ellipse as el
 from . import sketch as _sk
 from .edit import (
     _add,
@@ -40,7 +43,7 @@ from .edit import (
     _copy_geo,
     trim,
 )
-from .sketch import Geo, Sketch, SketchError, _geo_of
+from .sketch import kname, Geo, Sketch, SketchError, _geo_of
 
 CORNER = re.compile(r"^\s*\d+\s*\.\s*[SE]\s*$", re.I)
 
@@ -103,7 +106,7 @@ def chamfer(sk: Sketch, corner: str, d1: float, d2: float | None = None, angle: 
     l1, a, l2, b = _corner(sk, corner)
     if l1.kind != "LINE" or l2.kind != "LINE":
         raise SketchError(f"a chamfer goes where two lines meet; {corner} joins a "
-                          f"{l1.kind.lower()} and a {l2.kind.lower()} (SFILLET rounds arcs)")
+                          f"{kname(l1.kind)} and a {kname(l2.kind)} (SFILLET rounds arcs)")
     P = sk.pt(l1.pts[a])
     o1 = sk.pt(l1.pts["E" if a == "S" else "S"])
     o2 = sk.pt(l2.pts["E" if b == "S" else "S"])
@@ -157,6 +160,8 @@ def chamfer(sk: Sketch, corner: str, d1: float, d2: float | None = None, angle: 
 
 def _foot(sk: Sketch, g: Geo, q):
     """The point of g's carrier nearest q."""
+    if g.kind in ed.ELLIPSES:
+        return el.foot(sk, g, q)[0]
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         d = _unit(_sub(b, a))
@@ -172,20 +177,20 @@ def split(sk: Sketch, n: int, at: list | int | str, uid: int = 0) -> tuple[str, 
     to where it was given) or where curve ``at`` (a number, or H / V) crosses
     it. The pieces stay joined end to end, on one line or circle. A circle
     needs two places or more, and becomes arcs."""
-    g = _curve(sk, n, "SSPLIT")
-    was = g.kind.lower()
+    g = _curve(sk, n, "SSPLIT", ellipse=True)
+    was = kname(g.kind)
     span, eps = _span(sk, g), _eps(sk, g)
     cutter = None
     if isinstance(at, (int, str)):
         cutter = at
         if cutter not in ("H", "V"):
-            _curve(sk, cutter, "SSPLIT")
+            _curve(sk, cutter, "SSPLIT", ellipse=True)
             if cutter == n:
                 raise SketchError("a curve cannot be split by itself")
         params = [p for p, _, _ in _cuts(sk, g, only=cutter)]
     else:
         params = [_param(sk, g, _foot(sk, g, q)) for q in at]
-    if g.kind == "CIRCLE":
+    if g.kind in ed.CLOSED:
         inside = sorted({round(p % 360.0, 9) for p in params})
     else:
         inside = sorted({round(p, 12) for p in params if eps < p < span - eps})
@@ -193,31 +198,28 @@ def split(sk: Sketch, n: int, at: list | int | str, uid: int = 0) -> tuple[str, 
     for p in inside:
         if not keep or p - keep[-1] > eps:
             keep.append(p)
-    if g.kind == "CIRCLE" and len(keep) > 1 and keep[0] + 360 - keep[-1] <= eps:
+    if g.kind in ed.CLOSED and len(keep) > 1 and keep[0] + 360 - keep[-1] <= eps:
         keep.pop()
-    if not keep or (g.kind == "CIRCLE" and len(keep) < 2):
+    if not keep or (g.kind in ed.CLOSED and len(keep) < 2):
         if cutter is not None:
-            raise SketchError(f"{cutter} does not cross {g.kind.lower()} {n} "
-                              + ("in two places" if g.kind == "CIRCLE" and keep else "on its drawn part"))
-        if g.kind == "CIRCLE":
+            raise SketchError(f"{cutter} does not cross {kname(g.kind)} {n} "
+                              + ("in two places" if g.kind in ed.CLOSED and keep else "on its drawn part"))
+        if g.kind in ed.CLOSED:
             raise SketchError(f"a circle is split in two places or more (give two points); circle {n} "
                               "has no ends to split at one")
-        raise SketchError(f"that point is at an end of {g.kind.lower()} {n} or beyond it; split it between its ends")
+        raise SketchError(f"that point is at an end of {kname(g.kind)} {n} or beyond it; split it between its ends")
     said: list[str] = []
     pts = [_point_at(sk, g, p) for p in keep]
     made: list[Geo] = []
-    if g.kind == "CIRCLE":
+    if g.kind in ed.CLOSED:
         _drop(sk, [k for k, c in sk.cons.items()
                    if any(_parts(r) == (n, "") for r in c.refs) and c.kind in ("FIX", "OFFSET", "COPY")], said)
-        c = sk.pt(g.pts["C"])
-        r = sk.radius(g)
-        angs = [_ang(c, q) for q in pts]
-        s, e = sk._new_point(*pts[0]), sk._new_point(*pts[1])
-        g.kind, g.pts, g.r = "ARC", {"C": g.pts["C"], "S": s, "E": e}, None
+        whole = copy.deepcopy(g)  # the full circle or ellipse, to cut the other pieces from
+        ed.open_up(sk, g, pts[0], pts[1])
         prev = g
         for i in range(1, len(pts)):
-            nxt = sk.add_arc(c, r, angs[i], angs[(i + 1) % len(pts)], uid, g.construction)
-            sk.add_con("COINCIDENT", (f"{nxt.n}.C", f"{n}.C"), uid=uid, auto=True, solve=False)
+            nxt = ed.piece_of(sk, whole, pts[i], pts[(i + 1) % len(pts)], uid)
+            ed.same_carrier(sk, nxt, n, uid)
             sk.add_con("COINCIDENT", (f"{prev.n}.E", f"{nxt.n}.S"), uid=uid, auto=True, solve=False)
             made.append(nxt)
             prev = nxt
@@ -227,12 +229,8 @@ def split(sk: Sketch, n: int, at: list | int | str, uid: int = 0) -> tuple[str, 
         _drop(sk, [k for k, c in sk.cons.items() if _extent_bound(sk, c, n)], said)
         end = sk.pt(g.pts["E"])
         ends = pts[1:] + [end]
-        c = sk.pt(g.pts["C"]) if g.kind == "ARC" else None
         for q0, q1 in zip(pts, ends):
-            if g.kind == "LINE":
-                made.append(sk.add_line(q0, q1, uid, g.construction))
-            else:
-                made.append(sk.add_arc(c, sk.radius(g), _ang(c, q0), _ang(c, q1), uid, g.construction))
+            made.append(ed.piece_of(sk, g, q0, q1, uid))
         _rename(sk, (n, "E"), f"{made[-1].n}.E")
         _set(sk, g.pts["E"], pts[0])
         prev = g
@@ -240,8 +238,8 @@ def split(sk: Sketch, n: int, at: list | int | str, uid: int = 0) -> tuple[str, 
             sk.add_con("COINCIDENT", (f"{prev.n}.E", f"{piece.n}.S"), uid=uid, auto=True, solve=False)
             if g.kind == "LINE":  # the pieces stay on one line ...
                 sk.add_con("ON", (f"{piece.n}.E", str(n)), uid=uid, auto=True, solve=False)
-            else:  # ... or on one circle
-                sk.add_con("COINCIDENT", (f"{piece.n}.C", f"{n}.C"), uid=uid, auto=True, solve=False)
+            else:  # ... or on one circle or ellipse
+                ed.same_carrier(sk, piece, n, uid)
             prev = piece
         joints = [f"{x.n}.S" for x in made]
     if cutter is not None:  # the split points stay where the cutting curve crosses
@@ -298,12 +296,12 @@ def corner(sk: Sketch, n1: int, n2: int, picks=None, uid: int = 0) -> str:
         raise SketchError("give two different curves")
     g1, g2 = _curve(sk, n1, "SCORNER"), _curve(sk, n2, "SCORNER")
     for g in (g1, g2):
-        if g.kind == "CIRCLE":
+        if g.kind in ed.CLOSED:
             raise SketchError(f"{g.n} is a circle, which has no ends to bring to a corner (STRIM it first)")
     hits = _carrier_hits(sk, g1, g2)
     if not hits:
         what = "they are parallel" if g1.kind == g2.kind == "LINE" else "their lines and circles never cross"
-        raise SketchError(f"{g1.kind.lower()} {n1} and {g2.kind.lower()} {n2} never meet: {what}")
+        raise SketchError(f"{kname(g1.kind)} {n1} and {kname(g2.kind)} {n2} never meet: {what}")
     p1, p2 = (picks or (None, None))
     best = None
     for q in hits:
@@ -318,7 +316,7 @@ def corner(sk: Sketch, n1: int, n2: int, picks=None, uid: int = 0) -> str:
     for g, r in ((g1, r1), (g2, r2)):
         other = sk.pt(g.pts["E" if r == "S" else "S"])
         if math.dist(other, q) <= tol:
-            raise SketchError(f"the corner is at the other end of {g.kind.lower()} {g.n}, so nothing of it would be left")
+            raise SketchError(f"the corner is at the other end of {kname(g.kind)} {g.n}, so nothing of it would be left")
     said: list[str] = []
     moved = []
     for g, r in ((g1, r1), (g2, r2)):
@@ -332,7 +330,7 @@ def corner(sk: Sketch, n1: int, n2: int, picks=None, uid: int = 0) -> str:
         sk.add_con("COINCIDENT", (f"{n1}.{r1}", f"{n2}.{r2}"), uid=uid, auto=True, solve=False)
     sk.solve()
     how = f" (moved {', '.join(moved)})" if moved else " (they already met there)"
-    return f"brought {g1.kind.lower()} {n1} and {g2.kind.lower()} {n2} to a corner at {n1}.{r1}{how}{_dropped(said)}"
+    return f"brought {kname(g1.kind)} {n1} and {kname(g2.kind)} {n2} to a corner at {n1}.{r1}{how}{_dropped(said)}"
 
 
 # =============================================================================
@@ -361,7 +359,7 @@ def trim_many(sk: Sketch, picks: list[tuple[int, tuple[float, float]]], uid: int
 # move, rotate, scale, copy
 # =============================================================================
 
-_SIZES = ("DIST", "HDIST", "VDIST", "LENGTH", "RADIUS", "DIAMETER")
+_SIZES = ("DIST", "HDIST", "VDIST", "LENGTH", "RADIUS", "DIAMETER", "MAJOR", "MINOR", "ARCLEN")
 
 
 def _mapping(kind: str, values, sk: Sketch):
@@ -499,4 +497,58 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
     return f"{how}: {', '.join(str(g.n) for g in geos)}{_dropped(said)}", geos
 
 
-__all__ = ["CORNER", "chamfer", "split", "corner", "trim_many", "transform"]
+__all__ = ["CORNER", "chamfer", "split", "corner", "trim_many", "transform", "offset_both"]
+
+
+# =============================================================================
+# offset to both sides, with closed ends
+# =============================================================================
+
+def offset_both(sk: Sketch, d: float, names: list, flat: bool = False, uid: int = 0) -> tuple[str, list[Geo]]:
+    """Offset curves by d to both sides. An open chain gets its two offsets
+    joined at each end by a half circle round the chain's end (or a straight
+    line with ``flat``), so the result is one closed outline: a slot along a
+    path. A closed chain gets an outline inside and one outside. The
+    curves offset become construction geometry (the middle of the outline)."""
+    if d <= 0:
+        raise SketchError("the distance must be positive (it goes to both sides)")
+    geos = []
+    for t in names:
+        g = _curve(sk, ed._num(t), "SOFFSET2")
+        if g not in geos:
+            geos.append(g)
+    if not geos:
+        raise SketchError("give the curves to offset")
+    made: list[Geo] = []
+    for chain, closed in ed._chains(sk, geos):
+        left = ed._offset_chain(sk, chain, closed, d, uid)
+        right = ed._offset_chain(sk, chain, closed, -d, uid)
+        made += left + right
+        for pc in chain:  # the path is the middle of the outline now
+            pc.g.construction = True
+        if closed:
+            continue
+        first, last = chain[0], chain[-1]
+        for pc, role, inward in ((first, "S" if first.fwd else "E", True),
+                                 (last, "E" if last.fwd else "S", False)):
+            P = sk.pt(pc.g.pts[role])
+            t = ed._tangent(sk, pc.g, P, pc.fwd)
+            if not inward:
+                t = (-t[0], -t[1])  # into the chain from this end
+            e1, e2 = _nearest_end(sk, left, P), _nearest_end(sk, right, P)
+            if flat:
+                cap = sk.add_line(e1, e2, uid)
+            else:
+                mid = (P[0] - t[0] * d, P[1] - t[1] * d)
+                cap = sk.add_arc_3p(e1, mid, e2, uid)
+                sk.add_con("COINCIDENT", (f"{cap.n}.C", f"{pc.g.n}.{role}"), uid=uid, auto=True, solve=False)
+            made.append(cap)
+    sk.solve()
+    shown = f"{made[0].n}..{made[-1].n}" if len(made) > 3 else ", ".join(str(g.n) for g in made)
+    return f"offset {', '.join(str(g.n) for g in geos)} by {_n(d)} to both sides: {shown}", made
+
+
+def _nearest_end(sk: Sketch, geos: list[Geo], P) -> str:
+    """The name of the end of these curves nearest P."""
+    best = min(((math.dist(sk.pt(g.pts[r]), P), f"{g.n}.{r}") for g in geos for r in ("S", "E") if r in g.pts))
+    return best[1]

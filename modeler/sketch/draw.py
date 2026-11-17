@@ -196,3 +196,68 @@ def arc_slot(sk: Sketch, centre, r: float, a1: float, a2: float, w: float, uid: 
     return [outer, cap2, inner, cap1, mid]
 
 
+
+
+def circle_tangent(sk: Sketch, curves: list, at, r: float | None = None, uid: int = 0,
+                   construction: bool = False) -> Geo:
+    """A circle touching two or three curves (lines, arcs, circles; a line
+    and an ellipse), the one nearest the point ``at``. With two curves give
+    its radius r; with three the radius follows from them."""
+    names = [str(c).strip().upper() for c in curves]
+    if len(names) not in (2, 3):
+        raise SketchError("give two curves and a radius, or three curves")
+    if len(names) == 2 and (r is None or r <= 0):
+        raise SketchError("with two curves give the radius too (a positive number)")
+    if len(names) == 3 and r is not None:
+        raise SketchError("three curves already fix the size: leave the radius out")
+    refs = [sk.ref(n) for n in names]
+    for n, ref in zip(names, refs):
+        if ref.is_point or ref.geo is None or ref.geo.kind not in ("LINE", "ARC", "CIRCLE", "ELLIPSE", "EARC"):
+            raise SketchError(f"{n} is not a line, arc, circle or ellipse")
+    if len(set(names)) < len(names):
+        raise SketchError("give different curves")
+    (u, v), _ = sk.point_value(at)
+    if r is None:  # start at the size that reaches the nearest of them
+        r = max(min(_gap(sk, ref.geo, (u, v)) for ref in refs), 1e-3 * sk.extent())
+    g = sk.add_circle((u, v), r, uid, construction)
+    try:
+        for n in names:
+            sk.add_con("TANGENT", (str(g.n), n) if n not in ("H", "V") else (n, str(g.n)), uid=uid, auto=False,
+                       solve=False)
+        if len(names) == 2:
+            sk.add_con("RADIUS", (str(g.n),), r, uid=uid, solve=False)
+        _place(sk, g)  # move only the new circle into place, then solve the whole sketch
+        sk.solve()
+    except SketchError:
+        raise SketchError("no circle near that point touches all of them" +
+                          (f" at radius {r:g}" if len(names) == 2 else "") +
+                          ": click nearer to where it should go") from None
+    return g
+
+
+def _gap(sk: Sketch, g: Geo, q) -> float:
+    """How far q is from the full line, circle or ellipse of g."""
+    if g.kind == "LINE":
+        a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+        d = _sub(b, a)
+        L = math.hypot(*d) or 1e-12
+        return abs(d[0] * (q[1] - a[1]) - d[1] * (q[0] - a[0])) / L
+    if g.kind in ("ELLIPSE", "EARC"):
+        from . import ellipse as el
+
+        return math.dist(el.foot(sk, g, q)[0], q)
+    return abs(math.dist(sk.pt(g.pts["C"]), q) - sk.radius(g))
+
+
+def _place(sk: Sketch, g: Geo) -> None:
+    """Solve for the new curve g alone, everything else held where it is."""
+    import numpy as np
+
+    from . import solver
+
+    mine = {i for p in g.pts.values() for i in (p, p + 1)} | ({g.r} if g.r is not None else set())
+    x = np.array(sk.x, dtype=float)
+    cons, fixed = sk._system()
+    fixed = set(fixed) | (set(range(len(x))) - mine)
+    solver.solve(x, cons, fixed, diagnose=False)
+    sk.x = [float(c) for c in x]
