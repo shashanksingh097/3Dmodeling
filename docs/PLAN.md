@@ -369,7 +369,7 @@ spring is a short script whose numbers you can change later.
 - **Measure commands**: `DIST`, `ANGLE`, `MASSPROP` (volume, mass, centre, inertia with a material density), `CLASH` (overlap and clearance between bodies) `[done]`; minimum wall thickness `[M3]`
 - Layers (show, hide, lock, colour, current layer), colours, materials with densities, mass from materials, `ISOLATE` `[done]`
 - Section view (`SECTION`), hide/show and isolate `[done]`
-- Import/export STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of PLY, OFF, VTK and simulation meshes (volume meshes keep their outer skin), each mesh piece a faceted body `[done]` (LANGUAGE.md section 10); drawings (2D projection to DXF/SVG) `[M8]`
+- Import/export STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of PLY, OFF, VTK and simulation meshes (volume meshes keep their outer skin), each mesh piece a faceted body `[done]` (LANGUAGE.md section 10); drawings (2D projection to DXF/SVG, `DRAWING`) `[done]`
 - Autosave and crash recovery from the log `[M2]`
 - Results checked after every boolean and blend, `CHECK`, `HEAL`, `CLEAN` `[done]`; auto-heal on import, sewing with a tolerance, defeaturing (remove small holes and fillets) `[M4]`
 - History that stays fast: skip entries whose inputs did not change (dependency tracking), rebuild on a worker thread with progress and cancel, so the window never freezes `[M3]`
@@ -796,7 +796,11 @@ Still open in the milestones already started, in the suggested order:
    dark themes, with a setting for icons only / icons and names. The groups
    sit on ribbon tabs (Home, Model, Features, Freeform, Inspect, and three
    sketch tabs), so they take one row, with quick-access icons on every tab.
-9. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
+9. Done: M8 polish (docs/M8-polish.md): 2D drawings (`DRAWING`, DXF and
+   SVG, standard views with hidden lines), preferences and themes (light,
+   dark, system; view background; toolbar buttons), and code signing in
+   the release workflow, ready for the owner's certificates. Still open
+   in M8: dimensions on drawings, and installers (.msi, .dmg).
 10. The rest of M9c: "use your own key", picking for the assistant,
    pictures as a fallback, the benchmark of modelling requests, and these
    improvements to the Assistant panel asked for by the user after 0.2.0:

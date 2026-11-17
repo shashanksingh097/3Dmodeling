@@ -38,6 +38,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    env:  # "yes" when the signing secrets are set (a step's own env is not seen by its `if`)
+      WIN_SIGN: ${{ secrets.WINDOWS_CERT_PFX != '' && 'yes' || '' }}
+      MAC_SIGN: ${{ secrets.MACOS_CERT_P12 != '' && 'yes' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +70,44 @@ jobs:
           test "v$v" = "$TAG" || { echo "modeler.__version__ is $v but the tag is $TAG"; exit 1; }
       - name: Build
         run: pyinstaller packaging/3Dmodeling.spec --noconfirm
+      # Code signing runs only when the signing secrets are set (see docs/RELEASING.md);
+      # without them the builds are unsigned, as before.
+      - name: Sign (Windows)
+        if: runner.os == 'Windows' && env.WIN_SIGN == 'yes'
+        env:
+          WIN_CERT: ${{ secrets.WINDOWS_CERT_PFX }}
+          WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CERT))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          foreach ($exe in Get-ChildItem dist\3Dmodeling\*.exe) {
+            & $signtool.FullName sign /f $pfx /p $env:WIN_CERT_PASSWORD /fd SHA256 `
+              /tr http://timestamp.digicert.com /td SHA256 /d 3Dmodeling $exe.FullName
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Remove-Item $pfx
+      - name: Sign (macOS)
+        if: runner.os == 'macOS' && env.MAC_SIGN == 'yes'
+        env:
+          MAC_CERT: ${{ secrets.MACOS_CERT_P12 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        shell: bash
+        run: |
+          kc="$RUNNER_TEMP/sign.keychain-db"; kp=$(uuidgen)
+          echo "$MAC_CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kp" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kp" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MAC_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security list-keychain -d user -s "$kc"
+          rm "$RUNNER_TEMP/cert.p12"
+          codesign --force --deep --options runtime --timestamp \
+            --entitlements packaging/entitlements.plist --sign "$MAC_IDENTITY" dist/3Dmodeling.app
+          codesign --verify --deep --strict --verbose=2 dist/3Dmodeling.app
       - name: Smoke test (headless)
         shell: bash
         run: |
@@ -81,13 +122,25 @@ jobs:
           echo "$out" | grep -q "not signed in"
       - name: Pack
         shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           v=$(python -c "import modeler; print(modeler.__version__)")
           out="3Dmodeling-$v-${{ matrix.name }}"
           mkdir -p release
           case "$RUNNER_OS" in
             Windows) (cd dist && 7z a -tzip "../release/$out.zip" 3Dmodeling >/dev/null) ;;
-            macOS)   ditto -c -k --keepParent dist/3Dmodeling.app "release/$out.zip" ;;
+            macOS)
+              ditto -c -k --keepParent dist/3Dmodeling.app "release/$out.zip"
+              if [ -n "$APPLE_ID" ] && [ "$MAC_SIGN" = "yes" ]; then  # notarize, staple, pack again
+                xcrun notarytool submit "release/$out.zip" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+                  --password "$APPLE_APP_PASSWORD" --wait
+                xcrun stapler staple dist/3Dmodeling.app
+                rm "release/$out.zip"
+                ditto -c -k --keepParent dist/3Dmodeling.app "release/$out.zip"
+              fi ;;
             Linux)   tar -C dist -czf "release/$out.tar.gz" 3Dmodeling ;;
           esac
           ls -l release
@@ -112,6 +165,8 @@ jobs:
         with:
           path: release
           merge-multiple: true
+      - name: Checksums
+        run: (cd release && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - name: Release notes from CHANGELOG.md
         shell: bash
         run: |

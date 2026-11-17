@@ -4,6 +4,17 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Drawings, themes and signed builds
+
+- `DRAWING, file.svg/.dxf [, views] [, body]` and **File > Export drawing…**:
+  2D drawings at true size, the front, top, right and iso views by default,
+  hidden edges dashed. DXF files have layers VISIBLE, HIDDEN and TEXT.
+- **View > Preferences…**: a light or dark theme (or the system's), the 3D
+  view's background, and how toolbar buttons show. Kept between sessions.
+- The release workflow signs the Windows and macOS builds (and notarizes
+  the macOS one) once signing certificates are added as repository
+  secrets (docs/RELEASING.md), and adds `SHA256SUMS.txt` to each release.
+
 ### Splines in the sketch editing tools
 
 - Trim, extend and split splines (`STRIM`, `SEXTEND`, `SSPLIT` and their

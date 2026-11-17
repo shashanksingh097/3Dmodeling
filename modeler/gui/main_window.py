@@ -498,6 +498,9 @@ class MainWindow(QMainWindow):
         from . import toolbars as _tbs
 
         _tbs.restore(self)
+        from . import prefs as _prefs
+
+        _prefs.restore(self)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
@@ -669,7 +672,18 @@ class MainWindow(QMainWindow):
         m = self.menuBar().addMenu("&View")
         tbs.style_menu(self, m)
         tbs.ribbon_menu(self, m)
+        m.addSeparator()
+        a = m.addAction("&Preferences…")
+        a.setShortcut("Ctrl+,")
+        a.setToolTip("Theme (light, dark or the system's), the 3D view's background and the toolbar buttons")
+        a.triggered.connect(self.open_preferences)
+        self.preferences_action = a
         self.view_menu = m
+
+    def open_preferences(self):
+        from .prefs import open_dialog
+
+        return open_dialog(self)
 
     def open_sweep_editor(self, row: int | None = None):
         """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""
