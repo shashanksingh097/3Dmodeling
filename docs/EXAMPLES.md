@@ -1912,6 +1912,8 @@ A cover plate drawn with the newer sketch tools: a chamfer of equal sides, a cha
 
 **Script:** [scripts/cover_plate.cmd](../scripts/cover_plate.cmd) (19 lines) · **Run:** `python -m modeler scripts/cover_plate.cmd`
 
+**You should get:** 1 body, volume 23,951.9 mm³, 21 faces
+
 <details><summary>The whole script</summary>
 
 ```text
