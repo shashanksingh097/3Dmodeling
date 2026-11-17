@@ -794,6 +794,19 @@ class OccViewport(QWidget):
                 _on_top(ctx, ais)
                 ctx.Deactivate(ais)
                 self._preview_ais.append(ais)
+            for at, text in getattr(pv, "marks", []):  # constraints the click would add
+                from OCP.AIS import AIS_TextLabel
+                from OCP.TCollection import TCollection_ExtendedString
+
+                label = AIS_TextLabel()
+                label.SetText(TCollection_ExtendedString(text, True))
+                label.SetPosition(gp_Pnt(*f.point(*at)))
+                label.SetColor(_rgb(0.4, 0.9, 1.0))
+                label.SetHeight(12)
+                ctx.Display(label, False)
+                _on_top(ctx, label)
+                ctx.Deactivate(label)
+                self._preview_ais.append(label)
             if pv.snap is not None:
                 v = BRepBuilderAPI_MakeVertex(gp_Pnt(*f.point(*pv.snap))).Vertex()
                 ais = AIS_Shape(v)
@@ -1204,6 +1217,7 @@ class OccViewport(QWidget):
         if self._sketching() and (self._press is None or self._drag == "sketch"):
             uv = self.plane_point(x, y)
             if uv is not None:
+                self.sketcher.no_auto = bool(e.modifiers() & Qt.ShiftModifier)
                 if self._drag != "sketch" or moved:
                     pv = self.sketcher.move(*uv, self._tol(x, y))
                     self.set_preview(pv)
@@ -1257,6 +1271,7 @@ class OccViewport(QWidget):
                 return
             if not moved and e.button() == Qt.LeftButton and uv is not None:
                 add = bool(e.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier))
+                self.sketcher.no_auto = bool(e.modifiers() & Qt.ShiftModifier)
                 self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
                 self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
             return

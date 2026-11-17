@@ -28,7 +28,7 @@ from ..sketch import ellipse as sel
 from ..sketch.sketch import Sketch, SketchError
 
 TOOLS = ("SELECT", "LINE", "CENTRELINE", "RECT", "CRECT", "RECT3", "CIRCLE", "CIRCLE3", "ARC", "TARC", "SLOT",
-         "ARCSLOT", "POLYGON", "ELLIPSE", "EARC", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
+         "ARCSLOT", "POLYGON", "ELLIPSE", "EARC", "CIRCLET", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
 DRAW_TOOLS = TOOLS[1:TOOLS.index("TRIM")]
 EDIT_TOOLS = TOOLS[TOOLS.index("TRIM"):]
 HINTS = {
@@ -48,6 +48,8 @@ HINTS = {
     "ELLIPSE": "Click the centre, then the end of one axis, then a point that sets how wide it is across",
     "EARC": "Click the centre, the end of one axis, a point that sets the width, then where the arc starts and ends "
             "(counter-clockwise)",
+    "CIRCLET": "Click two or three curves the circle should touch, then near where it goes (after two curves "
+               "that click also sets its size)",
     "POINT": "Click to place a point",
     "FREEHAND": "Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude",
     "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it), or drag across pieces to cut "
@@ -59,6 +61,7 @@ HINTS = {
     "CORNER": "Click the part of one curve to keep, then the part of another: both are trimmed or extended to meet",
 }
 SNAP_ANGLE = 3.0  # degrees: a line this close to level or upright is made horizontal or vertical
+AUTO_TOOLS = ("LINE", "CENTRELINE", "RECT", "CIRCLE", "POINT")  # tools that make constraints while drawing
 
 
 def _r(v: float) -> str:
@@ -78,6 +81,7 @@ class Preview:
     arcs: list[list[tuple[float, float]]] = field(default_factory=list)  # polylines
     snap: tuple[float, float] | None = None  # a point the cursor snaps to
     sketch: Sketch | None = None  # a moved copy of the sketch (while dragging)
+    marks: list[tuple[tuple[float, float], str]] = field(default_factory=list)  # constraints a click would add
 
 
 def nice_step(tol: float) -> float:
@@ -112,6 +116,13 @@ class SketchController:
         self.polygon_sides = 6  # POLYGON: how many sides
         self.picked: list[tuple[int, tuple[float, float]]] = []  # SPLIT (circle) and CORNER: curves clicked so far
         self.preview = Preview()
+        # constraints made while drawing: a click on a curve puts the point ON it, a line
+        # drawn on from an arc's end along it is TANGENT, square to the line before it
+        # PERPENDICULAR. Shift held (no_auto) draws without them.
+        self.auto = True
+        self.no_auto = False
+        self.click_on: list[str | None] = []  # the curve each click landed on (parallel to clicks)
+        self.chain_on: str | None = None  # LINE: the curve the chain's first point is on
 
     # ---- state -------------------------------------------------------------
     @property
@@ -125,6 +136,8 @@ class SketchController:
 
     def reset(self) -> None:
         self.clicks = []
+        self.click_on = []
+        self.chain_on = None
         self.chain_end = None
         self.chain_start = None
         self.drag = None
@@ -185,6 +198,65 @@ class SketchController:
                 best, what = d, axis
         return what
 
+    # ---- constraints made while drawing --------------------------------------------
+    def _auto_on(self) -> bool:
+        return self.auto and not self.no_auto and self.sketch is not None
+
+    def on_curve(self, u: float, v: float, tol: float, snap: str | None) -> str | None:
+        """The curve (or axis H / V) a click here lands on, when it is not on a point."""
+        if snap or not self._auto_on():
+            return None
+        n = self.curve_at(u, v, tol / 1.5)
+        if n is not None:
+            return str(n) if self.sketch.geos[n].kind in sedit.CURVES else None
+        if abs(v) <= tol * 0.6:
+            return "H"
+        if abs(u) <= tol * 0.6:
+            return "V"
+        return None
+
+    def line_relation(self, start: str | None, a, b) -> tuple[str, str] | None:
+        """A line from the named end ``start`` (at a) to b: TANGENT to the arc
+        it carries on from, or PERPENDICULAR to the line it turns off, when it
+        is drawn close to that (and not level or upright, which H / V cover)."""
+        sk = self.sketch
+        if not self._auto_on() or not start or "." not in start:
+            return None
+        try:
+            r = sk.ref(start)
+        except SketchError:
+            return None
+        g, role = r.geo, start.split(".")[1]
+        if g is None or role not in ("S", "E") or g.kind not in ("LINE", "ARC", "EARC"):
+            return None
+        d = (b[0] - a[0], b[1] - a[1])
+        L = math.hypot(*d)
+        if L < 1e-12:
+            return None
+        ang = math.degrees(math.atan2(d[1], d[0])) % 180
+        if min(ang, 180 - ang) <= SNAP_ANGLE or abs(ang - 90) <= SNAP_ANGLE:
+            return None
+        if g.kind == "LINE":
+            s, e = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+            t = (e[0] - s[0], e[1] - s[1])
+            cos = abs(t[0] * d[0] + t[1] * d[1]) / ((math.hypot(*t) or 1e-12) * L)
+            return ("PERPENDICULAR", str(g.n)) if cos <= math.sin(math.radians(SNAP_ANGLE)) else None
+        poly = _curve_polyline(sk, g)
+        near = min(range(len(poly)), key=lambda i: math.dist(poly[i], a))
+        j = near + 1 if near + 1 < len(poly) else near - 1
+        t = (poly[j][0] - poly[near][0], poly[j][1] - poly[near][1])
+        cross = abs(t[0] * d[1] - t[1] * d[0]) / ((math.hypot(*t) or 1e-12) * L)
+        return ("TANGENT", str(g.n)) if cross <= math.sin(math.radians(2 * SNAP_ANGLE)) else None
+
+    def _marks(self, at, on: str | None, pv: Preview, tol: float) -> None:
+        off = (tol * 0.9, tol * 0.9)
+        if on:
+            pv.marks.append(((at[0] + off[0], at[1] + off[1]), f"On {on}"))
+
+    @staticmethod
+    def _on_lines(name: str, on: str | None) -> list[str]:
+        return [f"SCON, ON, {name}, {on}"] if on else []
+
     # ---- mouse --------------------------------------------------------------------
     def press(self, u: float, v: float, tol: float, add: bool = False) -> list[str]:
         """Left button down. SELECT on a point starts a drag."""
@@ -234,10 +306,35 @@ class SketchController:
             pv.snap = None
         elif self.tool in ("SPLIT", "CORNER", "CHAMFER", "FILLET", "EXTEND"):
             pv = self._edit_preview(u, v, tol, pv)
+        elif self.tool == "CIRCLET" and self.sketch is not None:
+            for n, _ in self.picked:
+                if n in self.sketch.geos:
+                    pv.arcs.append(_curve_polyline(self.sketch, self.sketch.geos[n]))
+            if len(self.picked) == 2 and self.curve_at(u, v, tol) is None:
+                r = min(_distance_to(self.sketch, self.sketch.geos[n], (u, v)) for n, _ in self.picked)
+                pv.circles.append(((u, v), r))
         elif self.clicks or (self.tool == "LINE" and self.chain_end):
             pv = self._rubber(at, pv)
+        if self.tool in AUTO_TOOLS:
+            self._marks(at, self.on_curve(u, v, tol, snap), pv, tol)
+            if self.tool == "LINE" and (self.clicks or self.chain_end):
+                start, a = self._line_start()
+                rel = self.line_relation(start, a, at)
+                ang = math.degrees(math.atan2(at[1] - a[1], at[0] - a[0])) % 180
+                word = rel[0].title() if rel else ("H" if min(ang, 180 - ang) <= SNAP_ANGLE else
+                                                   "V" if abs(ang - 90) <= SNAP_ANGLE else None)
+                if word:
+                    mid = ((a[0] + at[0]) / 2, (a[1] + at[1]) / 2)
+                    pv.marks.append(((mid[0] + tol, mid[1] + tol), word))
         self.preview = pv
         return pv
+
+    def _line_start(self):
+        """(name, position) where the line being drawn starts."""
+        if self.chain_end and self.sketch is not None:
+            return self.chain_end, self.sketch.pt(self.sketch.ref(self.chain_end).point)
+        (a, name) = self.clicks[0]
+        return name, a
 
     # ---- trim, extend, fillet ------------------------------------------------------
     def curve_at(self, u: float, v: float, tol: float) -> int | None:
@@ -360,6 +457,10 @@ class SketchController:
         self.stroke = None
         at, snap = self.snap(u, v, tol)
         t = self.tool
+        on = self.on_curve(u, v, tol, snap) if t in AUTO_TOOLS else None
+        if on:  # the click goes onto the curve, not off by a hair
+            at = _foot_on(self.sketch, self.sketch.geos[int(on)], (u, v)) if on.isdigit() else \
+                ((u, 0.0) if on == "H" else (0.0, v))
         if t == "SELECT":
             name = self.hit(u, v, tol)
             if name is None:
@@ -369,42 +470,65 @@ class SketchController:
                 mode = "U, "
             return [f"SSEL, {mode}{name}"]
         if t == "POINT":
-            return [f"SPOINT, {_snapped(at, snap)}"]
+            return [f"SPOINT, {_snapped(at, snap)}"] + self._on_lines(str(self._next_geo()), on)
         if t in EDIT_TOOLS:
             return self._edit_click(u, v, tol)
         if t == "LINE":
-            return self._line_click(at, snap, tol)
+            return self._line_click(at, snap, tol, on)
+        if t == "CIRCLET":
+            return self._circlet_click(u, v, tol)
         if t == "TARC" and not self.clicks:
             g = self.sketch.ref(snap).geo if (snap and "." in snap and self.sketch is not None) else None
             if g is None or g.kind not in ("LINE", "ARC") or snap.split(".")[1] not in ("S", "E"):
                 return []  # it starts at the end of a line or arc
         self.clicks.append((at, snap))
+        self.click_on.append(on)
         done = self._draw_more(t)
         if done is not None:
             return done
+        ons, n = list(self.click_on), self._next_geo()
         if t == "RECT" and len(self.clicks) == 2:
             (a, sa), (b, sb) = self.clicks
-            self.clicks = []
+            self.clicks, self.click_on = [], []
             if abs(a[0] - b[0]) < 1e-9 or abs(a[1] - b[1]) < 1e-9:
                 return []
-            return [f"SRECT, {_snapped(a, sa)}, {_snapped(b, sb)}"]
+            return [f"SRECT, {_snapped(a, sa)}, {_snapped(b, sb)}"] + self._on_lines(f"{n}.S", ons[0]) + \
+                self._on_lines(f"{n + 1}.E", ons[1])
         if t == "CIRCLE" and len(self.clicks) == 2:
             (c, sc), (b, _) = self.clicks
-            self.clicks = []
+            self.clicks, self.click_on = [], []
             step = nice_step(tol)
             r = max(step, round(math.hypot(b[0] - c[0], b[1] - c[1]) / step) * step)
-            return [f"SCIRCLE, {_snapped(c, sc)}, {_r(r)}"] if r > 0 else []
+            return ([f"SCIRCLE, {_snapped(c, sc)}, {_r(r)}"] + self._on_lines(f"{n}.C", ons[0])) if r > 0 else []
         if t == "ARC" and len(self.clicks) == 3:
             (a, sa), (b, sb), (m, _) = self.clicks
-            self.clicks = []
+            self.clicks, self.click_on = [], []
             return [f"SARC3, {_snapped(a, sa)}, {_uv(m)}, {_snapped(b, sb)}"]
         if t == "SLOT" and len(self.clicks) == 3:
             (a, sa), (b, sb), (s, _) = self.clicks
-            self.clicks = []
+            self.clicks, self.click_on = [], []
             step = nice_step(tol)
             r = max(step, round(_point_line_distance(s, a, b) / step) * step)
             return [f"SSLOT, {_snapped(a, sa)}, {_snapped(b, sb)}, {_r(r)}"] if r > 0 else []
         return []
+
+    def _circlet_click(self, u: float, v: float, tol: float) -> list[str]:
+        """CIRCLET: curves first (two or three), then the place."""
+        sk = self.sketch
+        n = self.curve_at(u, v, tol)
+        names = [str(c) for c, _ in self.picked]
+        if n is not None and len(names) < 3 and str(n) not in names and sk.geos[n].kind in sedit.CURVES:
+            self.picked.append((n, (u, v)))
+            return []
+        if len(names) < 2:
+            return []
+        self.picked = []
+        if len(names) == 3:
+            return [f"SCIRCLET, {', '.join(names)}, AT, {_uv((u, v))}"]
+        r = min(_distance_to(sk, sk.geos[int(x)], (u, v)) for x in names)
+        step = nice_step(max(r, tol) * 0.05)
+        r = max(step, round(r / step) * step)
+        return [f"SCIRCLET, {', '.join(names)}, R, {_r(r)}, AT, {_uv((u, v))}"]
 
     def _draw_more(self, t: str) -> list[str] | None:
         """The newer drawing tools, once they have all their clicks (None: not one of them)."""
@@ -415,6 +539,7 @@ class SketchController:
         if len(self.clicks) < need:
             return []
         clicks, self.clicks = self.clicks, []
+        ons, self.click_on = self.click_on, []
         pts = [c[0] for c in clicks]
         names = [_snapped(a, s) for a, s in clicks]
         if any(math.dist(pts[i], pts[j]) < 1e-9 for i in range(len(pts)) for j in range(i)) and \
@@ -423,7 +548,9 @@ class SketchController:
         if t == "CENTRELINE":
             ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0])) % 180
             flag = ", H" if min(ang, 180 - ang) <= SNAP_ANGLE else (", V" if abs(ang - 90) <= SNAP_ANGLE else "")
-            return [f"SLINE, {names[0]}, {names[1]}, CONSTR{flag}"]
+            n = self._next_geo()
+            return [f"SLINE, {names[0]}, {names[1]}, CONSTR{flag}"] + self._on_lines(f"{n}.S", ons[0]) + \
+                self._on_lines(f"{n}.E", ons[1])
         if t == "CRECT":
             if abs(pts[0][0] - pts[1][0]) < 1e-9 or abs(pts[0][1] - pts[1][1]) < 1e-9:
                 return []
@@ -503,10 +630,11 @@ class SketchController:
         return []
 
     # ---- LINE chains --------------------------------------------------------------
-    def _line_click(self, at, snap, tol) -> list[str]:
+    def _line_click(self, at, snap, tol, on: str | None = None) -> list[str]:
         if self.chain_end is None and not self.clicks:
             self.clicks = [(at, snap)]
             self.chain_start = (at, snap)
+            self.chain_on = on
             return []
         if self.chain_end is not None:
             start_name = self.chain_end
@@ -531,10 +659,17 @@ class SketchController:
         elif abs(ang - 90) <= SNAP_ANGLE:
             flag = ", V"
             at = (start_at[0], at[1]) if not end_arg else at
+        rel = None if flag else self.line_relation(start_name, start_at, at)
         a = start_name if start_name else _uv(start_at)
         b = end_arg if end_arg else _uv(at)
         n = self._next_geo()
         cmds = [f"SLINE, {a}, {b}{flag}"]
+        if self.chain_end is None:
+            cmds += self._on_lines(f"{n}.S", self.chain_on)
+        if not closing:
+            cmds += self._on_lines(f"{n}.E", on)
+        if rel:
+            cmds.append(f"SCON, {rel[0]}, {n}, {rel[1]}")
         if closing:
             self.reset()
             return cmds
@@ -764,7 +899,7 @@ def dimension_for(p: Processor, which: str = "AUTO") -> tuple[str, list[str], fl
     if k == ["R"]:
         kind = "DIAMETER" if sk.ref(sel[0]).geo.kind == "CIRCLE" else "RADIUS"
         return kind, sel, sk.measure(kind, tuple(sel))
-    if k == ["P", "P"] or sorted(k) == ["L", "P"]:
+    if k == ["P", "P"] or sorted(k) in (["L", "P"], ["P", "R"]):
         return "DIST", sel, sk.measure("DIST", tuple(sel))
     if k == ["P"]:
         return "DIST", ["ORIGIN", sel[0]], sk.measure("DIST", ("ORIGIN", sel[0]))
@@ -792,6 +927,11 @@ def _selected_geos(p: Processor, what: str, kinds=("LINE", "ARC", "CIRCLE", "POI
     return out
 
 
+def offset2_command(p: Processor, d_text: str, flat: bool = False) -> list[str]:
+    geos = _selected_geos(p, "Offset both sides", ("LINE", "ARC", "CIRCLE"))
+    return [f"SOFFSET2, {d_text.strip()}, {', '.join(geos)}" + (", FLAT" if flat else "")]
+
+
 def offset_command(p: Processor, d_text: str) -> list[str]:
     geos = _selected_geos(p, "Offset", ("LINE", "ARC", "CIRCLE"))
     return [f"SOFFSET, {d_text.strip()}, {', '.join(geos)}"]
@@ -816,6 +956,15 @@ def pattern_command(p: Processor, kind: str, values: str) -> list[str]:
     """values: "n, du, dv" (LINEAR) or "n, angle, centre" (POLAR; centre a point name or u, v)."""
     geos = _selected_geos(p, "Pattern")
     return [f"SPATTERN, {kind}, {values.strip()}, {', '.join(geos)}"]
+
+
+def intersect_default(p: Processor) -> str:
+    """What Cut bodies offers: the picked bodies, else every body shown."""
+    m = p.model
+    if m.selection_kind == "BODY" and m.selection:
+        return ", ".join(str(i) for i in m.selection)
+    shown = sorted(m.bodies)
+    return ", ".join(str(i) for i in shown)
 
 
 def project_default(p: Processor) -> str:
@@ -1006,7 +1155,13 @@ def dimension_geometry(sk: Sketch, c):
         L = math.hypot(dx, dy) or 1.0
         return segs, (mid[0] + dx / L * off * 0.5, mid[1] + dy / L * off * 0.5)
     if k == "DIST":
-        if rs[0].is_point and rs[1].is_point:
+        rd = next((r for r in rs if not r.is_point and r.geo is not None and r.geo.kind in ("ARC", "CIRCLE")), None)
+        if rd is not None:  # a point and a circle: along the ray from the centre
+            p = sk.pt(next(r for r in rs if r.is_point).point)
+            cc, rad = sk.pt(rd.geo.pts["C"]), sk.radius(rd.geo)
+            L = math.dist(p, cc) or 1e-12
+            q = (cc[0] + (p[0] - cc[0]) * rad / L, cc[1] + (p[1] - cc[1]) * rad / L)
+        elif rs[0].is_point and rs[1].is_point:
             p, q = sk.pt(rs[0].point), sk.pt(rs[1].point)
         else:
             if rs[0].is_point or rs[1].is_point:

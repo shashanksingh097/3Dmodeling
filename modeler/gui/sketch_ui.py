@@ -33,14 +33,15 @@ from . import sketch_tools as st
 _TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "CENTRELINE": "Centreline", "RECT": "Rectangle",
                 "CRECT": "Centre rect", "RECT3": "Angled rect", "CIRCLE": "Circle",
                 "CIRCLE3": "3-point circle", "ARC": "Arc", "TARC": "Tangent arc", "SLOT": "Slot", "ARCSLOT": "Arc slot",
-                "POLYGON": "Polygon", "ELLIPSE": "Ellipse", "EARC": "Elliptical arc", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend",
+                "POLYGON": "Polygon", "ELLIPSE": "Ellipse", "EARC": "Elliptical arc", "CIRCLET": "Tangent circle",
+                "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend",
                 "FILLET": "Fillet", "CHAMFER": "Chamfer", "SPLIT": "Split", "CORNER": "Corner"}
 _TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "POINT": "P", "FREEHAND": "D",
               "TRIM": "T", "EXTEND": "E", "FILLET": "F", "CHAMFER": "K", "SPLIT": "B", "CORNER": "O",
               "POLYGON": "G", "TARC": "N", "ELLIPSE": "I"}
 _TOOL_RUNS = {"SELECT": "SSEL / SMOVE", "LINE": "SLINE", "CENTRELINE": "SLINE, ..., CONSTR", "RECT": "SRECT",
               "CRECT": "SRECTC", "RECT3": "SRECT3", "CIRCLE": "SCIRCLE", "CIRCLE3": "SCIRCLE3", "ARC": "SARC3",
-              "TARC": "SARCT", "SLOT": "SSLOT", "ARCSLOT": "SSLOTARC", "POLYGON": "SNGON", "ELLIPSE": "SELLIPSE", "EARC": "SEARC", "POINT": "SPOINT",
+              "TARC": "SARCT", "SLOT": "SSLOT", "ARCSLOT": "SSLOTARC", "POLYGON": "SNGON", "ELLIPSE": "SELLIPSE", "EARC": "SEARC", "CIRCLET": "SCIRCLET", "POINT": "SPOINT",
               "FREEHAND": "SSPLINE", "TRIM": "STRIM", "EXTEND": "SEXTEND", "FILLET": "SFILLET", "CHAMFER": "SCHAMFER",
               "SPLIT": "SSPLIT", "CORNER": "SCORNER"}
 _CONSTRAINTS = [
@@ -105,6 +106,14 @@ class SketchUI:
         self.sides.setToolTip("How many sides the Polygon tool draws")
         self.sides.valueChanged.connect(lambda n: setattr(self.controller, "polygon_sides", n))
         tb.addWidget(self.sides)
+        a = tbs.action(win, tb, "Auto constraints", "s_auto",
+                       "While drawing, a click on a curve puts the point on it, and a line drawn on from an arc's end "
+                       "along it is tangent (or square to the line before it). The marks by the cursor show what a "
+                       "click will add. Hold Shift to draw without them.\nAdds: SCON, ON / TANGENT / PERPENDICULAR",
+                       checkable=True)
+        a.setChecked(True)
+        a.toggled.connect(lambda on: setattr(self.controller, "auto", on))
+        self.auto_action = a
         self.tool_actions["SELECT"].setChecked(True)
 
         tb = bar("Sketch edit", "sketch_edit", "Sketch edit")
@@ -125,8 +134,12 @@ class SketchUI:
                                                         "Runs: SPATTERN, LINEAR/POLAR, ..."),
                 ("Move/Copy…", "s_move", self.transform, "Move, turn or scale the selected geometry, or copies of it; "
                                                          "constraints among it go along\nRuns: STRANSFORM, ..."),
+                ("Offset both…", "s_offset2", self.offset2, "Offset the selected curves to both sides with round (or "
+                                                            "flat) ends: a slot along a path\nRuns: SOFFSET2, d, ..."),
                 ("Project…", "s_project", self.project, "Bring body edges into the sketch (the edges or faces picked "
-                                                        "before the sketch, or IDs)\nRuns: SPROJECT, ...")):
+                                                        "before the sketch, or IDs)\nRuns: SPROJECT, ..."),
+                ("Cut bodies…", "s_intersect", self.intersect, "Bring in the curves where bodies cut the sketch plane "
+                                                               "(a section)\nRuns: SINTERSECT, body, ...")):
             a = tbs.action(win, tb, label, icon, tip, lambda _=False, f=slot: f())
             self.edit_actions[label.rstrip("…")] = a
 
@@ -225,6 +238,23 @@ class SketchUI:
         d = self._ask("Offset", "Distance (positive: outwards for a closed chain or a circle):", "2")
         if d:
             self.run(lambda: st.offset_command(self.p, d))
+
+    def offset2(self) -> None:
+        try:
+            st.offset2_command(self.p, "1")
+        except st.NeedSelection as exc:
+            self.win.statusBar().showMessage(str(exc), 6000)
+            return
+        d = self._ask("Offset both sides", "Distance to each side (add FLAT for straight ends):", "2")
+        if d:
+            flat = d.strip().upper().endswith("FLAT")
+            d = d.strip()[:-4].rstrip(", ") if flat else d
+            self.run(lambda: st.offset2_command(self.p, d, flat))
+
+    def intersect(self) -> None:
+        ids = self._ask("Cut bodies with the sketch plane", "Body IDs:", st.intersect_default(self.p))
+        if ids:
+            self.win.execute(f"SINTERSECT, {ids}")
 
     def mirror(self) -> None:
         axes = st.mirror_axes(self.p)

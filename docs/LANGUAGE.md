@@ -266,7 +266,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
-| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
+| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
@@ -790,6 +790,7 @@ the sketch. Giving a name ties the new geometry there:
 |------|----|
 | `3` | geometry 3 (the numbers the drawing commands print) |
 | `3.S`, `3.E`, `3.C` | its start, end, centre; `3.P` a lone point |
+| `3.A` | the end of an ellipse's first axis (drag it to turn or stretch the ellipse) |
 | `3.K1`, `3.K2` ... | the points a spline passes through between its ends (drag them with `SMOVE`, hold them with `SCON`) |
 | `ORIGIN` (or `O`) | the sketch origin |
 | `H`, `V` | the sketch's horizontal and vertical axes |
@@ -804,9 +805,12 @@ points; a point and a curve means `ON`), `ON`, `HORIZONTAL`, `VERTICAL`
 `H`/`V`), `CONCENTRIC`, `FIX`.
 
 `SDIM, kind, things, size` gives a size; the size is any expression, so it
-can be a parameter: `LENGTH`, `DIST` (two points, or a point and a line),
+can be a parameter: `LENGTH`, `DIST` (two points, a point and a line, or a
+point and an arc or circle: how far it is from the rim, outside or inside),
 `HDIST`, `VDIST`, `RADIUS`, `DIAMETER`, `ANGLE` (degrees between two lines,
-or from `H` with one line).
+or from `H` with one line), `ARCLEN` (the length along an arc or
+elliptical arc), and for an ellipse `MAJOR` (its first radius, from `n.C`
+to `n.A`) and `MINOR` (its second radius, across).
 
 After each step the sketch says how many degrees of freedom are left. At 0
 it is fully defined, and the GUI draws it green. A constraint that cannot
@@ -947,9 +951,36 @@ What they leave behind keeps meaning what you asked for:
 
 The polygon stays regular when it is sized: give its construction circle a
 radius (`SDIM, RADIUS, ...`), or a side a length.
-  Straight edges become lines and circles flat on the sketch become circles
-  or arcs; other curves come in as a chain of short lines. An edge square to
+  Straight edges become lines, circles and ellipses flat on the sketch become
+  circles, arcs and ellipses; other curves come in as a chain of short lines. An edge square to
   the sketch shows as nothing.
+
+### Ellipses, tangent circles, slots along a path, sections
+
+| Command | Draws |
+|---------|-------|
+| `SELLIPSE, cu, cv, a, b [, angle] [, H]` | an ellipse round (cu, cv): radius a along its first axis (turned `angle` degrees from u, default 0), b across. `H` keeps the first axis level |
+| `SEARC, cu, cv, a, b, angle, t1, t2` | part of that ellipse, from t1 to t2 degrees round it, counter-clockwise (0 is the end of the first axis, 90 of the second); its ends are `n.S` and `n.E` |
+| `SCIRCLET, 1, 2, R, r, AT, u, v` | a circle of radius r touching curves 1 and 2 (lines, arcs, circles, `H`, `V`, or a line and an ellipse), the one nearest (u, v). The curves stay where they are |
+| `SCIRCLET, 1, 2, 3, AT, u, v` | a circle touching three curves; they set its size |
+| `SOFFSET2, d, 1, 2 ... [, FLAT]` | the curves offset by d to both sides, with round ends round the path's ends (`FLAT`: straight ends): a slot along a path. A closed chain gets an outline inside and one outside. The path becomes construction geometry |
+| `SINTERSECT, body [, body ...]` | the curves where the bodies cut the sketch plane, fixed: lines, circles, arcs and ellipses (a cylinder cut at a slant gives an ellipse) |
+
+An ellipse is its centre `n.C`, the end of its first axis `n.A` and its
+second radius: five degrees of freedom (an elliptical arc has two more, its
+ends). It can be trimmed, split, extended, mirrored, patterned, moved and
+scaled, and it takes `ON`, `CONCENTRIC`, `EQUAL` (two ellipses) and
+`TANGENT` with a line. `SPROJECT` brings ellipse edges flat on the sketch
+in as ellipses.
+
+**Constraints made while drawing.** With the Line, Centreline, Rectangle,
+Circle and Point tools a click on a curve puts the point on it (`SCON, ON`),
+a line drawn on from the end of an arc along it is made tangent to it, and
+a line that turns square off the line before it is made perpendicular. A
+small mark by the cursor (On 3, Tangent, Perpendicular, H, V) shows what the
+click will add, before you click. Hold Shift to draw without them, or switch
+them off with **Auto constraints** on the Sketch tab. They are ordinary
+`SCON` steps after the drawing step, so they can be deleted like any other.
 
 In the GUI the Sketch toolbar has **Trim** (T: click the piece to cut
 away; it is shown before you click), **Extend** (E: click near the end),

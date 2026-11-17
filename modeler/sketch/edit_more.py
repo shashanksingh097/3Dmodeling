@@ -497,4 +497,58 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
     return f"{how}: {', '.join(str(g.n) for g in geos)}{_dropped(said)}", geos
 
 
-__all__ = ["CORNER", "chamfer", "split", "corner", "trim_many", "transform"]
+__all__ = ["CORNER", "chamfer", "split", "corner", "trim_many", "transform", "offset_both"]
+
+
+# =============================================================================
+# offset to both sides, with closed ends
+# =============================================================================
+
+def offset_both(sk: Sketch, d: float, names: list, flat: bool = False, uid: int = 0) -> tuple[str, list[Geo]]:
+    """Offset curves by d to both sides. An open chain gets its two offsets
+    joined at each end by a half circle round the chain's end (or a straight
+    line with ``flat``), so the result is one closed outline: a slot along a
+    path. A closed chain gets an outline inside and one outside. The
+    curves offset become construction geometry (the middle of the outline)."""
+    if d <= 0:
+        raise SketchError("the distance must be positive (it goes to both sides)")
+    geos = []
+    for t in names:
+        g = _curve(sk, ed._num(t), "SOFFSET2")
+        if g not in geos:
+            geos.append(g)
+    if not geos:
+        raise SketchError("give the curves to offset")
+    made: list[Geo] = []
+    for chain, closed in ed._chains(sk, geos):
+        left = ed._offset_chain(sk, chain, closed, d, uid)
+        right = ed._offset_chain(sk, chain, closed, -d, uid)
+        made += left + right
+        for pc in chain:  # the path is the middle of the outline now
+            pc.g.construction = True
+        if closed:
+            continue
+        first, last = chain[0], chain[-1]
+        for pc, role, inward in ((first, "S" if first.fwd else "E", True),
+                                 (last, "E" if last.fwd else "S", False)):
+            P = sk.pt(pc.g.pts[role])
+            t = ed._tangent(sk, pc.g, P, pc.fwd)
+            if not inward:
+                t = (-t[0], -t[1])  # into the chain from this end
+            e1, e2 = _nearest_end(sk, left, P), _nearest_end(sk, right, P)
+            if flat:
+                cap = sk.add_line(e1, e2, uid)
+            else:
+                mid = (P[0] - t[0] * d, P[1] - t[1] * d)
+                cap = sk.add_arc_3p(e1, mid, e2, uid)
+                sk.add_con("COINCIDENT", (f"{cap.n}.C", f"{pc.g.n}.{role}"), uid=uid, auto=True, solve=False)
+            made.append(cap)
+    sk.solve()
+    shown = f"{made[0].n}..{made[-1].n}" if len(made) > 3 else ", ".join(str(g.n) for g in made)
+    return f"offset {', '.join(str(g.n) for g in geos)} by {_n(d)} to both sides: {shown}", made
+
+
+def _nearest_end(sk: Sketch, geos: list[Geo], P) -> str:
+    """The name of the end of these curves nearest P."""
+    best = min(((math.dist(sk.pt(g.pts[r]), P), f"{g.n}.{r}") for g in geos for r in ("S", "E") if r in g.pts))
+    return best[1]

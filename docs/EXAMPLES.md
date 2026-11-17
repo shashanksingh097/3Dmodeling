@@ -46,6 +46,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/implicit_lattices.png" width="160">](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) | [Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) |
 | [<img src="examples/knife_cuts.png" width="160">](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) | [Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) |
 | [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
+| [<img src="examples/cam_plate.png" width="160">](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) | [Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) |
 
 ---
 
@@ -1936,6 +1937,43 @@ SCIRCLE, 10, 10, 2.5
 STRANSFORM, MOVE, 0, 40, 23, COPY       ! the same hole 40 higher
 ENDSKETCH
 EXTRUDE, cover, 5
+```
+
+</details>
+
+---
+
+## Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges
+
+![Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](examples/cam_plate.png)
+
+A cam plate drawn with ellipses: an elliptical outline, a slot along a curved path (SOFFSET2), a hole that touches two edges (SCIRCLET), and an elliptical window. Change A or B and the outline follows.
+
+**Script:** [scripts/cam_plate.cmd](../scripts/cam_plate.cmd) (18 lines) · **Run:** `python -m modeler scripts/cam_plate.cmd`
+
+**You should get:** 1 body, volume 26,194.6 mm³, 9 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! A cam plate drawn with ellipses: an elliptical outline, a slot along a
+! curved path (SOFFSET2), a hole that touches two edges (SCIRCLET), and an
+! elliptical window. Change A or B and the outline follows.
+A = 50
+B = 32
+SKETCH, cam, XY
+SELLIPSE, 0, 0, A, B, 0, H              ! the outline: radius A along u, B across
+SCON, COINCIDENT, 1.C, ORIGIN
+SDIM, MAJOR, 1, A
+SDIM, MINOR, 1, B
+SARC, 0, -40, 50, 60, 120               ! a curved path ...
+SOFFSET2, 4, 2                          ! ... made a slot 8 wide with round ends
+SELLIPSE, -24, -14, 9, 5, 30            ! an elliptical window, turned 30 deg
+SLINE, 18, -4, 40, -4, CONSTR           ! two construction edges ...
+SLINE, 18, -4, 18, -24, CONSTR
+SCIRCLET, 8, 9, R, 4, AT, 23, -9        ! ... and a hole of radius 4 touching both
+ENDSKETCH
+EXTRUDE, cam, 6
 ```
 
 </details>

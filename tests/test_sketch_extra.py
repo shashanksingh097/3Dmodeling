@@ -187,3 +187,151 @@ def test_ellipse_dimension_rows_and_labels(p):
         assert len(at) == 2
     rows = st.sketch_dimensions(p, "S")
     assert len(rows) == 3
+
+
+# ---- constraints made while drawing ------------------------------------------------------------
+
+def _run_all(p, cmds):
+    for line in cmds:
+        r = p.run(line)
+        assert r.ok, r.message
+
+
+def test_a_click_on_a_curve_puts_the_point_on_it(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 40,0\nSCIRCLE, 60,0, 10")
+    c = st.SketchController(p)
+    c.set_tool("LINE")
+    assert c.click(10, 0.1, 0.5) == []
+    pv = c.move(52, 6.1, 0.5)
+    assert [t for _, t in pv.marks] == ["On 2"]
+    out = c.click(52, 6.1, 0.5)
+    assert out[1:] == ["SCON, ON, 3.S, 1", "SCON, ON, 3.E, 2"]
+    _run_all(p, out)
+    s = sk(p)
+    e = s.pt(s.geos[3].pts["E"])
+    assert math.dist(e, s.pt(s.geos[2].pts["C"])) == pytest.approx(s.radius(s.geos[2]))
+    ok(p, "SMOVE, 1.E, 40, 5")  # the line's start stays on line 1 as it tilts
+    s = sk(p)
+    a, b = s.pt(s.geos[1].pts["S"]), s.pt(s.geos[1].pts["E"])
+    q = s.pt(s.geos[3].pts["S"])
+    assert abs((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) < 1e-6
+
+
+def test_shift_draws_without_them_and_the_switch_turns_them_off(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 40,0")
+    c = st.SketchController(p)
+    c.set_tool("POINT")
+    assert c.click(10, 0.1, 0.5) == ["SPOINT, 10, 0", "SCON, ON, 2, 1"]
+    c.no_auto = True
+    assert c.click(10, 0.1, 0.5) == ["SPOINT, 10, 0"]
+    c.no_auto, c.auto = False, False
+    assert c.click(10, 0.1, 0.5) == ["SPOINT, 10, 0"]
+
+
+def test_lines_on_from_an_arc_are_tangent_and_turns_are_square(p):
+    ok(p, "SKETCH, s, XY\nSARC, 0,0, 10, 0, 45")
+    c = st.SketchController(p)
+    c.set_tool("LINE")
+    e = (10 * math.cos(math.pi / 4), 10 * math.sin(math.pi / 4))
+    assert c.click(*e, 0.5) == []
+    q = (e[0] - 10, e[1] + 10.3)
+    assert [t for _, t in c.move(*q, 0.5).marks] == ["Tangent"]
+    out = c.click(*q, 0.5)
+    assert out == ["SLINE, 1.E, -3, 17.4", "SCON, TANGENT, 2, 1"]
+    _run_all(p, out)
+    q2 = (q[0] - 10.2, q[1] - 10)
+    assert "Perpendicular" in [t for _, t in c.move(*q2, 0.5).marks]
+    out = c.click(*q2, 0.5)
+    assert out[-1] == "SCON, PERPENDICULAR, 3, 2"
+    _run_all(p, out)
+    s = sk(p)
+    d2 = (s.x[s.geos[2].pts["E"]] - s.x[s.geos[2].pts["S"]], s.x[s.geos[2].pts["E"] + 1] - s.x[s.geos[2].pts["S"] + 1])
+    d3 = (s.x[s.geos[3].pts["E"]] - s.x[s.geos[3].pts["S"]], s.x[s.geos[3].pts["E"] + 1] - s.x[s.geos[3].pts["S"] + 1])
+    assert abs(d2[0] * d3[0] + d2[1] * d3[1]) < 1e-6
+
+
+def test_circle_centre_and_rect_corner_go_on_curves(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 40,-40")
+    c = st.SketchController(p)
+    c.set_tool("CIRCLE")
+    c.click(10, -10.1, 0.5)
+    assert c.click(15, -10, 0.5) == ["SCIRCLE, 10.05, -10.05, 5", "SCON, ON, 2.C, 1"]
+    c.set_tool("RECT")
+    c.click(20, -20.1, 0.5)
+    out = c.click(30, -10, 0.5)
+    assert out[1:] == ["SCON, ON, 2.S, 1"]
+
+
+# ---- tangent circle, point-to-circle size, offset both sides, cut by the plane ------------------
+
+def test_tangent_circle_to_two_lines_and_three_curves(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 30,0\nSLINE, 0,0, 0,30\nSCIRCLE, 40,40, 10\n"
+          "SCIRCLET, 1, 2, R, 4, AT, 5, 6")
+    s = sk(p)
+    assert s.pt(s.geos[4].pts["C"]) == pytest.approx((4, 4))
+    assert s.pt(s.geos[1].pts["E"]) == pytest.approx((30, 0))  # the lines did not move
+    ok(p, "SCIRCLET, 1, 2, 3, AT, 15, 15")
+    s = sk(p)
+    g = s.geos[5]
+    cc, r = s.pt(g.pts["C"]), s.radius(g)
+    assert cc[0] == pytest.approx(r) and cc[1] == pytest.approx(r)
+    assert math.dist(cc, (40, 40)) == pytest.approx(r + 10)
+    assert "AT" in err(p, "SCIRCLET, 1, 2, R, 3")
+    assert "radius" in err(p, "SCIRCLET, 1, 2, AT, 5, 5")
+
+
+def test_tangent_circle_tool(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 30,0\nSLINE, 0,0, 0,30")
+    c = st.SketchController(p)
+    c.set_tool("CIRCLET")
+    assert c.click(10, 0.1, 0.5) == []
+    assert c.click(0.1, 10, 0.5) == []
+    pv = c.move(5, 6, 0.5)
+    assert pv.circles
+    out = c.click(5, 6, 0.5)
+    assert out == ["SCIRCLET, 1, 2, R, 5, AT, 5, 6"]
+    ok(p, out[0])
+
+
+def test_size_from_a_point_to_a_circle(p):
+    ok(p, "SKETCH, s, XY\nSCIRCLE, 0,0, 10\nSCON, FIX, 1\nSPOINT, 20, 5\nSDIM, DIST, 2, 1, 3")
+    s = sk(p)
+    assert math.dist(s.pt(s.geos[2].pts["P"]), (0, 0)) == pytest.approx(13)
+    ok(p, "SPOINT, 2, 1\nSDIM, DIST, 3, 1, 4")  # inside: 4 in from the rim
+    s = sk(p)
+    assert math.dist(s.pt(s.geos[3].pts["P"]), (0, 0)) == pytest.approx(6)
+    rows = st.dimension_geometry(s, s.cons[max(s.cons)])
+    assert rows[0]
+
+
+def test_offset_both_sides_makes_a_slot_along_a_path(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 30,0\nSARC, 30,10, 10, -90, 0\nSCON, COINCIDENT, 1.E, 2.S\n"
+          "SOFFSET2, 3, 1, 2\nENDSKETCH\nEXTRUDE, s, 1")
+    s = sk(p)
+    assert s.geos[1].construction and s.geos[2].construction
+    want = 30 * 6 + math.pi * (13 ** 2 - 7 ** 2) / 4 + math.pi * 9
+    assert volume(p) == pytest.approx(want, rel=1e-6)
+
+
+def test_offset_both_sides_flat_and_closed(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 30,0\nSOFFSET2, 2, 1, FLAT\nENDSKETCH\nEXTRUDE, s, 1")
+    assert volume(p) == pytest.approx(30 * 4)
+    q = Processor()
+    ok(q, "SKETCH, s, XY\nSRECT, 0,0, 20,10\nSOFFSET2, 1, 1, 2, 3, 4\nENDSKETCH\nEXTRUDE, s, 1")
+    assert volume(q) == pytest.approx(22 * 12 - 18 * 8)
+
+
+def test_cut_bodies_with_the_sketch_plane(p):
+    ok(p, "CYL, 0,0,-10, 10, 40\nPLANE, P1, PN, 0,0,5, 0,1,1\nSKETCH, s, P1\nSINTERSECT, 1")
+    s = sk(p)
+    assert [g.kind for g in s.geos.values()] == ["ELLIPSE"]
+    assert s.dof == 0
+    assert sorted(el.frame(s, s.geos[1])[2:]) == pytest.approx([10, 10 * math.sqrt(2)])
+    ok(p, "ENDSKETCH\nEXTRUDE, s, 1")
+    assert volume(p, 2) == pytest.approx(math.pi * 100 * math.sqrt(2), rel=1e-6)
+    q = Processor()
+    ok(q, "BLOCK, 0,0,0, 20,10,10\nSKETCH, t, XY\nSINTERSECT, 1")
+    s = q.model.sketches["T"]
+    assert len(s.geos) == 4 and s.dof == 0
+    ok(q, "ENDSKETCH\nCYL, 50,0,10, 5, 10\nSKETCH, u, XY")
+    assert "does not reach the sketch plane" in err(q, "SINTERSECT, 2")

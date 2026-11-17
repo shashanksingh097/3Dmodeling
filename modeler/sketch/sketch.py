@@ -659,7 +659,7 @@ def _check_shape(sk: Sketch, con: Con, rs: list[Ref]) -> None:
         "SYMMETRIC": [("PPL", "give two points and the line they mirror about")],
         "CONCENTRIC": [("RR", ""), ("RE", ""), ("ER", ""), ("EE", "")],
         "FIX": [("P", ""), ("G", "")],
-        "DIST": [("PP", ""), ("PL", ""), ("LP", ""), ("LL", "")],
+        "DIST": [("PP", ""), ("PL", ""), ("LP", ""), ("LL", ""), ("PR", ""), ("RP", "")],
         "HDIST": [("PP", ""), ("L", "")], "VDIST": [("PP", ""), ("L", "")],
         "LENGTH": [("L", "give a line")],
         "RADIUS": [("R", "give an arc or circle (an ellipse is sized with MAJOR and MINOR)")],
@@ -674,7 +674,7 @@ def _check_shape(sk: Sketch, con: Con, rs: list[Ref]) -> None:
         "CONCENTRIC": "give two arcs, circles or ellipses",
         "EQUAL": "give two lines (same length), two arcs/circles (same radius) or two ellipses (same radii)",
         "FIX": "give a point or one piece of geometry",
-        "DIST": "give two points, a point and a line, or two parallel lines",
+        "DIST": "give two points, a point and a line, two parallel lines, or a point and an arc or circle",
         "HDIST": "give two points, or a line", "VDIST": "give two points, or a line",
         "ANGLE": "give two lines (or one line, measured from H)",
     }
@@ -751,6 +751,12 @@ def _choose_sides(sk: Sketch, con: Con, rs: list[Ref]) -> None:
             d["at"] = {role: [x[p], x[p + 1]] for role, p in g.pts.items()}
             if g.r is not None:
                 d["r"] = x[g.r]
+    elif k == "DIST" and any(r.geo is not None and not r.is_point and r.geo.kind in ("ARC", "CIRCLE") for r in rs):
+        pt, rd = (rs[0], rs[1]) if rs[0].is_point else (rs[1], rs[0])
+        c = rd.geo.pts["C"]
+        gap = math.hypot(x[pt.point] - x[c], x[pt.point + 1] - x[c + 1]) - sk.radius(rd.geo)
+        d["side"] = 1.0 if gap >= 0 else -1.0  # outside or inside the circle
+        d["now"] = abs(gap)
     elif k == "DIST":
         if rs[0].is_point and rs[1].is_point:
             p, q = rs[0].point, rs[1].point
@@ -956,6 +962,16 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
                 out.append(C(tag, pts(p), lambda v, a=a: [v[0] - a[0], v[1] - a[1]]))
             if g.r is not None:
                 out.append(C(tag, (g.r,), lambda v, r=d["r"]: [v[0] - r]))
+    elif k == "DIST" and any(r.geo is not None and not r.is_point and r.geo.kind in ("ARC", "CIRCLE") for r in rs):
+        pt, rd = (rs[0], rs[1]) if rs[0].is_point else (rs[1], rs[0])
+        c, ri, sp = _round(sk, rd)
+        t = val * d.get("side", 1.0)
+        if ri is not None:
+            out.append(C(tag, pts(pt.point, c) + (ri,), lambda v, t=t: [
+                math.hypot(v[0] - v[2], v[1] - v[3]) - abs(v[4]) - t]))
+        else:
+            out.append(C(tag, pts(pt.point, c, sp), lambda v, t=t: [
+                math.hypot(v[0] - v[2], v[1] - v[3]) - math.hypot(v[4] - v[2], v[5] - v[3]) - t]))
     elif k == "DIST":
         if rs[0].is_point and rs[1].is_point:
             out.append(C(tag, pts(rs[0].point, rs[1].point),
