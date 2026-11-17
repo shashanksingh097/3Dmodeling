@@ -16,9 +16,13 @@ from __future__ import annotations
 
 import math
 
-from .sketch import _HX, _O, _VY, Con, Geo, Sketch, SketchError, _geo_of, _REF
+from .sketch import kname, _HX, _O, _VY, Con, Geo, Sketch, SketchError, _geo_of, _REF
 
-CURVES = ("LINE", "ARC", "CIRCLE")
+from . import ellipse as el
+
+CURVES = ("LINE", "ARC", "CIRCLE", "ELLIPSE", "EARC")
+ELLIPSES = el.ROUND_KINDS
+CLOSED = ("CIRCLE", "ELLIPSE")  # curves with no ends (a trim or split makes arcs of them)
 
 
 # =============================================================================
@@ -59,7 +63,7 @@ def _parts(ref: str) -> tuple[int | None, str]:
     return int(m.group(1)), (m.group(2) or "").upper()
 
 
-def _curve(sk: Sketch, n: int, what: str) -> Geo:
+def _curve(sk: Sketch, n: int, what: str, ellipse: bool = False) -> Geo:
     g = sk.geos.get(n)
     if g is None:
         have = ", ".join(map(str, sorted(sk.geos))) or "none yet"
@@ -69,6 +73,9 @@ def _curve(sk: Sketch, n: int, what: str) -> Geo:
                           "arc or circle (drag the spline's points to change it)")
     if g.kind not in CURVES:
         raise SketchError(f"{n} is a point; give a line, arc or circle")
+    if g.kind in ELLIPSES and not ellipse:
+        raise SketchError(f"{n} is an ellipse, which {what.split(':')[0] or 'this'} does not work on; give a line, "
+                          "arc or circle (an ellipse can be trimmed, split, extended, mirrored, patterned and moved)")
     return g
 
 
@@ -107,6 +114,10 @@ def _carrier_hits(sk: Sketch, g: Geo, h: Geo) -> list[tuple[float, float]]:
     def circ(x):
         return sk.pt(x.pts["C"]), sk.radius(x)
 
+    if g.kind in ELLIPSES:
+        return el.hits(sk, g, h)
+    if h.kind in ELLIPSES:
+        return el.hits(sk, h, g)
     if g.kind == "LINE" and h.kind == "LINE":
         (a, b), (c, d) = line(g), line(h)
         r, s = _sub(b, a), _sub(d, c)
@@ -150,6 +161,9 @@ def _param(sk: Sketch, g: Geo, q) -> float:
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         r = _sub(b, a)
         return _dot(_sub(q, a), r) / (_dot(r, r) or 1e-24)
+    if g.kind in ELLIPSES:
+        t = el.param(sk, g, q)
+        return (t - (el.arc_params(sk, g)[0] if g.kind == "EARC" else 0.0)) % 360.0
     c = sk.pt(g.pts["C"])
     ang = _ang(c, q)
     if g.kind == "CIRCLE":
@@ -161,8 +175,11 @@ def _param(sk: Sketch, g: Geo, q) -> float:
 def _span(sk: Sketch, g: Geo) -> float:
     if g.kind == "LINE":
         return 1.0
-    if g.kind == "CIRCLE":
+    if g.kind in CLOSED:
         return 360.0
+    if g.kind == "EARC":
+        t1, t2 = el.arc_params(sk, g)
+        return t2 - t1
     a1, a2 = sk.arc_angles(g)
     return a2 - a1
 
@@ -172,12 +189,15 @@ def _eps(sk: Sketch, g: Geo) -> float:
     size = 1e-6 * sk.extent()
     if g.kind == "LINE":
         return size / (math.dist(sk.pt(g.pts["S"]), sk.pt(g.pts["E"])) or 1.0)
+    if g.kind in ELLIPSES:
+        _, _, a, b = el.frame(sk, g)
+        return math.degrees(size / (min(a, b) or 1.0))
     return math.degrees(size / (sk.radius(g) or 1.0))
 
 
 def _within(sk: Sketch, h: Geo, q) -> bool:
     """Is q (on h's carrier) on the drawn part of h?"""
-    if h.kind == "CIRCLE":
+    if h.kind in CLOSED:
         return True
     p, e = _param(sk, h, q), _eps(sk, h)
     if h.kind == "LINE":
@@ -266,15 +286,15 @@ def trim_piece(sk: Sketch, n: int, pick, axes: bool = False) -> tuple[float, flo
     """The piece of curve n that a click at ``pick`` removes: (from, to) in
     n's params and the curves cutting there (None at a free end; H or V for
     an axis, which cut only with ``axes``)."""
-    g = _curve(sk, n, "STRIM")
+    g = _curve(sk, n, "STRIM", ellipse=True)
     span, eps = _span(sk, g), _eps(sk, g)
     tp = _param(sk, g, pick)
     cuts = _cuts(sk, g, axes=axes)
     if g.kind == "LINE":
         tp = min(max(tp, 0.0), 1.0)
-    elif g.kind == "ARC" and tp > span:  # off the arc: the nearer end
+    elif g.kind in ("ARC", "EARC") and tp > span:  # off the arc: the nearer end
         tp = span if tp - span < 360 - tp else 0.0
-    if g.kind == "CIRCLE":
+    if g.kind in CLOSED:
         ps = sorted({(round(p, 9) % 360, h) for p, h, _ in cuts}, key=lambda x: (x[0], str(x[1])))
         if len(ps) < 2:
             return 0.0, 360.0, None, None
@@ -293,64 +313,91 @@ def _point_at(sk: Sketch, g: Geo, p: float):
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         return _add(a, _sub(b, a), p)
+    if g.kind in ELLIPSES:
+        return el.point(sk, g, p + (el.arc_params(sk, g)[0] if g.kind == "EARC" else 0.0))
     c, r = sk.pt(g.pts["C"]), sk.radius(g)
     base = 0.0 if g.kind == "CIRCLE" else sk.arc_angles(g)[0]
     t = math.radians(base + p)
     return (c[0] + r * math.cos(t), c[1] + r * math.sin(t))
 
 
+def open_up(sk: Sketch, g: Geo, start, end) -> None:
+    """Turn a circle or ellipse into an arc of itself from start to end
+    (counter-clockwise), in place."""
+    s, e = sk._new_point(*start), sk._new_point(*end)
+    if g.kind == "CIRCLE":
+        g.kind, g.pts, g.r = "ARC", {"C": g.pts["C"], "S": s, "E": e}, None
+    else:
+        g.kind, g.pts = "EARC", {"C": g.pts["C"], "A": g.pts["A"], "S": s, "E": e}
+
+
+def piece_of(sk: Sketch, g: Geo, q0, q1, uid: int) -> Geo:
+    """A new curve on g's line, circle or ellipse from q0 to q1."""
+    if g.kind == "LINE":
+        return sk.add_line(q0, q1, uid, g.construction)
+    c = sk.pt(g.pts["C"])
+    if g.kind in ELLIPSES:
+        return sk.add_ellipse(c, sk.pt(g.pts["A"]), abs(sk.x[g.r]), uid, g.construction,
+                              el.param(sk, g, q0), el.param(sk, g, q1))
+    return sk.add_arc(c, sk.radius(g), _ang(c, q0), _ang(c, q1), uid, g.construction)
+
+
+def same_carrier(sk: Sketch, piece: Geo, n: int, uid: int) -> None:
+    """Keep an arc piece on the circle or ellipse of curve n: the same centre
+    (and axis point), and its start on n."""
+    sk.add_con("COINCIDENT", (f"{piece.n}.C", f"{n}.C"), uid=uid, auto=True, solve=False)
+    if piece.kind in ELLIPSES:  # the same axis and the same second radius
+        sk.add_con("COINCIDENT", (f"{piece.n}.A", f"{n}.A"), uid=uid, auto=True, solve=False)
+        sk.add_con("EQUAL", (f"{piece.n}", f"{n}"), uid=uid, auto=True, solve=False)
+    else:
+        sk.add_con("ON", (f"{piece.n}.S", str(n)), uid=uid, auto=True, solve=False)
+
+
 def trim(sk: Sketch, n: int, pick, uid: int = 0, axes: bool = False) -> str:
     """Remove the piece of curve n between the curves that cross it, on the
     side of ``pick``. A curve nothing crosses is deleted. With ``axes`` the
     sketch's H and V axes cut as well."""
-    g = _curve(sk, n, "STRIM")
+    g = _curve(sk, n, "STRIM", ellipse=True)
     lo, hi, h_lo, h_hi = trim_piece(sk, n, pick, axes)
     said: list[str] = []
     if h_lo is None and h_hi is None:
         return sk.delete(str(n)) + " (nothing crosses it, so all of it went)"
-    if g.kind == "CIRCLE":
+    if g.kind in CLOSED:
         q_lo, q_hi = _point_at(sk, g, lo), _point_at(sk, g, hi)
         # what is left runs counter-clockwise from hi round to lo
         _drop(sk, [k for k, c in sk.cons.items() if c.kind == "FIX" and _parts(c.refs[0]) == (n, "")], said)
-        c = sk.pt(g.pts["C"])
-        s, e = sk._new_point(*q_hi), sk._new_point(*q_lo)
-        g.kind, g.pts, g.r = "ARC", {"C": g.pts["C"], "S": s, "E": e}, None
+        was = kname(g.kind)
+        open_up(sk, g, q_hi, q_lo)
         sk.add_con("ON", (f"{n}.S", str(h_hi)), uid=uid, auto=True, solve=False)
         sk.add_con("ON", (f"{n}.E", str(h_lo)), uid=uid, auto=True, solve=False)
         sk.solve()
-        del c
-        return f"trimmed circle {n} to an arc between {h_hi} and {h_lo}{_dropped(said)}"
+        return f"trimmed {was} {n} to an arc between {h_hi} and {h_lo}{_dropped(said)}"
     span = _span(sk, g)
     if h_lo is None:  # the piece at the start goes: the start moves to hi
         _free_end(sk, n, "S", said)
         _set(sk, g.pts["S"], _point_at(sk, g, hi))
         sk.add_con("ON", (f"{n}.S", str(h_hi)), uid=uid, auto=True, solve=False)
-        what = f"trimmed {g.kind.lower()} {n} back to {h_hi}"
+        what = f"trimmed {kname(g.kind)} {n} back to {h_hi}"
     elif h_hi is None:  # the piece at the end goes
         _free_end(sk, n, "E", said)
         _set(sk, g.pts["E"], _point_at(sk, g, lo))
         sk.add_con("ON", (f"{n}.E", str(h_lo)), uid=uid, auto=True, solve=False)
-        what = f"trimmed {g.kind.lower()} {n} back to {h_lo}"
+        what = f"trimmed {kname(g.kind)} {n} back to {h_lo}"
     else:  # a piece in the middle: n keeps the start, a new curve takes the end
         q_lo, q_hi = _point_at(sk, g, lo), _point_at(sk, g, hi)
         end = sk.pt(g.pts["E"])
-        if g.kind == "LINE":
-            new = sk.add_line(q_hi, end, uid, g.construction)
-        else:
-            c = sk.pt(g.pts["C"])
-            new = sk.add_arc(c, sk.radius(g), _ang(c, q_hi), _ang(c, end), uid, g.construction)
+        new = piece_of(sk, g, q_hi, end, uid)
         _drop(sk, [k for k, c in sk.cons.items() if _extent_bound(sk, c, n)], said)
         _rename(sk, (n, "E"), f"{new.n}.E")
         _set(sk, g.pts["E"], q_lo)
         if g.kind == "LINE":  # the two pieces stay on one line
             sk.add_con("ON", (f"{new.n}.S", str(n)), uid=uid, auto=True, solve=False)
             sk.add_con("ON", (f"{new.n}.E", str(n)), uid=uid, auto=True, solve=False)
-        else:  # ... or on one circle
-            sk.add_con("COINCIDENT", (f"{new.n}.C", f"{n}.C"), uid=uid, auto=True, solve=False)
-            sk.add_con("ON", (f"{new.n}.S", str(n)), uid=uid, auto=True, solve=False)
+        else:  # ... or on one circle or ellipse
+            same_carrier(sk, new, n, uid)
         sk.add_con("ON", (f"{n}.E", str(h_lo)), uid=uid, auto=True, solve=False)
         sk.add_con("ON", (f"{new.n}.S", str(h_hi)), uid=uid, auto=True, solve=False)
-        what = f"cut {g.kind.lower()} {n} between {h_lo} and {h_hi}: {n} and {new.n} are left"
+        what = f"cut {kname(g.kind)} {n} between {h_lo} and {h_hi}: {n} and {new.n} are left"
     del span
     sk.solve()
     return what + _dropped(said)
@@ -363,11 +410,11 @@ def extend(sk: Sketch, end: str, to: int | str | None = None, uid: int = 0) -> s
     n, role = _parts(end)
     if n is None or role not in ("S", "E"):
         raise SketchError(f"give the end to extend, like 3.E or 3.S (got {end})")
-    g = _curve(sk, n, "SEXTEND")
-    if g.kind == "CIRCLE":
-        raise SketchError(f"{n} is a circle, which has no ends")
+    g = _curve(sk, n, "SEXTEND", ellipse=True)
+    if g.kind in CLOSED:
+        raise SketchError(f"{n} is a {kname(g.kind)}, which has no ends")
     if to is not None and to not in AXES:
-        _curve(sk, to, "SEXTEND")
+        _curve(sk, to, "SEXTEND", ellipse=True)
         if to == n:
             raise SketchError("a curve cannot be extended to itself")
     span, eps = _span(sk, g), _eps(sk, g)
@@ -384,14 +431,14 @@ def extend(sk: Sketch, end: str, to: int | str | None = None, uid: int = 0) -> s
             best = (far, h, q)
     if best is None:
         whom = (f"axis {to}" if to in AXES else f"curve {to}") if to is not None else "any curve"
-        raise SketchError(f"going on from {n}.{role}, {g.kind.lower()} {n} never meets {whom}")
+        raise SketchError(f"going on from {n}.{role}, {kname(g.kind)} {n} never meets {whom}")
     _, h, q = best
     said: list[str] = []
     _free_end(sk, n, role, said)
     _set(sk, g.pts[role], q)
     sk.add_con("ON", (f"{n}.{role}", str(h)), uid=uid, auto=True, solve=False)
     sk.solve()
-    return f"extended {g.kind.lower()} {n} at {role} to {h}{_dropped(said)}"
+    return f"extended {kname(g.kind)} {n} at {role} to {h}{_dropped(said)}"
 
 
 # =============================================================================
@@ -420,7 +467,7 @@ def _corner(sk: Sketch, corner: str):
         raise SketchError(f"{len(others) + 1} curves meet at {n}.{role}; a fillet goes where two curves meet")
     h, r2 = others[0]
     if h.kind not in ("LINE", "ARC"):
-        raise SketchError(f"a {h.kind.lower()} ends at {n}.{role}; a fillet goes between lines and arcs")
+        raise SketchError(f"a {kname(h.kind)} ends at {n}.{role}; a fillet goes between lines and arcs")
     return g, role, h, r2
 
 
@@ -598,7 +645,7 @@ def _fillet_round(sk: Sketch, corner: str, r: float, uid: int, g1: Geo, a: str, 
             best = (cost, C, T1, T2)
     if best is None:
         raise SketchError(f"radius {r:g} does not fit at {corner}: the fillet would run off the end of "
-                          f"{g1.kind.lower()} {g1.n} or {g2.kind.lower()} {g2.n}")
+                          f"{kname(g1.kind)} {g1.n} or {kname(g2.kind)} {g2.n}")
     _, C, T1, T2 = best
     A1, A2 = _ang(C, T1), _ang(C, T2)
     first_is_1 = (A2 - A1) % 360 < 180  # counter-clockwise the short way
@@ -643,7 +690,7 @@ def _fillet_round(sk: Sketch, corner: str, r: float, uid: int, g1: Geo, a: str, 
     sk.add_con("TANGENT", (str(g2.n), str(arc.n)), uid=uid, auto=True, solve=False)
     rad = sk.add_con("RADIUS", (str(arc.n),), r, uid=uid, solve=False)
     sk.solve(blame=rad.n)
-    return (f"rounded the corner of {g1.kind.lower()} {g1.n} and {g2.kind.lower()} {g2.n} with arc {arc.n}, "
+    return (f"rounded the corner of {kname(g1.kind)} {g1.n} and {kname(g2.kind)} {g2.n} with arc {arc.n}, "
             f"R{_n(r)} (C{rad.n}); the corner is construction point {pt.n}{_dropped(said)}"), arc
 
 
@@ -904,6 +951,12 @@ def _copy_geo(sk: Sketch, g: Geo, f, uid: int, flip: bool) -> Geo:
         cp = sk._new_point(*f(sk.pt(g.pts["C"])))
         sk.x.append(abs(sk.x[g.r]))
         new = sk._geo("CIRCLE", {"C": cp}, r=len(sk.x) - 1, construction=g.construction)
+    elif g.kind in ELLIPSES:  # the axis point moves with it; a mirrored arc swaps its ends
+        pts = {r: sk._new_point(*f(sk.pt(i))) for r, i in g.pts.items()}
+        if flip and g.kind == "EARC":
+            pts["S"], pts["E"] = pts["E"], pts["S"]
+        sk.x.append(abs(sk.x[g.r]))
+        new = sk._geo(g.kind, pts, r=len(sk.x) - 1, construction=g.construction)
     elif g.kind == "SPLINE":  # every point moved; a mirrored spline needs no flip
         new = sk._geo("SPLINE", {r: sk._new_point(*f(sk.pt(i))) for r, i in g.pts.items()},
                       construction=g.construction)
@@ -959,7 +1012,7 @@ def mirror(sk: Sketch, axis: str, names: list, uid: int = 0) -> tuple[str, list[
         if not ax.fixed and g.n == ax.geo.n:
             skipped.append(g.n)
             continue
-        if all(math.dist(f(sk.pt(i)), sk.pt(i)) <= tol for i in g.pts.values()) and g.kind != "ARC":
+        if all(math.dist(f(sk.pt(i)), sk.pt(i)) <= tol for i in g.pts.values()) and g.kind not in ("ARC", "EARC"):
             skipped.append(g.n)  # on the axis: its mirror is itself
             continue
         new = _copy_geo(sk, g, f, uid, flip=True)

@@ -24,10 +24,11 @@ from dataclasses import dataclass, field
 from ..commands import Processor
 from ..lang.expr import fmt_num
 from ..sketch import edit as sedit
+from ..sketch import ellipse as sel
 from ..sketch.sketch import Sketch, SketchError
 
 TOOLS = ("SELECT", "LINE", "CENTRELINE", "RECT", "CRECT", "RECT3", "CIRCLE", "CIRCLE3", "ARC", "TARC", "SLOT",
-         "ARCSLOT", "POLYGON", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
+         "ARCSLOT", "POLYGON", "ELLIPSE", "EARC", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
 DRAW_TOOLS = TOOLS[1:TOOLS.index("TRIM")]
 EDIT_TOOLS = TOOLS[TOOLS.index("TRIM"):]
 HINTS = {
@@ -44,6 +45,9 @@ HINTS = {
     "SLOT": "Click the first centre, then the second, then a point on the side",
     "ARCSLOT": "Click the centre of the bend, then the start of the slot's middle, then its end, then a point on the side",
     "POLYGON": "Click the centre, then a corner (the number of sides is set on the toolbar)",
+    "ELLIPSE": "Click the centre, then the end of one axis, then a point that sets how wide it is across",
+    "EARC": "Click the centre, the end of one axis, a point that sets the width, then where the arc starts and ends "
+            "(counter-clockwise)",
     "POINT": "Click to place a point",
     "FREEHAND": "Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude",
     "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it), or drag across pieces to cut "
@@ -260,7 +264,7 @@ class SketchController:
             lo, hi, _, _ = sedit.trim_piece(sk, n, (u, v), self.trim_axes)
         except SketchError:
             return None
-        if g.kind == "CIRCLE" and hi <= lo:
+        if g.kind in sedit.CLOSED and hi <= lo:
             hi += 360.0
         k = 2 if g.kind == "LINE" else 33
         return [sedit._point_at(sk, g, lo + (hi - lo) * i / (k - 1)) for i in range(k)]
@@ -305,7 +309,7 @@ class SketchController:
             if g.kind == "SPLINE":
                 return []
             at = _uv(_foot_on(sk, g, (u, v)))
-            if g.kind != "CIRCLE":
+            if g.kind not in sedit.CLOSED:
                 return [f"SSPLIT, {n}, {at}"]
             if self.picked and self.picked[0][0] == n:
                 first = _uv(self.picked[0][1])
@@ -323,7 +327,7 @@ class SketchController:
             return []
         if t == "TRIM":
             return [f"STRIM, {n}, {_uv((u, v))}" + (", AXES" if self.trim_axes else "")]
-        if g.kind == "CIRCLE":
+        if g.kind in sedit.CLOSED:
             return []
         ends = {r: sk.pt(g.pts[r]) for r in ("S", "E")}
         role = min(ends, key=lambda r: math.hypot(ends[r][0] - u, ends[r][1] - v))
@@ -404,15 +408,17 @@ class SketchController:
 
     def _draw_more(self, t: str) -> list[str] | None:
         """The newer drawing tools, once they have all their clicks (None: not one of them)."""
-        if t not in ("CENTRELINE", "CRECT", "RECT3", "CIRCLE3", "TARC", "ARCSLOT", "POLYGON"):
+        if t not in ("CENTRELINE", "CRECT", "RECT3", "CIRCLE3", "TARC", "ARCSLOT", "POLYGON", "ELLIPSE", "EARC"):
             return None
-        need = {"CENTRELINE": 2, "CRECT": 2, "RECT3": 3, "CIRCLE3": 3, "TARC": 2, "ARCSLOT": 4, "POLYGON": 2}[t]
+        need = {"CENTRELINE": 2, "CRECT": 2, "RECT3": 3, "CIRCLE3": 3, "TARC": 2, "ARCSLOT": 4, "POLYGON": 2,
+                "ELLIPSE": 3, "EARC": 5}[t]
         if len(self.clicks) < need:
             return []
         clicks, self.clicks = self.clicks, []
         pts = [c[0] for c in clicks]
         names = [_snapped(a, s) for a, s in clicks]
-        if any(math.dist(pts[i], pts[j]) < 1e-9 for i in range(len(pts)) for j in range(i)) and t != "ARCSLOT":
+        if any(math.dist(pts[i], pts[j]) < 1e-9 for i in range(len(pts)) for j in range(i)) and \
+                t not in ("ARCSLOT", "EARC"):
             return []
         if t == "CENTRELINE":
             ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0])) % 180
@@ -428,6 +434,8 @@ class SketchController:
             return [f"SCIRCLE3, {names[0]}, {names[1]}, {names[2]}"]
         if t == "TARC":
             return [f"SARCT, {clicks[0][1]}, {names[1]}"]
+        if t in ("ELLIPSE", "EARC"):
+            return ellipse_command(t, names[0], pts)
         if t == "POLYGON":
             r = math.dist(pts[0], pts[1])
             ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]))
@@ -616,6 +624,13 @@ class SketchController:
                 for rr in ({r} if half == 0 else {r - half, r + half}):
                     pv.arcs.append([(c[0] + rr * math.cos(a1 + span * i / 32), c[1] + rr * math.sin(a1 + span * i / 32))
                                     for i in range(33)])
+        elif t in ("ELLIPSE", "EARC"):
+            if len(pts) == 1:
+                pv.lines.append((pts[0], at))
+            else:
+                shape = ellipse_shape(pts + [at])
+                if shape:
+                    pv.arcs.append(ellipse_polyline(*shape))
         elif t == "SLOT":
             if len(pts) == 1:
                 pv.lines.append((pts[0], at))
@@ -642,7 +657,8 @@ def _kinds(sk: Sketch, names: list[str]) -> list[str]:
             out.append("CON")
             continue
         r = sk.ref(n)
-        out.append("P" if r.is_point else ("L" if r.geo.kind == "LINE" else "R"))
+        out.append("P" if r.is_point else ("L" if r.geo.kind == "LINE" else
+                                           "E" if r.geo.kind in sedit.ELLIPSES else "R"))
     return out
 
 
@@ -734,6 +750,15 @@ def dimension_for(p: Processor, which: str = "AUTO") -> tuple[str, list[str], fl
         if k == ["P"]:  # from the origin
             return which, ["ORIGIN", sel[0]], sk.measure(which, ("ORIGIN", sel[0]))
         raise NeedSelection(f"{'Horizontal' if which == 'HDIST' else 'Vertical'} distance: select two points or a line")
+    if which == "ARCLEN":
+        g = sk.ref(sel[0]).geo if len(sel) == 1 and k in (["R"], ["E"]) else None
+        if g is None or g.kind not in ("ARC", "EARC"):
+            raise NeedSelection("Arc length: select one arc or elliptical arc")
+        return "ARCLEN", sel, sk.measure("ARCLEN", tuple(sel))
+    if k == ["E"]:  # the first radius, then the second
+        has = {c.kind for c in sk.cons.values() if c.refs == (sel[0],)}
+        kind = "MINOR" if "MAJOR" in has and "MINOR" not in has else "MAJOR"
+        return kind, sel, sk.measure(kind, tuple(sel))
     if k == ["L"]:
         return "LENGTH", sel, sk.measure("LENGTH", tuple(sel))
     if k == ["R"]:
@@ -748,7 +773,8 @@ def dimension_for(p: Processor, which: str = "AUTO") -> tuple[str, list[str], fl
         if min(ang, 180 - ang) < 1e-6:
             return "DIST", sel, sk.measure("DIST", tuple(sel))
         return "ANGLE", sel, ang
-    raise NeedSelection("Dimension: select a line, a circle or arc, two points, a point and a line, or two lines")
+    raise NeedSelection("Dimension: select a line, a circle or arc, an ellipse, two points, a point and a line, "
+                        "or two lines")
 
 
 def dimension_command(kind: str, names: list[str], value_text: str) -> str:
@@ -963,6 +989,22 @@ def dimension_geometry(sk: Sketch, c):
         start = cc if k == "RADIUS" else (cc[0] - r * math.cos(ang), cc[1] - r * math.sin(ang))
         segs.append((start, rim))
         return segs, (rim[0] + off * 0.4 * math.cos(ang), rim[1] + off * 0.4 * math.sin(ang))
+    if k in ("MAJOR", "MINOR"):
+        g = rs[0].geo
+        cc, ax, a, b = sel.frame(sk, g)
+        d = ax if k == "MAJOR" else (-ax[1], ax[0])
+        r = a if k == "MAJOR" else b
+        rim = (cc[0] + r * d[0], cc[1] + r * d[1])
+        segs.append((cc, rim))
+        return segs, ((cc[0] + rim[0]) / 2 - d[1] * off * 0.3, (cc[1] + rim[1]) / 2 + d[0] * off * 0.3)
+    if k == "ARCLEN":
+        g = rs[0].geo
+        poly = _curve_polyline(sk, g)
+        mid = poly[len(poly) // 2]
+        cc = sk.pt(g.pts["C"])
+        dx, dy = mid[0] - cc[0], mid[1] - cc[1]
+        L = math.hypot(dx, dy) or 1.0
+        return segs, (mid[0] + dx / L * off * 0.5, mid[1] + dy / L * off * 0.5)
     if k == "DIST":
         if rs[0].is_point and rs[1].is_point:
             p, q = sk.pt(rs[0].point), sk.pt(rs[1].point)
@@ -1007,6 +1049,8 @@ def _bounds(sk: Sketch) -> tuple[float, float, float, float]:
         if g.kind in ("CIRCLE", "ARC"):
             c, r = sk.pt(g.pts["C"]), sk.radius(g)
             pts += [(c[0] - r, c[1] - r), (c[0] + r, c[1] + r)]
+        elif g.kind in sedit.ELLIPSES:
+            pts += sel.polyline(sk, g, 32)
     if not pts:
         return 0.0, 0.0, 0.0, 0.0
     return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
@@ -1018,6 +1062,8 @@ def _distance_to(sk: Sketch, g, q) -> float:
 
         pts = spline_samples(sk, g)
         return min(_segment_distance(q, pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+    if g.kind in sedit.ELLIPSES:
+        return sel.distance(sk, g, q)
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         dx, dy = b[0] - a[0], b[1] - a[1]
@@ -1046,6 +1092,8 @@ def _foot_on(sk: Sketch, g, q) -> tuple[float, float]:
         L2 = dx * dx + dy * dy or 1e-12
         t = ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2
         return (a[0] + t * dx, a[1] + t * dy)
+    if g.kind in sedit.ELLIPSES:
+        return sel.foot(sk, g, q)[0]
     c, r = sk.pt(g.pts["C"]), sk.radius(g)
     d = math.dist(c, q) or 1e-12
     return (c[0] + (q[0] - c[0]) * r / d, c[1] + (q[1] - c[1]) * r / d)
@@ -1058,10 +1106,74 @@ def _curve_polyline(sk: Sketch, g) -> list[tuple[float, float]]:
         from ..sketch.profile import spline_samples
 
         return list(spline_samples(sk, g))
+    if g.kind in sedit.ELLIPSES:
+        return sel.polyline(sk, g, 64)
     c, r = sk.pt(g.pts["C"]), sk.radius(g)
     a1, a2 = (0.0, 360.0) if g.kind == "CIRCLE" else sk.arc_angles(g)
     return [(c[0] + r * math.cos(math.radians(a1 + (a2 - a1) * i / 48)),
              c[1] + r * math.sin(math.radians(a1 + (a2 - a1) * i / 48))) for i in range(49)]
+
+
+def ellipse_shape(pts):
+    """From the clicks so far (centre, axis end, width point, start, end):
+    (centre, axis end, second radius, t1, t2), or None while it is flat."""
+    c, a = pts[0], pts[1]
+    R = math.dist(c, a)
+    if R < 1e-9:
+        return None
+    ax = ((a[0] - c[0]) / R, (a[1] - c[1]) / R)
+    b = R * 0.5
+    if len(pts) > 2:
+        w = pts[2]
+        b = abs(-(w[0] - c[0]) * ax[1] + (w[1] - c[1]) * ax[0])
+        if b < 1e-9:
+            return None
+    t1 = t2 = None
+
+    def t_of(q):
+        x = (q[0] - c[0]) * ax[0] + (q[1] - c[1]) * ax[1]
+        y = -(q[0] - c[0]) * ax[1] + (q[1] - c[1]) * ax[0]
+        return math.degrees(math.atan2(y / b, x / R))
+
+    if len(pts) > 3:
+        t1 = t_of(pts[3])
+        t2 = t_of(pts[4]) if len(pts) > 4 else t1 + 359.0
+        while t2 <= t1 + 1e-9:
+            t2 += 360.0
+    return c, a, b, t1, t2
+
+
+def ellipse_polyline(c, a, b, t1=None, t2=None, n: int = 64):
+    R = math.dist(c, a) or 1e-12
+    ax = ((a[0] - c[0]) / R, (a[1] - c[1]) / R)
+    t1, t2 = (0.0, 360.0) if t1 is None else (t1, t2)
+    out = []
+    for i in range(n + 1):
+        t = math.radians(t1 + (t2 - t1) * i / n)
+        x, y = R * math.cos(t), b * math.sin(t)
+        out.append((c[0] + x * ax[0] - y * ax[1], c[1] + x * ax[1] + y * ax[0]))
+    return out
+
+
+def ellipse_command(tool: str, centre: str, pts) -> list[str]:
+    """SELLIPSE or SEARC from the clicks (radii rounded like a circle's)."""
+    shape = ellipse_shape(pts)
+    if shape is None:
+        return []
+    c, a, b, t1, t2 = shape
+    R = math.dist(c, a)
+    step = nice_step(R * 0.02)
+    R, b = max(step, round(R / step) * step), max(step, round(b / step) * step)
+    ang = round(math.degrees(math.atan2(a[1] - c[1], a[0] - c[0])), 2) + 0.0
+    flag = ", H" if abs(ang) < SNAP_ANGLE or abs(abs(ang) - 180) < SNAP_ANGLE else ""
+    if flag:
+        ang = 0.0 if abs(ang) < SNAP_ANGLE else 180.0
+    line = f"{'SELLIPSE' if tool == 'ELLIPSE' else 'SEARC'}, {centre}, {_r(R)}, {_r(b)}, {_r(ang)}"
+    if tool == "EARC":
+        if t2 - t1 < 1e-6 or t2 - t1 >= 360 - 1e-6:
+            return []
+        line += f", {_r(round(t1, 2))}, {_r(round(t2, 2))}"
+    return [line + flag]
 
 
 def _circle_through(a, b, c):

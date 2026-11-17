@@ -33,14 +33,14 @@ from . import sketch_tools as st
 _TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "CENTRELINE": "Centreline", "RECT": "Rectangle",
                 "CRECT": "Centre rect", "RECT3": "Angled rect", "CIRCLE": "Circle",
                 "CIRCLE3": "3-point circle", "ARC": "Arc", "TARC": "Tangent arc", "SLOT": "Slot", "ARCSLOT": "Arc slot",
-                "POLYGON": "Polygon", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend",
+                "POLYGON": "Polygon", "ELLIPSE": "Ellipse", "EARC": "Elliptical arc", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend",
                 "FILLET": "Fillet", "CHAMFER": "Chamfer", "SPLIT": "Split", "CORNER": "Corner"}
 _TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "POINT": "P", "FREEHAND": "D",
               "TRIM": "T", "EXTEND": "E", "FILLET": "F", "CHAMFER": "K", "SPLIT": "B", "CORNER": "O",
-              "POLYGON": "G", "TARC": "N"}
+              "POLYGON": "G", "TARC": "N", "ELLIPSE": "I"}
 _TOOL_RUNS = {"SELECT": "SSEL / SMOVE", "LINE": "SLINE", "CENTRELINE": "SLINE, ..., CONSTR", "RECT": "SRECT",
               "CRECT": "SRECTC", "RECT3": "SRECT3", "CIRCLE": "SCIRCLE", "CIRCLE3": "SCIRCLE3", "ARC": "SARC3",
-              "TARC": "SARCT", "SLOT": "SSLOT", "ARCSLOT": "SSLOTARC", "POLYGON": "SNGON", "POINT": "SPOINT",
+              "TARC": "SARCT", "SLOT": "SSLOT", "ARCSLOT": "SSLOTARC", "POLYGON": "SNGON", "ELLIPSE": "SELLIPSE", "EARC": "SEARC", "POINT": "SPOINT",
               "FREEHAND": "SSPLINE", "TRIM": "STRIM", "EXTEND": "SEXTEND", "FILLET": "SFILLET", "CHAMFER": "SCHAMFER",
               "SPLIT": "SSPLIT", "CORNER": "SCORNER"}
 _CONSTRAINTS = [
@@ -142,7 +142,8 @@ class SketchUI:
                 ("Across…", "d_across", "HDIST", "Horizontal distance between two points (or a point and the origin)\n"
                                                   "Runs: SDIM, HDIST, ..."),
                 ("Up…", "d_up", "VDIST", "Vertical distance between two points (or a point and the origin)\n"
-                                          "Runs: SDIM, VDIST, ...")):
+                                          "Runs: SDIM, VDIST, ..."),
+                ("Arc length…", "d_arclen", "ARCLEN", "Length along an arc or elliptical arc\nRuns: SDIM, ARCLEN, n, ...")):
             tbs.action(win, tb, label, icon, tip, lambda _=False, w=which: self.add_dimension(w))
         tbs.action(win, tb, "Construction", "s_construction",
                    "Make the selected curves construction geometry (or back)\nRuns: SCONSTRUCT, n, ON/OFF",
@@ -270,7 +271,8 @@ class SketchUI:
             self.win.statusBar().showMessage(str(exc), 6000)
             return
         what = {"LENGTH": "Length", "DIAMETER": "Diameter", "RADIUS": "Radius", "DIST": "Distance",
-                "ANGLE": "Angle (degrees)", "HDIST": "Horizontal distance", "VDIST": "Vertical distance"}[kind]
+                "ANGLE": "Angle (degrees)", "HDIST": "Horizontal distance", "VDIST": "Vertical distance",
+                "MAJOR": "First radius", "MINOR": "Second radius", "ARCLEN": "Arc length"}[kind]
         text, ok = QInputDialog.getText(self.win, "Size", f"{what} of {', '.join(names)} (a number, or an "
                                         "expression with parameters):", QLineEdit.Normal, fmt_num(round(now, 4) + 0.0))
         if ok and text.strip():

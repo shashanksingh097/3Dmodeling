@@ -158,7 +158,7 @@ def _mark_position(sk, c):
             p = sk.pt(g.pts["S"])
             return (p[0] + off, p[1] + off)
         c0 = sk.pt(g.pts["C"])
-        rad = sk.radius(g)
+        rad = sk.radius(g) if g.kind in ("ARC", "CIRCLE") else abs(sk.x[g.r])
         return (c0[0] - rad * 0.7 - off, c0[1] + rad * 0.7 + off)
     return None
 
@@ -697,7 +697,7 @@ class OccViewport(QWidget):
                         b.Add(dim_lines, BRepBuilderAPI_MakeEdge(gp_Pnt(*sk.frame.point(*a)),
                                                                   gp_Pnt(*sk.frame.point(*e))).Edge())
                         n_dim += 1
-                text = {"DIAMETER": "\u2300", "RADIUS": "R"}.get(c.kind, "") + _num(c.value) + (
+                text = {"DIAMETER": "\u2300", "RADIUS": "R", "ARCLEN": "\u2312", "MAJOR": "R", "MINOR": "R"}.get(c.kind, "") + _num(c.value) + (
                     "\u00b0" if c.kind == "ANGLE" else "")
                 color = colors["sel"] if c.label in sel else _rgb(1.0, 0.9, 0.35)
                 height = 15
