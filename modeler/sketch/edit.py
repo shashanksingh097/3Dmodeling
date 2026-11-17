@@ -19,8 +19,9 @@ import math
 from .sketch import kname, _HX, _O, _VY, Con, Geo, Sketch, SketchError, _geo_of, _REF
 
 from . import ellipse as el
+from . import spline as sp
 
-CURVES = ("LINE", "ARC", "CIRCLE", "ELLIPSE", "EARC")
+CURVES = ("LINE", "ARC", "CIRCLE", "ELLIPSE", "EARC", "SPLINE")
 ELLIPSES = el.ROUND_KINDS
 CLOSED = ("CIRCLE", "ELLIPSE")  # curves with no ends (a trim or split makes arcs of them)
 
@@ -63,11 +64,13 @@ def _parts(ref: str) -> tuple[int | None, str]:
     return int(m.group(1)), (m.group(2) or "").upper()
 
 
-def _curve(sk: Sketch, n: int, what: str, ellipse: bool = False) -> Geo:
+def _curve(sk: Sketch, n: int, what: str, ellipse: bool = False, spline: bool = False) -> Geo:
     g = sk.geos.get(n)
     if g is None:
         have = ", ".join(map(str, sorted(sk.geos))) or "none yet"
         raise SketchError(f"sketch {sk.name} has no geometry {n} (it has: {have})")
+    if g.kind == "SPLINE" and spline:
+        return g
     if g.kind == "SPLINE":
         raise SketchError(f"{n} is a spline, which {what.split(':')[0] or 'this'} does not work on yet; give a line, "
                           "arc or circle (drag the spline's points to change it)")
@@ -105,6 +108,11 @@ def _num(text) -> int:
 # where curves cross
 # =============================================================================
 
+def is_closed(g: Geo) -> bool:
+    """A curve with no ends: a circle, an ellipse or a closed spline."""
+    return g.kind in CLOSED or (g.kind == "SPLINE" and g.closed)
+
+
 def _carrier_hits(sk: Sketch, g: Geo, h: Geo) -> list[tuple[float, float]]:
     """Where the full carriers (the line through a line, the circle of an arc)
     of g and h cross."""
@@ -114,6 +122,8 @@ def _carrier_hits(sk: Sketch, g: Geo, h: Geo) -> list[tuple[float, float]]:
     def circ(x):
         return sk.pt(x.pts["C"]), sk.radius(x)
 
+    if g.kind == "SPLINE" or h.kind == "SPLINE":
+        return sp.hits(sk, g, h)
     if g.kind in ELLIPSES:
         return el.hits(sk, g, h)
     if h.kind in ELLIPSES:
@@ -161,6 +171,8 @@ def _param(sk: Sketch, g: Geo, q) -> float:
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         r = _sub(b, a)
         return _dot(_sub(q, a), r) / (_dot(r, r) or 1e-24)
+    if g.kind == "SPLINE":
+        return sp.param(sk, g, q)
     if g.kind in ELLIPSES:
         t = el.param(sk, g, q)
         return (t - (el.arc_params(sk, g)[0] if g.kind == "EARC" else 0.0)) % 360.0
@@ -173,6 +185,8 @@ def _param(sk: Sketch, g: Geo, q) -> float:
 
 
 def _span(sk: Sketch, g: Geo) -> float:
+    if g.kind == "SPLINE":
+        return sp.period(g)
     if g.kind == "LINE":
         return 1.0
     if g.kind in CLOSED:
@@ -189,6 +203,8 @@ def _eps(sk: Sketch, g: Geo) -> float:
     size = 1e-6 * sk.extent()
     if g.kind == "LINE":
         return size / (math.dist(sk.pt(g.pts["S"]), sk.pt(g.pts["E"])) or 1.0)
+    if g.kind == "SPLINE":
+        return size / (sp.length(sk, g) or 1.0) * sp.period(g)
     if g.kind in ELLIPSES:
         _, _, a, b = el.frame(sk, g)
         return math.degrees(size / (min(a, b) or 1.0))
@@ -197,7 +213,7 @@ def _eps(sk: Sketch, g: Geo) -> float:
 
 def _within(sk: Sketch, h: Geo, q) -> bool:
     """Is q (on h's carrier) on the drawn part of h?"""
-    if h.kind in CLOSED:
+    if h.kind in CLOSED or h.kind == "SPLINE":  # a spline's carrier is the drawn spline
         return True
     p, e = _param(sk, h, q), _eps(sk, h)
     if h.kind == "LINE":
@@ -286,15 +302,15 @@ def trim_piece(sk: Sketch, n: int, pick, axes: bool = False) -> tuple[float, flo
     """The piece of curve n that a click at ``pick`` removes: (from, to) in
     n's params and the curves cutting there (None at a free end; H or V for
     an axis, which cut only with ``axes``)."""
-    g = _curve(sk, n, "STRIM", ellipse=True)
+    g = _curve(sk, n, "STRIM", ellipse=True, spline=True)
     span, eps = _span(sk, g), _eps(sk, g)
     tp = _param(sk, g, pick)
     cuts = _cuts(sk, g, axes=axes)
-    if g.kind == "LINE":
+    if g.kind == "LINE" or (g.kind == "SPLINE" and not g.closed):
         tp = min(max(tp, 0.0), 1.0)
     elif g.kind in ("ARC", "EARC") and tp > span:  # off the arc: the nearer end
         tp = span if tp - span < 360 - tp else 0.0
-    if g.kind in CLOSED:
+    if is_closed(g):
         ps = sorted({(round(p, 9) % 360, h) for p, h, _ in cuts}, key=lambda x: (x[0], str(x[1])))
         if len(ps) < 2:
             return 0.0, 360.0, None, None
@@ -310,6 +326,8 @@ def trim_piece(sk: Sketch, n: int, pick, axes: bool = False) -> tuple[float, flo
 
 
 def _point_at(sk: Sketch, g: Geo, p: float):
+    if g.kind == "SPLINE":
+        return sp.at(sk, g, p)
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         return _add(a, _sub(b, a), p)
@@ -357,11 +375,15 @@ def trim(sk: Sketch, n: int, pick, uid: int = 0, axes: bool = False) -> str:
     """Remove the piece of curve n between the curves that cross it, on the
     side of ``pick``. A curve nothing crosses is deleted. With ``axes`` the
     sketch's H and V axes cut as well."""
-    g = _curve(sk, n, "STRIM", ellipse=True)
+    g = _curve(sk, n, "STRIM", ellipse=True, spline=True)
     lo, hi, h_lo, h_hi = trim_piece(sk, n, pick, axes)
     said: list[str] = []
     if h_lo is None and h_hi is None:
         return sk.delete(str(n)) + " (nothing crosses it, so all of it went)"
+    if g.kind == "SPLINE":
+        from . import spline_edit
+
+        return spline_edit.trim(sk, g, lo, hi, h_lo, h_hi, uid)
     if g.kind in CLOSED:
         q_lo, q_hi = _point_at(sk, g, lo), _point_at(sk, g, hi)
         # what is left runs counter-clockwise from hi round to lo
@@ -410,13 +432,17 @@ def extend(sk: Sketch, end: str, to: int | str | None = None, uid: int = 0) -> s
     n, role = _parts(end)
     if n is None or role not in ("S", "E"):
         raise SketchError(f"give the end to extend, like 3.E or 3.S (got {end})")
-    g = _curve(sk, n, "SEXTEND", ellipse=True)
-    if g.kind in CLOSED:
-        raise SketchError(f"{n} is a {kname(g.kind)}, which has no ends")
+    g = _curve(sk, n, "SEXTEND", ellipse=True, spline=True)
+    if is_closed(g):
+        raise SketchError(f"{n} is a closed {kname(g.kind)}, which has no ends")
     if to is not None and to not in AXES:
-        _curve(sk, to, "SEXTEND", ellipse=True)
+        _curve(sk, to, "SEXTEND", ellipse=True, spline=True)
         if to == n:
             raise SketchError("a curve cannot be extended to itself")
+    if g.kind == "SPLINE":
+        from . import spline_edit
+
+        return spline_edit.extend(sk, g, role, to, uid)
     span, eps = _span(sk, g), _eps(sk, g)
     best = None
     for p, h, q in _cuts(sk, g, only=to, whole=to is not None):
@@ -450,8 +476,8 @@ def _corner(sk: Sketch, corner: str):
     Each is a line or an arc."""
     n, role = _parts(corner)
     g = sk.geos.get(n) if n is not None else None
-    if g is None or g.kind not in ("LINE", "ARC") or role not in ("S", "E"):
-        raise SketchError(f"give the corner as the end of a line or arc, like 3.E (got {corner})")
+    if g is None or g.kind not in ("LINE", "ARC", "SPLINE") or role not in ("S", "E") or role not in g.pts:
+        raise SketchError(f"give the corner as the end of a line, arc or spline, like 3.E (got {corner})")
     at = sk.pt(g.pts[role])
     tol = 1e-6 * sk.extent()
     others = []
@@ -466,8 +492,11 @@ def _corner(sk: Sketch, corner: str):
             raise SketchError(f"nothing else ends at {n}.{role}, so there is no corner to round")
         raise SketchError(f"{len(others) + 1} curves meet at {n}.{role}; a fillet goes where two curves meet")
     h, r2 = others[0]
-    if h.kind not in ("LINE", "ARC"):
-        raise SketchError(f"a {kname(h.kind)} ends at {n}.{role}; a fillet goes between lines and arcs")
+    if h.kind not in ("LINE", "ARC", "SPLINE"):
+        raise SketchError(f"a {kname(h.kind)} ends at {n}.{role}; a fillet goes between lines, arcs and splines")
+    if g.kind == "SPLINE" and h.kind == "SPLINE":
+        raise SketchError(f"two splines meet at {n}.{role}; a fillet goes between a spline and a line or arc "
+                          "(join them with SJOIN for a smooth curve)")
     return g, role, h, r2
 
 
@@ -478,7 +507,7 @@ def fillet(sk: Sketch, corner: str, r: float, uid: int = 0) -> tuple[str, Geo]:
     if r <= 0:
         raise SketchError("the radius must be positive")
     l1, a, l2, b = _corner(sk, corner)
-    if l1.kind == "ARC" or l2.kind == "ARC":
+    if l1.kind != "LINE" or l2.kind != "LINE":
         return _fillet_round(sk, corner, r, uid, l1, a, l2, b)
     P = sk.pt(l1.pts[a])
     o1 = sk.pt(l1.pts["E" if a == "S" else "S"])
@@ -545,6 +574,9 @@ def _away(sk: Sketch, g: Geo, role: str):
     P = sk.pt(g.pts[role])
     if g.kind == "LINE":
         return _unit(_sub(sk.pt(g.pts["E" if role == "S" else "S"]), P))
+    if g.kind == "SPLINE":
+        t = sp.tangent(sk, g, 0.0 if role == "S" else 1.0)
+        return t if role == "S" else (-t[0], -t[1])
     c = sk.pt(g.pts["C"])
     rx, ry = _unit(_sub(P, c))
     ccw = (-ry, rx)  # an arc runs counter-clockwise from S to E
@@ -560,6 +592,10 @@ def _offset_carrier(sk: Sketch, g: Geo, P, toward, r: float):
         nrm = (-d[1], d[0])
         side = 1.0 if _dot(nrm, toward) > 0 else -1.0
         return ("L", _add(a, nrm, side * r), d)
+    if g.kind == "SPLINE":  # the spline moved r to one side: worked out point by point in _meet
+        t = sp.tangent(sk, g, sp.param(sk, g, P))
+        side = 1.0 if _dot((-t[1], t[0]), toward) > 0 else -1.0
+        return ("S", sk, g, side * r)
     c, R = sk.pt(g.pts["C"]), sk.radius(g)
     inside = _dot(toward, _sub(c, P)) > 0  # the other curve heads into the circle
     if inside:
@@ -570,7 +606,12 @@ def _offset_carrier(sk: Sketch, g: Geo, P, toward, r: float):
 
 
 def _meet(c1, c2) -> list:
-    """Where two carriers (("L", point, dir) or ("C", centre, radius)) cross."""
+    """Where two carriers (("L", point, dir) or ("C", centre, radius), or a
+    spline moved to one side ("S", sketch, spline, signed distance)) cross."""
+    if c2[0] == "S":
+        c1, c2 = c2, c1
+    if c1[0] == "S":
+        return [] if c2[0] == "S" else _meet_spline(c1, c2)
     if c1[0] == "C" and c2[0] == "L":
         c1, c2 = c2, c1
     if c1[0] == "L" and c2[0] == "L":
@@ -600,8 +641,46 @@ def _meet(c1, c2) -> list:
     return [_add(m, nrm, hh), _add(m, nrm, -hh)]
 
 
+def _meet_spline(k, other) -> list:
+    """Where the spline moved to one side crosses a line or circle: the
+    sign changes of the gap along the spline, each closed in by halving."""
+    _, sk, g, off = k
+
+    def centre(f):
+        q, t = sp.at(sk, g, f), sp.tangent(sk, g, f)
+        return (q[0] - t[1] * off, q[1] + t[0] * off)
+
+    def gap(f):
+        C = centre(f)
+        if other[0] == "L":
+            return _cross(other[2], _sub(C, other[1]))
+        return math.dist(C, other[1]) - other[2]
+
+    n = 200
+    fs = [i / n for i in range(n + 1)]
+    vals = [gap(f) for f in fs]
+    out = []
+    for i in range(n):
+        a, b = vals[i], vals[i + 1]
+        if a == 0.0:
+            out.append(centre(fs[i]))
+        elif a * b < 0:
+            lo, hi, flo = fs[i], fs[i + 1], a
+            for _ in range(60):
+                mid = 0.5 * (lo + hi)
+                fm = gap(mid)
+                if (fm < 0) == (flo < 0):
+                    lo, flo = mid, fm
+                else:
+                    hi = mid
+            out.append(centre(0.5 * (lo + hi)))
+    return out
+
+
 def _touch(sk: Sketch, g: Geo, C):
     """Where a circle centred at C, tangent to g, touches g's carrier."""
+    if g.kind == "SPLINE":
+        return sp.foot(sk, g, C)
     if g.kind == "LINE":
         a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
         d = _unit(_sub(b, a))
@@ -617,6 +696,9 @@ def _along(sk: Sketch, g: Geo, role: str, q) -> float:
         P, o = sk.pt(g.pts[role]), sk.pt(g.pts["E" if role == "S" else "S"])
         r = _sub(o, P)
         return _dot(_sub(q, P), r) / (_dot(r, r) or 1e-24)
+    if g.kind == "SPLINE":
+        t = sp.param(sk, g, q)
+        return t if role == "S" else 1 - t
     span = _span(sk, g)
     p = _param(sk, g, q)  # degrees from S, counter-clockwise
     if p > span and p > (span + 360) / 2:
@@ -677,10 +759,16 @@ def _fillet_round(sk: Sketch, corner: str, r: float, uid: int, g1: Geo, a: str, 
                 c.refs = (str(pt.n), f"{g.n}.{other}") if other == "E" else (f"{g.n}.{other}", str(pt.n))
             elif _extent_bound(sk, c, g.n):
                 _drop(sk, [k], said)
-    sk.add_con("ON", (str(pt.n), str(g1.n)), uid=uid, auto=True, solve=False)
-    sk.add_con("ON", (str(pt.n), str(g2.n)), uid=uid, auto=True, solve=False)
-    _set(sk, g1.pts[a], T1)
-    _set(sk, g2.pts[b], T2)
+    for g, role, T in ((g1, a, T1), (g2, b, T2)):
+        if g.kind == "SPLINE":  # cut back to where the fillet touches (the corner is off it then)
+            from . import spline_edit
+
+            f = sp.param(sk, g, T)
+            made, moved, _ = sp.pieces(sk, g, [(f, 1.0) if role == "S" else (0.0, f)], uid)
+            spline_edit._remap(sk, g.n, moved, said, (role,))
+        else:
+            sk.add_con("ON", (str(pt.n), str(g.n)), uid=uid, auto=True, solve=False)
+            _set(sk, g.pts[role], T)
     arc = sk.add_arc(C, r, A1, A2, uid) if first_is_1 else sk.add_arc(C, r, A2, A1, uid)
     arc.construction = g1.construction and g2.construction
     end1, end2 = ("S", "E") if first_is_1 else ("E", "S")

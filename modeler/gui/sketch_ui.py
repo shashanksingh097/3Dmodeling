@@ -136,6 +136,8 @@ class SketchUI:
                                                          "constraints among it go along\nRuns: STRANSFORM, ..."),
                 ("Offset both…", "s_offset2", self.offset2, "Offset the selected curves to both sides with round (or "
                                                             "flat) ends: a slot along a path\nRuns: SOFFSET2, d, ..."),
+                ("Join to spline", "s_join", self.join, "Join the selected curves (end to end) into one smooth "
+                                                        "spline, or turn one curve into a spline\nRuns: SJOIN, ..."),
                 ("Project…", "s_project", self.project, "Bring body edges into the sketch (the edges or faces picked "
                                                         "before the sketch, or IDs)\nRuns: SPROJECT, ..."),
                 ("Cut bodies…", "s_intersect", self.intersect, "Bring in the curves where bodies cut the sketch plane "
@@ -250,6 +252,9 @@ class SketchUI:
             flat = d.strip().upper().endswith("FLAT")
             d = d.strip()[:-4].rstrip(", ") if flat else d
             self.run(lambda: st.offset2_command(self.p, d, flat))
+
+    def join(self) -> None:
+        self.run(lambda: st.join_command(self.p))
 
     def intersect(self) -> None:
         ids = self._ask("Cut bodies with the sketch plane", "Body IDs:", st.intersect_default(self.p))
