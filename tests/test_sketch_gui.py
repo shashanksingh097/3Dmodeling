@@ -184,3 +184,86 @@ def robust_solid(shape):
     from modeler.geometry import robust
 
     return bool(robust.solids(shape))
+
+
+def test_toolbar_groups_have_icons_and_names_and_one_style_setting(app, win):
+    from PySide6.QtCore import Qt as _Qt
+    from PySide6.QtGui import QImage
+
+    from modeler.gui import icons
+    from modeler.gui import toolbars as tbs
+
+    for name in icons.NAMES:  # every icon draws something
+        img = icons.pixmap(name).toImage().convertToFormat(QImage.Format_ARGB32)
+        assert any(img.pixelColor(x, y).alpha() > 0 for x in range(0, img.width(), 2)
+                   for y in range(0, img.height(), 2)), name
+    titles = [tb.windowTitle() for tb in tbs.groups(win)]
+    for t in ("File", "Edit", "Shapes", "Booleans", "Patterns", "Pick", "View", "Sketch", "Features", "Measure",
+              "Sketch draw", "Sketch edit", "Constraints", "Sizes"):
+        assert t in titles, t
+    for tb in tbs.groups(win):
+        for a in tb.actions():
+            if a.text():
+                assert not a.icon().isNull(), a.text()
+                assert a.property("icon_name") in icons.NAMES
+    tbs.set_style(win, "icons")
+    assert all(tb.toolButtonStyle() == _Qt.ToolButtonIconOnly for tb in tbs.groups(win))
+    assert win.shell.settings.value(tbs.SETTING) == "icons"
+    win._style_actions["under"].trigger()
+    assert all(tb.toolButtonStyle() == _Qt.ToolButtonTextUnderIcon for tb in tbs.groups(win))
+    # the sketch groups come and go together with sketch mode
+    sketch_bars = win.sketch_ui.toolbars
+    assert len(sketch_bars) == 4 and not any(tb.isVisible() for tb in sketch_bars)
+    win.execute("SKETCH, s, XY")
+    pump(app, 10)
+    assert all(tb.isVisible() for tb in sketch_bars)
+    win.execute("ENDSKETCH")
+    pump(app, 10)
+    assert not any(tb.isVisible() for tb in sketch_bars)
+
+
+def test_power_trim_by_dragging_across_curves(app, win):
+    vp = win.viewport
+    win.execute("SKETCH, s, XY")
+    win.execute("SLINE, -30,0, 30,0")
+    win.execute("SLINE, -10,-10, -10,10")
+    win.execute("SLINE, 10,-10, 10,10")
+    pump(app, 20)
+    vp.view.SetSize(120)
+    vp.view.Redraw()
+    pump(app)
+
+    def at(u, v):
+        x, y = vp.pixel_of(u, v)
+        r = vp.devicePixelRatioF()
+        return QPoint(int(x / r), int(y / r))
+
+    win.sketch_ui.tool_actions["TRIM"].trigger()
+    # across the two upright lines above the long one, and across the long one's middle
+    _drag(app, vp, [at(-15, 6), at(-10, 6), at(-5, 6), at(0, 4), at(0, 0), at(0, -2), at(5, 6), at(10, 6), at(15, 6)])
+    last = win.processor.history[win.processor.cursor - 1].text
+    assert last.startswith("STRIM, ") and last.count(",") >= 8, last
+    sk = win.processor.model.sketches["S"]
+    tops = [sk.pt(sk.geos[n].pts["E"])[1] for n in (2, 3)]
+    assert all(abs(t) < 1e-6 for t in tops)  # both upright lines cut back to the long one
+
+
+def test_move_copy_button_runs_stransform(app, win, monkeypatch):
+    from modeler.gui import sketch_ui
+
+    win.execute("SKETCH, s, XY")
+    win.execute("SRECT, 0,0, 20,10")
+    win.execute("SSEL, 1, 2, 3, 4")
+    pump(app, 5)
+
+    def fake_exec(self):
+        self.kind.setCurrentText("Rotate")
+        self.values.setText("90, O")
+        self.copy.setChecked(True)
+        return sketch_ui.QDialog.Accepted
+
+    monkeypatch.setattr(sketch_ui.TransformForm, "exec", fake_exec)
+    win.sketch_ui.edit_actions["Move/Copy"].trigger()
+    pump(app, 5)
+    assert win.processor.history[win.processor.cursor - 1].text == "STRANSFORM, ROTATE, 90, O, 1, 2, 3, 4, COPY"
+    assert len(win.processor.model.sketches["S"].geos) == 8

@@ -7,10 +7,13 @@ a preview of what is being drawn. Everything that changes the sketch goes
 through those commands, exactly as if they were typed.
 
 Tools: SELECT (click to select, drag a point to move it), LINE (a chain of
-lines; click the first point again, or press Esc, to finish), RECT, CIRCLE,
-ARC (start, end, then a point it passes through), SLOT, POINT, and the
-editing tools TRIM (click the piece to cut away), EXTEND (click near an
-end) and FILLET (click a corner).
+lines; click the first point again, or press Esc, to finish), CENTRELINE,
+RECT, CRECT (centre and corner), RECT3 (at an angle), CIRCLE, CIRCLE3,
+ARC (start, end, then a point it passes through), TARC (on from an end),
+SLOT, ARCSLOT, POLYGON, POINT, FREEHAND, and the editing tools TRIM (click
+the piece to cut away, or drag across pieces), EXTEND (click near an end),
+FILLET and CHAMFER (click a corner), SPLIT (click where) and CORNER (click
+the two curves).
 """
 
 from __future__ import annotations
@@ -23,19 +26,33 @@ from ..lang.expr import fmt_num
 from ..sketch import edit as sedit
 from ..sketch.sketch import Sketch, SketchError
 
-TOOLS = ("SELECT", "LINE", "RECT", "CIRCLE", "ARC", "SLOT", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET")
+TOOLS = ("SELECT", "LINE", "CENTRELINE", "RECT", "CRECT", "RECT3", "CIRCLE", "CIRCLE3", "ARC", "TARC", "SLOT",
+         "ARCSLOT", "POLYGON", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
+DRAW_TOOLS = TOOLS[1:TOOLS.index("TRIM")]
+EDIT_TOOLS = TOOLS[TOOLS.index("TRIM"):]
 HINTS = {
     "SELECT": "Click to select sketch geometry (Ctrl adds); drag a point to move it; double-click a size to change it",
     "LINE": "Click the start, then each next point; click the first point again or press Esc to finish",
+    "CENTRELINE": "Click the start, then the end of a construction line (an axis to revolve about or mirror in)",
     "RECT": "Click one corner, then the opposite corner",
+    "CRECT": "Click the centre, then a corner",
+    "RECT3": "Click two corners for the first side, then a point on the far side",
     "CIRCLE": "Click the centre, then a point on the circle",
+    "CIRCLE3": "Click three points the circle passes through",
     "ARC": "Click the start, then the end, then a point the arc passes through",
+    "TARC": "Click the end of a line or arc, then where the arc that carries on smoothly from it should end",
     "SLOT": "Click the first centre, then the second, then a point on the side",
+    "ARCSLOT": "Click the centre of the bend, then the start of the slot's middle, then its end, then a point on the side",
+    "POLYGON": "Click the centre, then a corner (the number of sides is set on the toolbar)",
     "POINT": "Click to place a point",
     "FREEHAND": "Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude",
-    "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it)",
+    "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it), or drag across pieces to cut "
+            "every one the mouse passes over",
     "EXTEND": "Click near the end of a line or arc to make it reach the next curve",
     "FILLET": "Click a corner where two curves (lines or arcs) meet to round it (double-click the radius to change it)",
+    "CHAMFER": "Click a corner where two lines meet to cut it straight (double-click a size to change it)",
+    "SPLIT": "Click a curve where it should be split in two (a circle: click two places)",
+    "CORNER": "Click the part of one curve to keep, then the part of another: both are trimmed or extended to meet",
 }
 SNAP_ANGLE = 3.0  # degrees: a line this close to level or upright is made horizontal or vertical
 
@@ -88,6 +105,8 @@ class SketchController:
         self.stroke: list[tuple[float, float]] | None = None  # FREEHAND: the points drawn so far
         self.stroke_snap: str | None = None  # FREEHAND: the point the stroke started on
         self.trim_axes = False  # TRIM: the H and V axes cut too (STRIM ... AXES)
+        self.polygon_sides = 6  # POLYGON: how many sides
+        self.picked: list[tuple[int, tuple[float, float]]] = []  # SPLIT (circle) and CORNER: curves clicked so far
         self.preview = Preview()
 
     # ---- state -------------------------------------------------------------
@@ -108,6 +127,7 @@ class SketchController:
         self.drag_at = None
         self.stroke = None
         self.stroke_snap = None
+        self.picked = []
         self.preview = Preview()
 
     # ---- finding things under the mouse -----------------------------------------
@@ -171,6 +191,8 @@ class SketchController:
         elif self.tool == "FREEHAND" and self.sketch is not None:
             at, self.stroke_snap = self.snap(u, v, tol)
             self.stroke = [at if self.stroke_snap else (u, v)]
+        elif self.tool == "TRIM" and self.sketch is not None:
+            self.stroke = [(u, v)]  # a drag across curves is a power trim
         return []
 
     def move(self, u: float, v: float, tol: float) -> Preview:
@@ -193,10 +215,21 @@ class SketchController:
                     self.stroke.append((u, v))
                 pv.arcs.append(list(self.stroke))
         elif self.tool == "TRIM":
-            piece = self.trim_preview(u, v, tol)
-            if piece:
-                pv.arcs.append(piece)
+            if self.stroke is not None:
+                if math.dist(self.stroke[-1], (u, v)) > tol * 0.25:
+                    self.stroke.append((u, v))
+                pv.lines += [(a, b) for a, b in zip(self.stroke, self.stroke[1:])]
+                for n, at in self.power_picks(self.stroke, tol):
+                    piece = self.trim_preview(*at, tol, n)
+                    if piece:
+                        pv.arcs.append(piece)
+            else:
+                piece = self.trim_preview(u, v, tol)
+                if piece:
+                    pv.arcs.append(piece)
             pv.snap = None
+        elif self.tool in ("SPLIT", "CORNER", "CHAMFER", "FILLET", "EXTEND"):
+            pv = self._edit_preview(u, v, tol, pv)
         elif self.clicks or (self.tool == "LINE" and self.chain_end):
             pv = self._rubber(at, pv)
         self.preview = pv
@@ -216,9 +249,9 @@ class SketchController:
                 best, n = d, g.n
         return n
 
-    def trim_preview(self, u: float, v: float, tol: float):
+    def trim_preview(self, u: float, v: float, tol: float, n: int | None = None):
         """The piece a TRIM click here would cut away, as a polyline."""
-        n = self.curve_at(u, v, tol)
+        n = self.curve_at(u, v, tol) if n is None else n
         if n is None:
             return None
         sk = self.sketch
@@ -251,10 +284,43 @@ class SketchController:
             short = min(math.dist(sk.pt(ln.pts["S"]), sk.pt(ln.pts["E"])) for ln in (l1, l2))
             step = nice_step(short * 0.25)
             return [f"SFILLET, {name}, {_r(max(step, round(short * 0.2 / step) * step))}"]
+        if t == "CHAMFER":
+            _, name = self.snap(u, v, tol)
+            if not name or "." not in name:
+                return []
+            try:
+                l1, a, l2, b = sedit._corner(sk, name)
+            except SketchError:
+                return []
+            if l1.kind != "LINE" or l2.kind != "LINE":
+                return []
+            short = min(math.dist(sk.pt(ln.pts["S"]), sk.pt(ln.pts["E"])) for ln in (l1, l2))
+            step = nice_step(short * 0.25)
+            return [f"SCHAMFER, {name}, {_r(max(step, round(short * 0.2 / step) * step))}"]
         n = self.curve_at(u, v, tol)
         if n is None:
             return []
         g = sk.geos[n]
+        if t == "SPLIT":
+            if g.kind == "SPLINE":
+                return []
+            at = _uv(_foot_on(sk, g, (u, v)))
+            if g.kind != "CIRCLE":
+                return [f"SSPLIT, {n}, {at}"]
+            if self.picked and self.picked[0][0] == n:
+                first = _uv(self.picked[0][1])
+                self.picked = []
+                return [f"SSPLIT, {n}, {first}, {at}"]
+            self.picked = [(n, _foot_on(sk, g, (u, v)))]
+            return []
+        if t == "CORNER":
+            if g.kind not in ("LINE", "ARC"):
+                return []
+            if self.picked and self.picked[0][0] != n:
+                (n1, p1), self.picked = self.picked[0], []
+                return [f"SCORNER, {n1}, {n}, {_uv(p1)}, {_uv((u, v))}"]
+            self.picked = [(n, (u, v))]
+            return []
         if t == "TRIM":
             return [f"STRIM, {n}, {_uv((u, v))}" + (", AXES" if self.trim_axes else "")]
         if g.kind == "CIRCLE":
@@ -272,6 +338,11 @@ class SketchController:
             self.preview = Preview()
             _, end = self.snap(u, v, tol)
             return freehand_commands(stroke, tol, start, end)
+        if self.tool == "TRIM" and self.stroke is not None:
+            stroke = self.stroke + [(u, v)]
+            self.stroke = None
+            self.preview = Preview()
+            return power_trim_command(self.power_picks(stroke, tol), self.trim_axes)
         if self.drag and self.drag_at is not None:
             name, self.drag, self.drag_at = self.drag, None, None
             self.preview = Preview()
@@ -295,11 +366,18 @@ class SketchController:
             return [f"SSEL, {mode}{name}"]
         if t == "POINT":
             return [f"SPOINT, {_snapped(at, snap)}"]
-        if t in ("TRIM", "EXTEND", "FILLET"):
+        if t in EDIT_TOOLS:
             return self._edit_click(u, v, tol)
         if t == "LINE":
             return self._line_click(at, snap, tol)
+        if t == "TARC" and not self.clicks:
+            g = self.sketch.ref(snap).geo if (snap and "." in snap and self.sketch is not None) else None
+            if g is None or g.kind not in ("LINE", "ARC") or snap.split(".")[1] not in ("S", "E"):
+                return []  # it starts at the end of a line or arc
         self.clicks.append((at, snap))
+        done = self._draw_more(t)
+        if done is not None:
+            return done
         if t == "RECT" and len(self.clicks) == 2:
             (a, sa), (b, sb) = self.clicks
             self.clicks = []
@@ -323,6 +401,93 @@ class SketchController:
             r = max(step, round(_point_line_distance(s, a, b) / step) * step)
             return [f"SSLOT, {_snapped(a, sa)}, {_snapped(b, sb)}, {_r(r)}"] if r > 0 else []
         return []
+
+    def _draw_more(self, t: str) -> list[str] | None:
+        """The newer drawing tools, once they have all their clicks (None: not one of them)."""
+        if t not in ("CENTRELINE", "CRECT", "RECT3", "CIRCLE3", "TARC", "ARCSLOT", "POLYGON"):
+            return None
+        need = {"CENTRELINE": 2, "CRECT": 2, "RECT3": 3, "CIRCLE3": 3, "TARC": 2, "ARCSLOT": 4, "POLYGON": 2}[t]
+        if len(self.clicks) < need:
+            return []
+        clicks, self.clicks = self.clicks, []
+        pts = [c[0] for c in clicks]
+        names = [_snapped(a, s) for a, s in clicks]
+        if any(math.dist(pts[i], pts[j]) < 1e-9 for i in range(len(pts)) for j in range(i)) and t != "ARCSLOT":
+            return []
+        if t == "CENTRELINE":
+            ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0])) % 180
+            flag = ", H" if min(ang, 180 - ang) <= SNAP_ANGLE else (", V" if abs(ang - 90) <= SNAP_ANGLE else "")
+            return [f"SLINE, {names[0]}, {names[1]}, CONSTR{flag}"]
+        if t == "CRECT":
+            if abs(pts[0][0] - pts[1][0]) < 1e-9 or abs(pts[0][1] - pts[1][1]) < 1e-9:
+                return []
+            return [f"SRECTC, {names[0]}, {names[1]}"]
+        if t == "RECT3":
+            return [f"SRECT3, {names[0]}, {names[1]}, {_uv(pts[2])}"]
+        if t == "CIRCLE3":
+            return [f"SCIRCLE3, {names[0]}, {names[1]}, {names[2]}"]
+        if t == "TARC":
+            return [f"SARCT, {clicks[0][1]}, {names[1]}"]
+        if t == "POLYGON":
+            r = math.dist(pts[0], pts[1])
+            ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]))
+            return [f"SNGON, {names[0]}, {self.polygon_sides}, {_r(r)}, {_r(round(ang, 2))}"]
+        # ARCSLOT: centre, start of the middle, its end, a point on the side
+        c, a, b, w = pts
+        r = math.dist(c, a)
+        if r < 1e-9 or math.dist(c, b) < 1e-9:
+            return []
+        a1 = math.degrees(math.atan2(a[1] - c[1], a[0] - c[0]))
+        a2 = math.degrees(math.atan2(b[1] - c[1], b[0] - c[0]))
+        half = abs(math.dist(c, w) - r)
+        step = nice_step(r * 0.05)
+        half = max(step, round(half / step) * step)
+        if half >= r or abs((a2 - a1) % 360) < 1e-6:
+            return []
+        return [f"SSLOTARC, {names[0]}, {_r(r)}, {_r(round(a1, 2))}, {_r(round(a2, 2))}, {_r(half)}"]
+
+    def power_picks(self, stroke, tol: float) -> list[tuple[int, tuple[float, float]]]:
+        """Where a drag across curves passes over a piece of a curve: one
+        (curve, point) per piece, in the order the mouse reached them."""
+        sk = self.sketch
+        if sk is None or len(stroke) < 2:
+            return []
+        dense = [stroke[0]]
+        for a, b in zip(stroke, stroke[1:]):
+            k = max(1, int(math.dist(a, b) / (0.4 * tol)))
+            dense += [(a[0] + (b[0] - a[0]) * i / k, a[1] + (b[1] - a[1]) * i / k) for i in range(1, k + 1)]
+        seen, out = set(), []
+        for q in dense:
+            n = self.curve_at(q[0], q[1], tol / 1.5)
+            if n is None:
+                continue
+            try:
+                lo, hi, _, _ = sedit.trim_piece(sk, n, q, self.trim_axes)
+            except SketchError:
+                continue
+            key = (n, round(lo, 6), round(hi, 6))
+            if key not in seen:
+                seen.add(key)
+                out.append((n, q))
+        return out
+
+    def _edit_preview(self, u: float, v: float, tol: float, pv: Preview) -> Preview:
+        """Show what an edit tool would act on: the corner, or the curve under the mouse."""
+        sk = self.sketch
+        if sk is None:
+            return pv
+        if self.tool in ("FILLET", "CHAMFER"):
+            return pv  # the snap mark on the corner says it
+        n = self.curve_at(u, v, tol)
+        if self.tool == "SPLIT" and n is not None and sk.geos[n].kind != "SPLINE":
+            pv.snap = _foot_on(sk, sk.geos[n], (u, v))
+        if self.tool == "CORNER" and self.picked:
+            n1, p1 = self.picked[0]
+            if n1 in sk.geos:
+                pv.arcs.append(_curve_polyline(sk, sk.geos[n1]))
+        if n is not None and self.tool in ("CORNER", "EXTEND"):
+            pv.arcs.append(_curve_polyline(sk, sk.geos[n]))
+        return pv
 
     def finish(self) -> list[str]:
         """Esc or a right click: stop the current drawing."""
@@ -400,6 +565,57 @@ class SketchController:
             else:
                 arc = _arc_polyline(pts[0], at, pts[1])
                 pv.arcs.append(arc) if arc else pv.lines.append((pts[0], pts[1]))
+        elif t == "CENTRELINE":
+            pv.lines.append((pts[0], at))
+        elif t == "CRECT":
+            c = pts[0]
+            du, dv = at[0] - c[0], at[1] - c[1]
+            q = [(c[0] - du, c[1] - dv), (c[0] + du, c[1] - dv), (c[0] + du, c[1] + dv), (c[0] - du, c[1] + dv)]
+            pv.lines += [(q[i], q[(i + 1) % 4]) for i in range(4)]
+        elif t == "RECT3":
+            if len(pts) == 1:
+                pv.lines.append((pts[0], at))
+            else:
+                a, b = pts
+                L = math.dist(a, b) or 1.0
+                nrm = (-(b[1] - a[1]) / L, (b[0] - a[0]) / L)
+                w = (at[0] - a[0]) * nrm[0] + (at[1] - a[1]) * nrm[1]
+                q = [a, b, (b[0] + nrm[0] * w, b[1] + nrm[1] * w), (a[0] + nrm[0] * w, a[1] + nrm[1] * w)]
+                pv.lines += [(q[i], q[(i + 1) % 4]) for i in range(4)]
+        elif t == "CIRCLE3":
+            if len(pts) == 1:
+                pv.lines.append((pts[0], at))
+            else:
+                ring = _circle_through(pts[0], pts[1], at)
+                if ring:
+                    pv.circles.append(ring)
+        elif t == "TARC":
+            arc = _tangent_polyline(self.sketch, self.clicks[0][1], at) if self.sketch is not None else None
+            if arc:
+                pv.arcs.append(arc)
+        elif t == "POLYGON":
+            c = pts[0]
+            r = math.dist(c, at)
+            a0 = math.atan2(at[1] - c[1], at[0] - c[0])
+            n = max(3, int(self.polygon_sides))
+            q = [(c[0] + r * math.cos(a0 + 2 * math.pi * i / n), c[1] + r * math.sin(a0 + 2 * math.pi * i / n))
+                 for i in range(n)]
+            pv.lines += [(q[i], q[(i + 1) % n]) for i in range(n)]
+            pv.circles.append((c, r))
+        elif t == "ARCSLOT":
+            c = pts[0]
+            if len(pts) == 1:
+                pv.lines.append((c, at))
+            else:
+                r = math.dist(c, pts[1])
+                a1 = math.atan2(pts[1][1] - c[1], pts[1][0] - c[0])
+                end = at if len(pts) == 2 else pts[2]
+                a2 = math.atan2(end[1] - c[1], end[0] - c[0])
+                span = (a2 - a1) % (2 * math.pi)
+                half = abs(math.dist(c, at) - r) if len(pts) == 3 else 0.0
+                for rr in ({r} if half == 0 else {r - half, r + half}):
+                    pv.arcs.append([(c[0] + rr * math.cos(a1 + span * i / 32), c[1] + rr * math.sin(a1 + span * i / 32))
+                                    for i in range(33)])
         elif t == "SLOT":
             if len(pts) == 1:
                 pv.lines.append((pts[0], at))
@@ -603,6 +819,20 @@ def construction_command(p: Processor) -> list[str]:
     return [f"SCONSTRUCT, {s}, {'OFF' if sk.geos[int(s)].construction else 'ON'}" for s in sel]
 
 
+def transform_command(p: Processor, kind: str, values: str, copy: bool = False) -> list[str]:
+    """STRANSFORM for the selected geometry. values: "du, dv" (MOVE), or
+    "angle, centre" / "factor, centre" (ROTATE / SCALE; the centre a point
+    name like O or 3.C, or u, v)."""
+    geos = _selected_geos(p, "Move / copy", ("LINE", "ARC", "CIRCLE", "POINT", "SPLINE"))
+    return [f"STRANSFORM, {kind}, {values.strip()}, {', '.join(geos)}" + (", COPY" if copy else "")]
+
+
+def power_trim_command(picks, axes: bool = False) -> list[str]:
+    if not picks:
+        return []
+    return ["STRIM, " + ", ".join(f"{n}, {_uv(q)}" for n, q in picks) + (", AXES" if axes else "")]
+
+
 def edit_dimension_entry(p: Processor, label: str, value_text: str) -> str | None:
     """HIST, EDIT for the history entry that made dimension ``label`` (C4),
     with the new size; None if that entry cannot be found."""
@@ -614,11 +844,13 @@ def edit_dimension_entry(p: Processor, label: str, value_text: str) -> str | Non
         c = s.cons.get(int(label[1:])) if label[1:].isdigit() else None
         if c is None or not c.is_dim:
             continue
-        return dimension_edit(p, c.uid, value_text)
+        return dimension_edit(p, c.uid, value_text, c.data.get("arg", -1))
     return None
 
 
-def dimension_edit(p: Processor, uid: int, value_text: str) -> str | None:
+def dimension_edit(p: Processor, uid: int, value_text: str, arg: int = -1) -> str | None:
+    """HIST, EDIT for entry ``uid`` with the size at ``arg`` (counted from
+    the end: -1 is the last argument) changed to value_text."""
     from ..lang.script import split_args
 
     for i, e in enumerate(p.history[: p.cursor]):
@@ -628,7 +860,9 @@ def dimension_edit(p: Processor, uid: int, value_text: str) -> str | None:
         if not _sized(line) or "\n" in line:
             return None
         parts = split_args(line)
-        parts[-1] = value_text.strip()
+        if not -len(parts) < arg < 0:
+            return None
+        parts[arg] = value_text.strip()
         new = ", ".join(x.strip() for x in parts)
         return f'HIST, EDIT, {i + 1}, "{new}"'
     return None
@@ -636,9 +870,10 @@ def dimension_edit(p: Processor, uid: int, value_text: str) -> str | None:
 
 def _sized(line: str) -> bool:
     """An entry whose last argument is the size of the dimension it made
-    (SDIM, and SFILLET with its radius)."""
+    (SDIM, SFILLET with its radius, SCHAMFER with its sizes; which one is in
+    the dimension's data["arg"])."""
     word = line.split(",", 1)[0].strip().upper()
-    return word in ("SDIM", "SFILLET")
+    return word in ("SDIM", "SFILLET", "SCHAMFER")
 
 
 def sketch_dimensions(p: Processor, name: str) -> list[tuple[str, str, int, str]]:
@@ -654,7 +889,8 @@ def sketch_dimensions(p: Processor, name: str) -> list[tuple[str, str, int, str]
         n, e = by_uid[c.uid]
         if not _sized(e.text.strip()):
             continue
-        out.append((c.label, f"{c.kind.lower()} {', '.join(c.refs)}", n, split_args(e.text.strip())[-1].strip()))
+        out.append((c.label, f"{c.kind.lower()} {', '.join(c.refs)}", n,
+                    split_args(e.text.strip())[c.data.get("arg", -1)].strip()))
     return out
 
 
@@ -800,6 +1036,69 @@ def _distance_to(sk: Sketch, g, q) -> float:
             ends = [sk.pt(g.pts["S"]), sk.pt(g.pts["E"])]
             return min(math.hypot(q[0] - e[0], q[1] - e[1]) for e in ends)
     return d
+
+
+def _foot_on(sk: Sketch, g, q) -> tuple[float, float]:
+    """The point of curve g nearest q (on its line or circle)."""
+    if g.kind == "LINE":
+        a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L2 = dx * dx + dy * dy or 1e-12
+        t = ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2
+        return (a[0] + t * dx, a[1] + t * dy)
+    c, r = sk.pt(g.pts["C"]), sk.radius(g)
+    d = math.dist(c, q) or 1e-12
+    return (c[0] + (q[0] - c[0]) * r / d, c[1] + (q[1] - c[1]) * r / d)
+
+
+def _curve_polyline(sk: Sketch, g) -> list[tuple[float, float]]:
+    if g.kind == "LINE":
+        return [sk.pt(g.pts["S"]), sk.pt(g.pts["E"])]
+    if g.kind == "SPLINE":
+        from ..sketch.profile import spline_samples
+
+        return list(spline_samples(sk, g))
+    c, r = sk.pt(g.pts["C"]), sk.radius(g)
+    a1, a2 = (0.0, 360.0) if g.kind == "CIRCLE" else sk.arc_angles(g)
+    return [(c[0] + r * math.cos(math.radians(a1 + (a2 - a1) * i / 48)),
+             c[1] + r * math.sin(math.radians(a1 + (a2 - a1) * i / 48))) for i in range(49)]
+
+
+def _circle_through(a, b, c):
+    (x1, y1), (x2, y2), (x3, y3) = a, b, c
+    d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    if abs(d) < 1e-12:
+        return None
+    s1, s2, s3 = x1 * x1 + y1 * y1, x2 * x2 + y2 * y2, x3 * x3 + y3 * y3
+    ux = (s1 * (y2 - y3) + s2 * (y3 - y1) + s3 * (y1 - y2)) / d
+    uy = (s1 * (x3 - x2) + s2 * (x1 - x3) + s3 * (x2 - x1)) / d
+    return ((ux, uy), math.hypot(x1 - ux, y1 - uy))
+
+
+def _tangent_polyline(sk: Sketch, end: str, q, n: int = 32):
+    """The arc SARCT, end, q would draw, as points (None if it is a line)."""
+    from ..sketch import edit as ed
+
+    try:
+        g = sk.ref(end).geo
+        role = end.split(".")[1]
+        P = sk.pt(g.pts[role])
+        back = ed._away(sk, g, role)
+    except (SketchError, KeyError, IndexError, AttributeError):
+        return None
+    t = (-back[0], -back[1])
+    w = (q[0] - P[0], q[1] - P[1])
+    nrm = (-t[1], t[0])
+    side = w[0] * nrm[0] + w[1] * nrm[1]
+    if abs(side) < 1e-9 * max(1.0, math.hypot(*w)):
+        return [P, q]
+    s = (w[0] * w[0] + w[1] * w[1]) / (2 * side)
+    C = (P[0] + nrm[0] * s, P[1] + nrm[1] * s)
+    a0 = math.atan2(P[1] - C[1], P[0] - C[0])
+    a1 = math.atan2(q[1] - C[1], q[0] - C[0])
+    span = (a1 - a0) % (2 * math.pi) if s > 0 else -((a0 - a1) % (2 * math.pi))
+    r = abs(s)
+    return [(C[0] + r * math.cos(a0 + span * i / n), C[1] + r * math.sin(a0 + span * i / n)) for i in range(n + 1)]
 
 
 def simplify_stroke(pts, eps: float) -> list[tuple[float, float]]:

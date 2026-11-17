@@ -266,7 +266,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
-| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SCIRCLE` · `SARC` · `SARC3` · `SSLOT` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` (section 16) |
+| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
@@ -881,6 +881,16 @@ See `scripts/sketch_bracket.cmd`.
 | `SPATTERN, POLAR, 6, 360, O, 5` | 6 round the origin, spread over the full turn (less than 360: the last one at that angle) |
 | `SPROJECT, 12, 13` | body edges 12 and 13, laid flat on the sketch plane and fixed there |
 | `SPROJECT, FACE, 6` | every edge of face 6 (`SEL` takes the picked edges or faces; `CONSTR` at the end makes construction geometry) |
+| `SCHAMFER, 1.E, 3` | cuts the corner where line 1 ends and another line meets it with a straight line, 3 back along both |
+| `SCHAMFER, 1.E, 3, 5` · `SCHAMFER, 1.E, 3, ANGLE, 30` | 3 along line 1 and 5 along the other, or 3 along line 1 at 30 deg to it (several corners: `SCHAMFER, 1.E, 2.E, 3`) |
+| `SSPLIT, 3, u, v` | splits curve 3 at its point nearest (u, v); more points split it more (`SSPLIT, 3, u1, v1, u2, v2`; a circle needs two) |
+| `SSPLIT, 3, 5` | splits curve 3 where curve 5 crosses it (`H` / `V`: an axis); the split points stay on 5 |
+| `SCORNER, 1, 2` | trims or extends lines or arcs 1 and 2 so that they just meet (the end of each nearer the crossing moves) |
+| `SCORNER, 1, 2, u1, v1, u2, v2` | ... keeping the part of 1 at (u1, v1) and of 2 at (u2, v2), as the Corner tool clicks them |
+| `STRIM, 3, u, v, 5, u, v, ...` | several pieces in one step, in order (what the Trim tool sends when the mouse is dragged across curves) |
+| `STRANSFORM, MOVE, du, dv, 1, 2` | moves geometry 1 and 2 by (du, dv) |
+| `STRANSFORM, ROTATE, 45, O, 1, 2` · `STRANSFORM, SCALE, 2, 0, 0, 1, 2` | turns it about a point (a name like `O` or `3.C`, or u, v), or scales it about one |
+| `STRANSFORM, ..., COPY` | leaves the originals and makes copies |
 
 What they leave behind keeps meaning what you asked for:
 
@@ -908,6 +918,35 @@ What they leave behind keeps meaning what you asked for:
   the same radius.
 * Projected edges are made again from the bodies whenever an earlier step
   changes, so a sketch drawn round a projected hole follows the hole.
+* A chamfer keeps the corner as a construction point, like a fillet, and its
+  sizes are dimensions to that point: double-click one to change the number
+  it came from in the `SCHAMFER` step.
+* Split pieces stay joined end to end and on one line (or one circle), so
+  each can be sized on its own; delete the `ON` constraint to bend them
+  apart. A split made by a crossing curve stays on that curve.
+* A corner joins the two ends with a coincident constraint; whatever pinned
+  an end that moved is dropped and named.
+* `STRANSFORM` takes the constraints among the geometry with it: a turn by
+  a quarter swaps horizontal and vertical, a scale scales the sizes.
+  Constraints that tie the geometry to the rest of the sketch (to the
+  origin, to other curves) are dropped when it moves, and not copied. A
+  copy made with `COPY` is free: unlike a `SPATTERN` copy it does not follow
+  its original.
+
+### More ways to draw
+
+| Command | Draws |
+|---------|-------|
+| `SARCT, 3.E, u, v` | an arc that carries on smoothly from the end of line or arc 3 to (u, v), tied to the end and tangent to 3 |
+| `SCIRCLE3, u1, v1, u2, v2, u3, v3` | a circle through three points (named points stay on it) |
+| `SRECTC, cu, cv, u, v` | a level rectangle round a centre, through a corner; a construction diagonal and centre point keep it centred when sized |
+| `SRECT3, u1, v1, u2, v2, u3, v3` | a rectangle at any angle: one side from the first point to the second, as wide as the third point is from it |
+| `SNGON, cu, cv, n, r [, angle] [, OUT]` | a regular polygon with n sides, its corners on a construction circle of radius r (the first at `angle`, default 90: straight up); with `OUT` its sides touch the circle instead |
+| `SSLOTARC, cu, cv, r, a1, a2, w` | a slot bent along an arc: its middle (kept as a construction arc) at radius r from a1 to a2 degrees, w half its width |
+| `SLINE, ..., CONSTR` | a centreline (a construction line, the Centreline tool) |
+
+The polygon stays regular when it is sized: give its construction circle a
+radius (`SDIM, RADIUS, ...`), or a side a length.
   Straight edges become lines and circles flat on the sketch become circles
   or arcs; other curves come in as a chain of short lines. An edge square to
   the sketch shows as nothing.

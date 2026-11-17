@@ -746,9 +746,16 @@ Still open in the milestones already started, in the suggested order:
    change (LANGUAGE.md section 5), `SFILLET` between a line and an arc or
    two arcs, and `STRIM ... AXES` / `SEXTEND, 3.E, V` for the sketch axes
    (section 16; docs/M3-leftovers.md).
-7. More sketch tools (asked for by the user after M3 leftovers). A look at
-   the sketcher next to common CAD sketchers found these missing, roughly
-   in order of use:
+7. More sketch tools (asked for by the user after M3 leftovers). First
+   part done: chamfer, split, corner, power trim, move/rotate/scale/copy,
+   tangent arc, 3-point circle, centre and angled rectangles, polygon, arc
+   slot and centreline (LANGUAGE.md section 16; docs/M3-sketch-tools-2.md).
+   Still open from the list below: the ellipse and elliptical arc, a
+   circle tangent to curves, join and convert to a spline, offset both
+   sides, trim and extend for splines, arc-length and point-to-circle
+   sizes, the intersection curve, and constraints made while drawing. A
+   look at the sketcher next to common CAD sketchers found these missing,
+   roughly in order of use:
    - **Sketch chamfer** (`SCHAMFER, 1.E, d [, d2 / angle]`), next to the
      fillet, with the corner kept as a construction point the same way.
    - **Split a curve at a point** (`SSPLIT, 3, u, v`, or at another curve's
@@ -776,8 +783,8 @@ Still open in the milestones already started, in the suggested order:
    - Constraints made **while drawing** (snap to horizontal, vertical,
      tangent, on-curve as the mouse moves), shown as small marks, with Shift
      to draw without them.
-8. A tidier toolbar (asked for by the user): the geometry and command
-   buttons (main, Features and Sketch toolbars) grouped into labelled
+8. Done: a tidier toolbar (asked for by the user; docs/M3-sketch-tools-2.md):
+   the geometry and command buttons (main, Features and Sketch toolbars) grouped into labelled
    groups (Shapes, Booleans, Features, Patterns, Sketch draw, Sketch edit,
    Constraints, Sizes, View), each button with an icon and its name kept
    beside it (text under or beside the icon, so nothing is learned from the

@@ -45,6 +45,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/mesh_bodies.png" width="160">](#mesh-bodies-a-lamp-shade-cut-as-a-mesh-a-smoothed-pebble-a-twisted-bar) | [Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a twisted bar](#mesh-bodies-a-lamp-shade-cut-as-a-mesh-a-smoothed-pebble-a-twisted-bar) |
 | [<img src="examples/implicit_lattices.png" width="160">](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) | [Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) |
 | [<img src="examples/knife_cuts.png" width="160">](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) | [Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) |
+| [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
 
 ---
 
@@ -1897,6 +1898,42 @@ DATUM, DELETE, top
 
 ! the two pieces of the loaf still make the whole block
 ASSERT, VOL(loaf) + VOL(3), EQ, 40*24*12, 0.01
+```
+
+</details>
+
+---
+
+## Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole
+
+![Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](examples/cover_plate.png)
+
+A cover plate drawn with the newer sketch tools: a chamfer of equal sides, a chamfer at an angle, a hexagon window, a slot bent along an arc and a hole copied with STRANSFORM. Change W or H and the outline follows.
+
+**Script:** [scripts/cover_plate.cmd](../scripts/cover_plate.cmd) (19 lines) · **Run:** `python -m modeler scripts/cover_plate.cmd`
+
+<details><summary>The whole script</summary>
+
+```text
+! A cover plate drawn with the newer sketch tools: a chamfer of equal
+! sides, a chamfer at an angle, a hexagon window, a slot bent along an arc
+! and a hole copied with STRANSFORM. Change W or H and the outline follows.
+W = 90
+H = 60
+SKETCH, cover, XY
+SRECT, 0, 0, 90, 60
+SCON, COINCIDENT, 1.S, ORIGIN
+SDIM, LENGTH, 1, W
+SDIM, LENGTH, 2, H
+SCHAMFER, 1.E, 8                        ! bottom right: 8 back along both sides
+SCHAMFER, 3.E, 6, ANGLE, 30             ! top left: 6 along the top, at 30 deg to it
+SFILLET, 2.E, 5                         ! top right
+SNGON, 22, 30, 6, 9                     ! a hexagon, its corners on construction circle 11
+SSLOTARC, 62, 24, 16, 20, 160, 3.5      ! middle radius 16 from 20 to 160 deg, 7 wide
+SCIRCLE, 10, 10, 2.5
+STRANSFORM, MOVE, 0, 40, 23, COPY       ! the same hole 40 higher
+ENDSKETCH
+EXTRUDE, cover, 5
 ```
 
 </details>

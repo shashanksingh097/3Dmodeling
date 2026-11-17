@@ -478,7 +478,11 @@ class Sketch:
         scale = self.extent()
         for con in self.cons.values():
             cons.extend(_build(self, con, scale))
-        return cons, set(_FIXED)
+        # numbers no geometry uses any more (a deleted curve, a circle that
+        # became an arc) are not freedoms of the sketch
+        used = {i for g in self.geos.values() for p in g.pts.values() for i in (p, p + 1)}
+        used |= {g.r for g in self.geos.values() if g.r is not None}
+        return cons, set(_FIXED) | (set(range(len(self.x))) - used)
 
     def solve(self, blame: int | None = None) -> solver.Report:
         x = np.array(self.x, dtype=float)

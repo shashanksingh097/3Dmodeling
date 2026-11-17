@@ -16,7 +16,10 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHeaderView,
     QInputDialog,
+    QCheckBox,
+    QLabel,
     QLineEdit,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -27,10 +30,19 @@ from ..lang.expr import fmt_num
 from . import feature_actions as fa
 from . import sketch_tools as st
 
-_TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "RECT": "Rectangle", "CIRCLE": "Circle", "ARC": "Arc",
-                "SLOT": "Slot", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend", "FILLET": "Fillet"}
-_TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "SLOT": "", "POINT": "P",
-              "FREEHAND": "D", "TRIM": "T", "EXTEND": "E", "FILLET": "F"}
+_TOOL_LABELS = {"SELECT": "Select", "LINE": "Line", "CENTRELINE": "Centreline", "RECT": "Rectangle",
+                "CRECT": "Centre rect", "RECT3": "Angled rect", "CIRCLE": "Circle",
+                "CIRCLE3": "3-point circle", "ARC": "Arc", "TARC": "Tangent arc", "SLOT": "Slot", "ARCSLOT": "Arc slot",
+                "POLYGON": "Polygon", "POINT": "Point", "FREEHAND": "Freehand", "TRIM": "Trim", "EXTEND": "Extend",
+                "FILLET": "Fillet", "CHAMFER": "Chamfer", "SPLIT": "Split", "CORNER": "Corner"}
+_TOOL_KEYS = {"SELECT": "S", "LINE": "L", "RECT": "R", "CIRCLE": "C", "ARC": "A", "POINT": "P", "FREEHAND": "D",
+              "TRIM": "T", "EXTEND": "E", "FILLET": "F", "CHAMFER": "K", "SPLIT": "B", "CORNER": "O",
+              "POLYGON": "G", "TARC": "N"}
+_TOOL_RUNS = {"SELECT": "SSEL / SMOVE", "LINE": "SLINE", "CENTRELINE": "SLINE, ..., CONSTR", "RECT": "SRECT",
+              "CRECT": "SRECTC", "RECT3": "SRECT3", "CIRCLE": "SCIRCLE", "CIRCLE3": "SCIRCLE3", "ARC": "SARC3",
+              "TARC": "SARCT", "SLOT": "SSLOT", "ARCSLOT": "SSLOTARC", "POLYGON": "SNGON", "POINT": "SPOINT",
+              "FREEHAND": "SSPLINE", "TRIM": "STRIM", "EXTEND": "SEXTEND", "FILLET": "SFILLET", "CHAMFER": "SCHAMFER",
+              "SPLIT": "SSPLIT", "CORNER": "SCORNER"}
 _CONSTRAINTS = [
     ("Coincident", "COINCIDENT", "Join two points, or put a point on a curve\nRuns: SCON, COINCIDENT/ON, ..."),
     ("Horizontal", "HORIZONTAL", "Make lines level (or two points level with each other)\nRuns: SCON, HORIZONTAL, ..."),
@@ -55,89 +67,101 @@ class SketchUI:
         win.viewport.edit_dimension.connect(self.edit_dimension)
         win.viewport.sketch_hover.connect(self._hover)
         self.toolbar = self._build_toolbar()
-        self.toolbar.setVisible(False)
+        self._show_bars(False)
         self.p.model.subscribe(self._on_model)
 
-    # ---- toolbar ----------------------------------------------------------
+    # ---- toolbars ---------------------------------------------------------
     def _build_toolbar(self) -> QToolBar:
+        """Sketch draw, Sketch edit, Constraints and Sizes: shown while a
+        sketch is open. Returns the first; all four are in self.toolbars."""
+        from . import toolbars as tbs
+
         win = self.win
-        win.addToolBarBreak()
-        tb = QToolBar("Sketch", win)
-        tb.setObjectName("sketch")
-        win.addToolBar(tb)
         group = QActionGroup(win)
         group.setExclusive(True)
         self.tool_actions: dict[str, QAction] = {}
-        for tool in st.TOOLS:
-            if tool == "TRIM":
-                tb.addSeparator()
-            a = QAction(_TOOL_LABELS[tool], win)
-            a.setCheckable(True)
-            a.setToolTip(st.HINTS[tool] + (f"\nKey: {_TOOL_KEYS[tool]}" if _TOOL_KEYS[tool] else ""))
-            if _TOOL_KEYS[tool]:
-                a.setShortcut(QKeySequence(_TOOL_KEYS[tool]))
-            a.triggered.connect(lambda _=False, t=tool: self.set_tool(t))
+        self.toolbars: list[QToolBar] = []
+
+        def bar(title: str, name: str, area=Qt.TopToolBarArea) -> QToolBar:
+            win.addToolBarBreak(area)
+            tb = tbs.group(win, title, name, area)
+            tb.setProperty("sketch", True)
+            self.toolbars.append(tb)
+            return tb
+
+        def tool(tb: QToolBar, t: str) -> None:
+            key = _TOOL_KEYS.get(t, "")
+            a = tbs.action(win, tb, _TOOL_LABELS[t], "s_" + t.lower(),
+                           st.HINTS[t] + (f"\nKey: {key}" if key else "") + f"\nRuns: {_TOOL_RUNS[t]}",
+                           lambda _=False, t=t: self.set_tool(t), key or None, checkable=True)
             group.addAction(a)
-            tb.addAction(a)
-            self.tool_actions[tool] = a
+            self.tool_actions[t] = a
+
+        tb = bar("Sketch draw", "sketch")
+        for t in ("SELECT",) + st.DRAW_TOOLS:
+            tool(tb, t)
+        self.sides = QSpinBox()
+        self.sides.setRange(3, 64)
+        self.sides.setValue(self.controller.polygon_sides)
+        self.sides.setPrefix("Sides ")
+        self.sides.setToolTip("How many sides the Polygon tool draws")
+        self.sides.valueChanged.connect(lambda n: setattr(self.controller, "polygon_sides", n))
+        tb.addWidget(self.sides)
         self.tool_actions["SELECT"].setChecked(True)
-        a = QAction("Axes cut", win)
-        a.setCheckable(True)
-        a.setToolTip("Let the sketch's H and V axes cut too when trimming (handy for half a profile to revolve)\n"
-                     "Runs: STRIM, n, u, v, AXES")
+
+        tb = bar("Sketch edit", "sketch_edit")
+        for t in st.EDIT_TOOLS:
+            tool(tb, t)
+        a = tbs.action(win, tb, "Axes cut", "s_axes",
+                       "Let the sketch's H and V axes cut too when trimming (handy for half a profile to revolve)\n"
+                       "Runs: STRIM, n, u, v, AXES", checkable=True)
         a.toggled.connect(lambda on: setattr(self.controller, "trim_axes", on))
-        tb.addAction(a)
         self.axes_action = a
         self.edit_actions: dict[str, QAction] = {}
-        for label, slot, tip in (
-                ("Offset…", self.offset, "Offset the selected curves (a chain is offset as one)\nRuns: SOFFSET, d, ..."),
-                ("Mirror…", self.mirror, "Mirror the selected geometry about a line (select it too) or H / V\n"
-                                         "Runs: SMIRROR, axis, ..."),
-                ("Pattern…", self.pattern, "Copies of the selected geometry in a row or round a point\n"
-                                           "Runs: SPATTERN, LINEAR/POLAR, ..."),
-                ("Project…", self.project, "Bring body edges into the sketch (the edges or faces picked before "
-                                           "the sketch, or IDs)\nRuns: SPROJECT, ...")):
-            a = QAction(label, win)
-            a.setToolTip(tip)
-            a.triggered.connect(slot)
-            tb.addAction(a)
+        for label, icon, slot, tip in (
+                ("Offset…", "s_offset", self.offset, "Offset the selected curves (a chain is offset as one)\n"
+                                                     "Runs: SOFFSET, d, ..."),
+                ("Mirror…", "s_mirror", self.mirror, "Mirror the selected geometry about a line (select it too) or "
+                                                     "H / V\nRuns: SMIRROR, axis, ..."),
+                ("Pattern…", "s_pattern", self.pattern, "Copies of the selected geometry in a row or round a point\n"
+                                                        "Runs: SPATTERN, LINEAR/POLAR, ..."),
+                ("Move/Copy…", "s_move", self.transform, "Move, turn or scale the selected geometry, or copies of it; "
+                                                         "constraints among it go along\nRuns: STRANSFORM, ..."),
+                ("Project…", "s_project", self.project, "Bring body edges into the sketch (the edges or faces picked "
+                                                        "before the sketch, or IDs)\nRuns: SPROJECT, ...")):
+            a = tbs.action(win, tb, label, icon, tip, lambda _=False, f=slot: f())
             self.edit_actions[label.rstrip("…")] = a
-        tb.addSeparator()
+
+        tb = bar("Constraints", "sketch_constraints", Qt.LeftToolBarArea)
         for label, kind, tip in _CONSTRAINTS:
-            a = QAction(label, win)
-            a.setToolTip(tip)
-            a.triggered.connect(lambda _=False, k=kind: self.run(lambda: st.constraint_command(self.p, k)))
-            tb.addAction(a)
-        tb.addSeparator()
-        for label, which, tip in (
-                ("Size…", "AUTO", "Length of a line, diameter of a circle, radius of an arc, distance between two "
-                                   "points or from a point to a line, angle between two lines\nRuns: SDIM, ..."),
-                ("Across…", "HDIST", "Horizontal distance between two points (or a point and the origin)\nRuns: SDIM, HDIST, ..."),
-                ("Up…", "VDIST", "Vertical distance between two points (or a point and the origin)\nRuns: SDIM, VDIST, ...")):
-            a = QAction(label, win)
-            a.setToolTip(tip)
-            a.triggered.connect(lambda _=False, w=which: self.add_dimension(w))
-            tb.addAction(a)
-        tb.addSeparator()
-        a = QAction("Construction", win)
-        a.setToolTip("Make the selected curves construction geometry (or back)\nRuns: SCONSTRUCT, n, ON/OFF")
-        a.triggered.connect(lambda: self.run(lambda: st.construction_command(self.p)))
-        tb.addAction(a)
-        a = QAction("Delete", win)
-        a.setToolTip("Delete the selected geometry or sizes\nRuns: SDEL, ...")
-        a.setShortcut(QKeySequence.Delete)
-        a.triggered.connect(lambda: self.run(lambda: st.delete_command(self.p)))
-        tb.addAction(a)
-        tb.addSeparator()
-        a = QAction("Finish sketch", win)
-        a.setToolTip("Leave sketch mode\nRuns: ENDSKETCH")
-        a.triggered.connect(lambda: self.win.execute("ENDSKETCH"))
-        tb.addAction(a)
-        a = QAction("Extrude…", win)
-        a.setToolTip("Finish and extrude this sketch\nRuns: EXTRUDE, sketch, d [, mode, body]")
-        a.triggered.connect(self.extrude)
-        tb.addAction(a)
-        return tb
+            tbs.action(win, tb, label, "c_" + kind.lower(), tip,
+                       lambda _=False, k=kind: self.run(lambda: st.constraint_command(self.p, k)))
+
+        tb = tbs.group(win, "Sizes", "sketch_sizes")
+        tb.setProperty("sketch", True)
+        self.toolbars.append(tb)
+        for label, icon, which, tip in (
+                ("Size…", "d_size", "AUTO", "Length of a line, diameter of a circle, radius of an arc, distance between "
+                                             "two points or from a point to a line, angle between two lines\nRuns: SDIM, ..."),
+                ("Across…", "d_across", "HDIST", "Horizontal distance between two points (or a point and the origin)\n"
+                                                  "Runs: SDIM, HDIST, ..."),
+                ("Up…", "d_up", "VDIST", "Vertical distance between two points (or a point and the origin)\n"
+                                          "Runs: SDIM, VDIST, ...")):
+            tbs.action(win, tb, label, icon, tip, lambda _=False, w=which: self.add_dimension(w))
+        tbs.action(win, tb, "Construction", "s_construction",
+                   "Make the selected curves construction geometry (or back)\nRuns: SCONSTRUCT, n, ON/OFF",
+                   lambda: self.run(lambda: st.construction_command(self.p)))
+        tbs.action(win, tb, "Delete", "s_delete", "Delete the selected geometry or sizes\nRuns: SDEL, ...",
+                   lambda: self.run(lambda: st.delete_command(self.p)), QKeySequence.Delete)
+        tbs.action(win, tb, "Finish sketch", "s_finish", "Leave sketch mode\nRuns: ENDSKETCH",
+                   lambda: self.win.execute("ENDSKETCH"))
+        tbs.action(win, tb, "Extrude…", "extrude", "Finish and extrude this sketch\n"
+                                                    "Runs: EXTRUDE, sketch, d [, mode, body]", self.extrude)
+        return self.toolbars[0]
+
+    def _show_bars(self, on: bool) -> None:
+        for tb in self.toolbars:
+            tb.setVisible(on)
 
     def set_tool(self, tool: str) -> None:
         self.controller.set_tool(tool)
@@ -162,7 +186,7 @@ class SketchUI:
             if sk is not None:
                 self.win.statusBar().showMessage(f"{sk.status()}    ·    {st.HINTS[self.controller.tool]}")
             if on != self.toolbar.isVisible():
-                self.toolbar.setVisible(on)
+                self._show_bars(on)
                 if on:
                     self.set_tool("SELECT")
                 else:
@@ -209,6 +233,16 @@ class SketchUI:
                              "(a point like O or 3.C, or u, v):", "6, 360, O")
             if vals:
                 self.run(lambda: st.pattern_command(self.p, "POLAR", vals))
+
+    def transform(self) -> None:
+        try:
+            st.transform_command(self.p, "MOVE", "0, 0")
+        except st.NeedSelection as exc:
+            self.win.statusBar().showMessage(str(exc), 6000)
+            return
+        dlg = TransformForm(self.win, self.p)
+        if dlg.exec() == QDialog.Accepted:
+            self.run(dlg.lines)
 
     def project(self) -> None:
         ids = self._ask("Project edges", "Edge IDs (or FACE, then face IDs; pick them before opening the sketch, "
@@ -304,7 +338,8 @@ class SketchUI:
             return
         for (label, _what, n, old), new in zip(rows, dlg.values()):
             if new.strip() and new.strip() != old:
-                line = st.dimension_edit(self.p, self._uid_of(n), new)
+                c = self.p.model.sketch(name).cons.get(int(label[1:]))
+                line = st.dimension_edit(self.p, self._uid_of(n), new, c.data.get("arg", -1) if c else -1)
                 if line and not self.win.execute(line).ok:
                     break
 
@@ -392,6 +427,58 @@ class FeatureForm(QDialog):
         if back and back != "0":
             parts.append(back)
         return ", ".join(parts)
+
+
+class TransformForm(QDialog):
+    """Move, turn or scale the selected sketch geometry, or copies of it."""
+
+    _HOW = {"MOVE": ("Move by du, dv:", "10, 0"),
+            "ROTATE": ("Angle (degrees), then the centre (a point like O or 3.C, or u, v):", "90, O"),
+            "SCALE": ("Factor, then the centre (a point like O or 3.C, or u, v):", "2, O")}
+
+    def __init__(self, parent, p) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Move / copy sketch geometry")
+        self.p = p
+        form = QFormLayout()
+        self.kind = QComboBox()
+        self.kind.addItems(["Move", "Rotate", "Scale"])
+        form.addRow("Do:", self.kind)
+        self.how = QLabel()
+        self.values = QLineEdit()
+        form.addRow(self.how)
+        form.addRow("", self.values)
+        self.copy = QCheckBox("Make a copy (the selected geometry stays where it is)")
+        form.addRow(self.copy)
+        self.preview = QLineEdit()
+        self.preview.setReadOnly(True)
+        form.addRow("Runs:", self.preview)
+        lay = QVBoxLayout(self)
+        lay.addLayout(form)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+        self.kind.currentTextChanged.connect(self._kind)
+        self.values.textChanged.connect(self._show)
+        self.copy.toggled.connect(self._show)
+        self._kind(self.kind.currentText())
+        self.resize(480, 0)
+
+    def _kind(self, text: str) -> None:
+        label, start = self._HOW[text.upper()]
+        self.how.setText(label)
+        self.values.setText(start)
+        self._show()
+
+    def lines(self) -> list[str]:
+        return st.transform_command(self.p, self.kind.currentText().upper(), self.values.text(), self.copy.isChecked())
+
+    def _show(self, *_) -> None:
+        try:
+            self.preview.setText(self.lines()[0])
+        except st.NeedSelection as exc:
+            self.preview.setText(str(exc))
 
 
 class SizesForm(QDialog):

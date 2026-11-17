@@ -24,6 +24,11 @@
   "faces": 4531,
   "volume": 8070474278.192
  },
+ "cover_plate.cmd": {
+  "bodies": 1,
+  "faces": 21,
+  "volume": 23951.882
+ },
  "deformers.cmd": {
   "bodies": 9,
   "faces": 94,

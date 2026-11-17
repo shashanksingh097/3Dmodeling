@@ -4,6 +4,34 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### More sketch tools, and toolbars with icons
+
+- Sketch chamfer: `SCHAMFER, 1.E, d [, d2]` or `SCHAMFER, 1.E, d, ANGLE, a`,
+  and the Chamfer tool. The corner stays as a construction point and the
+  sizes are dimensions you can double-click.
+- `SSPLIT` splits a curve at points or where another curve crosses it (the
+  Split tool); `SCORNER` trims or extends two curves so they meet (the
+  Corner tool).
+- Power trim: drag the Trim tool across curves and every piece it passes
+  over goes, in one step (`STRIM` takes several pieces).
+- `STRANSFORM, MOVE/ROTATE/SCALE, ... [, COPY]` and the **Move/Copy…**
+  button move, turn or scale sketch geometry, or copies of it, keeping the
+  constraints among it.
+- New ways to draw: tangent arc (`SARCT`), circle through three points
+  (`SCIRCLE3`), centre rectangle (`SRECTC`), rectangle at an angle
+  (`SRECT3`), regular polygon (`SNGON`), arc slot (`SSLOTARC`) and
+  centreline, each with a mouse tool.
+- Toolbars are grouped and labelled (File, Edit, Shapes, Booleans,
+  Patterns, Sketch, Datums, Features, Freeform, Measure, and Sketch draw,
+  Sketch edit, Constraints, Sizes in sketch mode), every button has an icon
+  drawn for light and dark themes and keeps its name, and **View > Toolbar
+  buttons** switches between icons with names, icons only and names only.
+  New buttons: Cone, Torus, Union, Subtract, Intersect, Array, Pattern,
+  Mirror, Fillet and Chamfer.
+- The sketch's count of degrees of freedom no longer counts numbers left
+  behind by deleted geometry or a circle turned into an arc.
+- Example: `scripts/cover_plate.cmd`.
+
 ### History and sketch leftovers (M3)
 
 - `UNDO` takes back history edits: changing, inserting, deleting,
