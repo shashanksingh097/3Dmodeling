@@ -753,9 +753,11 @@ Still open in the milestones already started, in the suggested order:
    Second part done: the ellipse and elliptical arc, a circle tangent to
    curves, offset both sides, arc-length and point-to-circle sizes, the
    intersection curve (`SINTERSECT`) and constraints made while drawing
-   (docs/M3-sketch-tools-3.md). Still open: join and convert to a spline,
-   trim and extend for splines, a fillet between a spline and a line, and
-   an offset of a chain that crosses itself. A
+   (docs/M3-sketch-tools-3.md). Third part done: join and convert to a
+   spline, trim, extend and split for splines, a fillet between a spline
+   and a line or arc, ON and TANGENT with splines
+   (docs/M3-sketch-tools-4.md). Still open: an offset of a chain that
+   crosses itself, and an offset of a spline. A
    look at the sketcher next to common CAD sketchers found these missing,
    roughly in order of use:
    - **Sketch chamfer** (`SCHAMFER, 1.E, d [, d2 / angle]`), next to the

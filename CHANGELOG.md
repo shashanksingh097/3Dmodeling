@@ -4,6 +4,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Splines in the sketch editing tools
+
+- Trim, extend and split splines (`STRIM`, `SEXTEND`, `SSPLIT` and their
+  tools), and splines now cut other curves. The pieces keep the points the
+  spline ran through and the constraints on them.
+- `SFILLET` rounds the corner of a spline and a line or arc.
+- Constraints with a spline: a point `ON` a spline, and a spline `TANGENT`
+  to a line or arc at its end.
+- `SJOIN` and **Join to spline**: curves that meet end to end become one
+  smooth spline; one line, arc, circle or ellipse becomes a spline to
+  reshape.
+
 ### Ellipses, constraints while drawing, and the last sketch tools
 
 - Sketch ellipses and elliptical arcs: `SELLIPSE, cu, cv, a, b [, angle]`,

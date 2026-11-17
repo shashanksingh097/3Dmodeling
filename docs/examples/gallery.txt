@@ -28,3 +28,4 @@ implicit_lattices.cmd | Implicit shapes and lattices: a blend, a superquadric, g
 knife_cuts.cmd | Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss | ISO
 cover_plate.cmd | Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole | TOP
 cam_plate.cmd | Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges | TOP
+spline_handle.cmd | Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline | TOP
