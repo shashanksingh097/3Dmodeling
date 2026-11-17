@@ -1849,7 +1849,7 @@ Knife and freehand cuts (M6 part 3): KNIFE, sketch splines (SSPLINE). In the app
 
 **Script:** [scripts/knife_cuts.cmd](../scripts/knife_cuts.cmd) (46 lines) · **Run:** `python -m modeler scripts/knife_cuts.cmd`
 
-**You should get:** 10 bodies, volume 38,896.9 mm³, 32 faces
+**You should get:** 10 bodies, volume 38,897.4 mm³, 32 faces
 
 <details><summary>The whole script</summary>
 
@@ -1989,7 +1989,7 @@ A handle outline made with spline editing: a stepped top edge and a nose joined 
 
 **Script:** [scripts/spline_handle.cmd](../scripts/spline_handle.cmd) (20 lines) · **Run:** `python -m modeler scripts/spline_handle.cmd`
 
-**You should get:** 1 body, volume 8,707.6 mm³, 8 faces
+**You should get:** 1 body, volume 8,557.1 mm³, 7 faces
 
 <details><summary>The whole script</summary>
 
