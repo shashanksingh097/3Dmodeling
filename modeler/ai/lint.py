@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..commands.processor import Processor
 
 # commands that read or write files, or replace the session: refused in the sandbox
-FILE_COMMANDS = {"SAVE", "OPEN", "NEW", "RUN", "EXPORT", "IMPORT", "LIB", "LIBSAVE"}
+FILE_COMMANDS = {"SAVE", "OPEN", "NEW", "RUN", "EXPORT", "IMPORT", "LIB", "LIBSAVE", "DRAWING"}
 # loop variables, macro arguments ... are only known while running; these
 # words are never parameters
 _WORDS = {"SEL", "ALL", "LAST", "NONE"}
