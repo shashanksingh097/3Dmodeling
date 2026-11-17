@@ -157,18 +157,31 @@ and running it rebuilds the model.
 
 | Command | |
 |---------|-|
-| `UNDO [, n]`, `REDO [, n]` | step back and forward (parameters and macros too) |
+| `UNDO [, n]`, `REDO [, n]` | take back the last n actions, or do them again: new steps, history edits (`HIST, EDIT`, `INSERT`, `DELETE`, `SUPPRESS`, `MOVE`, `PART`) and roll backs alike; parameters and macros come back too |
 | `HIST` | list the history (`x` failed, `!` ran with a warning, `-` suppressed) |
 | `HIST, EDIT, n, "text"` | replace entry n and re-run from there; `\n` separates lines of a block |
 | `HIST, INSERT, n, "text"` | add an entry before n |
 | `HIST, DELETE, n` | remove entry n |
 | `HIST, SUPPRESS, n` / `HIST, RESUME, n` | skip entry n / take it back |
 | `HIST, MOVE, n, to` | reorder |
-| `HIST, REPLAY` | re-run everything |
+| `HIST, ROLLBACK, n` | show the model as after entry n; the later entries stay, greyed, and `REDO` (or a roll back further on) brings them back; one `UNDO` step |
+| `HIST, REPLAY` | re-run every entry (no skipping) |
 | `RUN, file.cmd` | run a script; each top-level statement becomes an entry |
 
 After an edit, later entries that now fail stay in the history marked as
 failed (red in the History panel) and are skipped, so you can fix them.
+
+**Only what changed runs again.** While an entry runs, the modeler notes
+what it looks at: which parameters, which bodies, faces and edges (by ID),
+and the rest of the model's state (selection, named sets, datums, sketches,
+layers). When an edit re-runs the history, a later entry whose inputs are
+all exactly as they were last time is not run again; what it did last time
+is copied over. The rebuild message counts them: `re-ran 3 entries from 1
+(6 unchanged, reused)`. So changing the size of one part of an assembly
+re-runs that part's steps and the steps that use it, not the slow thread or
+fillet on another part. An entry that looks at every body (`SEL, ALL`,
+`VOL()` of a name that changed), reads a file (`IMPORT`, `LIB`), or reads an
+older state (`PATTERN`) always runs again. `HIST, REPLAY` runs everything.
 
 An entry can also run **with a warning** (amber in the History panel, `!`
 in `HIST`): it worked, but something needs a look. A pick that had to be
@@ -856,9 +869,11 @@ See `scripts/sketch_bracket.cmd`.
 | Command | Does |
 |---------|------|
 | `STRIM, 3, u, v` | cuts away the piece of curve 3 nearest (u, v), between the curves crossing it on either side; a piece in the middle leaves two curves, a circle becomes an arc, a curve nothing crosses is deleted |
+| `STRIM, 3, u, v, AXES` | ... and the sketch's H and V axes cut too (half a profile for `REVOLVE`) |
 | `SEXTEND, 3.E` | makes line or arc 3 longer at its end until it meets the next curve |
 | `SEXTEND, 3.S, 5` | ... at its start, up to curve 5 (its full line or circle counts) |
-| `SFILLET, 1.E, 4` | rounds the corner where line 1 ends and another line meets it, radius 4 |
+| `SEXTEND, 3.E, V` | ... up to the vertical axis (`H`: the horizontal one) |
+| `SFILLET, 1.E, 4` | rounds the corner where curve 1 ends and another curve meets it, radius 4: two lines, a line and an arc, or two arcs |
 | `SFILLET, 1.E, 2.E, 3.E, 4` | several corners, one radius |
 | `SOFFSET, 3, 1, 2, 3, 4` | curves 3 away from curves 1..4 |
 | `SMIRROR, V, 1, 2` | mirror copies of 1 and 2 about the vertical axis (or about a line: its number) |
@@ -872,7 +887,11 @@ What they leave behind keeps meaning what you asked for:
 * A trimmed or extended end stays **on** the curve that cut it, so when
   that curve moves the end follows. Sizes that measured the part that went
   (a length, a fix) are dropped, and the output names them.
-* A fillet keeps the corner as a construction point on both lines. A size
+* A trimmed or extended end that stops at an axis stays on the axis.
+* A fillet keeps the corner as a construction point on both curves. With
+  an arc, the fillet sits on the side of the corner the other curve goes
+  to: outside the arc's circle, or inside it when the other curve heads
+  into the circle, and both curves are cut back to where it touches them. A size
   that went to the corner (a length, a distance) now goes to that point, so
   a fully sized sketch stays fully sized. The radius is a size like any
   other: double-click it, or change it in **Sizes of sketch**; that edits

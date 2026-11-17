@@ -264,10 +264,10 @@ class HistoryPanel(QTableWidget):
             menu.addSeparator()
             back = p.cursor - n
             if back:
-                menu.addAction(f"Roll back to here (undo {back})", lambda: self.win.execute(f"UNDO, {back}"))
+                menu.addAction(f"Roll back to here ({back} later step{'s' if back > 1 else ''} kept to redo)", lambda: self.win.execute(f"HIST, ROLLBACK, {n}"))
         elif row >= p.cursor and row < len(p.history):
             menu.addAction(f"Redo up to here ({row + 1 - p.cursor})",
-                           lambda: self.win.execute(f"REDO, {row + 1 - p.cursor}"))
+                           lambda: self.win.execute(f"HIST, ROLLBACK, {row + 1}"))
         menu.addAction("Add at the end…", lambda: self._insert(p.cursor + 1))
         menu.addAction("Replay all", lambda: self.win.execute("HIST, REPLAY"))
         menu.exec(self.viewport().mapToGlobal(pos))
@@ -866,8 +866,8 @@ class MainWindow(QMainWindow):
         p = self.processor
         self.history_panel.refresh()
         self.param_panel.refresh()
-        self.undo_action.setEnabled(p.cursor > 0)
-        self.redo_action.setEnabled(p.cursor < len(p.history))
+        self.undo_action.setEnabled(p.can_undo)
+        self.redo_action.setEnabled(p.can_redo)
 
     def _save_log(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Save command log", "session.cmd", "Command scripts (*.cmd)")

@@ -31,38 +31,51 @@ def _names(r: _Reader) -> list[str]:
     return out
 
 
-@command("STRIM", *_vals(3),
+@command("STRIM", *_vals(4),
          help="Trim a sketch curve back to the curves that cross it: STRIM, 3, u, v removes the piece of curve 3 "
               "nearest (u, v), between the crossings on either side. The new end stays ON the curve that cut it. "
-              "A curve nothing crosses is deleted; a circle becomes an arc.")
+              "A curve nothing crosses is deleted; a circle becomes an arc. "
+              "STRIM, 3, u, v, AXES lets the sketch's H and V axes cut too (the end then stays ON the axis).")
 def strim(p: Processor, **raws):
     sk = _active(p, "STRIM")
     r = _Reader(p, "STRIM", raws.values())
     with _sketch_error("STRIM"):
         n = ed._num(r.word("the curve"))
         at = (r.num("u of the piece to remove"), r.num("v of the piece to remove"))
+        axes = False
+        if r.more():
+            w = r.word("AXES").upper()
+            if w != "AXES":
+                raise CommandError(f"STRIM: after the point only AXES may follow (got {w})")
+            axes = True
         r.done()
-        said = ed.trim(sk, n, at, p.entry_uid)
+        said = ed.trim(sk, n, at, p.entry_uid, axes)
     return _store(p, sk, said)
 
 
 @command("SEXTEND", *_vals(2),
          help="Extend a sketch line or arc to the next curve it meets: SEXTEND, 3.E (on from the end of 3) · "
-              "SEXTEND, 3.S, 5 (on from the start, to curve 5, even where 5 would have to go on too). "
+              "SEXTEND, 3.S, 5 (on from the start, to curve 5, even where 5 would have to go on too) · "
+              "SEXTEND, 3.E, V (to the sketch's vertical axis; H is the horizontal one). "
               "The end then stays ON that curve.")
 def sextend(p: Processor, **raws):
     sk = _active(p, "SEXTEND")
     r = _Reader(p, "SEXTEND", raws.values())
     with _sketch_error("SEXTEND"):
         end = r.word("the end to extend (3.E or 3.S)")
-        to = ed._num(r.word("the curve to extend to")) if r.more() else None
+        to = ed._cutter(r.word("the curve to extend to (or H / V)")) if r.more() else None
+        axis = r.flags & {"H", "V"}  # an axis at the end is read as a flag word
+        if to is None and len(axis) == 1:
+            to = axis.pop()
+            r.flags.discard(to)
         r.done()
         said = ed.extend(sk, end, to, p.entry_uid)
     return _store(p, sk, said)
 
 
 @command("SFILLET", *_vals(13),
-         help="Round sketch corners where two lines meet: SFILLET, 1.E, 4 (the corner at the end of line 1, radius 4) · "
+         help="Round sketch corners where two lines, a line and an arc, or two arcs meet: "
+              "SFILLET, 1.E, 4 (the corner at the end of curve 1, radius 4) · "
               "SFILLET, 1.E, 2.E, 3.E, 4 (several corners, one radius). The radius is a size like any other: "
               "double-click it to change it. The corner stays as a construction point, so sizes to it still hold.")
 def sfillet(p: Processor, **raws):

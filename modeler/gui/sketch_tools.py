@@ -35,7 +35,7 @@ HINTS = {
     "FREEHAND": "Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude",
     "TRIM": "Click the piece of a curve to cut away (up to the curves crossing it)",
     "EXTEND": "Click near the end of a line or arc to make it reach the next curve",
-    "FILLET": "Click a corner where two lines meet to round it (double-click the radius to change it)",
+    "FILLET": "Click a corner where two curves (lines or arcs) meet to round it (double-click the radius to change it)",
 }
 SNAP_ANGLE = 3.0  # degrees: a line this close to level or upright is made horizontal or vertical
 
@@ -87,6 +87,7 @@ class SketchController:
         self.drag_at: tuple[float, float] | None = None
         self.stroke: list[tuple[float, float]] | None = None  # FREEHAND: the points drawn so far
         self.stroke_snap: str | None = None  # FREEHAND: the point the stroke started on
+        self.trim_axes = False  # TRIM: the H and V axes cut too (STRIM ... AXES)
         self.preview = Preview()
 
     # ---- state -------------------------------------------------------------
@@ -223,7 +224,7 @@ class SketchController:
         sk = self.sketch
         g = sk.geos[n]
         try:
-            lo, hi, _, _ = sedit.trim_piece(sk, n, (u, v))
+            lo, hi, _, _ = sedit.trim_piece(sk, n, (u, v), self.trim_axes)
         except SketchError:
             return None
         if g.kind == "CIRCLE" and hi <= lo:
@@ -241,7 +242,7 @@ class SketchController:
             if not name or "." not in name:
                 return []
             g = sk.ref(name).geo
-            if g is None or g.kind != "LINE":
+            if g is None or g.kind not in ("LINE", "ARC"):
                 return []
             try:
                 l1, a, l2, b = sedit._corner(sk, name)
@@ -255,7 +256,7 @@ class SketchController:
             return []
         g = sk.geos[n]
         if t == "TRIM":
-            return [f"STRIM, {n}, {_uv((u, v))}"]
+            return [f"STRIM, {n}, {_uv((u, v))}" + (", AXES" if self.trim_axes else "")]
         if g.kind == "CIRCLE":
             return []
         ends = {r: sk.pt(g.pts[r]) for r in ("S", "E")}

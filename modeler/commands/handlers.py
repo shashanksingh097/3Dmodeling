@@ -1155,26 +1155,29 @@ def run_(p: Processor, file):
 # =============================================================================
 
 
-@command("UNDO", Arg("n", int, 1), session=True, help="Undo the last n history entries.")
+@command("UNDO", Arg("n", int, 1), session=True,
+         help="Undo the last n actions: new entries, roll backs and history edits (HIST, EDIT ...).")
 def undo(p: Processor, n):
     return p.undo(n)
 
 
-@command("REDO", Arg("n", int, 1), session=True, help="Redo n undone entries.")
+@command("REDO", Arg("n", int, 1), session=True, help="Redo n undone actions.")
 def redo(p: Processor, n):
     return p.redo(n)
 
 
 @command(
     "HIST",
-    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY, PART"),
+    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY, PART, ROLLBACK"),
     Arg("n", int, 0, "entry number (1-based)"),
     Arg("text", Text, "", "new text (quoted; \\n separates lines), or the target position for MOVE"),
     session=True,
     help=(
         "Work with the history: HIST lists it · HIST, EDIT, 3, \"W = 60\" changes entry 3 and re-runs · "
         "HIST, INSERT, 3, \"...\" · HIST, DELETE, 3 · HIST, SUPPRESS, 3 / RESUME, 3 · HIST, MOVE, 5, 2 · HIST, REPLAY · "
-        "HIST, PART, 3, \"6, bracket\" turns entries 3 to 6 into a part, placed once where it was"
+        "HIST, PART, 3, \"6, bracket\" turns entries 3 to 6 into a part, placed once where it was · "
+        "HIST, ROLLBACK, 3 shows the model as after entry 3 (later entries stay, to redo) · "
+        "UNDO takes back a history edit"
     ),
 )
 def hist(p: Processor, action, n, text):
@@ -1182,17 +1185,30 @@ def hist(p: Processor, action, n, text):
         return _history_text(p)
     from .processor import RebuildCancelled
 
+    if action in ("ROLLBACK", "ROLL"):
+        return p.roll_to(n)
     saved = p.history_backup()
     try:
-        return _hist(p, action, n, text)
+        msg = _hist(p, action, n, text)
     except RebuildCancelled:
         p.history_restore(saved)
         raise CommandError(f"HIST, {action}: cancelled; the model and the history are as they were") from None
+    except Exception:
+        # a refused edit (bad text, no such entry) can have moved nothing, or
+        # only part of the way: put everything back
+        p.history_restore(saved)
+        raise
+    words = {"EDIT": "edit of", "INSERT": "insert at", "INS": "insert at", "DELETE": "delete of", "DEL": "delete of",
+             "SUPPRESS": "suppress of", "SUP": "suppress of", "RESUME": "resume of", "UNSUPPRESS": "resume of",
+             "MOVE": "move of", "PART": "part from"}
+    label = "replay" if action == "REPLAY" else f"{words.get(action, action.lower())} entry {n}"
+    p.record_hist_edit(label, saved)
+    return msg
 
 
 def _hist(p: Processor, action, n, text):
     if action == "REPLAY":
-        return p.rebuild(0)
+        return p.rebuild(0, skip=False)  # REPLAY runs every entry again
     if n <= 0:
         raise CommandError(f"HIST, {action}: give an entry number")
     if action == "EDIT":

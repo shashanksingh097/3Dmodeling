@@ -109,6 +109,8 @@ def test_undo_and_history_edits_keep_the_view(p):
     ok(p, "DISPLAY, HIDE, 3")
     ok(p, 'HIST, EDIT, 1, "BLOCK, 0,0,0, 12,10,10"')
     assert 1 in p.model.faded and shown(p) == [True, True, False]
+    ok(p, "UNDO")  # takes back the edit
+    assert 1 in p.model.faded and shown(p) == [True, True, False]
     ok(p, "UNDO")  # takes back the CYL (body 3)
     assert 1 in p.model.faded and shown(p) == [True, True]
     ok(p, "REDO")  # body 3 comes back with the same ID, still hidden by the view

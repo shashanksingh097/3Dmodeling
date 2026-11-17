@@ -47,11 +47,8 @@ All four give the same volume to the last digit.
 
 ## Left for later
 
-Skipping steps whose inputs did not change. To do it safely, each step must
-record which bodies and parameters it read. Then a step whose inputs are
-all unchanged can reuse its old result. This is a larger change to the
-processor. With the one-call cuts above, the slow case it would help
-(hundreds of single cuts) has a fast way to write it.
+Done after 0.2.0: a rebuild skips steps whose inputs did not change
+(docs/M3-leftovers.md).
 
 ## Tests
 

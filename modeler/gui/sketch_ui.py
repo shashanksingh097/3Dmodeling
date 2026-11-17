@@ -81,6 +81,13 @@ class SketchUI:
             tb.addAction(a)
             self.tool_actions[tool] = a
         self.tool_actions["SELECT"].setChecked(True)
+        a = QAction("Axes cut", win)
+        a.setCheckable(True)
+        a.setToolTip("Let the sketch's H and V axes cut too when trimming (handy for half a profile to revolve)\n"
+                     "Runs: STRIM, n, u, v, AXES")
+        a.toggled.connect(lambda on: setattr(self.controller, "trim_axes", on))
+        tb.addAction(a)
+        self.axes_action = a
         self.edit_actions: dict[str, QAction] = {}
         for label, slot, tip in (
                 ("Offset…", self.offset, "Offset the selected curves (a chain is offset as one)\nRuns: SOFFSET, d, ..."),

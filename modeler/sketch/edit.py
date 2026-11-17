@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 
-from .sketch import Con, Geo, Sketch, SketchError, _geo_of, _REF
+from .sketch import _HX, _O, _VY, Con, Geo, Sketch, SketchError, _geo_of, _REF
 
 CURVES = ("LINE", "ARC", "CIRCLE")
 
@@ -70,6 +70,21 @@ def _curve(sk: Sketch, n: int, what: str) -> Geo:
     if g.kind not in CURVES:
         raise SketchError(f"{n} is a point; give a line, arc or circle")
     return g
+
+
+AXES = ("H", "V")
+
+
+def _axis(name: str) -> Geo:
+    """The sketch's H or V axis as a line through the origin (it has no ends:
+    it goes on for ever)."""
+    return Geo(0, "LINE", {"S": _O, "E": _HX if name == "H" else _VY})
+
+
+def _cutter(text) -> int | str:
+    """A curve number, or H / V for an axis."""
+    t = str(text).strip().upper()
+    return t if t in AXES else _num(t)
 
 
 def _num(text) -> int:
@@ -171,9 +186,12 @@ def _within(sk: Sketch, h: Geo, q) -> bool:
     return p <= span + e or p >= 360 - e
 
 
-def _cuts(sk: Sketch, g: Geo, only: int | None = None, whole: bool = False) -> list[tuple[float, int, tuple]]:
+def _cuts(sk: Sketch, g: Geo, only: int | str | None = None, whole: bool = False,
+          axes: bool = False) -> list[tuple[float, int | str, tuple]]:
     """(param on g, the curve that crosses there, point) for every curve
-    crossing g's carrier (on the drawn part of the other curve, unless whole)."""
+    crossing g's carrier (on the drawn part of the other curve, unless whole).
+    With ``axes`` (or ``only`` H or V) the sketch axes cut too; they are
+    called H and V."""
     out = []
     for h in sk.geos.values():
         if h.n == g.n or h.kind not in CURVES or (only is not None and h.n != only):
@@ -181,6 +199,10 @@ def _cuts(sk: Sketch, g: Geo, only: int | None = None, whole: bool = False) -> l
         for q in _carrier_hits(sk, g, h):
             if whole or _within(sk, h, q):
                 out.append((_param(sk, g, q), h.n, q))
+    for name in AXES:
+        if (axes and only is None) or only == name:
+            for q in _carrier_hits(sk, g, _axis(name)):
+                out.append((_param(sk, g, q), name, q))
     return out
 
 
@@ -240,19 +262,20 @@ def _set(sk: Sketch, i: int, q) -> None:
 # trim and extend
 # =============================================================================
 
-def trim_piece(sk: Sketch, n: int, pick) -> tuple[float, float, int | None, int | None]:
+def trim_piece(sk: Sketch, n: int, pick, axes: bool = False) -> tuple[float, float, int | str | None, int | str | None]:
     """The piece of curve n that a click at ``pick`` removes: (from, to) in
-    n's params and the curves cutting there (None at a free end)."""
+    n's params and the curves cutting there (None at a free end; H or V for
+    an axis, which cut only with ``axes``)."""
     g = _curve(sk, n, "STRIM")
     span, eps = _span(sk, g), _eps(sk, g)
     tp = _param(sk, g, pick)
-    cuts = _cuts(sk, g)
+    cuts = _cuts(sk, g, axes=axes)
     if g.kind == "LINE":
         tp = min(max(tp, 0.0), 1.0)
     elif g.kind == "ARC" and tp > span:  # off the arc: the nearer end
         tp = span if tp - span < 360 - tp else 0.0
     if g.kind == "CIRCLE":
-        ps = sorted({(round(p, 9) % 360, h) for p, h, _ in cuts})
+        ps = sorted({(round(p, 9) % 360, h) for p, h, _ in cuts}, key=lambda x: (x[0], str(x[1])))
         if len(ps) < 2:
             return 0.0, 360.0, None, None
         before = [x for x in ps if x[0] <= tp]
@@ -260,9 +283,9 @@ def trim_piece(sk: Sketch, n: int, pick) -> tuple[float, float, int | None, int 
         lo = before[-1] if before else ps[-1]
         hi = after[0] if after else ps[0]
         return lo[0], hi[0], lo[1], hi[1]
-    inside = sorted((p, h) for p, h, _ in cuts if eps < p < span - eps)
-    lo = max((x for x in inside if x[0] < tp), default=None)
-    hi = min((x for x in inside if x[0] >= tp), default=None)
+    inside = sorted(((p, h) for p, h, _ in cuts if eps < p < span - eps), key=lambda x: (x[0], str(x[1])))
+    lo = max((x for x in inside if x[0] < tp), default=None, key=lambda x: x[0])
+    hi = min((x for x in inside if x[0] >= tp), default=None, key=lambda x: x[0])
     return (lo[0] if lo else 0.0), (hi[0] if hi else span), (lo[1] if lo else None), (hi[1] if hi else None)
 
 
@@ -276,11 +299,12 @@ def _point_at(sk: Sketch, g: Geo, p: float):
     return (c[0] + r * math.cos(t), c[1] + r * math.sin(t))
 
 
-def trim(sk: Sketch, n: int, pick, uid: int = 0) -> str:
+def trim(sk: Sketch, n: int, pick, uid: int = 0, axes: bool = False) -> str:
     """Remove the piece of curve n between the curves that cross it, on the
-    side of ``pick``. A curve nothing crosses is deleted."""
+    side of ``pick``. A curve nothing crosses is deleted. With ``axes`` the
+    sketch's H and V axes cut as well."""
     g = _curve(sk, n, "STRIM")
-    lo, hi, h_lo, h_hi = trim_piece(sk, n, pick)
+    lo, hi, h_lo, h_hi = trim_piece(sk, n, pick, axes)
     said: list[str] = []
     if h_lo is None and h_hi is None:
         return sk.delete(str(n)) + " (nothing crosses it, so all of it went)"
@@ -332,17 +356,17 @@ def trim(sk: Sketch, n: int, pick, uid: int = 0) -> str:
     return what + _dropped(said)
 
 
-def extend(sk: Sketch, end: str, to: int | None = None, uid: int = 0) -> str:
+def extend(sk: Sketch, end: str, to: int | str | None = None, uid: int = 0) -> str:
     """Make a line or arc longer at one end until it meets the next curve
     (or curve ``to``, which may also be extended in thought: its full line
-    or circle counts)."""
+    or circle counts; ``to`` H or V is an axis)."""
     n, role = _parts(end)
     if n is None or role not in ("S", "E"):
         raise SketchError(f"give the end to extend, like 3.E or 3.S (got {end})")
     g = _curve(sk, n, "SEXTEND")
     if g.kind == "CIRCLE":
         raise SketchError(f"{n} is a circle, which has no ends")
-    if to is not None:
+    if to is not None and to not in AXES:
         _curve(sk, to, "SEXTEND")
         if to == n:
             raise SketchError("a curve cannot be extended to itself")
@@ -359,7 +383,7 @@ def extend(sk: Sketch, end: str, to: int | None = None, uid: int = 0) -> str:
         if far > eps and (best is None or far < best[0]):
             best = (far, h, q)
     if best is None:
-        whom = f"curve {to}" if to is not None else "any curve"
+        whom = (f"axis {to}" if to in AXES else f"curve {to}") if to is not None else "any curve"
         raise SketchError(f"going on from {n}.{role}, {g.kind.lower()} {n} never meets {whom}")
     _, h, q = best
     said: list[str] = []
@@ -375,11 +399,12 @@ def extend(sk: Sketch, end: str, to: int | None = None, uid: int = 0) -> str:
 # =============================================================================
 
 def _corner(sk: Sketch, corner: str):
-    """The two line ends that meet at ``corner``: (line, role, line, role)."""
+    """The two curve ends that meet at ``corner``: (curve, role, curve, role).
+    Each is a line or an arc."""
     n, role = _parts(corner)
     g = sk.geos.get(n) if n is not None else None
-    if g is None or g.kind != "LINE" or role not in ("S", "E"):
-        raise SketchError(f"give the corner as the end of a line, like 3.E (got {corner})")
+    if g is None or g.kind not in ("LINE", "ARC") or role not in ("S", "E"):
+        raise SketchError(f"give the corner as the end of a line or arc, like 3.E (got {corner})")
     at = sk.pt(g.pts[role])
     tol = 1e-6 * sk.extent()
     others = []
@@ -389,14 +414,14 @@ def _corner(sk: Sketch, corner: str):
         for r2 in ("S", "E"):
             if r2 in h.pts and h.kind != "POINT" and math.dist(sk.pt(h.pts[r2]), at) <= tol:
                 others.append((h, r2))
-    lines = [(h, r2) for h, r2 in others if h.kind == "LINE"]
-    if len(others) != 1 or len(lines) != 1:
+    if len(others) != 1:
         if not others:
             raise SketchError(f"nothing else ends at {n}.{role}, so there is no corner to round")
-        if len(lines) != len(others):
-            raise SketchError(f"an arc ends at {n}.{role}; a fillet goes between two lines")
-        raise SketchError(f"{len(others) + 1} curves meet at {n}.{role}; a fillet goes where two lines meet")
-    return g, role, lines[0][0], lines[0][1]
+        raise SketchError(f"{len(others) + 1} curves meet at {n}.{role}; a fillet goes where two curves meet")
+    h, r2 = others[0]
+    if h.kind not in ("LINE", "ARC"):
+        raise SketchError(f"a {h.kind.lower()} ends at {n}.{role}; a fillet goes between lines and arcs")
+    return g, role, h, r2
 
 
 def fillet(sk: Sketch, corner: str, r: float, uid: int = 0) -> tuple[str, Geo]:
@@ -406,6 +431,8 @@ def fillet(sk: Sketch, corner: str, r: float, uid: int = 0) -> tuple[str, Geo]:
     if r <= 0:
         raise SketchError("the radius must be positive")
     l1, a, l2, b = _corner(sk, corner)
+    if l1.kind == "ARC" or l2.kind == "ARC":
+        return _fillet_round(sk, corner, r, uid, l1, a, l2, b)
     P = sk.pt(l1.pts[a])
     o1 = sk.pt(l1.pts["E" if a == "S" else "S"])
     o2 = sk.pt(l2.pts["E" if b == "S" else "S"])
@@ -464,6 +491,160 @@ def fillet(sk: Sketch, corner: str, r: float, uid: int = 0) -> tuple[str, Geo]:
     sk.solve(blame=rad.n)
     return (f"rounded the corner of {l1.n} and {l2.n} with arc {arc.n}, R{_n(r)} (C{rad.n}); "
             f"the corner is construction point {pt.n}{_dropped(said)}"), arc
+
+
+def _away(sk: Sketch, g: Geo, role: str):
+    """The unit direction along g leaving its end ``role`` (into the curve)."""
+    P = sk.pt(g.pts[role])
+    if g.kind == "LINE":
+        return _unit(_sub(sk.pt(g.pts["E" if role == "S" else "S"]), P))
+    c = sk.pt(g.pts["C"])
+    rx, ry = _unit(_sub(P, c))
+    ccw = (-ry, rx)  # an arc runs counter-clockwise from S to E
+    return ccw if role == "S" else (-ccw[0], -ccw[1])
+
+
+def _offset_carrier(sk: Sketch, g: Geo, P, toward, r: float):
+    """Where a fillet's centre may lie for curve g: its line moved r towards
+    the side ``toward`` points to, or its circle grown or shrunk by r."""
+    if g.kind == "LINE":
+        a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+        d = _unit(_sub(b, a))
+        nrm = (-d[1], d[0])
+        side = 1.0 if _dot(nrm, toward) > 0 else -1.0
+        return ("L", _add(a, nrm, side * r), d)
+    c, R = sk.pt(g.pts["C"]), sk.radius(g)
+    inside = _dot(toward, _sub(c, P)) > 0  # the other curve heads into the circle
+    if inside:
+        if r >= R - 1e-12:
+            raise SketchError(f"radius {r:g} does not fit inside arc {g.n} (its radius is {R:.4g})")
+        return ("C", c, R - r)
+    return ("C", c, R + r)
+
+
+def _meet(c1, c2) -> list:
+    """Where two carriers (("L", point, dir) or ("C", centre, radius)) cross."""
+    if c1[0] == "C" and c2[0] == "L":
+        c1, c2 = c2, c1
+    if c1[0] == "L" and c2[0] == "L":
+        (_, a, r), (_, c, s_) = c1, c2
+        den = _cross(r, s_)
+        if abs(den) < 1e-12:
+            return []
+        return [_add(a, r, _cross(_sub(c, a), s_) / den)]
+    if c1[0] == "L":
+        (_, a, d), (_, c, rad) = c1, c2
+        f = _sub(a, c)
+        B, Cq = _dot(f, d), _dot(f, f) - rad * rad
+        disc = B * B - Cq
+        if disc < 0:
+            return []
+        sq = math.sqrt(disc)
+        return [_add(a, d, -B - sq), _add(a, d, -B + sq)]
+    (_, k1, r1), (_, k2, r2) = c1, c2
+    dd = math.dist(k1, k2)
+    if dd < 1e-12 or dd > r1 + r2 or dd < abs(r1 - r2):
+        return []
+    al = (r1 * r1 - r2 * r2 + dd * dd) / (2 * dd)
+    hh = math.sqrt(max(r1 * r1 - al * al, 0.0))
+    u = _unit(_sub(k2, k1))
+    m = _add(k1, u, al)
+    nrm = (-u[1], u[0])
+    return [_add(m, nrm, hh), _add(m, nrm, -hh)]
+
+
+def _touch(sk: Sketch, g: Geo, C):
+    """Where a circle centred at C, tangent to g, touches g's carrier."""
+    if g.kind == "LINE":
+        a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+        d = _unit(_sub(b, a))
+        return _add(a, d, _dot(_sub(C, a), d))
+    c, R = sk.pt(g.pts["C"]), sk.radius(g)
+    return _add(c, _unit(_sub(C, c)), R)
+
+
+def _along(sk: Sketch, g: Geo, role: str, q) -> float:
+    """How far q is along g from its end ``role``, as a share of g's length
+    (0 at that end, 1 at the other; outside 0..1: off the drawn curve)."""
+    if g.kind == "LINE":
+        P, o = sk.pt(g.pts[role]), sk.pt(g.pts["E" if role == "S" else "S"])
+        r = _sub(o, P)
+        return _dot(_sub(q, P), r) / (_dot(r, r) or 1e-24)
+    span = _span(sk, g)
+    p = _param(sk, g, q)  # degrees from S, counter-clockwise
+    if p > span and p > (span + 360) / 2:
+        p -= 360  # just before the start
+    t = p / span
+    return t if role == "S" else 1 - t
+
+
+def _fillet_round(sk: Sketch, corner: str, r: float, uid: int, g1: Geo, a: str, g2: Geo, b: str):
+    """A fillet where an arc meets a line or another arc: the centre is r
+    from both (on the inside of the corner), the touching points stay on the
+    drawn curves, and each curve is cut back to its touching point."""
+    P = sk.pt(g1.pts[a])
+    d1, d2 = _away(sk, g1, a), _away(sk, g2, b)
+    if abs(_cross(d1, d2)) < 1e-6 and _dot(d1, d2) < 0:
+        raise SketchError(f"{g1.n} and {g2.n} already join smoothly at {corner}; there is no corner to round")
+    k1, k2 = _offset_carrier(sk, g1, P, d2, r), _offset_carrier(sk, g2, P, d1, r)
+    best = None
+    for C in _meet(k1, k2):
+        T1, T2 = _touch(sk, g1, C), _touch(sk, g2, C)
+        t1, t2 = _along(sk, g1, a, T1), _along(sk, g2, b, T2)
+        if not (1e-9 < t1 < 1 - 1e-9 and 1e-9 < t2 < 1 - 1e-9):
+            continue
+        cost = math.dist(T1, P) + math.dist(T2, P)
+        if best is None or cost < best[0]:
+            best = (cost, C, T1, T2)
+    if best is None:
+        raise SketchError(f"radius {r:g} does not fit at {corner}: the fillet would run off the end of "
+                          f"{g1.kind.lower()} {g1.n} or {g2.kind.lower()} {g2.n}")
+    _, C, T1, T2 = best
+    A1, A2 = _ang(C, T1), _ang(C, T2)
+    first_is_1 = (A2 - A1) % 360 < 180  # counter-clockwise the short way
+    said: list[str] = []
+    e1, e2 = f"{g1.n}.{a}", f"{g2.n}.{b}"
+    pt = sk.add_point(P, uid)  # the corner stays, as a construction point on both curves
+    pt.construction = True
+    for k, c in list(sk.cons.items()):
+        ends = [_parts(x) for x in c.refs]
+        if c.kind == "COINCIDENT" and set(ends) == {(g1.n, a), (g2.n, b)}:
+            del sk.cons[k]
+            continue
+        if c.kind == "TANGENT" and set(ends) == {(g1.n, ""), (g2.n, "")}:
+            _drop(sk, [k], said)  # they no longer meet
+            continue
+        if (g1.n, a) in ends or (g2.n, b) in ends:
+            c.refs = tuple(str(pt.n) if _parts(x) in ((g1.n, a), (g2.n, b)) else x for x in c.refs)
+            if len(set(c.refs)) < len(c.refs):
+                _drop(sk, [k], said)
+    for g, role in ((g1, a), (g2, b)):
+        other = "E" if role == "S" else "S"
+        for k, c in list(sk.cons.items()):
+            if not any(_parts(x) == (g.n, "") for x in c.refs):
+                continue
+            if g.kind == "LINE" and c.kind == "LENGTH":  # the length was to the corner: keep it so
+                c.kind, c.refs = "DIST", (str(pt.n), f"{g.n}.{other}")
+                c.data = {"now": c.data.get("now", c.value)}
+            elif g.kind == "LINE" and c.kind in ("HDIST", "VDIST") and len(c.refs) == 1:
+                c.refs = (str(pt.n), f"{g.n}.{other}") if other == "E" else (f"{g.n}.{other}", str(pt.n))
+            elif _extent_bound(sk, c, g.n):
+                _drop(sk, [k], said)
+    sk.add_con("ON", (str(pt.n), str(g1.n)), uid=uid, auto=True, solve=False)
+    sk.add_con("ON", (str(pt.n), str(g2.n)), uid=uid, auto=True, solve=False)
+    _set(sk, g1.pts[a], T1)
+    _set(sk, g2.pts[b], T2)
+    arc = sk.add_arc(C, r, A1, A2, uid) if first_is_1 else sk.add_arc(C, r, A2, A1, uid)
+    arc.construction = g1.construction and g2.construction
+    end1, end2 = ("S", "E") if first_is_1 else ("E", "S")
+    sk.add_con("COINCIDENT", (e1, f"{arc.n}.{end1}"), uid=uid, auto=True, solve=False)
+    sk.add_con("COINCIDENT", (e2, f"{arc.n}.{end2}"), uid=uid, auto=True, solve=False)
+    sk.add_con("TANGENT", (str(g1.n), str(arc.n)), uid=uid, auto=True, solve=False)
+    sk.add_con("TANGENT", (str(g2.n), str(arc.n)), uid=uid, auto=True, solve=False)
+    rad = sk.add_con("RADIUS", (str(arc.n),), r, uid=uid, solve=False)
+    sk.solve(blame=rad.n)
+    return (f"rounded the corner of {g1.kind.lower()} {g1.n} and {g2.kind.lower()} {g2.n} with arc {arc.n}, "
+            f"R{_n(r)} (C{rad.n}); the corner is construction point {pt.n}{_dropped(said)}"), arc
 
 
 def _n(v: float) -> str:

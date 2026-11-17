@@ -86,6 +86,6 @@ Screenshots are in the project files under `m3d/`.
 
 ## Left
 
-* A fillet between a line and an arc, or two arcs (only two lines now).
-* Trimming against the sketch axes H and V (they do not cut now).
+* Done after 0.2.0 (docs/M3-leftovers.md): a fillet between a line and an
+  arc, or two arcs, and trimming and extending to the sketch axes H and V.
 * An offset of a chain that crosses itself.

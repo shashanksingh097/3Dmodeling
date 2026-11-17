@@ -109,9 +109,12 @@ def test_datums_follow_undo_and_history_edits(p):
     assert vec(p, "ORIGIN('top')")[2] == 20
     p.run("HIST, EDIT, 1, \"H = 35\"")
     assert vec(p, "ORIGIN('top')")[2] == 35
-    p.run("UNDO")
+    p.run("UNDO")  # takes back the edit
+    assert vec(p, "ORIGIN('top')")[2] == 20
+    p.run("UNDO")  # and then the PLANE step
     with pytest.raises(Exception):
         p.evaluate("ORIGIN('top')")
+    p.run("REDO")
     p.run("REDO")
     assert vec(p, "ORIGIN('top')")[2] == 35
 
