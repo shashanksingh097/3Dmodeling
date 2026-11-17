@@ -87,6 +87,112 @@ def test_fillet_errors(p):
     assert "nothing else ends" in err(p, "SFILLET, 5.E, 1")
 
 
+# a line running into an arc at a right angle (the arc turns up from (40, 0))
+LINE_ARC = """SKETCH, s, XY
+SLINE, 0,0, 40,0
+SARC, 60,0, 20, 90, 180
+"""
+
+
+def _tangent_to_line(s, arc, y=0.0):
+    return abs(abs(pt(s, f"{arc.n}.C")[1] - y) - s.radius(arc)) < 1e-6
+
+
+def test_fillet_between_a_line_and_an_arc(p):
+    ok(p, LINE_ARC + "SFILLET, 1.E, 5")
+    s = sk(p)
+    f = s.geos[4]
+    assert f.kind == "ARC" and abs(s.radius(f) - 5) < 1e-9
+    c = pt(s, "4.C")
+    assert _tangent_to_line(s, f)  # 5 above the line
+    assert abs(math.dist(c, (60, 0)) - 25) < 1e-6  # outside the arc, touching it
+    # each curve was cut back to where the fillet touches it, and stays joined
+    assert close(pt(s, "1.E"), pt(s, "4.S")) and close(pt(s, "2.E"), pt(s, "4.E"))
+    assert abs(math.dist(pt(s, "2.E"), (60, 0)) - 20) < 1e-6
+    corner = [g for g in s.geos.values() if g.kind == "POINT" and g.construction][0]
+    assert close(s.pt(corner.pts["P"]), (40, 0))
+    assert not s.redundant
+
+
+def test_fillet_inside_an_arc_and_between_two_arcs(p):
+    # the line runs into the circle: the fillet sits inside the arc
+    R = 200 ** 0.5
+    ok(p, f"SKETCH, s, XY\nSLINE, 40,0, 80,0\nSARC, 50,-10, {R!r}, 135, 270\nSFILLET, 1.S, 3")
+    s = sk(p)
+    assert _tangent_to_line(s, s.geos[4]) and abs(math.dist(pt(s, "4.C"), (50, -10)) - (R - 3)) < 1e-6
+    assert pt(s, "4.C")[0] < 45  # the one at the corner, not the one further along
+    ok(p, "ENDSKETCH\nSKETCH, t, XY\nSARC, 0,0, 30, 0, 90\nSARC, 60,0, 30, 90, 180\nSFILLET, 1.S, 4")
+    s = sk(p, "T")
+    f = s.geos[4]
+    for other in (1, 2):
+        assert abs(math.dist(pt(s, "4.C"), pt(s, f"{other}.C")) - 34) < 1e-6
+    assert close(pt(s, "1.S"), pt(s, "4.S")) or close(pt(s, "1.S"), pt(s, "4.E"))
+
+
+def test_line_arc_fillet_extrudes_and_its_radius_edits(p):
+    ok(p, """SKETCH, s, XY
+SLINE, 0,0, 40,0
+SARC, 60,0, 20, 90, 180
+SLINE, 60,20, 60,40
+SLINE, 60,40, 0,40
+SLINE, 0,40, 0,0
+SFILLET, 1.E, 5
+ENDSKETCH
+EXTRUDE, s, 2""")
+    v5 = p.evaluate("VOL(LAST)")
+    rows = st.sketch_dimensions(p, "s")
+    radius = [r for r in rows if r[1].startswith("radius")]
+    ok(p, st.dimension_edit(p, p.history[radius[0][2] - 1].uid, "8"))
+    assert p.evaluate("VOL(LAST)") < v5  # a bigger fillet takes more off the corner
+
+
+def test_fillet_errors_between_arcs(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 0,0, 40,0\nSARC, 40,20, 20, 270, 0")
+    assert "join smoothly" in err(p, "SFILLET, 1.E, 2")
+    ok(p, "ENDSKETCH\n" + LINE_ARC.replace("SKETCH, s", "SKETCH, s2"))
+    assert "does not fit" in err(p, "SFILLET, 1.E, 200")
+
+
+# ---- trim and extend to the sketch axes -------------------------------------------------
+
+def test_trim_to_the_axes(p):
+    ok(p, "SKETCH, s, XY\nSLINE, -30,-10, 30,25")
+    ok(p, "STRIM, 1, -25, -7, AXES")  # the piece below H goes
+    s = sk(p)
+    assert abs(pt(s, "1.S")[1]) < 1e-9 and close(pt(s, "1.E"), (30, 25))
+    ok(p, "STRIM, 1, 20, 20, AXES")  # now the piece right of V goes
+    assert abs(pt(sk(p), "1.E")[0]) < 1e-9
+    # the new ends stay on the axes when the line moves
+    assert [c.refs for c in sk(p).cons.values() if c.kind == "ON"] == [("1.S", "H"), ("1.E", "V")]
+
+
+def test_without_axes_trim_ignores_them(p):
+    ok(p, "SKETCH, s, XY\nSLINE, -30,-10, 30,25\nSLINE, 10,-20, 10,40")
+    ok(p, "STRIM, 1, 20, 15")
+    assert close(pt(sk(p), "1.E"), (10, 10 / 60 * 35 + 7.5)) or abs(pt(sk(p), "1.E")[0] - 10) < 1e-9
+
+
+def test_extend_to_an_axis(p):
+    ok(p, "SKETCH, s, XY\nSLINE, 10,5, 30,15\nSEXTEND, 1.S, V")
+    s = sk(p)
+    assert close(pt(s, "1.S"), (0, 0))
+    ok(p, "SLINE, 5,10, 5,30\nSEXTEND, 2.S, H")
+    assert close(pt(sk(p), "2.S"), (5, 0))
+    assert "never meets axis V" in err(p, "SEXTEND, 2.E, V")
+
+
+def test_trim_tool_with_axes_cut(p):
+    ok(p, "SKETCH, s, XY\nSLINE, -30,0.5, 30,0.5\nSLINE, -30,-10, 30,25")
+    c = st.SketchController(p)
+    c.set_tool("TRIM")
+    assert c.click(-25, -7.08, 0.5) == ["STRIM, 2, -25, -7.08"]
+    c.trim_axes = True
+    assert c.click(-25, -7.08, 0.5) == ["STRIM, 2, -25, -7.08, AXES"]
+    c.set_tool("FILLET")
+    ok(p, "ENDSKETCH\n" + LINE_ARC.replace("SKETCH, s", "SKETCH, s2"))
+    assert c.click(40.1, 0.1, 0.5)[0].split(",")[:2] in (["SFILLET", " 1.E"], ["SFILLET", " 2.E"])
+
+
 # ---- SOFFSET ------------------------------------------------------------------------------
 
 def test_offset_of_a_closed_chain_goes_outwards_and_meets_at_the_corners(p):

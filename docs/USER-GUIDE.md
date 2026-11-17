@@ -161,7 +161,7 @@ Right-click a step in the **History** panel:
 | **Insert before…** | add a step at that point in the history |
 | **Suppress** / **Resume** | leave the step out for now, or bring it back |
 | **Delete** | remove the step |
-| **Roll back to here** | undo back to this step (Redo brings the rest back) |
+| **Roll back to here** | show the model as it was after this step; the later steps stay, greyed (Redo, or **Redo up to here**, brings them back). Undo takes the roll back back |
 | **Make a part from steps …** | with several steps selected, turn them into a reusable part |
 
 **From the model tree.** Pick a body in the **Model** tree (or in the 3D
@@ -194,7 +194,9 @@ push (**Extrude**) or turn (**Revolve**) into a solid.
 3. Select geometry and press a constraint button (horizontal, parallel,
    tangent, ...) or **Size…** to give a length, radius or angle. The sketch
    turns green when it is fully defined.
-4. Trim (T), Extend (E) and Fillet (F) tidy corners; **Offset…**,
+4. Trim (T), Extend (E) and Fillet (F) tidy corners (a fillet works
+   between lines and arcs; switch on **Axes cut** to let the H and V axes
+   cut when trimming); **Offset…**,
    **Mirror…**, **Pattern…** and **Project…** are on the toolbar too.
 5. Press **Extrude…** or **Revolve…**. Make a new body, add a boss to the
    body under the sketch, or cut a pocket.
@@ -369,7 +371,7 @@ different `-D` values to make a family of parts.
 |------|------|
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | new, open, save, save as |
 | Ctrl+I, Ctrl+E | import, export |
-| Ctrl+Z, Ctrl+Shift+Z (or Ctrl+Y on Windows) | undo, redo |
+| Ctrl+Z, Ctrl+Shift+Z (or Ctrl+Y on Windows) | undo, redo (history edits too) |
 | Ctrl+K | find a command by name or purpose |
 | F2 | open the form for the command being typed |
 | F | fit the view |

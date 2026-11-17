@@ -274,8 +274,25 @@ class Model:
         self.revision += 1
         if self.lineage is not None and event.body_id:
             self.lineage.note(event.kind, event.body_id)
-        for fn in list(self._listeners):
-            fn(event)
+        if not self._listeners:
+            return
+        # what the views look at is not what the running entry reads
+        tracks = [t for t in self.tracks() if t.on]
+        for t in tracks:
+            t.on = False
+        try:
+            for fn in list(self._listeners):
+                fn(event)
+        finally:
+            for t in tracks:
+                t.on = True
+
+    def tracks(self) -> list:
+        """The read-tracking tables in use (core/track.py), if an entry is running."""
+        from .track import Track
+
+        out = [self.bodies] + list(self._entities.values()) + list(self._origin.values())
+        return [t for t in out if isinstance(t, Track)]
 
     # ---- snapshots (undo, history replay) ---------------------------------
     def snapshot(self) -> dict:
@@ -635,8 +652,18 @@ class Model:
 
     # ---- names -------------------------------------------------------------
     def body_by_name(self, name: str) -> Body | None:
+        from .track import Track
+
         key = name.upper()
-        for b in self.bodies.values():
+        bodies = self.bodies
+        if isinstance(bodies, Track) and bodies.on:
+            bodies.names = True  # it looks at every name, but only at the body it finds
+            for b in dict.values(bodies):
+                if b.name.upper() == key:
+                    bodies.read.add(b.id)
+                    return b
+            return None
+        for b in bodies.values():
             if b.name.upper() == key:
                 return b
         return None

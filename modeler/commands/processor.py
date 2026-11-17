@@ -145,6 +145,22 @@ class Entry:
     # what the entry did to bodies the last time it ran (core/model.py Lineage);
     # not saved: every replay records it again
     lineage: object = None
+    # for skipping it when it need not run again (see Processor.rebuild): the
+    # state it last started from and ended with, and what it looked at
+    # (None: it cannot be skipped); not saved
+    before: object = field(default=None, repr=False, compare=False)
+    after: object = field(default=None, repr=False, compare=False)
+    reads: object = field(default=None, repr=False, compare=False)
+
+    def __deepcopy__(self, memo):
+        import copy as _copy
+        from dataclasses import fields
+
+        new = _copy.copy(self)
+        for f in fields(self):
+            if f.name not in ("before", "after", "reads"):  # saved states share their (immutable) bodies
+                setattr(new, f.name, _copy.deepcopy(getattr(self, f.name), memo))
+        return new
 
     @property
     def label(self) -> str:
@@ -166,6 +182,11 @@ class _Cycle(Exception):
 class _Return(Exception):
     pass
 
+
+# commands that read something besides the model and parameters (an older
+# state, the history): an entry that runs one is never skipped on a rebuild.
+# Commands that take a file name (IMPORT, LIB, ...) count too.
+VOLATILE = {"PATTERN", "RUN", "STEPS", "RELOAD"}
 
 SELECTED = -1  # what the word SEL gives where bodies are expected
 SEL_AS_BODIES = {"UNION", "SUBTRACT", "INTERSECT"}
@@ -218,6 +239,14 @@ class Processor:
         self.cursor = 0  # entries[:cursor] are applied; the rest can be redone
         self._snaps: list[dict] = [self._state()]
         self._buffer: list[str] = []
+        # what UNDO and REDO step through: {"kind": "cursor", "from", "to"} for
+        # a new entry or a roll back, {"kind": "hist", "label", "before",
+        # "after"} (history_backup()s) for a history edit (HIST, EDIT/INSERT/...)
+        self._undo: list[dict] = []
+        self._redo: list[dict] = []
+        # skip entries whose inputs did not change when the history is re-run
+        self.skip_unchanged = True
+        self.skipped = 0  # entries the last rebuild reused instead of re-running
 
         self._scopes: list[dict[str, Any]] = []  # macro locals
         self._loops = 0
@@ -335,6 +364,8 @@ class Processor:
         self.history.append(entry)
         self.cursor += 1
         self._snaps.append(self._state())
+        entry.after = self._snaps[-1]
+        self._push_undo({"kind": "cursor", "from": self.cursor - 1, "to": self.cursor})
         self._history_changed()
         return Result(label, True, message, warning=entry.warning)
 
@@ -356,6 +387,7 @@ class Processor:
         self._uid = 0
         self.cursor = 0
         self._snaps = [self._state()]
+        self._undo, self._redo = [], []
         self._history_changed()
 
     @property
@@ -378,24 +410,111 @@ class Processor:
         return self.evaluator.eval(expr)
 
     # ---- undo / redo / history editing ------------------------------------
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo) or self.cursor > 0
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
+
     def undo(self, n: int = 1) -> str:
-        if self.cursor == 0:
+        """Take back the last n actions: new entries, roll backs and history edits."""
+        if not self.can_undo:
             raise CommandError("nothing to undo")
-        n = max(1, min(n, self.cursor))
-        self.cursor -= n
-        self._restore(self._snaps[self.cursor])
+        done: list[str] = []
+        for _ in range(max(1, n)):
+            if not self.can_undo:
+                break
+            act = self._undo.pop() if self._undo else {"kind": "cursor", "from": self.cursor - 1, "to": self.cursor}
+            if act["kind"] == "cursor" and act["to"] != self.cursor:  # out of step: just go back one entry
+                act = {"kind": "cursor", "from": self.cursor - 1, "to": self.cursor}
+            if act["kind"] == "cursor":
+                if act["from"] < act["to"]:  # going back over entries: keep them for REDO
+                    f, t = act["from"], act["to"]
+                    act["tail"] = (f, self.history[f:t], self._snaps[f + 1:t + 1])
+                self._move_cursor(act["from"], act.get("tail"))
+                done.append("step")
+            else:
+                self.history_restore(act["before"], emit=False)
+                done.append(act["label"])
+            self._redo.append(act)
+        self.model.restore(self.model.snapshot())  # one refresh for listeners
         self._history_changed()
-        return f"undid {n} step{'s' if n > 1 else ''}; {self.cursor} in history"
+        return "undid " + self._undo_words(done) + f"; {self.cursor} in history"
 
     def redo(self, n: int = 1) -> str:
-        avail = len(self.history) - self.cursor
-        if avail == 0:
+        if not self._redo:
             raise CommandError("nothing to redo")
-        n = max(1, min(n, avail))
-        self.cursor += n
-        self._restore(self._snaps[self.cursor])
+        done: list[str] = []
+        for _ in range(max(1, n)):
+            if not self._redo:
+                break
+            act = self._redo.pop()
+            if act["kind"] == "cursor":
+                self._move_cursor(act["to"], act.get("tail"))
+                done.append("step")
+            else:
+                self.history_restore(act["after"], emit=False)
+                done.append(act["label"])
+            self._undo.append(act)
+        self.model.restore(self.model.snapshot())
         self._history_changed()
-        return f"redid {n} step{'s' if n > 1 else ''}; {self.cursor} in history"
+        return "redid " + self._undo_words(done) + f"; {self.cursor} in history"
+
+    def _move_cursor(self, to: int, tail: tuple | None) -> None:
+        """Set the cursor for UNDO/REDO. Going back, the entries passed over
+        are kept with the action (``tail``): a history edit undone in between
+        can have taken them out of the history, and going forward puts them back."""
+        lo = min(to, self.cursor)
+        if to > self.cursor and tail is not None and tail[0] == lo:
+            _, entries, snaps = tail
+            self.history = self.history[:lo] + list(entries)
+            self._snaps = self._snaps[:lo + 1] + list(snaps)
+        to = max(0, min(to, len(self.history)))
+        self.cursor = to
+        self._restore(self._snaps[to], emit=False)
+
+    @staticmethod
+    def _undo_words(done: list[str]) -> str:
+        steps = done.count("step")
+        edits = [d for d in done if d != "step"]
+        parts = []
+        if steps:
+            parts.append(f"{steps} step{'s' if steps > 1 else ''}")
+        if edits:
+            parts.append(", ".join(edits))
+        return " and ".join(parts)
+
+    MAX_HIST_UNDO = 100  # history edits UNDO can take back (each keeps a copy of the history)
+
+    def _push_undo(self, act: tuple) -> None:
+        self._undo.append(act)
+        self._redo = []
+        hist = [i for i, a in enumerate(self._undo) if a["kind"] == "hist"]
+        if len(hist) > self.MAX_HIST_UNDO:
+            del self._undo[: hist[0] + 1]
+
+    def record_hist_edit(self, label: str, before: dict) -> None:
+        """Make a history edit undoable: ``before`` is history_backup() from before it."""
+        self._push_undo({"kind": "hist", "label": label, "before": before, "after": self.history_backup()})
+
+    def roll_to(self, n: int) -> str:
+        """Apply entries 1..n only (later ones stay, for REDO or HIST, ROLLBACK). One UNDO step."""
+        if not 0 <= n <= len(self.history):
+            raise CommandError(f"HIST, ROLLBACK: give 0 to {len(self.history)}")
+        if n == self.cursor:
+            return f"already at entry {n}"
+        before = self.cursor
+        act = {"kind": "cursor", "from": before, "to": n}
+        if n < before:  # the entries rolled back over, for when UNDO goes forward again
+            act["tail"] = (n, self.history[n:before], self._snaps[n + 1:before + 1])
+        self.cursor = n
+        self._restore(self._snaps[n])
+        self._push_undo(act)
+        self._history_changed()
+        return f"the model is now as after entry {n}; {len(self.history) - n} later entr" \
+               f"{'y' if len(self.history) - n == 1 else 'ies'} can be redone"
 
     def edit_entry(self, index: int, text: str) -> str:
         """Replace entry ``index`` (1-based) and re-run from there."""
@@ -496,11 +615,16 @@ class Processor:
         msg = self.rebuild(i0)
         return f"steps {first} to {last} are now part {name.lower()}, placed once\n{msg}"
 
-    def rebuild(self, start: int = 0) -> str:
+    def rebuild(self, start: int = 0, skip: bool = True) -> str:
         """Re-run entries ``start`` (0-based) .. cursor-1 from the snapshot before ``start``.
 
         Entries that now fail are kept and marked; the model skips them.
         Each entry asks for the same IDs it handed out last time.
+
+        An entry after ``start`` whose inputs (the parameters, bodies, faces
+        and other model state it read last time) are all unchanged is not run
+        again: what it did last time is copied over (``skip``; see
+        core/track.py). Entries that read files or older states always run.
         """
         self._drop_redo_tail()
         m = self.model
@@ -516,6 +640,7 @@ class Processor:
         self.model.id_floor.update(floor)
         errors: list[str] = []
         warnings: list[str] = []
+        skipped = 0
         try:
             for j in range(start, self.cursor):
                 e = self.history[j]
@@ -523,6 +648,14 @@ class Processor:
                     raise RebuildCancelled()
                 if e.suppressed:
                     e.ok, e.message, e.warning = True, "suppressed", ""
+                elif skip and j > start and self._can_skip(e, now := self._state()):
+                    # nothing it reads changed: take over what it did last time
+                    after = self._skipped_state(e, now)
+                    self._restore(after, emit=False)
+                    e.before = now
+                    skipped += 1
+                    if e.warning:
+                        warnings.append(f"entry {j + 1}: {e.warning}")
                 else:
                     try:
                         stmts = parse(e.text)
@@ -535,7 +668,7 @@ class Processor:
                         errors.append(f"entry {j + 1}: {e.message}")
                     elif e.warning:
                         warnings.append(f"entry {j + 1}: {e.warning}")
-                self._snaps[j + 1] = self._state()
+                self._snaps[j + 1] = e.after = self._state()
         finally:
             for kind in floor:
                 self.model.id_floor[kind] = 1
@@ -543,7 +676,10 @@ class Processor:
         self.model.restore(self.model.snapshot())  # one refresh for listeners
         self._history_changed()
         n = self.cursor - start
-        msg = f"re-ran {n} entr{'y' if n == 1 else 'ies'} from {start + 1}"
+        self.skipped = skipped
+        msg = f"re-ran {n - skipped} entr{'y' if n - skipped == 1 else 'ies'} from {start + 1}"
+        if skipped:
+            msg += f" ({skipped} unchanged, reused)"
         if errors:
             msg += f"; {len(errors)} failed:\n  " + "\n  ".join(errors)
         if warnings:
@@ -554,16 +690,20 @@ class Processor:
         """Everything a history edit can change, to put back if it is cancelled."""
         import copy as _copy
 
-        return {"history": _copy.deepcopy(self.history), "snaps": list(self._snaps), "cursor": self.cursor,
-                "uid": self._uid, "state": self._state()}
+        return {"history": [_copy.copy(e) for e in self.history], "snaps": list(self._snaps),
+                "cursor": self.cursor, "uid": self._uid, "state": self._state()}
 
-    def history_restore(self, saved: dict) -> None:
-        self.history = saved["history"]
-        self._snaps = saved["snaps"]
+    def history_restore(self, saved: dict, emit: bool = True) -> None:
+        import copy as _copy
+
+        # copies again, so the backup stays as it was for a later REDO/UNDO
+        self.history = [_copy.copy(e) for e in saved["history"]]
+        self._snaps = list(saved["snaps"])
         self.cursor = saved["cursor"]
         self._uid = saved["uid"]
-        self._restore(saved["state"])
-        self._history_changed()
+        self._restore(saved["state"], emit=emit)
+        if emit:
+            self._history_changed()
 
     def state_before(self, steps: int) -> dict:
         """The saved state from before the last ``steps`` entries (as seen by
@@ -684,6 +824,8 @@ class Processor:
         self.model.lineage = lineage = Lineage()
         single = len(stmts) == 1 and isinstance(stmts[0], (Cmd, Assign))
         self._quiet = single
+        entry.before, entry.after, entry.reads = before, None, None
+        tracks = self._track_start()
         try:
             self._exec_block(stmts)
         except (_Exit, _Cycle):
@@ -700,6 +842,8 @@ class Processor:
             self.model.pins = None
             self.refs = None
             self.model.lineage = outer
+            reads = self._track_stop(tracks)
+        entry.reads = reads
         entry.lineage = lineage
         entry.pins = pins.merged()
         entry.refs = refs.merged()
@@ -708,6 +852,101 @@ class Processor:
         if entry.warning:
             text = (text + "\n" if text else "") + "\n".join("warning: " + w for w in entry.warning.splitlines())
         return True, text
+
+    # ---- read tracking (skipping unchanged entries on a rebuild) ---------
+    def _track_start(self):
+        """Swap the tables an entry reads for Track dicts (core/track.py)."""
+        from ..core.track import Track
+
+        if getattr(self, "_tracking", False):
+            return None  # an entry inside an entry: the outer one keeps track
+        m = self.model
+        t = {"params": Track(self.params), "bodies": Track(m.bodies),
+             "entities": {k: Track(v) for k, v in m._entities.items()},
+             "origin": {k: Track(v) for k, v in m._origin.items()}}
+        self.params, m.bodies = t["params"], t["bodies"]
+        m._entities = dict(t["entities"])
+        m._origin = dict(t["origin"])
+        self._tracking, self._volatile = True, False
+        return t
+
+    def _track_stop(self, t):
+        """Put plain dicts back; return what was read (core/track.Reads), or
+        None when the entry cannot be skipped next time."""
+        from ..core.track import Reads, Track
+
+        if t is None:
+            return None
+        m = self.model
+        self._tracking = False
+        intact = self.params is t["params"] and m.bodies is t["bodies"] and all(
+            m._entities.get(k) is v for k, v in t["entities"].items()) and all(
+            m._origin.get(k) is v for k, v in t["origin"].items())
+        # put plain dicts back wherever a Track is still in place
+        if isinstance(self.params, Track):
+            self.params = self.params.plain()
+        if isinstance(m.bodies, Track):
+            m.bodies = m.bodies.plain()
+        for table in (m._entities, m._origin):
+            for k, v in list(table.items()):
+                if isinstance(v, Track):
+                    table[k] = v.plain()
+        if not intact or self._volatile:
+            return None
+        r = Reads()
+        r.params = Reads.of(t["params"])
+        r.bodies = Reads.of(t["bodies"])
+        r.names = t["bodies"].names
+        r.entities = {k: Reads.of(v) for k, v in t["entities"].items()}
+        r.origin = {k: Reads.of(v) for k, v in t["origin"].items()}
+        return r
+
+    def _note_volatile(self, cmd: "Command") -> None:
+        """Commands that read files or older states are always run again."""
+        if cmd.name in VOLATILE or any(a.type is Path for a in cmd.args):
+            self._volatile = True
+
+    def _can_skip(self, e: Entry, now: dict) -> bool:
+        """Would entry ``e`` do exactly what it did last time, starting from ``now``?"""
+        from ..core.track import same, same_keys
+
+        r, old = e.reads, e.before
+        if not self.skip_unchanged or r is None or old is None or e.after is None or not e.ok or e.suppressed:
+            return False
+        om, nm = old["model"], now["model"]
+        for k in om.keys() | nm.keys():
+            if k not in ("bodies", "entities", "origin") and not same(om.get(k), nm.get(k)):
+                return False
+        for k in ("macros", "parts", "part_files"):
+            if not same_keys(old.get(k, {}), now.get(k, {}), None, identity=True):
+                return False
+        if not same_keys(old["params"], now["params"], r.params):
+            return False
+        if not same_keys(om["bodies"], nm["bodies"], r.bodies, identity=True):
+            return False
+        if r.names and {i: b.name for i, b in om["bodies"].items()} != {i: b.name for i, b in nm["bodies"].items()}:
+            return False
+        for table in ("entities", "origin"):
+            for kind, keys in getattr(r, table).items():
+                if not same_keys(om[table].get(kind, {}), nm[table].get(kind, {}), keys):
+                    return False
+        return True
+
+    def _skipped_state(self, e: Entry, now: dict) -> dict:
+        """``now`` with what ``e`` changed the last time it ran."""
+        from ..core.track import apply_delta
+
+        old, after = e.before, e.after
+        om, am, nm = old["model"], after["model"], now["model"]
+        model = {k: v for k, v in am.items()}
+        model["bodies"] = apply_delta(nm["bodies"], om["bodies"], am["bodies"], identity=True)
+        for table in ("entities", "origin"):
+            model[table] = {k: apply_delta(nm[table].get(k, {}), om[table].get(k, {}), am[table].get(k, {}))
+                            for k in nm[table].keys() | am[table].keys()}
+        state = dict(after)
+        state["model"] = model
+        state["params"] = apply_delta(now["params"], old["params"], after["params"])
+        return state
 
     def warn(self, text: str) -> None:
         """Flag the running entry: it worked, but the user should look at it."""
@@ -772,6 +1011,8 @@ class Processor:
         if cmd.session:
             raise CommandError(f"{cmd.name} can only be used on its own line")
         values, shown = self._bind(cmd, st.args)
+        if getattr(self, "_tracking", False):
+            self._note_volatile(cmd)
         if self.model.lineage is not None:
             self.model.lineage.start_command()
         msg = self._call(cmd, values)

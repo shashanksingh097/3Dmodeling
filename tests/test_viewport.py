@@ -150,11 +150,15 @@ def test_history_and_parameter_panels_drive_commands(win, app):
     assert win.output.toPlainText().splitlines()[-2].startswith('> HIST, EDIT, 3, "W = 20"')
     # the viewport shows the rebuilt bodies
     assert sorted(win.viewport._ais) == sorted(p.model.bodies)
-    win.undo_action.trigger()
+    win.undo_action.trigger()  # takes back the edit
+    assert p.history[2].text == "W = 10" and p.evaluate("VOL(LAST)") == pytest.approx(1000)
+    win.undo_action.trigger()  # and then the BLOCK
     assert len(p.model.bodies) == 2 and sorted(win.viewport._ais) == [1, 2]
     assert hp.item(3, 0).foreground().color().getRgb()[:3] == (140, 140, 140)  # undone: grey
     win.redo_action.trigger()
     assert len(win.viewport._ais) == 3
+    win.redo_action.trigger()
+    assert p.history[2].text == "W = 20" and not win.redo_action.isEnabled()
 
 
 def test_typed_block_in_command_line(win):

@@ -672,14 +672,15 @@ Still open in the milestones already started, in the suggested order:
 
 1. Done: speed and feature patterns (`ARRAY ... CUT`, `PATTERN`, progress
    and Cancel for long rebuilds; LANGUAGE.md section 21). Left from risk 3:
-   skipping entries whose inputs did not change.
+   skipping entries whose inputs did not change (done after 0.2.0, item 6
+   below).
 2. Done: the sweep editor (law graphs with handles, a ghost section on a
    slider, a live preview, `TABLE` laws; LANGUAGE.md section 9,
    docs/M3-sweep-editor.md). This meets the last part of the M3 exit test.
 3. Done: sketch tools (`STRIM`, `SEXTEND`, `SFILLET`, `SOFFSET`, `SMIRROR`,
    `SPATTERN`, `SPROJECT`, with Trim, Extend and Fillet mouse tools;
-   LANGUAGE.md section 16, docs/M3-sketch-tools.md). Left: a fillet between
-   a line and an arc, and trimming to the sketch axes.
+   LANGUAGE.md section 16, docs/M3-sketch-tools.md). The fillet between a
+   line and an arc and trimming to the sketch axes followed after 0.2.0.
 4. Done: layers, colours and materials (`LAYER`, `COLOR`, `MATERIAL`,
    `ISOLATE`, `SEL ... LAYER/MAT`, the Layers panel, mass from materials;
    LANGUAGE.md section 22).
@@ -740,11 +741,50 @@ Still open in the milestones already started, in the suggested order:
    section 26), and M6c, knife and freehand cuts (`KNIFE`, the Knife
    button, sketch splines `SSPLINE` and the Freehand tool; section 27).
    M6 is done.
-6. M3 leftovers: undo for history edits, skipping unchanged steps on
-   rebuild, a sketch fillet between a line and an arc, trimming to the
-   sketch axes.
-7. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
-8. The rest of M9c: "use your own key", picking for the assistant,
+6. Done: M3 leftovers: `UNDO` takes back history edits (and `HIST,
+   ROLLBACK` is one undo step), a rebuild skips entries whose inputs did not
+   change (LANGUAGE.md section 5), `SFILLET` between a line and an arc or
+   two arcs, and `STRIM ... AXES` / `SEXTEND, 3.E, V` for the sketch axes
+   (section 16; docs/M3-leftovers.md).
+7. More sketch tools (asked for by the user after M3 leftovers). A look at
+   the sketcher next to common CAD sketchers found these missing, roughly
+   in order of use:
+   - **Sketch chamfer** (`SCHAMFER, 1.E, d [, d2 / angle]`), next to the
+     fillet, with the corner kept as a construction point the same way.
+   - **Split a curve at a point** (`SSPLIT, 3, u, v`, or at another curve's
+     crossing), so a line can be dimensioned or constrained in parts.
+   - **Corner trim**: trim or extend two curves so they just meet
+     (`SCORNER, 1, 2`, click both with the mouse), the everyday clean-up
+     after rough drawing.
+   - **Power trim**: drag across curves and every piece the mouse passes
+     over is trimmed.
+   - **Move, rotate, scale and copy** selected sketch geometry
+     (`SMOVE` today drags one thing to a point): `STRANSFORM, MOVE/ROTATE/
+     SCALE, ..., COPY`, with the constraints between the moved curves kept.
+   - **More ways to draw**: a tangent arc continuing from a line end, a
+     3-point circle, a circle tangent to curves, a centre rectangle and a
+     rotated (3-point) rectangle, a regular polygon (`SNGON`), an ellipse and
+     an elliptical arc, an arc slot, a centreline (construction line).
+   - **Join**: merge curves joined end to end (two splines, or a line run)
+     into one, and **convert** a chain to a spline.
+   - **Offset both sides** with closed caps (a slot round a path), and an
+     offset of a chain that crosses itself.
+   - Trim and extend for **splines**; a fillet between a spline and a line.
+   - **Sizes**: arc length, and a size between a point and a circle.
+   - **Intersection curve**: where a body cuts the sketch plane, as sketch
+     curves (like `SPROJECT` of a section).
+   - Constraints made **while drawing** (snap to horizontal, vertical,
+     tangent, on-curve as the mouse moves), shown as small marks, with Shift
+     to draw without them.
+8. A tidier toolbar (asked for by the user): the geometry and command
+   buttons (main, Features and Sketch toolbars) grouped into labelled
+   groups (Shapes, Booleans, Features, Patterns, Sketch draw, Sketch edit,
+   Constraints, Sizes, View), each button with an icon and its name kept
+   beside it (text under or beside the icon, so nothing is learned from the
+   icon alone). One icon set in the app's own style, drawn for light and
+   dark themes, with a setting for icons only / icons and names.
+9. M8 polish: 2D drawings (DXF/SVG), preferences and themes, code signing.
+10. The rest of M9c: "use your own key", picking for the assistant,
    pictures as a fallback, the benchmark of modelling requests, and these
    improvements to the Assistant panel asked for by the user after 0.2.0:
    - A **Debug tab** in the Assistant panel that shows in detail what is
@@ -765,7 +805,7 @@ Still open in the milestones already started, in the suggested order:
      was read.
    - **New chat**: a button that ends the current conversation and starts a
      fresh one (with the full first prompt again), keeping the sign-in.
-9. M7 sculpt mode.
+11. M7 sculpt mode.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

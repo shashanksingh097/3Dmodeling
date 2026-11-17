@@ -4,6 +4,22 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### History and sketch leftovers (M3)
+
+- `UNDO` takes back history edits: changing, inserting, deleting,
+  suppressing or moving a step, or making a part from steps, is one undo
+  step like a new command, and `REDO` does it again. **Roll back to here**
+  (`HIST, ROLLBACK, n`) is one undo step too.
+- A rebuild runs again only the steps whose inputs changed. Each step notes
+  the parameters, bodies, faces and other model state it looked at; a step
+  that finds them all as they were reuses what it did last time. Changing
+  one part of an assembly no longer rebuilds the others. `HIST, REPLAY`
+  still runs everything.
+- `SFILLET` rounds a corner between a line and an arc, or two arcs, as well
+  as two lines (and the Fillet tool takes those corners).
+- The sketch axes can cut: `STRIM, 3, u, v, AXES` (or **Axes cut** on the
+  sketch toolbar) and `SEXTEND, 3.E, V`.
+
 ### Knife and freehand cuts (M6, third part)
 
 - `KNIFE, b, stroke [, width [, dx, dy, dz]]` cuts a body along a curve seen
