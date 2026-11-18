@@ -6,8 +6,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..core.model import ModelError
-from ..geometry import ribs
-from ..geometry import robust
+from ..geometry import ribs, robust
 from ..lang.expr import fmt_num
 from .processor import Arg, BodyRef, CommandError, Processor, Text, command
 

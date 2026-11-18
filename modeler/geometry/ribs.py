@@ -307,7 +307,11 @@ def wrap_faces(faces: list, frame, cyl, samples: int = 40) -> list:
     shapes keep their sizes and angles: the sketch's direction along the axis becomes distance
     down the cone's slope, and lines become curves on the cone."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
+    from OCP.BRepBuilderAPI import (
+        BRepBuilderAPI_MakeEdge,
+        BRepBuilderAPI_MakeFace,
+        BRepBuilderAPI_MakeWire,
+    )
     from OCP.BRepLib import BRepLib
     from OCP.BRepTools import BRepTools, BRepTools_WireExplorer
     from OCP.Geom import Geom_ConicalSurface, Geom_CylindricalSurface
