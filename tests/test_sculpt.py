@@ -171,3 +171,31 @@ def test_strokes_are_saved_with_the_project(head, tmp_path):
     s = Processor()
     assert all(r.ok for r in s.run_script(text))
     assert s.evaluate("VOL(head)") == pytest.approx(vol, rel=1e-4)
+
+
+def test_points_keep_their_order_when_read_back():
+    """Masks and quick stroke updates count on a mesh's points keeping their order, also when the
+    shape is read back from its triangles (a sharp-edged block splits points for shading)."""
+    from modeler.geometry import meshbody as mb
+
+    p = Processor()
+    for c in ("BLOCK, 0,0,0, 20,20,20", "TOMESH, 1", "REMESH, 1, 1"):
+        assert p.run(c).ok
+    a, t = mb.arrays(p.model.bodies[1].shape)
+    p.run('STROKE, S1, "2,-0.5,10  18,-0.5,10"')
+    assert p.run("SCULPT, 1, CREASE, 3, 0.5, S1, X").ok
+    moved, _ = mb.arrays(p.model.bodies[1].shape)
+    mb._CACHE.clear()
+    again, t2 = mb.arrays(p.model.bodies[1].shape)
+    assert (t2 == t).all() and np.abs(again - moved).max() == 0
+    assert np.abs(moved - a).max() > 0.1
+    # the quick path builds the same shape as building it from scratch
+    full = mb.make_shape(moved, t)
+    mb._CACHE.clear()
+    assert np.abs(mb.arrays(full)[0] - again).max() == 0
+
+
+def test_example_script_runs():
+    p = Processor()
+    results = p.run_script(open("scripts/sculpt_head.cmd").read())
+    assert all(r.ok for r in results), [r.message for r in results if not r.ok]

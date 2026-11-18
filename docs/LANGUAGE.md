@@ -2311,3 +2311,70 @@ EXTRUDE, pocket, -3, CUT, plate
 
 See `scripts/knife_cuts.cmd`.
 
+
+## 28. Sculpting mesh bodies
+
+Sculpting pushes, pulls and smooths the points of a mesh body (section 25)
+with brushes, the way clay is shaped. Each brush stroke is one history
+step, so it can be undone, saved and replayed like any other command.
+
+```
+SPHERE, 0, 0, 0, 20
+TOMESH, 1
+REMESH, 1, 0.6                        ! even triangles, fine enough to shape
+STROKE, S1, "4,-19,6  8,-19.5,7  12,-18,8"
+SCULPT, 1, CLAY, 4, 0.8, S1, X        ! a brow ridge, mirrored in x = 0
+STROKE, S2, "0,-20,-2  0,-20,2"
+SCULPT, 1, INFLATE, 4, 0.9, S2        ! a nose
+```
+
+**STROKE, name, "x,y,z  x,y,z ..."** records the points of a stroke under
+a name (`S1`, `S2` ...). The points are kept with the project (in
+`strokes.npz`), so the history lines stay short. A script saved with
+**File > Save log** writes the `STROKE` lines before the steps that use
+them, so it runs on its own. `SCULPT` and `MASK` also take the points in
+quotes in place of a name.
+
+**SCULPT, b, brush, radius, strength, stroke [, sym]** runs one stroke over
+mesh body `b`. The stroke is cut into dabs a quarter of the radius apart;
+each dab moves the points within `radius` of it, most at the centre and
+smoothly less towards the edge. `strength` (-1 to 1) is how far one dab
+moves, as a part of the radius; a negative strength works the other way.
+
+| Brush | What it does (negative strength: the other way) |
+|-------|-------------------------------------------------|
+| `DRAW` | raises the surface along its normal (digs in) |
+| `CLAY` | like `DRAW`, but only up to a plane just above the surface: flat layers (scrapes) |
+| `INFLATE` | puffs each point out along its own normal (deflates) |
+| `SMOOTH` | moves points towards the middle of their neighbours |
+| `FLATTEN` | presses the surface towards the plane through the brush |
+| `PINCH` | pulls points in towards the stroke: sharpens a ridge (spreads) |
+| `CREASE` | cuts a sharp groove along the stroke (a sharp ridge) |
+| `GRAB` | moves what is under the first point to the last point |
+
+`sym` mirrors the stroke in the planes `x = 0`, `y = 0` and/or `z = 0`:
+`X`, `Y`, `Z`, `XY` ... A stroke that moves no point fails with "not near".
+
+**MASK** freezes part of a mesh body; sculpting leaves frozen points alone
+(a half-frozen point moves half as far):
+
+- `MASK, b, PAINT, x, y, z, r [, value]` freezes a soft sphere; `ERASE`
+  unfreezes one. `MASK, b, PAINT, 0, 0, 0, r, 1, S3` paints along a stroke.
+- `MASK, b, CLEAR` unfreezes everything, `ALL` freezes everything,
+  `INVERT` swaps frozen and free.
+
+A mask belongs to the mesh's points: a command that makes new triangles
+(`REMESH`, a boolean) drops it.
+
+**The Sculpt tab.** **Sculpt** turns on sculpting in the 3D view; a left
+drag over a mesh body (the picked one, or the one under the stroke) is a
+stroke of the chosen brush. Ctrl works the other way (digs, or unmasks
+with the Mask brush), Shift smooths, `[` and `]` change the radius, Esc
+ends it. The radius starts at a twentieth of the body's size. Each drag
+runs `SCULPT, b, brush, radius, strength, Sn [, sym]` (or `MASK, b, PAINT,
+..., Sn`); the stroke's points are kept as `Sn`. **Make sculptable** turns
+the picked body into a mesh body with fine, even triangles (`TOMESH`, then
+`REMESH` at a 150th of its size). **Mirror X/Y/Z**, **Clear mask** and
+**Invert mask** are on the same tab.
+
+See `scripts/sculpt_head.cmd`.

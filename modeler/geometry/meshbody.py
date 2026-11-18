@@ -52,6 +52,7 @@ class MeshInfo:
 # ---- the shape that holds a mesh ---------------------------------------------
 _CACHE: OrderedDict = OrderedDict()  # shape hash -> (shape, points, tris); the shape keeps the hash valid
 _CACHE_SIZE = 48
+_SOURCE: OrderedDict = OrderedDict()  # shape hash -> (shape, shown node -> point index, or None if the same)
 
 
 def _remember(shape: TopoDS_Shape, pts: np.ndarray, tris: np.ndarray) -> None:
@@ -70,7 +71,7 @@ def make_shape(points: np.ndarray, tris: np.ndarray) -> TopoDS_Face:
         raise MeshError("the mesh has no triangles")
     # the stored triangles have their points split along sharp edges, so the
     # view shades a sharp edge sharp; arrays() joins them again
-    shown_pts, shown_t = split_sharp(pts, t)
+    shown_pts, shown_t, src = split_sharp(pts, t, source=True)
     tri = Poly_Triangulation(len(shown_pts), len(shown_t), False)
     for i, (x, y, z) in enumerate(shown_pts.tolist(), 1):
         tri.SetNode(i, gp_Pnt(x, y, z))
@@ -79,7 +80,47 @@ def make_shape(points: np.ndarray, tris: np.ndarray) -> TopoDS_Face:
     face = TopoDS_Face()
     BRep_Builder().MakeFace(face, tri)
     _remember(face, pts, t)
+    _remember_source(face, src)
     return face
+
+
+def _remember_source(face, src) -> None:
+    _SOURCE[hash(face)] = (face, src)
+    _SOURCE.move_to_end(hash(face))
+    while len(_SOURCE) > _CACHE_SIZE:
+        _SOURCE.popitem(last=False)
+
+
+def moved_shape(old: TopoDS_Shape, points: np.ndarray, moved: np.ndarray | None = None) -> TopoDS_Face:
+    """``old``'s triangles with some points moved to ``points`` (same count and order). Copies the old
+    triangulation in C++ and sets only the moved nodes, so a sculpt stroke on a big mesh costs about the
+    points it moved, not the whole mesh. Sharp-edge splits stay as they were in ``old``."""
+    pts = np.ascontiguousarray(points, dtype=float).reshape(-1, 3)
+    old_pts, t = arrays(old)
+    hit = _SOURCE.get(hash(old))
+    face = _as_face(old)
+    loc = TopLoc_Location()
+    tri = _triangulation(face, loc)
+    if (hit is None or not hit[0].IsEqual(old) or tri is None or not loc.IsIdentity()
+            or face.Orientation() == TopAbs_REVERSED or len(pts) != len(old_pts)):
+        return make_shape(pts, t)
+    src = hit[1]
+    if moved is None:
+        moved = np.flatnonzero(np.any(pts != old_pts, axis=1))
+    flag = np.zeros(len(pts), dtype=bool)
+    flag[np.asarray(moved, dtype=np.int64)] = True
+    nodes = np.flatnonzero(flag if src is None else flag[src])
+    shown = nodes if src is None else src[nodes]
+    new_tri = tri.Copy()
+    if new_tri.HasNormals():
+        new_tri.RemoveNormals()  # the view works them out again from the moved points
+    for i, (x, y, z) in zip((nodes + 1).tolist(), pts[shown].tolist()):
+        new_tri.SetNode(i, gp_Pnt(x, y, z))
+    out = TopoDS_Face()
+    BRep_Builder().MakeFace(out, new_tri)
+    _remember(out, pts, t)
+    _remember_source(out, src)
+    return out
 
 
 def is_mesh(shape: TopoDS_Shape | None) -> bool:
@@ -128,13 +169,19 @@ def arrays(shape: TopoDS_Shape) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _join_exact(pts: np.ndarray, t: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Points that are exactly equal become one, kept in the order they first appear, so a mesh
+    read back from its triangulation has its points in the order it was made with."""
     _, first, inv = np.unique(pts, axis=0, return_index=True, return_inverse=True)
-    return pts[first], inv.reshape(-1)[t]
+    order = np.argsort(first, kind="stable")
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    return pts[first[order]], rank[inv.reshape(-1)][t]
 
 
-def split_sharp(pts: np.ndarray, t: np.ndarray, degrees: float = 50.0) -> tuple[np.ndarray, np.ndarray]:
+def split_sharp(pts: np.ndarray, t: np.ndarray, degrees: float = 50.0, source: bool = False):
     """The same triangles with each point split where faces meet at a sharp edge
-    (more than ``degrees`` between their normals), so shading does not smear across it."""
+    (more than ``degrees`` between their normals), so shading does not smear across it.
+    With ``source``, also which point each new point came from (None when nothing was split)."""
     m = len(t)
     nrm = np.cross(pts[t[:, 1]] - pts[t[:, 0]], pts[t[:, 2]] - pts[t[:, 0]])
     nrm /= np.maximum(np.linalg.norm(nrm, axis=1), 1e-300)[:, None]
@@ -150,7 +197,7 @@ def split_sharp(pts: np.ndarray, t: np.ndarray, degrees: float = 50.0) -> tuple[
     f1, f2 = h1 // 3, h2 // 3
     smooth = (nrm[f1] * nrm[f2]).sum(axis=1) > np.cos(np.radians(degrees))
     if smooth.all():
-        return pts, t
+        return (pts, t, None) if source else (pts, t)
     h1, h2, f1, f2 = h1[smooth], h2[smooth], f1[smooth], f2[smooth]
     # corners to join: the corner of each triangle at each end of the shared edge
     c_start1, c_end1 = h1, f1 * 3 + (h1 % 3 + 1) % 3
@@ -174,7 +221,17 @@ def split_sharp(pts: np.ndarray, t: np.ndarray, degrees: float = 50.0) -> tuple[
             break
         lab = new
     roots, inv = np.unique(lab, return_inverse=True)
-    return pts[t2v[roots]], inv.reshape(-1, 3)
+    # number the new points in the order of the points they came from, so reading the mesh
+    # back (which joins the copies again) gives the points in their first order
+    src = t2v[roots]
+    order = np.lexsort((roots, src))
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    src = src[order]
+    t_new = rank[inv.reshape(-1)].reshape(-1, 3)
+    if source:
+        return pts[src], t_new, src
+    return pts[src], t_new
 
 
 def _apply(trsf: gp_Trsf, pts: np.ndarray) -> np.ndarray:

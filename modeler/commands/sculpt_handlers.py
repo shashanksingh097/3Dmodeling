@@ -94,7 +94,7 @@ def sculpt_cmd(p: Processor, b, brush, radius, strength, stroke, sym):
         raise CommandError(f"SCULPT: {exc}") from None
     if rep.moved == 0:
         raise CommandError(f"SCULPT: the stroke is not near body {b} (no point within {fmt_num(radius)} of it)")
-    msg = _swap(p, b, new, t, f"SCULPT {brush.upper()} on body {b}")
+    msg = _swap(p, b, new, t, f"SCULPT {brush.upper()} on body {b}", moved_only=True)
     if mask is not None and len(mask) == len(new):
         p.model.masks[b] = mask  # the same points: the mask still fits
     return f"{msg}; {rep.moved:,} points moved (at most {fmt_num(round(rep.largest, 4))}), {rep.dabs} dabs"

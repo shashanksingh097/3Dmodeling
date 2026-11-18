@@ -64,14 +64,15 @@ def mesh_of(p: Processor, bid: int, deflection: float = 0.0) -> tuple[np.ndarray
     return mb.triangles_of(shape, deflection or default_deflection(p, shape))
 
 
-def _swap(p: Processor, bid: int, pts: np.ndarray, t: np.ndarray, what: str) -> str:
-    """Put new triangles into body ``bid``: it keeps its ID, name and face ID."""
+def _swap(p: Processor, bid: int, pts: np.ndarray, t: np.ndarray, what: str, moved_only: bool = False) -> str:
+    """Put new triangles into body ``bid``: it keeps its ID, name and face ID. ``moved_only``: the
+    same triangles with some points moved (sculpting), which is much quicker to build."""
     from .handlers import _added
 
     if len(t) == 0:
         raise CommandError(f"{what}: no triangles are left")
     old = p.model.body(bid).shape
-    new = mb.make_shape(pts, t)
+    new = mb.moved_shape(old, pts) if moved_only else mb.make_shape(pts, t)
     try:
         body = p.model.replace([bid], new, nb.SameTopology(old, new), same_id=True)
     except ModelError as exc:

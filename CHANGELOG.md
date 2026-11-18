@@ -4,6 +4,19 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Sculpting
+
+- The **Sculpt** tab: drag over a mesh body to shape it with a brush:
+  Draw, Clay, Inflate, Smooth, Flatten, Pinch, Crease or Grab. Ctrl works
+  the other way, Shift smooths, `[` and `]` change the size, Mirror X/Y/Z
+  sculpts both sides. **Make sculptable** turns a solid into a fine mesh.
+- The **Mask** brush (and `MASK`) freezes areas so the brushes leave them
+  alone; Clear mask and Invert mask.
+- Every stroke is a `SCULPT` step in History; its points are kept as
+  `STROKE` and saved with the project, so sculpting undoes, saves and
+  replays like any other step. Example: `scripts/sculpt_head.cmd`.
+- A stroke on a mesh of 820,000 triangles takes about half a second.
+
 ### The assistant: Debug tab, every command up front, files with permission
 
 - The Assistant panel has a **Debug** tab: the full system message, each
