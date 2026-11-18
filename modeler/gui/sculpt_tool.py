@@ -47,9 +47,87 @@ class Settings:
 
 
 # ---- where the mouse ray meets a mesh ----------------------------------------------------------
-def ray_hit(pts: np.ndarray, tris: np.ndarray, origin, direction, with_normal: bool = False):
+INDEX_FROM = 60_000  # from this many triangles, rays first look for the boxes they pass through
+CHUNK = 2048  # triangles per box
+
+
+class RayIndex:
+    """Boxes round runs of nearby triangles, so a ray only tests the triangles in the boxes it
+    passes through. The order (triangles sorted along a space-filling curve) is kept while the
+    triangles stay the same; the boxes are worked out again when the points move."""
+
+    def __init__(self, tris: np.ndarray, pts: np.ndarray):
+        self.tris = tris
+        c = pts[tris].mean(axis=1)
+        lo, hi = c.min(axis=0), c.max(axis=0)
+        q = ((c - lo) / np.maximum(hi - lo, 1e-12) * 1023).astype(np.int64)
+        code = np.zeros(len(c), dtype=np.int64)
+        for bit in range(10):  # interleave the bits of x, y and z (Morton order)
+            for k in range(3):
+                code |= ((q[:, k] >> bit) & 1) << (3 * bit + k)
+        self.order = np.argsort(code, kind="stable")
+        self.sorted = tris[self.order]
+        self.starts = np.arange(0, len(tris), CHUNK)
+        self.pts = None
+        self.boxes = None
+
+    def boxes_for(self, pts: np.ndarray):
+        if self.pts is not pts:
+            corner = pts[self.sorted].reshape(-1, 3)  # every corner of every triangle, in order
+            at = self.starts * 3
+            self.boxes = (np.minimum.reduceat(corner, at, axis=0), np.maximum.reduceat(corner, at, axis=0))
+            self.pts = pts
+        return self.boxes
+
+    def candidates(self, pts: np.ndarray, o: np.ndarray, d: np.ndarray, grow: float = 0.0) -> np.ndarray:
+        lo, hi = self.boxes_for(pts)
+        if grow:
+            lo, hi = lo - grow, hi + grow
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inv = 1.0 / np.where(np.abs(d) < 1e-15, 1e-15, d)
+            t1, t2 = (lo - o) * inv, (hi - o) * inv
+        near = np.minimum(t1, t2).max(axis=1)
+        far = np.maximum(t1, t2).min(axis=1)
+        pad = 1e-9 * (1 + np.abs(near))
+        hit = np.flatnonzero((far + pad >= np.maximum(near, 0)))
+        if not len(hit):
+            return self.sorted[:0]
+        idx = np.concatenate([np.arange(s, min(s + CHUNK, len(self.sorted))) for s in self.starts[hit]])
+        return self.sorted[idx]
+
+
+_INDEX: list = []  # [(tris, RayIndex)], newest first
+
+
+def _index(pts: np.ndarray, tris: np.ndarray) -> RayIndex:
+    for t, ix in _INDEX:
+        if t is tris:
+            return ix
+    ix = RayIndex(tris, pts)
+    _INDEX.insert(0, (tris, ix))
+    del _INDEX[4:]
+    return ix
+
+
+def ray_hit(pts: np.ndarray, tris: np.ndarray, origin, direction, with_normal: bool = False,
+            base: np.ndarray | None = None, grow: float = 0.0):
     """The nearest point where the ray meets the triangles (Moller-Trumbore, all at once), or None.
-    ``with_normal``: (point, unit normal of the triangle hit)."""
+    ``with_normal``: (point, unit normal of the triangle hit). On a big mesh only the triangles in
+    the boxes the ray passes through are tried (RayIndex). ``base`` and ``grow``: no point of
+    ``pts`` is further than ``grow`` from where it is in ``base`` (a drag in progress), so the boxes
+    of ``base``, grown, still hold every triangle and need not be worked out again."""
+    if len(tris) >= INDEX_FROM:
+        o = np.asarray(origin, dtype=float)
+        d = np.asarray(direction, dtype=float)
+        d = d / (np.linalg.norm(d) or 1.0)
+        ref = pts if base is None else base
+        tris = _index(ref, tris).candidates(ref, o, d, grow if base is not None else 0.0)
+        if not len(tris):
+            return None
+    return _ray_hit_all(pts, tris, origin, direction, with_normal)
+
+
+def _ray_hit_all(pts: np.ndarray, tris: np.ndarray, origin, direction, with_normal: bool = False):
     o = np.asarray(origin, dtype=float)
     d = np.asarray(direction, dtype=float)
     d = d / (np.linalg.norm(d) or 1.0)
@@ -141,28 +219,29 @@ class LiveStroke:
         self.hits: list[np.ndarray] = []
         self._last = None
         self.changed = False
-        self._near = self._centroids = self._centre = None
         self._moved = None  # indices of the points moved so far
-        self._reach = 0.0
+        self._grow = 0.0  # no point is further than this from where it started
+        self._grid = None
 
     BIG = 150_000  # from this many triangles, rays look near the last hit first and the view shows a patch
 
     def hit(self, origin, direction):
-        """Where the mouse ray meets the working surface. On a big mesh only the triangles near the
-        last hit are tried first (a drag moves a little at a time)."""
+        """Where the mouse ray meets the working surface. On a big mesh the boxes of the starting
+        points, grown by how far any point has moved, pick the triangles to try."""
+        return ray_hit(self.work, self.tris, origin, direction, base=self.pts0, grow=self._grow)
+
+    def _candidates(self, a: np.ndarray, b: np.ndarray) -> np.ndarray | None:
+        """The points the segment a-b can reach, with its mirror copies (big meshes only)."""
         if len(self.tris) < self.BIG:
-            return ray_hit(self.work, self.tris, origin, direction)
-        if self._near is not None:
-            h = ray_hit(self.work, self._near, origin, direction)
-            if h is not None and np.linalg.norm(h - self._centre) < self._reach / 2:
-                return h
-        h = ray_hit(self.work, self.tris, origin, direction)
-        if h is not None:  # look around here next time
-            if self._centroids is None:
-                self._centroids = self.pts0[self.tris].mean(axis=1)
-            self._centre, self._reach = h, 4 * self.radius
-            self._near = self.tris[np.linalg.norm(self._centroids - h, axis=1) < self._reach]
-        return h
+            return None
+        if self._grid is None:
+            self._grid = sc.PointGrid(self.pts0, 2 * self.radius)
+        reach = self.radius + self._grow + 1e-9
+        out = []
+        for s in sc._mirrors(self.sym):
+            p, q = a * s, b * s
+            out.append(self._grid.inside(np.minimum(p, q) - reach, np.maximum(p, q) + reach))
+        return np.unique(np.concatenate(out))
 
     def patch(self):
         """Only the triangles that moved, as a shape for drawing over the body (for big meshes,
@@ -190,13 +269,16 @@ class LiveStroke:
             self.topo = sc.Topology.of(self.tris, len(self.pts0))
         try:
             new, rep = sc.stroke(self.work, self.tris, self.brush, self.radius, self.strength,
-                                 np.vstack([self._last, q]), self.sym, self.mask, self.topo)
+                                 np.vstack([self._last, q]), self.sym, self.mask, self.topo,
+                                 self._candidates(self._last, q))
         except sc.SculptError:
             return False
         self._last = q
         if rep.moved:
             self.work, self.changed = new, True
             self._moved = rep.points if self._moved is None else np.union1d(self._moved, rep.points)
+            m = self._moved
+            self._grow = float(np.sqrt(np.einsum("ij,ij->i", new[m] - self.pts0[m], new[m] - self.pts0[m]).max()))
         return bool(rep.moved)
 
     def preview(self):
@@ -332,6 +414,11 @@ def set_on(win, on: bool) -> None:
     if vp.sculpt_on != on:
         vp.set_sculpt(on)
     if on:
+        b = sculpt_target(win)
+        if b is not None:  # build the big-mesh ray boxes now, not at the first mouse move
+            pts, tris = mb.arrays(win.processor.model.bodies[b].shape)
+            if len(tris) >= INDEX_FROM:
+                _index(pts, tris).boxes_for(pts)
         win.statusBar().showMessage("Sculpt: drag over a mesh body. Ctrl: the other way, Shift: smooth, "
                                     "[ ]: brush size, Esc: stop", 8000)
 
