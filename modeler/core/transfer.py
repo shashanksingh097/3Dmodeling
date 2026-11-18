@@ -99,7 +99,7 @@ def _reduce_occt(obj):
     if not mod.startswith("OCP"):
         return None
     name = type(obj).__name__
-    if name.startswith("IndexedMap_TopoDS_Shape"):  # a body's numbered faces/edges: its shapes in order
+    if name.startswith(("IndexedMap_TopoDS_Shape", "TopTools_IndexedMapOfShape")):  # a body's numbered faces/edges: its shapes in order
         return (_make_map, (type(obj), [obj.FindKey(i) for i in range(1, obj.Extent() + 1)]))
     if name in ("gp_Pnt", "gp_Dir", "gp_Vec", "gp_XYZ"):
         return (_make, (name, (obj.X(), obj.Y(), obj.Z())))
