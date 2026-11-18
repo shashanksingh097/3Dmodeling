@@ -5,7 +5,7 @@ is turned into a short line of text, a **command**, and kept in the
 **History**. So every model is also a script: you can edit any step later,
 change a number and watch the part rebuild, or write the whole part as text.
 
-This guide covers version 0.2. The full command language is in
+This guide covers version 0.3. The full command language is in
 [LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**.
 
 Contents:
@@ -37,9 +37,9 @@ Get the zip for your system from the
 
 | System | Download | Start it |
 |--------|----------|----------|
-| Windows 10 or 11 (64-bit) | `3Dmodeling-0.2.0-windows-x64.zip` | unzip, open the folder, run `3Dmodeling.exe` |
-| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-0.2.0-macos-arm64.zip` | unzip, move `3Dmodeling.app` to Applications, open it |
-| Linux (64-bit, X11 or XWayland) | `3Dmodeling-0.2.0-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
+| Windows 10 or 11 (64-bit) | `3Dmodeling-0.3.0-windows-x64.zip` | unzip, open the folder, run `3Dmodeling.exe` |
+| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-0.3.0-macos-arm64.zip` | unzip, move `3Dmodeling.app` to Applications, open it |
+| Linux (64-bit, X11 or XWayland) | `3Dmodeling-0.3.0-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
 
 The builds are not signed yet, so the first start shows a warning:
 
@@ -269,7 +269,10 @@ triangles), choose a brush (Draw, Clay, Inflate, Smooth, Flatten, Pinch,
 Crease, Grab) and drag over the body. Hold Ctrl to work the other way (dig
 in), Shift to smooth; `[` and `]` change the brush size, **Mirror X**
 works on both sides at once, and the **Mask** brush freezes areas the
-other brushes should leave alone. Each stroke is one `SCULPT` step in
+other brushes should leave alone (frozen areas show purple). A circle
+shows the brush's size under the mouse, and the surface moves as you
+drag; Esc during a drag cancels it. Set **Detail** to a small size to
+add finer triangles where you brush, for sharp creases. Each stroke is one `SCULPT` step in
 History, so Undo takes it back. Details: [LANGUAGE.md](LANGUAGE.md)
 section 28; an example is `scripts/sculpt_head.cmd`.
 
@@ -502,6 +505,25 @@ permissions, errors and replies. If Copilot goes wrong, look there to see
 where, and tell it. **Copy** and **Save…** give you the whole log, for
 example to attach to a bug report.
 
+**Your own key instead of GitHub.** Press **Model…** and choose where
+answers come from: GitHub Copilot, OpenAI, Anthropic, Azure OpenAI, Ollama
+(a model on your own computer; nothing leaves it) or any service that
+speaks the OpenAI chat API. Enter the model name and the key; tick **Keep
+the key on this computer** to keep it in a file only your user account can
+read. Requests are then billed to that account, not to your Copilot plan.
+From a shell the key can also come from the `MODELER_AI_KEY` environment
+variable.
+
+**Pointing at things.** The assistant may ask you to pick something: the
+panel says what (a face, an edge, a body) and you click it in the 3D view
+(**Cancel** in the panel says no). It can also mark what it is talking about in orange, and it
+reads what you have picked, so "put two holes on this face" works.
+
+**Pictures.** For looks, freeform and sculpted shapes, a model that can see
+pictures may look at a small picture of the 3D view. GitHub Copilot models
+decide this themselves; for your own key, **Model…** has a tick box for
+whether the model can see pictures.
+
 The first time, the app downloads the Copilot runtime (about 190 MB) to
 your cache folder, so you need internet then.
 
@@ -509,5 +531,8 @@ From a shell, `python -m modeler copilot check` (in the downloaded app:
 `3Dmodeling-cli copilot check`) tests everything for your
 account: sign-in, allowance, models, and one question that Copilot must
 answer with the modeler's tools. It prints PASS or FAIL per step. Add
-`--folder DIR` to use another working folder.
+`--folder DIR` to use another working folder, and `--provider openai
+--model NAME` (or `anthropic`, `azure`, `ollama`, `custom` with
+`--base-url`) to test your own key. `copilot bench` runs ten modelling
+requests and checks each result exactly, to compare models.
 

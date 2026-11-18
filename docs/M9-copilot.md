@@ -142,12 +142,28 @@ Copilot runs on a background thread with its own asyncio loop
   the right hole size (8 mm) in the answer. Run it with a Copilot Free
   account before 0.2.0.
 
+## Your own key, pointing, pictures, benchmark (after 0.2.0)
+
+- **Own key** (`ai/providers.py`): kinds `copilot`, `openai`, `anthropic`,
+  `azure`, `ollama`, `custom`. A `ProviderSetting` becomes the SDK's
+  `ProviderConfig` for `create_session` (same runtime, same tools). Keys go
+  in `keys.json` (mode 0600) in the app-data folder only when the user asks;
+  `MODELER_AI_KEY` wins. The runtime strips images for own-key models unless
+  `model_capabilities` says the model has vision, so the vision setting is
+  passed as an override.
+- **Pointing**: `ask_pick` (the panel asks the user to click a face, edge or
+  body; five minutes, or Cancel in the panel), `highlight` (orange marks on the top
+  layer, face outlines drawn so an edge-on face still shows) and
+  `user_context` (what is picked, the open sketch, the view).
+- **Pictures**: `render` returns a PNG of the 3D view (or a named view) as a
+  binary tool result; it is offered only when the model can see pictures.
+  The camera and marks are put back afterwards.
+- **Benchmark** (`ai/bench.py`, `copilot bench`): ten tasks, each set up
+  with a script, checked by exact measures, with a reference script that
+  must pass. The results file records the model.
+
 ## Next
 
-1. The Copilot Free test on a real account, and fixes from it.
-2. "Use your own key" for people without GitHub: the SDK's BYOK providers
-   (OpenAI, Anthropic, Azure, a local Ollama model), chosen in the panel.
-3. Streaming the answer into the panel as it is written, a model picker for
-   paid plans, and keeping the conversation with the project.
-4. The rest of M9c from M9-ai-tools.md: asking the user to pick, pictures as
-   a fallback, and the benchmark.
+1. Streaming the answer into the panel as it is written, and keeping the
+   conversation with the project.
+2. Benchmark numbers for a few models, published with a release.

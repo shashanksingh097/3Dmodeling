@@ -2355,6 +2355,14 @@ moves, as a part of the radius; a negative strength works the other way.
 `sym` mirrors the stroke in the planes `x = 0`, `y = 0` and/or `z = 0`:
 `X`, `Y`, `Z`, `XY` ... A stroke that moves no point fails with "not near".
 
+**Detail.** `SCULPT, b, brush, radius, strength, stroke, sym, detail` first
+splits the triangles near the stroke (within 1.25 radii, mirrors included)
+until no edge there is longer than `detail`, then runs the brush. A crease
+or a fine ridge then comes out sharp without making the whole body fine.
+The new points take the mask of the edge they split; points near the
+stroke slide a little along the surface so the triangles stay even. Leave
+`sym` empty to skip it: `SCULPT, head, CREASE, 2.5, 0.6, S3, , 0.25`.
+
 **MASK** freezes part of a mesh body; sculpting leaves frozen points alone
 (a half-frozen point moves half as far):
 
@@ -2363,8 +2371,8 @@ moves, as a part of the radius; a negative strength works the other way.
 - `MASK, b, CLEAR` unfreezes everything, `ALL` freezes everything,
   `INVERT` swaps frozen and free.
 
-A mask belongs to the mesh's points: a command that makes new triangles
-(`REMESH`, a boolean) drops it.
+A mask belongs to the mesh's points: `REMESH` keeps it (new points take
+the mask of the edge they split), a boolean or `SIMPLIFY` drops it.
 
 **The Sculpt tab.** **Sculpt** turns on sculpting in the 3D view; a left
 drag over a mesh body (the picked one, or the one under the stroke) is a
@@ -2372,9 +2380,15 @@ stroke of the chosen brush. Ctrl works the other way (digs, or unmasks
 with the Mask brush), Shift smooths, `[` and `]` change the radius, Esc
 ends it. The radius starts at a twentieth of the body's size. Each drag
 runs `SCULPT, b, brush, radius, strength, Sn [, sym]` (or `MASK, b, PAINT,
-..., Sn`); the stroke's points are kept as `Sn`. **Make sculptable** turns
+..., Sn`); the stroke's points are kept as `Sn`. **Detail** (off by
+default) adds the detail size to each stroke. **Make sculptable** turns
 the picked body into a mesh body with fine, even triangles (`TOMESH`, then
 `REMESH` at a 150th of its size). **Mirror X/Y/Z**, **Clear mask** and
 **Invert mask** are on the same tab.
+
+While sculpting, a blue circle of the brush's size sits on the surface
+under the mouse, the surface moves as you drag (the command that runs on
+release gives the final result, so Esc during a drag leaves the body as it
+was), and frozen areas are drawn purple.
 
 See `scripts/sculpt_head.cmd`.

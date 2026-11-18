@@ -49,6 +49,27 @@ class Topology:
     indptr: np.ndarray  # neighbours of point i: indices[indptr[i]:indptr[i+1]]
     indices: np.ndarray
     degree: np.ndarray
+    _tptr: np.ndarray | None = None  # triangles at point i: _tidx[_tptr[i]:_tptr[i+1]] (made when first asked)
+    _tidx: np.ndarray | None = None
+
+    def triangles_of(self, points: np.ndarray) -> np.ndarray:
+        """The indices of the triangles that use any of these points."""
+        if self._tptr is None:
+            flat = self.tris.reshape(-1)
+            order = np.argsort(flat, kind="stable")
+            self._tidx = order // 3
+            self._tptr = np.zeros(len(self.degree) + 1, dtype=np.int64)
+            np.cumsum(np.bincount(flat, minlength=len(self.degree)), out=self._tptr[1:])
+        p = np.asarray(points, dtype=np.int64)
+        starts = self._tptr[p]
+        counts = self._tptr[p + 1] - starts
+        total = int(counts.sum())
+        if total == 0:
+            return np.zeros(0, dtype=np.int64)
+        offs = np.repeat(starts - (np.cumsum(counts) - counts), counts) + np.arange(total)
+        hit = np.zeros(len(self.tris), dtype=bool)
+        hit[self._tidx[offs]] = True
+        return np.flatnonzero(hit)
 
     @staticmethod
     def of(tris: np.ndarray, n: int) -> "Topology":
@@ -123,6 +144,7 @@ class Report:
     moved: int  # points that moved at least once
     largest: float  # the largest move of one point
     seconds: float
+    points: np.ndarray | None = None  # the indices of the points that moved
 
 
 def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strength: float,
@@ -142,14 +164,14 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
         raise SculptError("the stroke has no points")
     if any(c not in "XYZ" for c in sym.upper()):
         raise SculptError(f"symmetry is a mix of X, Y and Z, not {sym!r}")
-    out = np.array(pts, dtype=float, copy=True)
+    start = np.asarray(pts, dtype=float)  # not changed: the brush writes into a copy
+    out = start.copy()
     t = np.asarray(tris, dtype=np.int64)
     if mask is not None and len(mask) != len(out):
         mask = None
     free = None if mask is None else np.clip(1.0 - mask, 0.0, 1.0)
     topo = topo or (Topology.of(t, len(out)) if brush == "SMOOTH" else None)
     signs = _mirrors(sym)
-    start = out.copy()
     touched = np.zeros(len(out), dtype=bool)
     dabs = 0
 
@@ -177,9 +199,12 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
             box = np.flatnonzero(np.all((out >= slo) & (out <= shi), axis=1))
             if not len(box):
                 continue
-            inbox = np.zeros(len(out), dtype=bool)
-            inbox[box] = True
-            tb = t[inbox[t].any(axis=1)]  # the triangles the brush can reach
+            if topo is not None and len(box) * 8 < len(out):
+                tb = t[topo.triangles_of(box)]  # the triangles the brush can reach
+            else:
+                inbox = np.zeros(len(out), dtype=bool)
+                inbox[box] = True
+                tb = t[inbox[t].any(axis=1)]
             for c in centres * s:
                 d = np.linalg.norm(out[box] - c, axis=1)
                 inside = d < radius
@@ -192,9 +217,11 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
                 _dab(out, tb, topo, brush, near, w, c, radius, strength)
                 touched[near] = True
                 dabs += 1
-    moved = np.linalg.norm(out - start, axis=1)
-    return out, Report(dabs, int(np.count_nonzero(moved > 0)), float(moved.max() if len(moved) else 0.0),
-                       time.perf_counter() - t0)
+    idx = np.flatnonzero(touched)
+    moved = np.linalg.norm(out[idx] - start[idx], axis=1)
+    idx = idx[moved > 0]
+    return out, Report(dabs, len(idx), float(moved.max() if len(moved) else 0.0),
+                       time.perf_counter() - t0, idx)
 
 
 def _near(pts: np.ndarray, c: np.ndarray, r: float) -> np.ndarray:
@@ -289,3 +316,122 @@ def sphere_mask(pts: np.ndarray, centre, r: float, value: float = 1.0,
     else:  # ERASE
         m = np.clip(m - f, 0.0, 1.0)
     return m
+
+
+# ---- finer triangles where the brush goes (dynamic detail) ---------------------------------------
+def _region(pts: np.ndarray, centres: np.ndarray, reach: float) -> np.ndarray:
+    """Which points are within ``reach`` of any centre."""
+    inside = np.zeros(len(pts), dtype=bool)
+    if not len(centres):
+        return inside
+    lo, hi = centres.min(axis=0) - reach, centres.max(axis=0) + reach
+    box = np.flatnonzero(np.all((pts >= lo) & (pts <= hi), axis=1))
+    if not len(box):
+        return inside
+    best = np.full(len(box), np.inf)
+    for c in centres:  # a stroke has tens to hundreds of centres
+        np.minimum(best, ((pts[box] - c) ** 2).sum(axis=1), out=best)
+    inside[box[best <= reach * reach]] = True
+    return inside
+
+
+def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach: float,
+                mask: np.ndarray | None = None, passes: int = 8, relax: int = 5):
+    """Split the edges longer than ``length`` that lie within ``reach`` of the centres (both ends; with
+    ``centres`` None, everywhere),
+    until none is left there (at most ``passes`` rounds). Existing points keep their indices; new
+    points (edge middles) are added at the end and take the mean mask of their edge's ends.
+    Returns (points, triangles, mask or None, number of points added)."""
+    if length <= 0:
+        raise SculptError("the detail size must be positive")
+    p = np.asarray(pts, dtype=float)
+    t = np.asarray(tris, dtype=np.int64)
+    m = None if mask is None else np.asarray(mask, dtype=float)
+    c = None if centres is None else np.asarray(centres, dtype=float).reshape(-1, 3)
+    n0 = len(p)
+    for _ in range(passes):
+        inside = np.ones(len(p), dtype=bool) if c is None else _region(p, c, reach)
+        if not inside.any():
+            break
+        # longest-edge splitting (Rivara): a triangle near the stroke whose longest edge is too long has
+        # that edge split; any triangle with a split edge has its own longest edge split too, so every
+        # triangle is cut across its longest edge and none turns into a sliver
+        # work in a window round the stroke; it is big enough when every split edge has an end whose
+        # triangles are all in the window (then both triangles on that edge are in it)
+        n = len(p)
+        grow = reach * 1.5
+        while True:
+            win = np.ones(len(p), dtype=bool) if c is None else _region(p, c, grow)
+            cand = np.flatnonzero(win[t].any(axis=1))
+            tc = t[cand]
+            a = tc.reshape(-1)  # corner k of each triangle starts edge k
+            b = tc[:, [1, 2, 0]].reshape(-1)
+            key = np.minimum(a, b) * n + np.maximum(a, b)
+            lengths = np.linalg.norm(p[a] - p[b], axis=1).reshape(-1, 3)
+            lkey = key.reshape(-1, 3)[np.arange(len(tc)), lengths.argmax(axis=1)]
+            seed = (lengths.max(axis=1) > length) & inside[tc].all(axis=1)
+            marked_keys = np.unique(lkey[seed])
+            for _ in range(64):
+                has = np.isin(key, marked_keys).reshape(-1, 3).any(axis=1)
+                need = has & ~np.isin(lkey, marked_keys)
+                if not need.any():
+                    break
+                marked_keys = np.union1d(marked_keys, lkey[need])
+            if c is None or (win[marked_keys // n] | win[marked_keys % n]).all():
+                break
+            grow *= 2
+        if not len(marked_keys):
+            break
+        new_idx = n + np.arange(len(marked_keys))
+        mlo, mhi = marked_keys // n, marked_keys % n
+        p = np.vstack([p, (p[mlo] + p[mhi]) / 2])
+        if m is not None:
+            m = np.concatenate([m, (m[mlo] + m[mhi]) / 2])
+        pos = np.searchsorted(marked_keys, key)
+        pos = np.minimum(pos, len(marked_keys) - 1)
+        hit = marked_keys[pos] == key
+        mid = np.where(hit, new_idx[pos], -1).reshape(-1, 3)  # middle of edge k, or -1
+        flag = mid >= 0
+        count = flag.sum(axis=1)
+        keep = np.ones(len(t), dtype=bool)
+        keep[cand[count > 0]] = False
+        out = [t[keep]]
+        # one split edge: turn the triangle so it is edge 0, then cut it in two
+        for k in range(3):
+            sel = (count == 1) & flag[:, k]
+            if sel.any():
+                r = np.roll(tc[sel], -k, axis=1)
+                mm = mid[sel, k]
+                out += [np.stack([r[:, 0], mm, r[:, 2]], 1), np.stack([mm, r[:, 1], r[:, 2]], 1)]
+        # two split edges: turn it so edges 0 and 1 are split, then three triangles
+        for k in range(3):
+            sel = (count == 2) & ~flag[:, (k + 2) % 3]
+            if sel.any():
+                r = np.roll(tc[sel], -k, axis=1)
+                m0, m1 = mid[sel, k], mid[sel, (k + 1) % 3]
+                out.append(np.stack([m0, r[:, 1], m1], 1))
+                # the quad a, m0, m1, c: cut from the middle of the longer split edge (as cutting the
+                # triangle across its longest edge first, then the half that still has a split edge)
+                short = np.linalg.norm(p[r[:, 1]] - p[r[:, 2]], axis=1) >= np.linalg.norm(p[r[:, 0]] - p[r[:, 1]], axis=1)
+                out += [np.stack([r[short, 0], m0[short], m1[short]], 1),
+                        np.stack([r[short, 0], m1[short], r[short, 2]], 1),
+                        np.stack([r[~short, 0], m0[~short], r[~short, 2]], 1),
+                        np.stack([m0[~short], m1[~short], r[~short, 2]], 1)]
+        sel = count == 3
+        if sel.any():
+            r, (m0, m1, m2) = tc[sel], mid[sel].T
+            out += [np.stack([r[:, 0], m0, m2], 1), np.stack([m0, r[:, 1], m1], 1),
+                    np.stack([m2, m1, r[:, 2]], 1), np.stack([m0, m1, m2], 1)]
+        t = np.vstack(out)
+    if len(p) > n0:  # even out the points there along the surface, so the brush gets no slivers
+        region = np.ones(len(p), dtype=bool) if c is None else _region(p, c, reach)
+        region[n0:] = True
+        new = np.flatnonzero(region)
+        sub = t[region[t].any(axis=1)]  # every triangle at those points
+        topo = Topology.of(sub, len(p))
+        for _ in range(relax):
+            d = _neighbour_mean(p, topo, new) - p[new]
+            nrm = _local_normals(p, sub, new)
+            d -= (d * nrm).sum(axis=1)[:, None] * nrm
+            p[new] += 0.5 * d
+    return p, t, m, len(p) - n0

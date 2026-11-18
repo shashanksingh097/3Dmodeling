@@ -4,6 +4,23 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-18
+
+The third release: sculpting, a model tree with a right-click menu, part
+documents with linked parts and mates, mesh bodies that stay fast at a
+million triangles, implicit shapes and lattices, knife cuts, 2D drawings,
+light and dark themes, many more sketch tools, and an assistant that can
+use your own API key, look at the 3D view and show you what it means.
+
+**Downloads** for Windows (x64), macOS (Apple silicon) and Linux (x64) are
+attached below and need no Python; the assistant is included. Builds are
+code-signed only when signing certificates are set up (docs/RELEASING.md);
+the
+[user guide](https://github.com/shashanksingh097/3Dmodeling/blob/main/docs/USER-GUIDE.md#1-install)
+says how to open an unsigned build the first time. Projects and scripts
+from 0.2.0 open unchanged. `SHA256SUMS.txt` lists the checksum of each
+download.
+
 ### Sculpting
 
 - The **Sculpt** tab: drag over a mesh body to shape it with a brush:
@@ -16,6 +33,29 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   `STROKE` and saved with the project, so sculpting undoes, saves and
   replays like any other step. Example: `scripts/sculpt_head.cmd`.
 - A stroke on a mesh of 820,000 triangles takes about half a second.
+- The surface moves while you drag, a circle shows the brush's size on the
+  surface under the mouse, and frozen areas are drawn purple.
+- **Detail** on the Sculpt tab (`SCULPT ..., detail`): the triangles near
+  each stroke are split first, so creases and fine ridges come out sharp.
+  `REMESH` keeps the sculpt mask.
+
+### The assistant: your own key, pointing at things, pictures
+
+- **Model…** in the Assistant panel: answers from GitHub Copilot or from
+  your own key: OpenAI, Anthropic, Azure OpenAI, a local Ollama model (nothing
+  leaves your computer) or any OpenAI-compatible service. Pick the model;
+  the key can be kept in a file only your user account can read.
+- The assistant can ask you to click a face, edge or body in the 3D view
+  (the panel says what to pick), mark what it means in orange, and read what
+  you have picked.
+- When words are not enough (looks, freeform and sculpted shapes), a model
+  that can see pictures may look at the 3D view. A setting says whether your
+  own-key model can.
+- `python -m modeler copilot bench`: ten modelling requests (a flange, a
+  bracket, a spring, a bolt and nut, editing a width, holes on a picked
+  face ...) checked exactly against reference scripts, to compare models.
+  `--provider`, `--model` and `--base-url` work for every `copilot`
+  command.
 
 ### The assistant: Debug tab, every command up front, files with permission
 

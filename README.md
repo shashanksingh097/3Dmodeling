@@ -54,19 +54,21 @@ The language (parameters, expressions, loops, conditions, macros, selection
 by criteria, the editable history) is described in
 [docs/LANGUAGE.md](docs/LANGUAGE.md).
 
-## What it can do (0.2)
+## What it can do (0.3)
 
-- **Model by mouse or by text.** Toolbars, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
-- **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant.
-- **Sketches** with constraints and sizes, trim, extend, fillet, offset, mirror, pattern; extrude and revolve.
-- **Features:** holes (plain, counterbore, countersink, threaded), fillets, chamfers, shell, draft, offset, split, push/pull and delete faces, patterns of features.
+- **Model by mouse or by text.** Ribbon tabs with icons, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
+- **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant. A **model tree** shows parts, bodies, sketches and datums, with the steps that made the picked item, each one editable.
+- **Sketches** with constraints made while you draw, sizes, trim, extend, fillet, chamfer, offset, mirror, pattern, ellipses and splines; extrude and revolve.
+- **Features:** holes (plain, counterbore, countersink, threaded), fillets, chamfers, shell, draft, offset, split, push/pull and delete faces, patterns of features, knife cuts drawn with the mouse.
 - **Shapes from curves:** loft, sweep with twist and scale laws (and a graphical sweep editor), morph, pipe, rail sweeps, spine lofts, real ISO threads, springs, text, shapes from equations.
 - **NURBS freeform:** curves and surfaces from control points you can drag, networks, fills, G1/G2 blends, extend, trim, guide-curve lofts, zebra and curvature analysis, and deformers (bend, twist, taper, stretch, flow along a curve).
-- **Parts** with parameters, placed many times, and a part library.
-- **Layers, colours, materials**, mass properties, distances, angles, clash checks, section views, and assembly checks: do parts touch, how much clearance a shaft has in its hole, where one part sits relative to another.
+- **Meshes and sculpting:** mesh bodies that stay fast at a million triangles, with fast booleans, smoothing and remeshing; implicit shapes, smooth blends and lattice infill; a **Sculpt** tab with eight brushes, symmetry, masks and finer detail where you brush, every stroke a history step.
+- **Parts and assemblies:** parts with parameters placed many times, part files linked into assemblies, mates, and a part library.
+- **Layers, colours, materials**, right-click menus (hide, fade the others, isolate), mass properties, distances, angles, clash checks, section views, and assembly checks: do parts touch, how much clearance a shaft has in its hole.
 - **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
-- **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (Gmsh, Abaqus, Nastran); export STEP, IGES, BREP, STL, OBJ, 3MF, glTF.
-- **Assistant:** chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works); it reads the model with exact tools, tests scripts in a sandbox and proposes them with a Run button.
+- **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes; export STEP, IGES, BREP, STL, OBJ, 3MF, glTF, and 2D drawings as SVG or DXF.
+- **Assistant:** chat with GitHub Copilot (Copilot Free works) or your own key (OpenAI, Anthropic, Azure, a local Ollama model); it reads the model with exact tools, can ask you to click what you mean, tests scripts in a sandbox and proposes them with a Run button.
+- **Light and dark themes.**
 
 ## Install from source
 

@@ -3,8 +3,8 @@
 M7 adds sculpting: brushes that push, pull, smooth and flatten the points
 of a mesh body, with the mouse or as commands (LANGUAGE.md section 28).
 This note covers part 1: the brushes, masks, symmetry, stroke logging and
-the Sculpt tab. Part 2 (live preview while dragging, a visible mask,
-dynamic topology) is listed at the end.
+the Sculpt tab. Part 2 (live preview while dragging, the brush circle, the
+mask shown) follows; what is left is at the end.
 
 ## Commands, not a separate mode
 
@@ -105,14 +105,91 @@ few hundredths of a second.
   **Make sculptable** (`TOMESH` + `REMESH` at a 150th of the size).
 - A failed command removes its stroke again.
 
-## What is left (part 2)
+## Part 2: seeing it while you drag
 
-- **Live preview** while dragging: show the brush's effect before the
-  release. Needs a faster way to show changed points than a new
-  `AIS_Shape` (a `MeshVS` or `AIS_Triangulation` whose nodes are updated
-  in place).
-- **Showing the mask** (frozen areas darker) and a brush circle under the
-  mouse.
-- **Dynamic topology**: split long edges under the brush so detail can be
-  added where it is needed, and `REMESH` that keeps a mask.
+### Live preview (`sculpt_tool.LiveStroke`)
+
+A press starts a `LiveStroke` on the body under the mouse. Each mouse move
+casts a ray at the *working* surface (so a second pass over a bump lands on
+the bump), and once the mouse has gone a quarter of the radius the brush
+runs on that segment of the stroke, on a copy of the points. On release the
+recorded hits go to `SCULPT` as before, which starts from the body as it
+was: the preview is a close approximation, the command is the result. Esc
+during a drag, or a failed command, puts the body's drawing back.
+
+How the moved surface is shown depends on the size:
+
+- Below 150,000 triangles the body's own `AIS_Shape` gets a new shape
+  (`moved_shape(..., remember=False)`, kept out of the mesh cache) and is
+  redrawn.
+- From 150,000 triangles, redrawing the whole body at every move is too
+  slow, so only the triangles that moved are drawn, as a separate shape on
+  the top layer over the body. The edge of that patch is made of points that
+  did not move, so it joins the body without a seam.
+
+The brush engine now reports which points moved (`Report.points`), and
+`Topology.triangles_of` finds the triangles at those points through a
+point-to-triangle index made once per mesh; the stroke also uses it to
+find the triangles near the brush on a big mesh. On a big mesh, rays try
+the triangles within four radii of the last hit before trying them all.
+
+Time per mouse move, under the test machine's software OpenGL (a real
+graphics card draws much faster):
+
+| Mesh | Per move | Of which drawing the view |
+|------|----------|---------------------------|
+| 47,586 triangles | 0.04 s (about 26 updates a second) | most of it |
+| 821,590 triangles | 0.23 s | about 0.1 s |
+
+### Brush circle and mask
+
+- A circle of the brush's radius lies on the surface under the mouse,
+  turned to the face it is over (purple for the Mask brush). It follows
+  the mouse at most every 30 ms and during a drag. Hover highlighting of
+  the body is off while sculpting.
+- Frozen areas (mask above a half) are drawn purple over the body, lifted a
+  thousandth of its size so they are not hidden by it. `MASK` sends a new
+  model event, `mask`, so the view also updates for a typed `MASK` and on
+  undo.
+
+## Part 3: finer triangles where you brush
+
+`SCULPT ..., detail` (and the **Detail** box) splits the triangles near the
+stroke before the brush runs (`sculpt.refine_near`):
+
+- **Longest-edge splitting.** A triangle within 1.25 radii of the stroke
+  whose longest edge is longer than `detail` has that edge split at its
+  middle; any triangle with a split edge has its own longest edge split too
+  (repeated until nothing changes), so every triangle is cut across its
+  longest edge. Triangles with one, two or three split edges become two,
+  three or four. This repeats until no edge near the stroke is too long.
+  The first version split every long edge, whichever it was, and made
+  slivers where fine and coarse triangles met; a crease folded them over
+  and the view showed dark streaks.
+- **Kept indices.** Old points keep their indices and new points are added
+  at the end, so the mask grows with the mesh (a new point takes the mean
+  of its edge's two ends). `REMESH` uses the same splitting, everywhere,
+  when the body has a mask, so the mask is kept; without a mask it uses
+  manifold3d as before.
+- **Evening out.** Five rounds move the points near the stroke halfway
+  towards the middle of their neighbours, along the surface only (the part
+  along the normal is taken off), so the shape stays and the triangles even
+  out.
+- **A window.** The work is done on the triangles round the stroke. The
+  window is big enough when every split edge has an end whose triangles
+  are all in it; otherwise it doubles.
+
+| Mesh | Detail stroke |
+|------|---------------|
+| 35,000 to 70,000 triangles (crease, detail 0.15) | 0.5 s |
+| 820,000 to 1,220,000 triangles (detail 0.06) | 7 s (split 1.6 s, building the shape for OCCT about 2 s) |
+
+The live preview runs on the triangles as they were; the command on
+release adds the detail.
+
+## What is left
+
+- Joining short edges where a brush has squeezed triangles together (the
+  other half of dynamic topology), and splitting during the drag rather than
+  only on release.
 - The 1M-triangle goal of PLAN.md at interactive speed during a drag.
