@@ -2201,6 +2201,8 @@ Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a 
 
 **Script:** [scripts/scan_machined.cmd](../scripts/scan_machined.cmd) (20 lines) · **Run:** `python -m modeler scripts/scan_machined.cmd`
 
+**You should get:** 2 bodies, volume 95,640.0 mm³, 12 faces
+
 <details><summary>The whole script</summary>
 
 ```text
