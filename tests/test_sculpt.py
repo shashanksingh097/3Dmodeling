@@ -271,3 +271,47 @@ def test_sculpt_detail_and_remesh_keep_the_mask():
     pts, _ = mb.arrays(p.model.bodies[1].shape)
     assert len(p.model.masks[1]) == len(pts) and int((p.model.masks[1] > 0.5).sum()) >= frozen
     assert p.run("UNDO").ok and len(p.model.masks[1]) < len(pts)
+
+
+def test_collapse_near_joins_squeezed_edges_and_keeps_a_closed_surface():
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 1"):
+        assert p.run(c).ok
+    pts, t = mb.arrays(p.model.bodies[1].shape)
+    centres = np.array([(0, -20, 0)])
+    # squeeze the points near the stroke towards it, as PINCH does
+    near = sc._region(pts, centres, 4)
+    q = pts.copy()
+    q[near] = centres[0] + (q[near] - centres[0]) * 0.35
+    mask = np.zeros(len(q))
+    mask[(q[:, 2] > 0.5) & near] = 1  # half of it frozen
+    out, tt, m, removed = sc.collapse_near(q, t, 0.5, centres, 3, mask)
+    assert removed > 20 and len(out) == len(q) - removed and len(m) == len(out)
+    assert _closed_and_oriented(tt, len(out))
+    a, b = tt.reshape(-1), tt[:, [1, 2, 0]].reshape(-1)
+    lens = np.linalg.norm(out[a] - out[b], axis=1)
+    free = sc._region(out, centres, 3) & (m < 0.5)
+    assert np.median(lens[free[a] & free[b]]) > np.median(np.linalg.norm(q[t.reshape(-1)] - q[t[:, [1, 2, 0]].reshape(-1)],
+                                                                          axis=1)[near[t.reshape(-1)]])
+    # frozen points and points far away are untouched (only renumbered)
+    frozen = q[mask > 0.5]
+    assert all(np.isclose(out, f).all(axis=1).any() for f in frozen[:50])
+    far = ~sc._region(q, centres, 6)
+    assert np.isclose(out[:, None], q[far][:20][None]).all(axis=2).any(axis=0).all()
+    with pytest.raises(sc.SculptError):
+        sc.collapse_near(q, t, 0, centres, 3)
+
+
+def test_sculpt_with_detail_keeps_the_mesh_even_over_many_strokes():
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 1", 'STROKE, S1, "-8,-19.5,3  8,-19.5,3"'):
+        assert p.run(c).ok
+    sizes = []
+    for _ in range(4):
+        r = p.run("SCULPT, 1, PINCH, 3, 0.8, S1, , 0.5")
+        assert r.ok, r.message
+        sizes.append(len(mb.arrays(p.model.bodies[1].shape)[0]))
+    assert "squeezed together joined" in r.message
+    assert sizes[-1] - sizes[-2] < 0.5 * (sizes[1] - sizes[0] + 200)  # it settles: joins balance the splits
+    pts, t = mb.arrays(p.model.bodies[1].shape)
+    assert _closed_and_oriented(t, len(pts))
