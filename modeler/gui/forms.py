@@ -101,7 +101,7 @@ class FormError(Exception):
 PARAM = "="
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
-    ("Parameters", (PARAM,)),
+    ("Parameters", (PARAM, "CONFIG", "USECONFIG")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE")),
@@ -121,7 +121,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
-    ("Measure", ("DIST", "ANGLE", "MASSPROP", "CLASH", "SECTION", "ECHO", "LIST")),
+    ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT")),
     ("Parts", ("INST", "MATE", "EXPLODE", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING")),

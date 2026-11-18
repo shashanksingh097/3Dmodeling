@@ -375,10 +375,10 @@ spring is a short script whose numbers you can change later.
 - History that stays fast: skip entries whose inputs did not change (dependency tracking), rebuild on a worker thread with progress and cancel, so the window never freezes `[M3]`
 - Undo for history edits themselves (`HIST, EDIT/DELETE/MOVE` are not yet undoable) `[M3]`
 - Warning state for history entries (ran, but needs a look) `[done]`
-- Separate namespaces, or a clear error, when a parameter and a body share a name `[M3]`
+- Separate namespaces, or a clear error, when a parameter and a body share a name `[M3]` `[done]` (a clear error)
 - Assemblies: instances placed by mates (coincident, concentric, distance, angle) or at least by placement constraints, with interference check `[done]` (section 5.10, `MATE`)
 - Regression corpus: example scripts whose volumes, face counts and validity are checked in CI, so a kernel upgrade cannot change models unnoticed, plus hard cases for the shapes made from curves `[done]`
-- Configurations: named sets of parameter values for one model (sizes of a family of parts), switchable from the Parameters panel and from the batch runner `[M4]`
+- Configurations: named sets of parameter values for one model (sizes of a family of parts), switchable from the Parameters panel and from the batch runner `[M4]` `[done]` (`CONFIG`, `USECONFIG`, `-C`; and `BOM`, the parts list)
 
 ### 5.8 AI assistant (last)
 - Chat panel that explains any command, turns plain language into a command script, explains errors, and can read the current model state through query commands `[M9]`
@@ -869,7 +869,31 @@ pull request, in this order (the user can reorder or drop any):
     part 5).
     Rebuilds: done as a helper process, since the kernel keeps Python's lock
     and a thread cannot help (branch `worker-rebuilds`, docs/rebuild-helper.md).
-17. Release 0.4.0.
+17. Release 0.4.0 (whenever the owner wants one; it does not hold up the
+    items below).
+
+More features not yet in the app (added 2026-11-18, after item 16):
+
+18. **Configurations and a parts list**: `CONFIG` / `USECONFIG` (named
+    parameter sets, a list above the parameters, saved with the project,
+    `-C` in the batch runner), `BOM` (parts list with quantities, material,
+    mass, CSV), and a clear error when a body and a parameter share a name
+    (branch `configs-bom`).
+19. **Sheet metal**: a base flange from a sketch with a thickness and bend
+    radius, edge flanges, bends along a line, and the flat pattern
+    (`UNFOLD`) written to DXF with bend lines, plus a K-factor setting.
+20. **Ribs and lips**: `RIB` (a thin wall from an open sketch line up to
+    the nearest faces), `LIP` and groove for enclosure halves, and `WRAP`
+    (a sketch wrapped onto a cylinder or cone, embossed or cut).
+21. **Assemblies that move**: drive a `MATE` angle or distance with a
+    slider, check collisions through the range of motion, and save the
+    motion as a picture sequence; exploded views with trails.
+22. **The modelling tools for outside agents**: serve the assistant's tools
+    (DESCRIBE, PROBE, ASSERT, the sandbox ...) as an MCP server, so any MCP
+    client can model with the app headless.
+23. **Scan to CAD, part 2**: split a scan into regions by curvature
+    automatically, recognise planes, cylinders and spheres exactly, and
+    join the fitted pieces into one solid.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

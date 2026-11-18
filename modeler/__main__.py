@@ -3,9 +3,10 @@
     python -m modeler                 open the GUI
     python -m modeler script.cmd      open the GUI and run a script
     python -m modeler model.m3d       open the GUI with a saved project
-    python -m modeler run script.cmd [-D NAME=value ...] [-q]
+    python -m modeler run script.cmd [-D NAME=value ...] [-C config] [-q]
                                       run a script headless; -D fixes a parameter
                                       (the script's own NAME = ... keeps that value),
+                                      -C uses one of the script's CONFIGs at the end,
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
     python -m modeler --version       print the version
@@ -34,7 +35,7 @@ def _run_headless(args: list[str]) -> int:
     from .commands import Processor
     from .lang.expr import Evaluator, ExprError
 
-    path, overrides, quiet = None, {}, False
+    path, overrides, quiet, config = None, {}, False, ""
     it = iter(args)
     for a in it:
         if a == "-D" or a.startswith("-D"):
@@ -47,6 +48,11 @@ def _run_headless(args: list[str]) -> int:
                 overrides[name] = Evaluator(lambda k: (_ for _ in ()).throw(KeyError(k))).eval(value)
             except ExprError as exc:
                 print(f"bad -D {spec!r}: {exc}")
+                return 2
+        elif a == "-C" or (a.startswith("-C") and len(a) > 2):
+            config = a[2:] or next(it, "")
+            if not config:
+                print("give a configuration name after -C")
                 return 2
         elif a == "-q":
             quiet = True
@@ -61,6 +67,8 @@ def _run_headless(args: list[str]) -> int:
     p = Processor(overrides=overrides)
     with open(path, encoding="utf-8") as f:
         results = p.run_script(f.read())
+    if config and all(r.ok for r in results):  # the configurations are defined by the script itself
+        results.append(p.run(f"USECONFIG, {config}"))
     for r in results:
         if not quiet or not r.ok:
             print(f"> {r.line}")
