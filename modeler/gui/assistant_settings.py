@@ -28,6 +28,7 @@ class AssistantSettingsDialog(QDialog):
         self._keys = {setting.kind: setting.api_key} if setting.api_key else {}
         self._models = {setting.kind: setting.model}
         self._urls = {setting.kind: setting.base_url}
+        self._vision = {setting.kind: setting.sees_pictures()}
 
         lay = QVBoxLayout(self)
         form = QFormLayout()
@@ -47,6 +48,8 @@ class AssistantSettingsDialog(QDialog):
         self.remember = QCheckBox("Keep the key on this computer (in a file only your user account can read)")
         self.remember.setChecked(key_kept)
         form.addRow("", self.remember)
+        self.vision = QCheckBox("The model can see pictures (the assistant may then look at the 3D view)")
+        form.addRow("", self.vision)
         lay.addLayout(form)
         self.help = QLabel()
         self.help.setWordWrap(True)
@@ -73,6 +76,7 @@ class AssistantSettingsDialog(QDialog):
         self._urls[self._kind] = self.url.text().strip()
         if self.key.text():
             self._keys[self._kind] = self.key.text()
+        self._vision[self._kind] = self.vision.isChecked()
 
     def _kind_changed(self) -> None:
         self._remember_fields()
@@ -98,6 +102,9 @@ class AssistantSettingsDialog(QDialog):
         self.key.setPlaceholderText("paste the API key" if info.needs_key else
                                     ("not needed" if info.key == "ollama" else "optional"))
         self.remember.setEnabled(own)
+        self.vision.setChecked(self._vision.get(self._kind, info.vision))
+        self.vision.setEnabled(own)
+        self.vision.setVisible(own)
         text = info.help
         if info.key == "copilot" and not self.copilot_models:
             text += " Sign in to see the models your plan offers."
@@ -109,7 +116,8 @@ class AssistantSettingsDialog(QDialog):
         url = self.url.text().strip()
         return pv.ProviderSetting(info.key, self.model.currentText().strip(),
                                   "" if url == info.base_url else url,
-                                  self.key.text().strip() if info.key != "copilot" else "")
+                                  self.key.text().strip() if info.key != "copilot" else "",
+                                  vision=None if info.key == "copilot" else self.vision.isChecked())
 
     def _check(self) -> None:
         problem = self.setting().problem()

@@ -404,6 +404,29 @@ class AssistantPanel(QWidget):
                                 + (f" ({html.escape(note)})" if note else ""))
         return True
 
+    def render_view(self, view: str, width: int, height: int, kind: str, ids: list[int]) -> bytes | None:
+        """Copilot's render, on the GUI thread: a PNG of the 3D view (the user's camera is kept)."""
+        vp = getattr(self.win, "viewport", None)
+        if vp is None or not hasattr(vp, "snapshot"):
+            return None
+        m = self.win.processor.model
+        marks = [m.entity_shape(kind, i) for i in ids] if kind and ids else None
+        return vp.snapshot(width, height, view, marks)
+
+    def show_picture(self, png: bytes) -> None:
+        """Show the picture Copilot looked at, small, in the chat."""
+        from PySide6.QtGui import QImage, QTextDocument
+
+        img = QImage.fromData(png, "PNG")
+        if img.isNull():
+            return
+        self._pictures = getattr(self, "_pictures", 0) + 1
+        url = QUrl(f"picture://{self._pictures}.png")
+        self.transcript.document().addResource(QTextDocument.ImageResource, url, img)
+        w = min(img.width(), 320)
+        self.transcript.append(f"<p style='color:gray'>&nbsp;&nbsp;looked at a picture of the view:<br>"
+                               f"<img src='{url.toString()}' width='{w}'></p>")
+
     def clear_marks(self) -> None:
         view = getattr(self.win, "viewport", None)
         if view is not None and getattr(view, "_mark_ais", None):
@@ -413,7 +436,7 @@ class AssistantPanel(QWidget):
     def provider_setting(self) -> pv.ProviderSetting:
         st = self._settings()
         values = {} if st is None else {k: st.value(f"assistant/provider_{k}", "") or ""
-                                        for k in ("kind", "model", "base_url")}
+                                        for k in ("kind", "model", "base_url", "vision")}
         s = pv.from_settings(values)
         if not s.is_copilot and not s.api_key:
             s.api_key = self._unsaved_keys.get(s.kind, "")
@@ -474,6 +497,7 @@ class AssistantPanel(QWidget):
             asst.ask_read = self.ask_read  # these run on the GUI thread (run_on_model)
             asst.pick_request = self.pick_request
             asst.show_marks = self.show_marks
+            asst.render_view = self.render_view
             self.thread = cp.AssistantThread(asst)
         return self.thread
 
@@ -620,6 +644,8 @@ class AssistantPanel(QWidget):
             self.show_proposal(data)
         elif kind == "debug":
             self.add_debug(data)
+        elif kind == "picture":
+            self.show_picture(data)
 
     def show_proposal(self, prop: cp.Proposal) -> None:
         self.proposal = prop

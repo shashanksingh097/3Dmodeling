@@ -29,6 +29,7 @@ class Kind:
     url_editable: bool = False
     model_hint: str = ""
     help: str = ""
+    vision: bool = True  # whether its models usually take pictures (the render tool)
 
 
 KINDS: dict[str, Kind] = {k.key: k for k in (
@@ -46,12 +47,13 @@ KINDS: dict[str, Kind] = {k.key: k for k in (
          help="Your Azure OpenAI resource's address (https://NAME.openai.azure.com) and key."),
     Kind("ollama", "Ollama on this computer (no key)", "openai", "http://localhost:11434/v1",
          needs_key=False, url_editable=True, model_hint="a model you pulled, one that can call tools",
+         vision=False,
          help="A model running on your own computer with Ollama. Nothing leaves your computer. "
               "Small models often call the tools badly."),
     Kind("custom", "Other OpenAI-compatible service", "openai", "", url_editable=True,
          model_hint="the model name the service expects",
          help="Any service that speaks the OpenAI chat completions API (LM Studio, vLLM, a company "
-              "gateway...). The key is optional."),
+              "gateway...). The key is optional.", vision=False),
 )}
 
 
@@ -63,6 +65,10 @@ class ProviderSetting:
     model: str = ""
     base_url: str = ""
     api_key: str = field(default="", repr=False)
+    vision: bool | None = None  # the model takes pictures; None: what is usual for the kind
+
+    def sees_pictures(self) -> bool:
+        return self.info.vision if self.vision is None else bool(self.vision)
 
     @property
     def info(self) -> Kind:
@@ -108,7 +114,8 @@ class ProviderSetting:
 
     def to_settings(self) -> dict[str, str]:
         """The parts kept in the app's settings (never the key)."""
-        return {"kind": self.kind, "model": self.model, "base_url": self.base_url}
+        return {"kind": self.kind, "model": self.model, "base_url": self.base_url,
+                "vision": "" if self.vision is None else ("1" if self.vision else "0")}
 
 
 # ---- keys, kept only when the user asks ----------------------------------------------------
@@ -152,7 +159,9 @@ def from_settings(values: dict[str, Any]) -> ProviderSetting:
     kind = str(values.get("kind") or "copilot")
     if kind not in KINDS:
         kind = "copilot"
-    s = ProviderSetting(kind, str(values.get("model") or ""), str(values.get("base_url") or ""))
+    v = str(values.get("vision") or "")
+    s = ProviderSetting(kind, str(values.get("model") or ""), str(values.get("base_url") or ""),
+                        vision=None if v not in ("0", "1") else v == "1")
     if not s.is_copilot:
         s.api_key = load_key(kind)
     return s

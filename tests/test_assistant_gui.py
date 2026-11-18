@@ -256,3 +256,24 @@ def test_highlight_marks_in_the_view(win, app):
     panel.clear_marks()
     assert win.viewport._mark_ais == []
     panel._busy = False
+
+
+def test_render_takes_a_picture_and_keeps_the_camera(win, app):
+    from PySide6.QtGui import QImage
+
+    panel = win.assistant_panel
+    win.execute("BLOCK, 0,0,0, 40,30,10")
+    win.execute("VIEW, FRONT")
+    pump(app)
+    vp = win.viewport
+    before = vp.view.Camera().Direction()
+    before = (before.X(), before.Y(), before.Z())
+    png = panel.render_view("TOP", 320, 240, "FACE", [6])
+    assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
+    img = QImage.fromData(png, "PNG")
+    assert (img.width(), img.height()) == (320, 240)
+    after = vp.view.Camera().Direction()
+    assert (after.X(), after.Y(), after.Z()) == pytest.approx(before)  # the user's view is put back
+    assert vp._mark_ais == []  # the marks were for the picture only
+    panel.show_picture(png)
+    assert "looked at a picture" in panel.transcript.toPlainText()

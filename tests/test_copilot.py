@@ -39,7 +39,7 @@ def plate():
 def test_every_modeler_tool_is_offered(plate):
     a = cp.CopilotAssistant(plate)
     names = [t.name for t in a.sdk_tools()]
-    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "ask_pick", "highlight", "list_files", "read_file"]
+    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "list_files", "read_file"]
     assert all(t.skip_permission for t in a.sdk_tools())  # read-only or sandboxed: no prompts
 
 
@@ -229,7 +229,7 @@ def test_runtime_registers_only_our_tools(plate, tmp_path):
 
     names = run(go())
     assert names == sorted([d["name"] for d in cp.CopilotAssistant(plate).toolbox.definitions()]
-                           + ["propose_commands", "propose_edits", "ask_pick", "highlight", "list_files", "read_file"])
+                           + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "list_files", "read_file"])
 
 
 # ---- changing what is there ---------------------------------------------------------------
@@ -495,3 +495,35 @@ def test_user_context_describes_the_selection(plate):
     assert ctx["selection"]["selector"]["lines"]
     assert plate.run("SEL, NONE").ok
     assert "ask_pick" in Toolbox(plate).call("user_context", {})["selection"]["note"]
+
+
+# ---- pictures, when text is not enough -----------------------------------------------------
+def test_render_without_a_view_says_so(plate):
+    a = cp.CopilotAssistant(plate)
+    assert "no 3D view" in a._render({})["error"]
+    assert "error" in a._render({"kind": "FACE", "highlight": [9999]})
+
+
+def test_render_sends_the_picture(plate):
+    seen = []
+    a = cp.CopilotAssistant(plate, on_event=lambda k, d: seen.append((k, d)))
+    asked = []
+    png = b"\x89PNG\r\n\x1a\nfake"
+
+    def render_view(view, w, h, kind, ids):
+        asked.append((view, w, h, kind, ids))
+        return png
+
+    a.render_view = render_view
+    tool = {t.name: t for t in a.sdk_tools()}["render"]
+    res = run(tool.handler(ToolInvocation(arguments={"view": "TOP", "width": 5000, "kind": "face",
+                                                     "highlight": [7]})))
+    assert res.result_type == "success"
+    assert asked == [("TOP", 1024, 768, "FACE", [7])]  # capped
+    assert res.binary_results_for_llm[0].mime_type == "image/png"
+    import base64
+    assert base64.b64decode(res.binary_results_for_llm[0].data) == png
+    assert '"shows":"the 3D view from TOP, face 7 marked in orange"' in res.text_result_for_llm
+    assert "_png" not in res.text_result_for_llm
+    assert ("picture", png) in seen
+    assert a.log[-1]["image_bytes"] == len(png) and "picture 1 KB sent" in cp.format_log(a.log)
