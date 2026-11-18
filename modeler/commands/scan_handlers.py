@@ -73,7 +73,7 @@ def reconstruct(p: Processor, b, angle, tol):
     if not mb.closed(t):
         raise CommandError(f"RECONSTRUCT: body {b} is open; it needs a closed mesh to know its inside")
     try:
-        shape, cells, kept = sf.reconstruct(pts, t, regions)
+        shape, _cells, _kept = sf.reconstruct(pts, t, regions)
     except sf.ScanError as exc:
         raise CommandError(f"RECONSTRUCT: body {b}: {exc}") from None
     if not robust.solids(shape) or not robust.checked_ok(shape, True):

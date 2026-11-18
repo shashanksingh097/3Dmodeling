@@ -85,7 +85,7 @@ class Shape:
     inside: bool = False  # a cylinder or sphere seen from inside (a bore, a socket)
 
     def words(self) -> str:
-        f = lambda v: ", ".join(f"{x:.4g}" for x in v)  # noqa: E731
+        f = lambda v: ", ".join(f"{x:.4g}" for x in v)
         if self.kind == "PLANE":
             return f"plane through ({f(self.centre)}), normal ({f(self.axis)})"
         if self.kind == "CYLINDER":
@@ -264,8 +264,8 @@ def _inner_point(cell) -> np.ndarray | None:
     """A point inside a solid: its centre if that is inside, else the middle of a line through it."""
     from OCP.BRepClass3d import BRepClass3d_SolidClassifier
     from OCP.BRepGProp import BRepGProp
-    from OCP.GProp import GProp_GProps
     from OCP.gp import gp_Pnt
+    from OCP.GProp import GProp_GProps
     from OCP.TopAbs import TopAbs_State
 
     g = GProp_GProps()
