@@ -10,12 +10,20 @@ algorithm on its triangles.
 The standard sheet places the views the third-angle way: the front view,
 the top view above it, the right view beside it, and an isometric view in
 the free corner.
+
+Sizes (``dimension``): each model direction gets one overall size, on the
+first flat view that shows it (on the standard sheet: width and height on
+the front view, depth on the top view), placed outside the view. Whole
+circles seen face-on get a diameter, with equal ones counted ("4x  D8"),
+each diameter written once on the sheet. Sizes are lines, arrows and text
+in their own layer (DIMS in DXF, a "dims" group in SVG).
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from html import escape
 
 # view name -> (direction towards the viewer, the drawing's x axis in the model)
 VIEWS = {
@@ -32,6 +40,29 @@ STANDARD = ("FRONT", "TOP", "RIGHT", "ISO")
 Poly = list[tuple[float, float]]
 
 
+# view name -> the model axes along the drawing's x and y (None: not a flat view)
+AXES = {"TOP": ("X", "Y"), "BOTTOM": ("X", "Y"), "FRONT": ("X", "Z"), "BACK": ("X", "Z"),
+        "RIGHT": ("Y", "Z"), "LEFT": ("Y", "Z"), "ISO": None}
+SIZES = ("NONE", "OVERALL", "HOLES", "ALL")
+
+
+@dataclass
+class Dims:
+    """Sizes as plain drawing pieces, in the view's own coordinates."""
+    lines: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)
+    arrows: list[tuple[tuple[float, float], tuple[float, float]]] = field(default_factory=list)  # tip, direction
+    texts: list[tuple[tuple[float, float], float, str]] = field(default_factory=list)  # centre, degrees, text
+    height: float = 1.0  # text height
+
+    def extent(self):
+        pts = [q for ln in self.lines for q in ln] + [t[0] for t in self.texts]
+        if not pts:
+            return None
+        h = self.height
+        return (min(q[0] for q in pts) - h, min(q[1] for q in pts) - h,
+                max(q[0] for q in pts) + h, max(q[1] for q in pts) + h)
+
+
 @dataclass
 class View:
     name: str
@@ -39,6 +70,8 @@ class View:
     hidden: list[Poly] = field(default_factory=list)
     dx: float = 0.0  # where the view sits on the sheet
     dy: float = 0.0
+    circles: list[tuple[float, float, float, float]] = field(default_factory=list)  # visible: cx, cy, r, span
+    dims: Dims = field(default_factory=Dims)
 
     def bounds(self):
         pts = [q for pl in self.visible + self.hidden for q in pl]
@@ -66,11 +99,12 @@ def parse_views(text: str) -> list[str]:
     return out
 
 
-def _edges_2d(compound, deflection: float) -> list[Poly]:
-    """The edges of an HLR result (flat, in the view's x, y) as polylines."""
+def _edges_2d(compound, deflection: float, circles: list | None = None) -> list[Poly]:
+    """The edges of an HLR result (flat, in the view's x, y) as polylines;
+    circle arcs are also added to ``circles`` (cx, cy, r, span) if given."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GCPnts import GCPnts_QuasiUniformDeflection
-    from OCP.GeomAbs import GeomAbs_Line
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
     from OCP.TopAbs import TopAbs_EDGE
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
@@ -89,6 +123,10 @@ def _edges_2d(compound, deflection: float) -> list[Poly]:
             c = BRepAdaptor_Curve(e)
         except Exception:  # an edge without a curve: nothing to draw
             continue
+        if circles is not None and c.GetType() == GeomAbs_Circle:
+            ci = c.Circle()
+            circles.append((ci.Location().X(), ci.Location().Y(), ci.Radius(),
+                            abs(c.LastParameter() - c.FirstParameter())))
         if c.GetType() == GeomAbs_Line:
             a, b = c.Value(c.FirstParameter()), c.Value(c.LastParameter())
             pl = [(a.X(), a.Y()), (b.X(), b.Y())]
@@ -134,9 +172,126 @@ def project(shape, name: str, deflection: float, mesh: bool = False) -> View:
         algo.Update()
         algo.Hide()
         to = HLRBRep_HLRToShape(algo)
-    v.visible = _edges_2d(to.VCompound(), deflection) + _edges_2d(to.OutLineVCompound(), deflection)
+    v.visible = (_edges_2d(to.VCompound(), deflection, v.circles)
+                 + _edges_2d(to.OutLineVCompound(), deflection, v.circles))
     v.hidden = _edges_2d(to.HCompound(), deflection) + _edges_2d(to.OutLineHCompound(), deflection)
     return v
+
+
+def _n(v: float) -> str:
+    """A size as written on the drawing: at most two decimals."""
+    return f"{v:.2f}".rstrip("0").rstrip(".") or "0"
+
+
+def _whole_circles(v: View, tol: float) -> list[tuple[float, float, float]]:
+    """The view's visible circles that go all the way round (arcs of one circle joined)."""
+    span: dict[tuple[int, int, int], list] = {}
+    for cx, cy, r, a in v.circles:
+        k = (round(cx / tol), round(cy / tol), round(r / tol))
+        got = span.setdefault(k, [cx, cy, r, 0.0])
+        got[3] += a
+    return [(cx, cy, r) for cx, cy, r, a in span.values() if a >= 2 * math.pi * 0.99]
+
+
+def _linear(d: Dims, a, b, vertical: bool, at: float, text: str) -> None:
+    """A size between points a and b, its line at x = at (vertical) or y = at."""
+    h = d.height
+    i = 0 if vertical else 1  # the coordinate the extension lines run along
+    for q in (a, b):
+        sgn = 1.0 if at > q[i] else -1.0
+        p0, p1 = list(q), list(q)
+        p0[i] += sgn * 0.4 * h
+        p1[i] = at + sgn * 0.6 * h
+        d.lines.append((tuple(p0), tuple(p1)))
+    pa, pb = list(a), list(b)
+    pa[i] = pb[i] = at
+    d.lines.append((tuple(pa), tuple(pb)))
+    j = 1 - i
+    sgn = 1.0 if pb[j] > pa[j] else -1.0
+    da, db = [0.0, 0.0], [0.0, 0.0]
+    da[j], db[j] = -sgn, sgn
+    d.arrows += [(tuple(pa), tuple(da)), (tuple(pb), tuple(db))]
+    mid = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2]
+    out = 1.0 if at > a[i] else -1.0
+    mid[i] += out * 0.75 * h
+    d.texts.append((tuple(mid), 90.0 if vertical else 0.0, text))
+
+
+LEADER_ANGLES = (45, 135, 30, 150, 60, 120, 15, 165)
+
+
+def _diameter(d: Dims, circle, k: int, text: str, taken: list) -> None:
+    """A short leader from the circle to a label on a shoulder. Each size of
+    circle in a view leaves at its own angle, so leaders of circles around one
+    centre do not lie on top of each other; a label that would cover another
+    one moves further out."""
+    cx, cy, r = circle
+    h = d.height
+    ang = math.radians(LEADER_ANGLES[k % len(LEADER_ANGLES)])
+    ux, uy = math.cos(ang), math.sin(ang)
+    tip = (cx + r * ux, cy + r * uy)
+    w = 0.62 * h * len(text)
+    side = 1.0 if ux >= 0 else -1.0
+    for j in range(10):
+        reach = (2.0 + 1.3 * j) * h
+        knee = (tip[0] + reach * ux, tip[1] + reach * uy)
+        lo, hi = sorted((knee[0], knee[0] + side * w))
+        rect = (lo, knee[1] - 0.1 * h, hi, knee[1] + 1.2 * h)
+        if not any(rect[0] < t[2] and t[0] < rect[2] and rect[1] < t[3] and t[1] < rect[3] for t in taken):
+            break
+    taken.append(rect)
+    end = (knee[0] + side * w, knee[1])
+    d.lines += [(tip, knee), (knee, end)]
+    d.arrows.append((tip, (-ux, -uy)))
+    d.texts.append(((knee[0] + side * w / 2, knee[1] + 0.6 * h), 0.0, text))
+
+
+def dimension(views: list[View], which: str = "ALL", extent: dict[str, float] | None = None) -> int:
+    """Add sizes to the views (see the module notes); returns how many.
+    ``extent`` gives the exact model size along X, Y and Z, written in place
+    of the drawn size (curves are drawn as short lines, a few hundredths short)."""
+    which = which.upper()
+    if which not in SIZES:
+        raise ValueError(f"unknown sizes {which}: use {', '.join(SIZES)}")
+    boxes = [v.bounds() for v in views]
+    size = max([max(b[2] - b[0], b[3] - b[1]) for b in boxes] + [1e-9])
+    h = size / 30
+    tol = size * 1e-6
+    axes_done: set[str] = set()
+    dia_done: set[int] = set()
+    count = 0
+    for v, (x0, y0, x1, y1) in zip(views, boxes):
+        v.dims = d = Dims(height=h)
+        axes = AXES.get(v.name)
+        if not axes or not (v.visible or v.hidden):
+            continue
+        if which in ("OVERALL", "ALL"):
+            ax, ay = axes
+            if ax not in axes_done and x1 - x0 > tol:
+                _linear(d, (x0, y0), (x1, y0), False, y0 - 2.5 * h, _n((extent or {}).get(ax, x1 - x0)))
+                axes_done.add(ax)
+                count += 1
+            if ay not in axes_done and y1 - y0 > tol:
+                _linear(d, (x0, y0), (x0, y1), True, x0 - 2.5 * h, _n((extent or {}).get(ay, y1 - y0)))
+                axes_done.add(ay)
+                count += 1
+        if which in ("HOLES", "ALL"):
+            by_r: dict[int, list[tuple[float, float, float]]] = {}
+            for cx, cy, r in _whole_circles(v, tol):
+                by_r.setdefault(round(2 * r / max(tol, 1e-9) / 1000), []).append((cx, cy, r))
+            k = 0
+            taken: list = []
+            for key in sorted(by_r, key=lambda q: -by_r[q][0][2]):
+                if key in dia_done or k >= 12:
+                    continue
+                dia_done.add(key)
+                ang = math.radians(LEADER_ANGLES[k % len(LEADER_ANGLES)])
+                pts = sorted(by_r[key], key=lambda q: q[0] * math.cos(ang) + q[1] * math.sin(ang))
+                n = len(pts)
+                _diameter(d, pts[-1], k, (f"{n}x " if n > 1 else "") + "\u00d8" + _n(2 * pts[-1][2]), taken)
+                k += 1
+                count += 1
+    return count
 
 
 def layout(views: list[View]) -> tuple[float, float, float, float]:
@@ -144,7 +299,7 @@ def layout(views: list[View]) -> tuple[float, float, float, float]:
     beside it, iso in the free corner, others in a row after), and return
     the sheet's bounds."""
     size = max([max(b[2] - b[0], b[3] - b[1]) for b in (v.bounds() for v in views)] + [1.0])
-    gap = 0.2 * size
+    gap = 0.2 * size + max([4 * v.dims.height for v in views if v.dims.lines] + [0.0])
     by = {v.name: v for v in views}
 
     def put(v, left, bottom):
@@ -188,12 +343,25 @@ def layout(views: list[View]) -> tuple[float, float, float, float]:
             placed.add(v.name)
     del h
     pts = [(v.bounds()[0] + v.dx, v.bounds()[1] + v.dy, v.bounds()[2] + v.dx, v.bounds()[3] + v.dy) for v in views]
+    pts += [(e[0] + v.dx, e[1] + v.dy, e[2] + v.dx, e[3] + v.dy) for v in views
+            for e in [v.dims.extent()] if e is not None]
     return (min(p[0] for p in pts) - gap / 2, min(p[1] for p in pts) - gap, max(p[2] for p in pts) + gap / 2,
             max(p[3] for p in pts) + gap / 2)
 
 
 def _f(v: float) -> str:
     return f"{v:.4f}".rstrip("0").rstrip(".") or "0"
+
+
+def _arrow_shapes(d: Dims):
+    """Each arrow as (tip, (wing, wing)): a filled triangle, one text height long."""
+    out = []
+    for (tx, ty), (ux, uy) in d.arrows:
+        ln = d.height
+        bx, by = tx - ux * ln, ty - uy * ln
+        px, py = -uy * 0.3 * ln, ux * 0.3 * ln
+        out.append(((tx, ty), ((bx + px, by + py), (bx - px, by - py))))
+    return out
 
 
 def svg(views: list[View], sheet, units: str = "mm") -> str:
@@ -219,9 +387,29 @@ def svg(views: list[View], sheet, units: str = "mm") -> str:
             out.append(f'<path d="{" ".join(path(pl) for pl in v.placed("visible"))}" fill="none" stroke="black" '
                        f'stroke-width="{_f(stroke)}" stroke-linecap="round" stroke-linejoin="round"/>')
         bx0, by0, bx1, _ = v.bounds()
-        out.append(f'<text x="{_f((bx0 + bx1) / 2 + v.dx - x0)}" y="{_f(y1 - (by0 + v.dy) + stroke * 14)}" '
+        label_y = by0 + v.dy - stroke * 14
+        e = v.dims.extent()
+        if e is not None and e[1] + v.dy < by0 + v.dy:  # below the sizes, not on them
+            label_y = e[1] + v.dy - stroke * 10
+        out.append(f'<text x="{_f((bx0 + bx1) / 2 + v.dx - x0)}" y="{_f(y1 - label_y)}" '
                    f'font-family="sans-serif" font-size="{_f(stroke * 10)}" text-anchor="middle">{v.name}</text>')
         out.append("</g>")
+        d = v.dims
+        if d.lines:
+            def at(q, v=v):
+                return f"{_f(q[0] + v.dx - x0)},{_f(y1 - (q[1] + v.dy))}"
+
+            out.append(f'<g id="{v.name.lower()}-dims" class="dims">')
+            out.append(f'<path d="{" ".join("M" + at(a) + " L" + at(b) for a, b in d.lines)}" fill="none" '
+                       f'stroke="#1a4fa0" stroke-width="{_f(stroke * 0.5)}"/>')
+            for tip, tri in _arrow_shapes(d):
+                out.append(f'<path d="M{at(tip)} L{at(tri[0])} L{at(tri[1])} Z" fill="#1a4fa0"/>')
+            for (cx, cy), ang, text in d.texts:
+                rot = f' transform="rotate({_f(-ang)} {at((cx, cy)).replace(",", " ")})"' if ang else ""
+                out.append(f'<text x="{at((cx, cy)).split(",")[0]}" y="{at((cx, cy)).split(",")[1]}"{rot} '
+                           f'font-family="sans-serif" font-size="{_f(d.height)}" fill="#1a4fa0" '
+                           f'text-anchor="middle" dominant-baseline="middle">{escape(text)}</text>')
+            out.append("</g>")
     out.append("</svg>")
     return "\n".join(out) + "\n"
 
@@ -250,8 +438,12 @@ def dxf(views: list[View], sheet, units: str = "mm") -> str:
     g(0, "LTYPE"); g(2, "HIDDEN"); g(70, 0); g(3, "Hidden __ __ __"); g(72, 65); g(73, 2)
     g(40, _f(dash * 1.5)); g(49, _f(dash)); g(49, _f(-dash * 0.5))
     g(0, "ENDTAB")
-    g(0, "TABLE"); g(2, "LAYER"); g(70, 3)
-    for name, colour, lt in (("VISIBLE", 7, "CONTINUOUS"), ("HIDDEN", 8, "HIDDEN"), ("TEXT", 7, "CONTINUOUS")):
+    has_dims = any(v.dims.lines for v in views)
+    layers = [("VISIBLE", 7, "CONTINUOUS"), ("HIDDEN", 8, "HIDDEN"), ("TEXT", 7, "CONTINUOUS")]
+    if has_dims:
+        layers.append(("DIMS", 5, "CONTINUOUS"))
+    g(0, "TABLE"); g(2, "LAYER"); g(70, len(layers))
+    for name, colour, lt in layers:
         g(0, "LAYER"); g(2, name); g(70, 0); g(62, colour); g(6, lt)
     g(0, "ENDTAB")
     g(0, "ENDSEC")
@@ -270,9 +462,27 @@ def dxf(views: list[View], sheet, units: str = "mm") -> str:
                     g(0, "SEQEND"); g(8, name)
         bx0, by0, bx1, _ = v.bounds()
         hgt = max(x1 - x0, y1 - y0) / 60
-        g(0, "TEXT"); g(8, "TEXT"); g(10, _f((bx0 + bx1) / 2 + v.dx)); g(20, _f(by0 + v.dy - 2 * hgt)); g(30, 0)
-        g(40, _f(hgt)); g(1, v.name); g(72, 1); g(11, _f((bx0 + bx1) / 2 + v.dx)); g(21, _f(by0 + v.dy - 2 * hgt))
+        ly = by0 + v.dy - 2 * hgt
+        e = v.dims.extent()
+        if e is not None and e[1] + v.dy < by0 + v.dy:
+            ly = e[1] + v.dy - 1.5 * hgt
+        g(0, "TEXT"); g(8, "TEXT"); g(10, _f((bx0 + bx1) / 2 + v.dx)); g(20, _f(ly)); g(30, 0)
+        g(40, _f(hgt)); g(1, v.name); g(72, 1); g(11, _f((bx0 + bx1) / 2 + v.dx)); g(21, _f(ly))
         g(31, 0)
+        d = v.dims
+        for (a, b), (c, e2) in d.lines:
+            g(0, "LINE"); g(8, "DIMS"); g(10, _f(a + v.dx)); g(20, _f(b + v.dy)); g(30, 0)
+            g(11, _f(c + v.dx)); g(21, _f(e2 + v.dy)); g(31, 0)
+        for (tx, ty), ((ax, ay), (bx, by)) in _arrow_shapes(d):
+            g(0, "SOLID"); g(8, "DIMS")
+            for code, (qx, qy) in ((10, (tx, ty)), (11, (ax, ay)), (12, (bx, by)), (13, (bx, by))):
+                g(code, _f(qx + v.dx)); g(code + 10, _f(qy + v.dy)); g(code + 20, 0)
+        for (cx, cy), ang, text in d.texts:
+            g(0, "TEXT"); g(8, "DIMS"); g(10, _f(cx + v.dx)); g(20, _f(cy + v.dy)); g(30, 0)
+            g(40, _f(d.height)); g(1, text.replace("\u00d8", "%%c"))
+            if ang:
+                g(50, _f(ang))
+            g(72, 1); g(73, 2); g(11, _f(cx + v.dx)); g(21, _f(cy + v.dy)); g(31, 0)
     g(0, "ENDSEC")
     g(0, "EOF")
     return "\n".join(L) + "\n"
