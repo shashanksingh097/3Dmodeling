@@ -1,9 +1,8 @@
 <!--
   Windows installer (.msi) for the PyInstaller build in dist\3Dmodeling.
-  Built by .github/workflows/release.yml with the WiX Toolset 5 (a dotnet tool):
-
-    dotnet tool install --global wix --version 5.0.2
-    wix build packaging\3Dmodeling.wxs -arch x64 -d Version=0.3.0 -d SourceDir=dist\3Dmodeling -o 3Dmodeling.msi
+  Built by .github/workflows/release.yml with the WiX Toolset 5.0.2, installed as a
+  global dotnet tool; the exact commands are in that workflow's "Installer" step.
+  (No double hyphens in this comment: XML does not allow them here.)
 
   Installs for all users into Program Files\3Dmodeling, adds a Start menu entry,
   and shows up in Settings > Apps for removing. A newer version replaces an
