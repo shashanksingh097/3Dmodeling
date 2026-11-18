@@ -168,7 +168,8 @@ class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
     kind: str  # "body_added", "body_removed", "cleared", "selection", "restored", "visibility", "datums",
-    #            "style" (one body's layer/colour/material), "layers" (any layer or material changed)
+    #            "style" (one body's layer/colour/material), "layers" (any layer or material changed),
+    #            "mask" (a mesh body's sculpt mask changed; the shape did not)
     body_id: int | None = None
 
 

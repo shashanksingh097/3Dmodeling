@@ -49,6 +49,27 @@ class Topology:
     indptr: np.ndarray  # neighbours of point i: indices[indptr[i]:indptr[i+1]]
     indices: np.ndarray
     degree: np.ndarray
+    _tptr: np.ndarray | None = None  # triangles at point i: _tidx[_tptr[i]:_tptr[i+1]] (made when first asked)
+    _tidx: np.ndarray | None = None
+
+    def triangles_of(self, points: np.ndarray) -> np.ndarray:
+        """The indices of the triangles that use any of these points."""
+        if self._tptr is None:
+            flat = self.tris.reshape(-1)
+            order = np.argsort(flat, kind="stable")
+            self._tidx = order // 3
+            self._tptr = np.zeros(len(self.degree) + 1, dtype=np.int64)
+            np.cumsum(np.bincount(flat, minlength=len(self.degree)), out=self._tptr[1:])
+        p = np.asarray(points, dtype=np.int64)
+        starts = self._tptr[p]
+        counts = self._tptr[p + 1] - starts
+        total = int(counts.sum())
+        if total == 0:
+            return np.zeros(0, dtype=np.int64)
+        offs = np.repeat(starts - (np.cumsum(counts) - counts), counts) + np.arange(total)
+        hit = np.zeros(len(self.tris), dtype=bool)
+        hit[self._tidx[offs]] = True
+        return np.flatnonzero(hit)
 
     @staticmethod
     def of(tris: np.ndarray, n: int) -> "Topology":
@@ -123,6 +144,7 @@ class Report:
     moved: int  # points that moved at least once
     largest: float  # the largest move of one point
     seconds: float
+    points: np.ndarray | None = None  # the indices of the points that moved
 
 
 def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strength: float,
@@ -142,14 +164,14 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
         raise SculptError("the stroke has no points")
     if any(c not in "XYZ" for c in sym.upper()):
         raise SculptError(f"symmetry is a mix of X, Y and Z, not {sym!r}")
-    out = np.array(pts, dtype=float, copy=True)
+    start = np.asarray(pts, dtype=float)  # not changed: the brush writes into a copy
+    out = start.copy()
     t = np.asarray(tris, dtype=np.int64)
     if mask is not None and len(mask) != len(out):
         mask = None
     free = None if mask is None else np.clip(1.0 - mask, 0.0, 1.0)
     topo = topo or (Topology.of(t, len(out)) if brush == "SMOOTH" else None)
     signs = _mirrors(sym)
-    start = out.copy()
     touched = np.zeros(len(out), dtype=bool)
     dabs = 0
 
@@ -177,9 +199,12 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
             box = np.flatnonzero(np.all((out >= slo) & (out <= shi), axis=1))
             if not len(box):
                 continue
-            inbox = np.zeros(len(out), dtype=bool)
-            inbox[box] = True
-            tb = t[inbox[t].any(axis=1)]  # the triangles the brush can reach
+            if topo is not None and len(box) * 8 < len(out):
+                tb = t[topo.triangles_of(box)]  # the triangles the brush can reach
+            else:
+                inbox = np.zeros(len(out), dtype=bool)
+                inbox[box] = True
+                tb = t[inbox[t].any(axis=1)]
             for c in centres * s:
                 d = np.linalg.norm(out[box] - c, axis=1)
                 inside = d < radius
@@ -192,9 +217,11 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
                 _dab(out, tb, topo, brush, near, w, c, radius, strength)
                 touched[near] = True
                 dabs += 1
-    moved = np.linalg.norm(out - start, axis=1)
-    return out, Report(dabs, int(np.count_nonzero(moved > 0)), float(moved.max() if len(moved) else 0.0),
-                       time.perf_counter() - t0)
+    idx = np.flatnonzero(touched)
+    moved = np.linalg.norm(out[idx] - start[idx], axis=1)
+    idx = idx[moved > 0]
+    return out, Report(dabs, len(idx), float(moved.max() if len(moved) else 0.0),
+                       time.perf_counter() - t0, idx)
 
 
 def _near(pts: np.ndarray, c: np.ndarray, r: float) -> np.ndarray:

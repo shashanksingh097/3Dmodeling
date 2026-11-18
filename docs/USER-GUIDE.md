@@ -269,7 +269,9 @@ triangles), choose a brush (Draw, Clay, Inflate, Smooth, Flatten, Pinch,
 Crease, Grab) and drag over the body. Hold Ctrl to work the other way (dig
 in), Shift to smooth; `[` and `]` change the brush size, **Mirror X**
 works on both sides at once, and the **Mask** brush freezes areas the
-other brushes should leave alone. Each stroke is one `SCULPT` step in
+other brushes should leave alone (frozen areas show purple). A circle
+shows the brush's size under the mouse, and the surface moves as you
+drag; Esc during a drag cancels it. Each stroke is one `SCULPT` step in
 History, so Undo takes it back. Details: [LANGUAGE.md](LANGUAGE.md)
 section 28; an example is `scripts/sculpt_head.cmd`.
 

@@ -199,3 +199,21 @@ def test_example_script_runs():
     p = Processor()
     results = p.run_script(open("scripts/sculpt_head.cmd").read())
     assert all(r.ok for r in results), [r.message for r in results if not r.ok]
+
+
+def test_report_names_moved_points_and_triangles_of_finds_their_triangles():
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 1.5"):
+        assert p.run(c).ok
+    pts, t = mb.arrays(p.model.bodies[1].shape)
+    topo = sc.Topology.of(t, len(pts))
+    new, rep = sc.stroke(pts, t, "DRAW", 3, 0.5, [(0, -20, 0), (4, -20, 0)], topo=topo)
+    assert rep.moved == len(rep.points)
+    assert set(rep.points.tolist()) == set(np.flatnonzero(np.any(new != pts, axis=1)).tolist())
+    got = topo.triangles_of(rep.points)
+    want = np.flatnonzero(np.isin(t, rep.points).any(axis=1))
+    assert (got == want).all()
+    assert len(topo.triangles_of(np.zeros(0, dtype=int))) == 0
+    # the result is the same whichever way the brush finds its triangles
+    alone, _ = sc.stroke(pts, t, "DRAW", 3, 0.5, [(0, -20, 0), (4, -20, 0)])
+    assert np.abs(alone - new).max() < 1e-12

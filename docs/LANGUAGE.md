@@ -2377,4 +2377,9 @@ the picked body into a mesh body with fine, even triangles (`TOMESH`, then
 `REMESH` at a 150th of its size). **Mirror X/Y/Z**, **Clear mask** and
 **Invert mask** are on the same tab.
 
+While sculpting, a blue circle of the brush's size sits on the surface
+under the mouse, the surface moves as you drag (the command that runs on
+release gives the final result, so Esc during a drag leaves the body as it
+was), and frozen areas are drawn purple.
+
 See `scripts/sculpt_head.cmd`.
