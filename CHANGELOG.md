@@ -6,6 +6,12 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Ready to print and mill**: `PRINTCHECK` shows what sits on the bed and
+  what overhangs and needs support (red), and reports thin walls and closed
+  hollows. `BEST` picks the build direction needing least support. `MILL`
+  makes 2.5D milling paths (pockets around islands, outlines, facing),
+  shows them in the view and writes G-code. Both are on the Inspect tab's
+  new Make group.
 - **A first strength check**: `STRESS` holds some faces, pushes on others
   (a force or a pressure) and colours the solid by stress, with the largest
   stress, deflection and safety factor from its material. A quick linear

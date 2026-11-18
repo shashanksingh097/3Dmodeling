@@ -38,3 +38,5 @@ scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with 
 exploded_view.cmd | Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone | ISO | XSHOW, apart
 welded_frame.cmd | Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts | 1,-0.6,0.45
 bracket_strength.cmd | A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS) | 1,-1,0.8
+print_check.cmd | Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK) | 1,-1,-0.5
+milled_plate.cmd | 2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL) | ISO

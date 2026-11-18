@@ -16,30 +16,30 @@ def _faces(p: Processor, text: str, bid: int, what: str, role: str) -> list:
 
     words = [w for w in re.split(r"[\s;]+", text.strip().strip('"')) if w]
     if not words:
-        raise CommandError(f"STRESS: give the {role} faces by number (like \"3 7\"), or SEL for the selected ones")
+        raise CommandError(f"{what}: give the {role} faces by number (like \"3 7\"), or SEL for the selected ones")
     ids: list[int] = []
     for w in words:
         if w.upper() == "SEL":
             m = p.model
             if m.selection_kind != "FACE" or not m.selection:
-                raise CommandError("STRESS: SEL stands for the selected faces, and no faces are selected")
+                raise CommandError(f"{what}: SEL stands for the selected faces, and no faces are selected")
             ids += list(m.selection)
             continue
         if w.upper() in p.model.named_sets:  # a set saved with CM
             kind, got = p.model.named_sets[w.upper()]
             if kind != "FACE":
-                raise CommandError(f"STRESS: set {w} holds {kind.lower()}s, not faces")
+                raise CommandError(f"{what}: set {w} holds {kind.lower()}s, not faces")
             ids += list(got)
             continue
         try:
             ids.append(int(w))
         except ValueError:
-            raise CommandError(f"STRESS: {w!r} is not a face number or a set of faces (CM)") from None
+            raise CommandError(f"{what}: {w!r} is not a face number or a set of faces (CM)") from None
     out = []
     for gid in ids:
         owner, f = _face(p, gid, what)
         if owner != bid:
-            raise CommandError(f"STRESS: face {gid} is on body {owner}, not on body {bid}")
+            raise CommandError(f"{what}: face {gid} is on body {owner}, not on body {bid}")
         out.append((gid, f))
     return out
 
