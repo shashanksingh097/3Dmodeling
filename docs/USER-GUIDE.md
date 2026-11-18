@@ -465,6 +465,7 @@ be broken is refused with a reason, and the model stays as it was.
 | **File > Open…** (Ctrl+O), **Open recent** | `OPEN, file.m3d` | the history is replayed, so every step is still editable |
 | **File > Import…** (Ctrl+I) | `IMPORT, format, file` | STEP, IGES and BREP: each solid becomes a body. STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (`MESH`): each piece becomes a faceted body, a solid when closed |
 | **File > Export…** (Ctrl+E) | `EXPORT, format, file [, body]` | STEP or IGES for other CAD programs, STL or 3MF for 3D printing, OBJ or glTF for viewers and game engines, BREP for Open CASCADE |
+| **File > Render picture…** | `RENDER, file [, width, height, view, frames]` | a nicer picture of the view: ray traced, with shadows on a floor, reflections and a look from each body's material, at any size, or a turntable (LANGUAGE.md section 40) |
 | **File > Export drawing…** (Ctrl+Shift+E) | `DRAWING, file [, views] [, body] [, sizes]` | a 2D drawing as a PDF sheet (A4 to A0 with a frame and a title block from `PROPERTY` values, at a usual scale), DXF (for CAD programs and laser or CNC cutting) or SVG (for documents and the web): front, top, right and iso views, hidden edges dashed, with the overall sizes and the hole diameters (`sizes` NONE leaves them off), and hatched sections and enlarged details when asked (LANGUAGE.md, DRAWING) |
 | **File > Save log…** | | the history as a plain `.cmd` script |
 | **File > Run script…** | `RUN, file.cmd` | runs a script; its lines join the history |

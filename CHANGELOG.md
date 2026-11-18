@@ -6,6 +6,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Pictures**: `RENDER` saves a ray-traced picture at any size, with
+  shadows on a floor, reflections and a look from each body's material. It
+  can also make a turntable (numbered pictures, plus a GIF when Pillow is
+  installed). This is also **File > Render picture…**.
 - **Drawing sheets**: `DRAWING` writes PDF too. It puts the views on A4 to
   A0 paper at a usual scale, with a frame and a title block filled from the
   new `PROPERTY` command. It also adds hatched section views (`"X 20"`) and

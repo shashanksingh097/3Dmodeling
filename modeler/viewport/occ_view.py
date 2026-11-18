@@ -872,6 +872,13 @@ class OccViewport(QWidget):
             self._mark_ais.append(ais)
         ctx.UpdateCurrentViewer()
 
+    def render_nice(self, path: str, width: int, height: int, view: str = "", frames: int = 0,
+                    floor: bool = True, shadows: bool = True) -> list[str]:
+        """A ray-traced picture (RENDER); see viewport/nice_render.py."""
+        from . import nice_render
+
+        return nice_render.render(self, path, width, height, view, frames, floor, shadows)
+
     def show_toolpath(self, shape) -> None:
         """Draw a milling path (MILL) as thin cyan lines over the model; None hides it."""
         if not self._initialized:

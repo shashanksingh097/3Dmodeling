@@ -927,7 +927,8 @@ three to a pull request:
 28. **Drawing sheets** (done: PDF and SVG sheets, `section`, `detail`, `PROPERTY`): several views on one sheet (front, top, side, iso,
     a section along a line, a detail circle), a title block from the
     project's properties, and PDF output beside SVG and DXF.
-29. **Pictures**: a nicer render (`RENDER`: soft shadows, ambient
+29. **Pictures** (done: `RENDER` ray traced with shadows, reflections, material looks, any size,
+    turntables; soft shadows and ambient occlusion would need path tracing, which is too noisy here): a nicer render (`RENDER`: soft shadows, ambient
     occlusion, an environment light, material looks from `MATERIAL`) to a
     PNG at any size, and turntable pictures.
 30. **Gravity and connection check on a whole assembly** (done: `GRAVITY`;

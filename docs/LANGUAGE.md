@@ -282,6 +282,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
+| Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
@@ -2928,3 +2929,34 @@ Masses come from each body's `MATERIAL` (water's density for a body with
 none). Parts with problems are marked in the view.
 
 An example is `scripts/gravity_check.cmd`.
+
+## 40. Pictures
+
+```
+RENDER, part.png                         ! as the view shows it, 1600 x 1000
+RENDER, poster.png, 3840, 2160, ISO      ! any size, from a named view
+RENDER, side.png, 1200, 800, "1,-1,0.6"  ! from a direction
+RENDER, spin.png, 800, 600, ISO, 36      ! a turntable: spin_000.png ... spin_035.png (and spin.gif)
+RENDER, part.png, 1600, 1000, , 0, OFF   ! no floor
+```
+
+`RENDER` draws a nicer picture than the working view, using the 3D view's
+ray tracing:
+
+- **Light:** sharp shadows from a sun high over the left shoulder, a soft
+  fill light and some ambient light.
+- **Floor:** a floor just under the model catches the shadows (`OFF`
+  leaves it out).
+- **Looks:** reflections, smoothed edges, and no edge lines. Each body's
+  look comes from its `MATERIAL`: steel, stainless, aluminium, brass and
+  copper shine, glass is clear, and plastics, rubber and wood are matte.
+  The body keeps its own colour.
+
+Without `view`, the picture uses the view's own camera. A turntable turns
+the camera round the model's upright axis in `frames` steps and saves one
+picture per step. When Pillow is installed it also saves an animated GIF.
+The working view, its lights and its looks are put back afterwards.
+**File > Render picture…** saves one picture of the view.
+
+`RENDER` needs the app's 3D view: in a plain script run without the app it
+says so.
