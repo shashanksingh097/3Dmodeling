@@ -655,6 +655,10 @@ class MainWindow(QMainWindow):
                                   "creased (press again to end it; the form has curvature and draft maps)\n"
                                   "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
 
+        from . import sculpt_tool
+
+        sculpt_tool.build(self)
+
         tb = tbs.group(self, "Measure", "measure", "Inspect")
         act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
             lambda: fa.two_selected(p, "DIST"))
@@ -909,7 +913,7 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Save command log", "session.cmd", "Command scripts (*.cmd)")
         if path:
             with open(path, "w", encoding="utf-8") as f:
-                f.write(self.processor.script())
+                f.write(self.processor.script(standalone=True))
             self.statusBar().showMessage(f"Saved {self.processor.cursor} history entries to {path}", 5000)
 
     def _open_project(self) -> None:

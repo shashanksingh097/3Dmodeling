@@ -263,6 +263,8 @@ class Model:
         self.instances: dict[int, tuple] = {}
         # implicit fields by upper-case name (IMPLICIT, geometry/implicit.py FieldDef)
         self.fields: dict = {}
+        # body ID -> sculpt mask (numpy, 0..1 per mesh point; 1 = frozen). Arrays are replaced, never changed
+        self.masks: dict = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -324,6 +326,7 @@ class Model:
             "active_sketch": self.active_sketch,
             "instances": dict(self.instances),
             "fields": dict(self.fields),
+            "masks": dict(self.masks),
         }
 
     def restore(self, snap: dict) -> None:
@@ -348,6 +351,7 @@ class Model:
         self.active_sketch = snap.get("active_sketch")
         self.instances = dict(snap.get("instances", {}))
         self.fields = dict(snap.get("fields", {}))
+        self.masks = dict(snap.get("masks", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 

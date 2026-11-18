@@ -213,7 +213,7 @@ def test_toolbar_groups_have_icons_and_names_and_one_style_setting(app, win):
     assert all(tb.toolButtonStyle() == _Qt.ToolButtonTextUnderIcon for tb in tbs.groups(win))
     # every group is on a ribbon tab: one row of tabs, not rows of toolbars
     rb = win.ribbon
-    assert rb.visible_titles() == ["Home", "Model", "Features", "Freeform", "Inspect"]
+    assert rb.visible_titles() == ["Home", "Model", "Features", "Freeform", "Sculpt", "Inspect"]
     assert all(tb.property("tab") for tb in tbs.groups(win))
     for area in (_Qt.LeftToolBarArea, _Qt.RightToolBarArea, _Qt.BottomToolBarArea):
         assert not [t for t in win.findChildren(QToolBar) if t.isVisible() and win.toolBarArea(t) == area]

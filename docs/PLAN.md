@@ -653,7 +653,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; planegcs as a faster back end if big sketches get slow (trim, extend, offset, fillet, mirror, pattern and projection are in) |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
 | 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Mostly done | Export to STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of those plus PLY, OFF, VTK and simulation meshes; each closed mesh piece becomes a faceted solid that takes booleans (a 5,000-triangle sphere imports in 0.4 s; up to 100,000 triangles); mesh bodies for bigger meshes, with `manifold3d` booleans, `SMOOTH`, `REMESH`, `SIMPLIFY` and `TOMESH`/`TOSOLID` (a 1,000,000-triangle STL imports in 5 s and is subtracted from another in 5 s; 245,000 triangles in about 1 s) | Faster handing of triangles to OCCT for million-triangle meshes (now a Python loop); fitting smooth surfaces to meshes (later) |
-| 7 | Sculpting performance in Python | Not started | | numpy/numba brush kernels; a dedicated renderer if needed (measured in M7) |
+| 7 | Sculpting performance in Python | Reduced | numpy brushes that touch only the points near the stroke; the shape is rebuilt from the moved points only: one stroke on 820,000 triangles takes 0.45 s, on 50,000 a few hundredths (docs/M7-sculpt.md) | A live preview while dragging (a mesh whose points are updated in place); dynamic topology |
 | 8 | Scope is huge | Managed | Each milestone is usable alone | Features after M2 are ordered by the user |
 
 ---
@@ -824,7 +824,13 @@ Still open in the milestones already started, in the suggested order:
      was read.
    - **New chat**: a button that ends the current conversation and starts a
      fresh one (with the full first prompt again), keeping the sign-in.
-11. M7 sculpt mode.
+11. M7 sculpt mode. Part 1 done (docs/M7-sculpt.md): `SCULPT` with eight
+    brushes (DRAW, CLAY, INFLATE, SMOOTH, FLATTEN, PINCH, CREASE, GRAB),
+    symmetry, `MASK`, strokes saved with the project (`STROKE`), the Sculpt
+    tab (drag over a mesh body, Ctrl the other way, Shift smooth), and
+    quick updates on big meshes (a stroke on 820,000 triangles in 0.45 s).
+    Part 2 next: a live preview while dragging, the mask shown in the view,
+    a brush circle, dynamic topology.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

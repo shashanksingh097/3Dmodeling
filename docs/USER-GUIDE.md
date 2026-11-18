@@ -263,6 +263,16 @@ which joins are smooth (G2), tangent (G1) or creased. Details:
 [M5-nurbs.md](M5-nurbs.md); a worked example is the computer mouse,
 `scripts/mouse.cmd`.
 
+**Sculpting.** The **Sculpt** tab shapes a mesh body like clay. Pick a
+body and press **Make sculptable** (it becomes a mesh body with fine, even
+triangles), choose a brush (Draw, Clay, Inflate, Smooth, Flatten, Pinch,
+Crease, Grab) and drag over the body. Hold Ctrl to work the other way (dig
+in), Shift to smooth; `[` and `]` change the brush size, **Mirror X**
+works on both sides at once, and the **Mask** brush freezes areas the
+other brushes should leave alone. Each stroke is one `SCULPT` step in
+History, so Undo takes it back. Details: [LANGUAGE.md](LANGUAGE.md)
+section 28; an example is `scripts/sculpt_head.cmd`.
+
 ---
 
 ## 8. Parts you can reuse

@@ -99,6 +99,11 @@
   "faces": 10,
   "volume": 5434.513
  },
+ "sculpt_head.cmd": {
+  "bodies": 1,
+  "faces": 1,
+  "volume": 33651.449
+ },
  "sketch_bracket.cmd": {
   "bodies": 2,
   "faces": 24,
