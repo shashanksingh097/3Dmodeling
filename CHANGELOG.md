@@ -16,6 +16,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   `STROKE` and saved with the project, so sculpting undoes, saves and
   replays like any other step. Example: `scripts/sculpt_head.cmd`.
 - A stroke on a mesh of 820,000 triangles takes about half a second.
+- The surface moves while you drag, a circle shows the brush's size on the
+  surface under the mouse, and frozen areas are drawn purple.
 
 ### The assistant: Debug tab, every command up front, files with permission
 

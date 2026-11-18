@@ -1317,10 +1317,10 @@ class OccViewport(QWidget):
                 for f in faces:
                     bb.Add(comp, f)
                 ais = AIS_Shape(comp)
-                ais.SetColor(_rgb(0.25, 0.22, 0.35))
+                ais.SetColor(_rgb(0.42, 0.2, 0.62))
                 ctx.Display(ais, 1, -1, False)
                 ctx.Deactivate(ais)
-                ctx.SetTransparency(ais, 0.35, False)
+                ctx.SetTransparency(ais, 0.15, False)
                 self._mask_ais = ais
         ctx.UpdateCurrentViewer()
 
@@ -1333,11 +1333,14 @@ class OccViewport(QWidget):
             if b in m.bodies and mb.is_mesh(m.bodies[b].shape):
                 return b
         step = max(1, len(px) // 12)
+        found = None
         for x, y in px[::step]:
             b = self.body_at(int(x), int(y))
             if b is not None and b in m.bodies and mb.is_mesh(m.bodies[b].shape):
-                return b
-        return None
+                found = b
+                break
+        self.context.ClearDetected(False)  # finding it must not light the body up
+        return found
 
     def _sculpt_done(self) -> None:
         """The stroke is finished: where its pixels meet the mesh, for the Sculpt tool."""
@@ -1591,6 +1594,7 @@ class OccViewport(QWidget):
             return
         if self.sculpt_on and self._press is None and not self._sketching():
             self._brush_hover(x, y)
+            return  # no hover highlight while sculpting: the brush circle shows where it acts
         if self._drag == "point":
             if moved:
                 self._cp.move(self._ray(x, y))
