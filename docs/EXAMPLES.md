@@ -59,6 +59,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/bracket_strength.png" width="160">](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) | [A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) |
 | [<img src="examples/print_check.png" width="160">](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) | [Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) |
 | [<img src="examples/milled_plate.png" width="160">](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) | [2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) |
+| [<img src="examples/gravity_check.png" width="160">](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) | [Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) |
 
 ---
 
@@ -2518,6 +2519,56 @@ SEL, S, FACE, LOC, Z, 6
 CM, floor, FACE
 SEL, NONE
 MILL, plate, POCKET, floor, 6, 4
+```
+
+</details>
+
+---
+
+## Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)
+
+![Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](examples/gravity_check.png)
+
+Will it stand up? (GRAVITY): a small table on four legs with things on it. The vase stands well, the book hangs too far over the edge and tips off, the lamp shade was drawn 0.4 above its stand (a gap: it floats), and the side shelf touches only the table's side, so it needs fasteners unless it is listed as fastened. Problem parts are marked in the view.
+
+**Script:** [scripts/gravity_check.cmd](../scripts/gravity_check.cmd) (31 lines) · **Run:** `python -m modeler scripts/gravity_check.cmd`
+
+**You should get:** 10 bodies, volume 43,705.5 mm³, 51 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Will it stand up? (GRAVITY): a small table on four legs with things on it. The vase stands
+! well, the book hangs too far over the edge and tips off, the lamp shade was drawn 0.4 above
+! its stand (a gap: it floats), and the side shelf touches only the table's side, so it needs
+! fasteners unless it is listed as fastened. Problem parts are marked in the view.
+BLOCK, 0, 0, 0, 6, 6, 70
+NAME, LAST, leg1
+BLOCK, 94, 0, 0, 6, 6, 70
+NAME, LAST, leg2
+BLOCK, 0, 54, 0, 6, 6, 70
+NAME, LAST, leg3
+BLOCK, 94, 54, 0, 6, 6, 70
+NAME, LAST, leg4
+BLOCK, 0, 0, 70, 100, 60, 4
+NAME, LAST, top
+MATERIAL, leg1, WOOD
+MATERIAL, leg2, WOOD
+MATERIAL, leg3, WOOD
+MATERIAL, leg4, WOOD
+MATERIAL, top, WOOD
+CYL, 25, 30, 74, 6, 20
+NAME, LAST, vase
+MATERIAL, vase, GLASS
+BLOCK, 88, 20, 74, 30, 20, 4
+NAME, LAST, book
+CYL, 60, 40, 74, 4, 25
+NAME, LAST, stand
+CONE, 60, 40, 99.4, 10, 4, 8
+NAME, LAST, shade
+BLOCK, 100, 10, 68, 15, 40, 4
+NAME, LAST, shelf
+GRAVITY
 ```
 
 </details>

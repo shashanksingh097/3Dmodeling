@@ -930,8 +930,8 @@ three to a pull request:
 29. **Pictures**: a nicer render (`RENDER`: soft shadows, ambient
     occlusion, an environment light, material looks from `MATERIAL`) to a
     PNG at any size, and turntable pictures.
-30. **Gravity and connection check on a whole assembly** (asked for by the
-    user, built right after item 27): with a down direction, parts not
+30. **Gravity and connection check on a whole assembly** (done: `GRAVITY`;
+    asked for by the user, built right after item 27): with a down direction, parts not
     connected to the ground part through touching faces or mates (they
     would fall), parts only resting or touching at an edge or point with
     nothing holding them, small gaps where parts should touch, overlaps,

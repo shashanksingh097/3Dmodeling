@@ -6,6 +6,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Will it stand up?** `GRAVITY` checks a whole assembly: parts that
+  float (not connected to the ground), tip off what they rest on, or hang
+  only at their sides; small gaps and overlaps; and how far the whole can
+  lean on the floor before it tips. Problem parts are marked in the view.
 - **Ready to print and mill**: `PRINTCHECK` shows what sits on the bed and
   what overhangs and needs support (red), and reports thin walls and closed
   hollows. `BEST` picks the build direction needing least support. `MILL`

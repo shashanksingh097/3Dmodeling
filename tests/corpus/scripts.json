@@ -59,6 +59,11 @@
   "faces": 15,
   "volume": 66877.738
  },
+ "gravity_check.cmd": {
+  "bodies": 10,
+  "faces": 51,
+  "volume": 43705.486
+ },
  "guides_analysis.cmd": {
   "bodies": 11,
   "faces": 10,

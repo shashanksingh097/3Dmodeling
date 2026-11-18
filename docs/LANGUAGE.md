@@ -286,6 +286,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
+| Gravity | `GRAVITY [, ground, fastened, dx, dy, dz, gap]` · `GRAVITY, OFF` (does the assembly stand up, section 39) |
 | Making | `PRINTCHECK, b [, up/BEST, angle, wall]` · `MILL, b, FACE/POCKET/OUTLINE, faces [, tool, down, over, file.nc, feed, speed]` · `MILL, OFF` (3D printing checks and milling paths, section 38) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
@@ -2853,3 +2854,38 @@ cutting. The tool lifts to 2 mm above the part (or a tool radius) between
 passes.
 
 Examples are `scripts/print_check.cmd` and `scripts/milled_plate.cmd`.
+
+## 39. Will it stand up? (gravity and connections)
+
+`GRAVITY` checks every shown solid of an assembly under gravity. It looks at
+how the parts touch and where their centres of mass are, so it is quick,
+but it does not work out forces or bending (that is `STRESS`, part by part).
+
+```
+GRAVITY                            ! on a floor under the lowest part, gravity along -Z
+GRAVITY, base                      ! base stays put instead of a floor
+GRAVITY, FLOOR, "bolt_1 shelf"     ! these are bolted, glued or welded to what they touch
+GRAVITY, FLOOR, , 0, -1, 0         ! gravity along -Y
+GRAVITY, OFF                       ! clears the marks
+```
+
+For each part it says one of these:
+
+| | |
+|---|---|
+| rests on ... | it sits on the parts named (or the floor). Its centre of mass, seen from above, is inside the outline of the places they hold it from below, by the margin given |
+| TIPS off ... | its centre of mass is outside that outline (or it is balanced on an edge or a point), so it falls off |
+| FLOATS | no chain of touching parts links it to the ground: it would fall |
+| held only at its sides | it touches others, but nothing is under it: it needs a fastener, or list it as fastened |
+| held | it is listed as fastened, or it cuts into a neighbour (a press fit) |
+
+It also lists **gaps**: parts closer than `gap` (0.5% of the assembly's size
+unless given) that do not touch, which were probably meant to. It lists
+**overlaps**: parts that cut into each other. With the floor, it gives **the
+whole on the floor**: whether the centre of mass of all the parts is inside
+the footprint, and how far the assembly can lean before it tips.
+
+Masses come from each body's `MATERIAL` (water's density for a body with
+none). Parts with problems are marked in the view.
+
+An example is `scripts/gravity_check.cmd`.

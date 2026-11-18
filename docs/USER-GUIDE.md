@@ -329,6 +329,13 @@ from the part's material. It is a quick check while you design, not a full
 analysis. Details: LANGUAGE.md section 37; an example is
 `scripts/bracket_strength.cmd`.
 
+**Will it stand up?** **Gravity** on the Inspect tab checks the whole
+assembly: parts that float, tip off what they rest on, or are held only at
+their sides, small gaps where parts should touch, overlaps, and how far it
+can lean before it tips over. Problem parts are marked. List the bolted or
+glued parts so they count as held. Details: LANGUAGE.md section 39; an
+example is `scripts/gravity_check.cmd`.
+
 **3D printing and milling.** **Print check** on the Inspect tab colours the
 part: blue sits on the bed, red overhangs and needs support. It also lists
 thin walls and closed hollows, and can pick the build direction that needs

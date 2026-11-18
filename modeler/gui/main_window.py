@@ -779,6 +779,11 @@ class MainWindow(QMainWindow):
                                                    "the stress as colours with the largest stress, deflection and "
                                                    "safety factor\nRuns: STRESS, body, fixed faces, loaded faces, "
                                                    "FORCE, fx, fy, fz", lambda: self.open_form("STRESS"))
+        tbs.action(self, tb, "Gravity…", "gravity", "Will the assembly stand up? Floating parts, parts that tip off "
+                                                  "what they rest on or hang only at their sides, small gaps, "
+                                                  "overlaps, and the whole on the floor\n"
+                                                  "Runs: GRAVITY [, ground, fastened parts]",
+                   lambda: self.open_form("GRAVITY"))
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
