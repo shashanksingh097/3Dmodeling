@@ -37,6 +37,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any
 
+from .providers import ProviderSetting
 from .tools import LANGUAGE_BASICS, Toolbox, command_catalogue
 
 SDK_HINT = 'The assistant needs the GitHub Copilot SDK and Python 3.11 or newer: pip install -e ".[ai]" in a checkout, or pip install "modeler3d[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"'
@@ -207,13 +208,18 @@ class CopilotAssistant:
 
     def __init__(self, processor, *, run_on_model: Callable[[Callable[[], Any]], Any] | None = None,
                  on_event: EventFn | None = None, model: str | None = None,
-                 home: str | None = None, github_token: str | None = None) -> None:
+                 home: str | None = None, github_token: str | None = None,
+                 provider: ProviderSetting | None = None) -> None:
         self.toolbox = Toolbox(processor)
         self.run_on_model = run_on_model or (lambda fn: fn())
         self.on_event = on_event or (lambda kind, data: None)
         self.model = model
         self.home = home
         self.github_token = github_token
+        # "your own key": another model service through the same runtime (None: GitHub Copilot)
+        self.provider = provider if provider is not None and not provider.is_copilot else None
+        if provider is not None and provider.is_copilot and provider.model and not model:
+            self.model = provider.model
         self.client = None
         self.session = None
         self._reply: Reply | None = None
@@ -281,7 +287,11 @@ class CopilotAssistant:
 
     # ---- account ---------------------------------------------------------------------
     async def status(self) -> dict[str, Any]:
-        """{"signed_in": bool, "login": str, "message": str}."""
+        """{"signed_in": bool, "login": str, "message": str}; with your own key, "signed in"
+        means ready (no GitHub account is needed) and ``own_key`` is True."""
+        if self.provider is not None:
+            problem = self.provider.problem()
+            return {"signed_in": not problem, "login": self.provider.label(), "message": problem, "own_key": True}
         await self.start()
         st = await self.client.get_auth_status()
         return {"signed_in": bool(st.isAuthenticated), "login": st.login or "",
@@ -296,6 +306,8 @@ class CopilotAssistant:
         file in the user's app-data folder (the SDK's clean mode has no keychain)."""
         from copilot.generated import rpc as R
 
+        if self.provider is not None:
+            raise AssistantError("the assistant uses your own key, not GitHub: choose GitHub Copilot first")
         session = await self._session()
         login = session.rpc.accounts.login
         try:
@@ -349,6 +361,8 @@ class CopilotAssistant:
         """What is left of the user's Copilot allowance, by kind (chat, premium_interactions, ...)."""
         from copilot.generated import rpc as R
 
+        if self.provider is not None:
+            return {}  # billed by the service, not a Copilot allowance
         await self.start()
         try:
             res = await self.client.rpc.account.get_quota(R.AccountGetQuotaRequest())
@@ -362,6 +376,8 @@ class CopilotAssistant:
         return out
 
     async def models(self) -> list[dict[str, Any]]:
+        if self.provider is not None:
+            return [{"id": self.provider.model, "name": self.provider.label()}]
         await self.start()
         try:
             models = await self.client.list_models()
@@ -527,7 +543,9 @@ class CopilotAssistant:
 
         system = first_prompt(self.home)
         tools = self.sdk_tools()
-        self._log("system", text=system, tools=[t.name for t in tools], model=self.model or "auto")
+        model = self.provider.model.strip() if self.provider is not None else self.model
+        self._log("system", text=system, tools=[t.name for t in tools],
+                  model=(self.provider.label() if self.provider is not None else model or "auto"))
 
         kwargs: dict[str, Any] = dict(
             on_permission_request=PermissionHandler.approve_all,  # only our own read-only tools exist
@@ -538,9 +556,14 @@ class CopilotAssistant:
             client_name="3Dmodeling",
             working_directory=self.home,
         )
-        if self.model:
-            kwargs["model"] = self.model
-        self.session = await self.client.create_session(**kwargs)
+        if model:
+            kwargs["model"] = model
+        if self.provider is not None:
+            kwargs["provider"] = self.provider.sdk_config()
+        try:
+            self.session = await self.client.create_session(**kwargs)
+        except Exception as exc:  # noqa: BLE001 - a wrong address or key shows up here or at the first answer
+            raise AssistantError(f"could not start the chat: {exc}") from None
         return self.session
 
     async def ask(self, text: str, timeout: float = 600.0) -> Reply:
@@ -553,6 +576,8 @@ class CopilotAssistant:
         )
 
         status = await self.status()
+        if self.provider is not None and not status["signed_in"]:
+            raise AssistantError(f"{self.provider.label()}: {status['message']} (Assistant settings)")
         if not status["signed_in"] and not self.github_token:
             raise AssistantError("not signed in to GitHub: sign in first")
         session = await self._session()
@@ -745,6 +770,10 @@ python -m modeler copilot check           the whole test for one account (Copilo
                                           use the modeler's tools; prints PASS or FAIL per step
 --folder DIR                              the assistant's working folder (default: a temporary
                                           folder)
+--model NAME                              the model (GitHub Copilot: one your plan offers)
+--provider KIND [--base-url URL]          use your own key instead of GitHub: openai, anthropic,
+                                          azure, ollama or custom (OpenAI-compatible); the key
+                                          comes from MODELER_AI_KEY or the one the app keeps
 """
 
 
@@ -769,6 +798,23 @@ def main(args: list[str]) -> int:
                 print(res.message)
                 return 1
 
+    def option(name: str) -> str | None:
+        if name not in args:
+            return None
+        i = args.index(name)
+        value = args[i + 1] if i + 1 < len(args) else None
+        del args[i:i + 2]
+        return value
+
+    from . import providers
+
+    kind, model, url = option("--provider"), option("--model"), option("--base-url")
+    setting = None
+    if kind:
+        if kind not in providers.KINDS:
+            print(f"unknown provider {kind}: one of {', '.join(providers.KINDS)}")
+            return 2
+        setting = providers.ProviderSetting(kind, model or "", url or "", providers.load_key(kind))
     home = None
     if "--folder" in args:
         i = args.index("--folder")
@@ -781,7 +827,8 @@ def main(args: list[str]) -> int:
         elif kind == "proposal":
             print(f"  [proposal] {data.summary}\n" + "\n".join("    " + x for x in data.script.splitlines()))
 
-    asst = CopilotAssistant(p, on_event=on_event, model=os.environ.get("MODELER_COPILOT_MODEL") or None, home=home)
+    asst = CopilotAssistant(p, on_event=on_event, model=model or os.environ.get("MODELER_COPILOT_MODEL") or None,
+                            home=home, provider=setting)
     return asyncio.run(_cli(asst, args))
 
 
@@ -851,7 +898,11 @@ async def _check(asst: CopilotAssistant) -> int:
         report(False, "start Copilot", str(exc))
         return fails
     report(True, "start Copilot", f"working folder {asst.home}")
-    if not st["signed_in"]:
+    if st.get("own_key"):
+        report(st["signed_in"], "your own key", st["login"] + (f": {st['message']}" if st["message"] else ""))
+        if not st["signed_in"]:
+            return fails
+    elif not st["signed_in"]:
         print("Not signed in yet: signing in.")
         try:
             await asst.sign_in(_show_code, _ask_plaintext)
@@ -859,9 +910,10 @@ async def _check(asst: CopilotAssistant) -> int:
         except AssistantError as exc:
             report(False, "sign in with GitHub", str(exc))
             return fails
-    report(st["signed_in"], "signed in", st["login"] or st["message"])
+    if not st.get("own_key"):
+        report(st["signed_in"], "signed in", st["login"] or st["message"])
     try:
-        q = await asst.quota()
+        q = {} if st.get("own_key") else await asst.quota()
         report(True, "Copilot allowance", ", ".join(
             f"{k} {'unlimited' if v['unlimited'] else str(v['left_percent']) + '% left'}" for k, v in q.items())
             or "no allowance reported")
