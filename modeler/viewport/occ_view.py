@@ -234,6 +234,12 @@ class OccViewport(QWidget):
         self._knife_ais = None
         self.sculpt_on = False  # Sculpt: a left drag over a mesh body is a brush stroke
         self._sculpt_mods = Qt.NoModifier
+        self.sculpt_settings = None  # the Sculpt tab's Settings (brush, radius ...), set by the tab
+        self._live = None  # the stroke being dragged (sculpt_tool.LiveStroke)
+        self._topo = (None, None)  # (triangles array, its neighbour lists): kept while the triangles stay
+        self._brush_ais = None  # the brush circle under the mouse
+        self._mask_ais = None  # frozen areas, drawn dark over the body
+        self._hover_at = 0.0
         self._initialized = False
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "sketch", "point" (a control point)
@@ -402,6 +408,8 @@ class OccViewport(QWidget):
             self._draw_control_points()
         if self._an is not None and ev.kind not in ("selection", "sketch_selection"):
             self._draw_analysis()
+        if self.sculpt_on and ev.kind not in ("selection", "sketch_selection"):
+            self.draw_mask()
 
     def _apply_body_event(self, ev: Event) -> None:
         if ev.kind == "body_added":
@@ -418,6 +426,7 @@ class OccViewport(QWidget):
             self.context.RemoveAll(False)
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
+            self._brush_ais = self._mask_ais = None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -427,6 +436,7 @@ class OccViewport(QWidget):
             self.context.RemoveAll(False)
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
+            self._brush_ais = self._mask_ais = None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -1145,9 +1155,142 @@ class OccViewport(QWidget):
             self.set_knife(False)
         self.sculpt_on = bool(on)
         self._knife_px = []
+        self._live = None
         self._draw_knife()
+        self._draw_brush(None)
+        self.draw_mask()
         self.setCursor(Qt.CrossCursor if self.sculpt_on else Qt.ArrowCursor)
         self.sculpt_changed.emit(self.sculpt_on)
+
+    def _topology(self, tris):
+        from ..geometry import sculpt as sc
+
+        if self._topo[0] is not tris:
+            self._topo = (tris, sc.Topology.of(tris, int(tris.max()) + 1))
+        return self._topo[1]
+
+    def _sculpt_start(self, x: int, y: int, mods) -> None:
+        """A press in sculpt mode: start a live stroke on the mesh body under the mouse."""
+        from ..gui import sculpt_tool as st
+
+        self._live = None
+        s = self.sculpt_settings
+        body = self._sculpt_target([(x, y)])
+        if s is None or body is None:
+            return
+        shape = self.model.bodies[body].shape
+        live = st.LiveStroke(body, shape, s, bool(mods & Qt.ControlModifier), bool(mods & Qt.ShiftModifier))
+        live.topo = self._topology(live.tris) if live.brush != "MASK" else None
+        mask = self.model.masks.get(body)
+        live.mask = mask if mask is not None and len(mask) == len(live.pts0) else None
+        self._live = live
+        self._sculpt_move(x, y)
+
+    def _sculpt_move(self, x: int, y: int) -> None:
+        live = self._live
+        if live is None:
+            return
+        h = live.hit(*self._ray(x, y))
+        if h is None:
+            return
+        self._draw_brush(h, update=False)
+        if live.add(h):
+            ais = self._ais.get(live.body)
+            if ais is not None:
+                ais.SetShape(live.preview())
+                self.context.Redisplay(ais, False)
+        self.context.UpdateCurrentViewer()
+
+    def _brush_hover(self, x: int, y: int) -> None:
+        """The brush circle where the mouse is over a mesh body (at most every 30 ms)."""
+        import time
+
+        from ..geometry import meshbody as mb
+        from ..gui.sculpt_tool import ray_hit
+
+        now = time.perf_counter()
+        if now - self._hover_at < 0.03:
+            return
+        self._hover_at = now
+        body = self._sculpt_target([(x, y)])
+        hit = None
+        if body is not None:
+            pts, tris = mb.arrays(self.model.bodies[body].shape)
+            hit = ray_hit(pts, tris, *self._ray(x, y), with_normal=True)
+        self._draw_brush(hit)
+
+    def _draw_brush(self, hit, update: bool = True) -> None:
+        """A circle of the brush's radius on the surface (hit = point or (point, normal); None hides it)."""
+        if not self._initialized:
+            return
+        import numpy as np
+        from OCP.AIS import AIS_Shape
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
+        from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
+
+        ctx = self.context
+        if self._brush_ais is not None:
+            ctx.Remove(self._brush_ais, False)
+            self._brush_ais = None
+        s = self.sculpt_settings
+        if hit is not None and self.sculpt_on and s is not None:
+            if isinstance(hit, tuple):
+                c, n = hit
+            else:
+                c = hit
+                n = np.asarray(self._ray(0, 0)[1], dtype=float) * -1  # face the eye
+            n = np.asarray(n, dtype=float)
+            if np.linalg.norm(n) > 1e-12:
+                circ = gp_Circ(gp_Ax2(gp_Pnt(*map(float, c)), gp_Dir(*map(float, n))), float(s.radius))
+                ais = AIS_Shape(BRepBuilderAPI_MakeEdge(circ).Edge())
+                ais.SetColor(Quantity_Color(0.55, 0.3, 0.9, Quantity_TOC_RGB) if s.brush == "MASK"
+                             else Quantity_Color(0.2, 0.6, 1.0, Quantity_TOC_RGB))
+                ais.SetWidth(2.0)
+                ctx.Display(ais, False)
+                ctx.Deactivate(ais)
+                _on_top(ctx, ais)
+                self._brush_ais = ais
+        if update:
+            ctx.UpdateCurrentViewer()
+
+    def draw_mask(self) -> None:
+        """While sculpting, frozen areas of mesh bodies are drawn dark over them."""
+        if not self._initialized:
+            return
+        ctx = self.context
+        if self._mask_ais is not None:
+            ctx.Remove(self._mask_ais, False)
+            self._mask_ais = None
+        if self.sculpt_on:
+            from OCP.AIS import AIS_Shape
+            from OCP.BRep import BRep_Builder
+            from OCP.TopoDS import TopoDS_Compound
+
+            from ..geometry import meshbody as mb
+            from ..gui.sculpt_tool import mask_overlay
+
+            faces = []
+            for bid, mask in self.model.masks.items():
+                if bid in self.model.bodies and self.model.is_shown(bid):
+                    shape = self.model.bodies[bid].shape
+                    if mb.is_mesh(shape):
+                        got = mask_overlay(*mb.arrays(shape), mask)
+                        if got is not None:
+                            faces.append(mb.make_shape(*got, remember=False))
+            if faces:
+                comp = TopoDS_Compound()
+                bb = BRep_Builder()
+                bb.MakeCompound(comp)
+                for f in faces:
+                    bb.Add(comp, f)
+                ais = AIS_Shape(comp)
+                ais.SetColor(_rgb(0.25, 0.22, 0.35))
+                ctx.Display(ais, 1, -1, False)
+                ctx.Deactivate(ais)
+                ctx.SetTransparency(ais, 0.35, False)
+                self._mask_ais = ais
+        ctx.UpdateCurrentViewer()
 
     def _sculpt_target(self, px) -> int | None:
         from ..geometry import meshbody as mb
@@ -1173,6 +1316,19 @@ class OccViewport(QWidget):
 
         px, self._knife_px = self._knife_px, []
         self._draw_knife()
+        live, self._live = self._live, None
+        if live is not None:
+            if len(live.hits) == 0:
+                self.sketch_hover.emit(f"Sculpt: the stroke missed body {live.body}")
+                return
+            self.sculpt_stroke.emit(live.body, np.vstack(live.hits), self._sculpt_mods)
+            body = self.model.bodies.get(live.body)
+            ais = self._ais.get(live.body)
+            if live.changed and body is not None and ais is not None and body.shape.IsSame(live.shape):
+                ais.SetShape(live.shape)  # the command failed: show the body as it is
+                self.context.Redisplay(ais, False)
+                self.context.UpdateCurrentViewer()
+            return
         body = self._sculpt_target(px)
         if body is None:
             self.sketch_hover.emit("Sculpt: drag over a mesh body (TOMESH a solid first, or use Make sculptable)")
@@ -1371,6 +1527,7 @@ class OccViewport(QWidget):
             self._knife_px = [(x, y)]
             self._sculpt_mods = e.modifiers()
             self._drag = "sculpt"
+            self._sculpt_start(x, y, e.modifiers())
             return
         if (self._cp is not None and e.button() == Qt.LeftButton
                 and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
@@ -1400,8 +1557,12 @@ class OccViewport(QWidget):
             return
         if self._drag in ("knife", "sculpt"):
             self._knife_px.append((x, y))
+            if self._drag == "sculpt":
+                self._sculpt_move(x, y)
             self._draw_knife()
             return
+        if self.sculpt_on and self._press is None and not self._sketching():
+            self._brush_hover(x, y)
         if self._drag == "point":
             if moved:
                 self._cp.move(self._ray(x, y))
@@ -1484,6 +1645,12 @@ class OccViewport(QWidget):
             self.edit_dimension.emit(name)
 
     def keyPressEvent(self, e) -> None:
+        if self._drag == "sculpt" and e.key() == Qt.Key_Escape and self._live is not None:
+            live, self._live = self._live, None
+            ais = self._ais.get(live.body)
+            if ais is not None and live.changed:
+                ais.SetShape(live.shape)
+                self.context.Redisplay(ais, False)
         if self._drag in ("knife", "sculpt") and e.key() == Qt.Key_Escape:
             self._drag, self._press, self._knife_px = "", None, []
             self._draw_knife()

@@ -46,8 +46,9 @@ class Settings:
 
 
 # ---- where the mouse ray meets a mesh ----------------------------------------------------------
-def ray_hit(pts: np.ndarray, tris: np.ndarray, origin, direction) -> np.ndarray | None:
-    """The nearest point where the ray meets the triangles (Moller-Trumbore, all at once), or None."""
+def ray_hit(pts: np.ndarray, tris: np.ndarray, origin, direction, with_normal: bool = False):
+    """The nearest point where the ray meets the triangles (Moller-Trumbore, all at once), or None.
+    ``with_normal``: (point, unit normal of the triangle hit)."""
     o = np.asarray(origin, dtype=float)
     d = np.asarray(direction, dtype=float)
     d = d / (np.linalg.norm(d) or 1.0)
@@ -68,6 +69,10 @@ def ray_hit(pts: np.ndarray, tris: np.ndarray, origin, direction) -> np.ndarray 
     if not hit.any():
         return None
     i = np.flatnonzero(hit)[np.argmin(t[hit])]
+    if with_normal:
+        n = np.cross(e1[i], e2[i])
+        n = n / (np.linalg.norm(n) or 1.0)
+        return o + d * t[i], n
     return o + d * t[i]
 
 
@@ -101,10 +106,84 @@ def stroke_command(p, body: int, points, s: Settings, invert: bool = False, smoo
     r = fmt_num(round(s.radius, 4))
     if s.brush == "MASK" and not smooth:
         return f"MASK, {body}, {'ERASE' if invert else 'PAINT'}, 0, 0, 0, {r}, 1, {name}"
-    brush = "SMOOTH" if smooth else s.brush
-    strength = -s.strength if invert and brush not in ("SMOOTH", "FLATTEN", "GRAB") else s.strength
+    brush, strength = brush_for(s, invert, smooth)
     sym = "".join(a for a in "XYZ" if a in s.sym)
     return f"SCULPT, {body}, {brush}, {r}, {fmt_num(round(strength, 4))}, {name}" + (f", {sym}" if sym else "")
+
+
+def brush_for(s: Settings, invert: bool = False, smooth: bool = False) -> tuple[str, float]:
+    """The brush and signed strength a drag with these keys uses (MASK when it paints the mask)."""
+    if s.brush == "MASK" and not smooth:
+        return "MASK", s.strength
+    brush = "SMOOTH" if smooth else s.brush
+    strength = -s.strength if invert and brush not in ("SMOOTH", "FLATTEN", "GRAB") else s.strength
+    return brush, strength
+
+
+class LiveStroke:
+    """A stroke being dragged: each time the mouse has gone a quarter of the radius, the brush runs on
+    a working copy of the points, so the view can show the surface moving. Rays hit the working
+    surface. On release the real SCULPT command runs from the body as it was, with the same points."""
+
+    def __init__(self, body: int, shape, s: Settings, invert: bool = False, smooth: bool = False, topo=None):
+        self.body, self.shape = body, shape
+        self.pts0, self.tris = mb.arrays(shape)
+        self.work = self.pts0
+        self.brush, self.strength = brush_for(s, invert, smooth)
+        self.radius = s.radius
+        self.sym = "".join(a for a in "XYZ" if a in s.sym)
+        self.mask = None
+        self.topo = topo
+        self.hits: list[np.ndarray] = []
+        self._last = None
+        self.changed = False
+
+    def hit(self, origin, direction):
+        return ray_hit(self.work, self.tris, origin, direction)
+
+    def add(self, point) -> bool:
+        """One more point under the mouse; True when the working surface moved."""
+        q = np.asarray(point, dtype=float)
+        self.hits.append(q)
+        if self._last is None:
+            self._last = q
+            return False
+        if np.linalg.norm(q - self._last) < self.radius * sc.SPACING:
+            return False
+        if self.brush == "MASK":
+            self._last = q
+            return False
+        if self.topo is None:
+            self.topo = sc.Topology.of(self.tris, len(self.pts0))
+        try:
+            new, rep = sc.stroke(self.work, self.tris, self.brush, self.radius, self.strength,
+                                 np.vstack([self._last, q]), self.sym, self.mask, self.topo)
+        except sc.SculptError:
+            return False
+        self._last = q
+        if rep.moved:
+            self.work, self.changed = new, True
+        return bool(rep.moved)
+
+    def preview(self):
+        """A shape of the working surface, for drawing only (not cached)."""
+        return mb.moved_shape(self.shape, self.work, remember=False)
+
+
+def mask_overlay(pts: np.ndarray, tris: np.ndarray, mask) -> tuple[np.ndarray, np.ndarray] | None:
+    """The frozen triangles (mask above one half on average), lifted a hair off the surface so they
+    draw over it; None when nothing is frozen or the mask no longer fits the mesh."""
+    if mask is None or len(mask) != len(pts):
+        return None
+    keep = np.asarray(mask)[tris].mean(axis=1) > 0.5
+    if not keep.any():
+        return None
+    sub = tris[keep]
+    used, inv = np.unique(sub, return_inverse=True)
+    q = pts[used]
+    t = inv.reshape(-1, 3)
+    size = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0))) or 1.0
+    return q + sc.vertex_normals(q, t) * size * 1e-3, t
 
 
 def default_radius(shape) -> float:
@@ -123,6 +202,7 @@ def build(win) -> None:
 
     s = win.sculpt_settings = Settings()
     vp = win.viewport
+    vp.sculpt_settings = s
 
     tb = tbs.group(win, "Sculpt", "sculpt", "Sculpt")
     on = tbs.action(win, tb, "Sculpt", "sc_sculpt",

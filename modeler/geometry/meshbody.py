@@ -63,8 +63,9 @@ def _remember(shape: TopoDS_Shape, pts: np.ndarray, tris: np.ndarray) -> None:
         _CACHE.popitem(last=False)
 
 
-def make_shape(points: np.ndarray, tris: np.ndarray) -> TopoDS_Face:
-    """A mesh-body shape: one face carrying these triangles (points N x 3, tris M x 3, 0-based)."""
+def make_shape(points: np.ndarray, tris: np.ndarray, remember: bool = True) -> TopoDS_Face:
+    """A mesh-body shape: one face carrying these triangles (points N x 3, tris M x 3, 0-based).
+    ``remember=False`` for a shape only drawn for a moment (a preview), kept out of the cache."""
     pts = np.ascontiguousarray(points, dtype=float).reshape(-1, 3)
     t = np.ascontiguousarray(tris, dtype=np.int64).reshape(-1, 3)
     if len(t) == 0:
@@ -79,8 +80,9 @@ def make_shape(points: np.ndarray, tris: np.ndarray) -> TopoDS_Face:
         tri.SetTriangle(i, Poly_Triangle(a, b, c))
     face = TopoDS_Face()
     BRep_Builder().MakeFace(face, tri)
-    _remember(face, pts, t)
-    _remember_source(face, src)
+    if remember:
+        _remember(face, pts, t)
+        _remember_source(face, src)
     return face
 
 
@@ -91,7 +93,8 @@ def _remember_source(face, src) -> None:
         _SOURCE.popitem(last=False)
 
 
-def moved_shape(old: TopoDS_Shape, points: np.ndarray, moved: np.ndarray | None = None) -> TopoDS_Face:
+def moved_shape(old: TopoDS_Shape, points: np.ndarray, moved: np.ndarray | None = None,
+                remember: bool = True) -> TopoDS_Face:
     """``old``'s triangles with some points moved to ``points`` (same count and order). Copies the old
     triangulation in C++ and sets only the moved nodes, so a sculpt stroke on a big mesh costs about the
     points it moved, not the whole mesh. Sharp-edge splits stay as they were in ``old``."""
@@ -103,7 +106,7 @@ def moved_shape(old: TopoDS_Shape, points: np.ndarray, moved: np.ndarray | None 
     tri = _triangulation(face, loc)
     if (hit is None or not hit[0].IsEqual(old) or tri is None or not loc.IsIdentity()
             or face.Orientation() == TopAbs_REVERSED or len(pts) != len(old_pts)):
-        return make_shape(pts, t)
+        return make_shape(pts, t, remember)
     src = hit[1]
     if moved is None:
         moved = np.flatnonzero(np.any(pts != old_pts, axis=1))
@@ -118,8 +121,9 @@ def moved_shape(old: TopoDS_Shape, points: np.ndarray, moved: np.ndarray | None 
         new_tri.SetNode(i, gp_Pnt(x, y, z))
     out = TopoDS_Face()
     BRep_Builder().MakeFace(out, new_tri)
-    _remember(out, pts, t)
-    _remember_source(out, src)
+    if remember:
+        _remember(out, pts, t)
+        _remember_source(out, src)
     return out
 
 

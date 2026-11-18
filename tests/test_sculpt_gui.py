@@ -49,15 +49,17 @@ def _logical(win, q):
     return QPoint(int(round(x / r)), int(round(y / r)))
 
 
-def _drag(win, app, a, b, mods=Qt.NoModifier):
+def _drag(win, app, a, b, mods=Qt.NoModifier, release=True):
     vp = win.viewport
     pa, pb = _logical(win, a), _logical(win, b)
     QTest.mousePress(vp, Qt.LeftButton, mods, pa)
     for k in range(1, 9):
         QTest.mouseMove(vp, pa + (pb - pa) * k / 8)
         app.processEvents()
-    QTest.mouseRelease(vp, Qt.LeftButton, mods, pb)
-    app.processEvents()
+    if release:
+        QTest.mouseRelease(vp, Qt.LeftButton, mods, pb)
+        app.processEvents()
+    return pb
 
 
 def test_ray_hit_and_thin():
@@ -129,3 +131,80 @@ def test_make_sculptable(win):
     shape = win.processor.model.bodies[1].shape
     assert mb.is_mesh(shape)
     assert len(mb.arrays(shape)[1]) > 5000
+
+
+def test_live_stroke_and_mask_overlay():
+    from modeler.commands import Processor
+
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 1.5"):
+        assert p.run(c).ok
+    shape = p.model.bodies[1].shape
+    s = st.Settings(brush="DRAW", radius=3, strength=0.5)
+    live = st.LiveStroke(1, shape, s)
+    moved = [live.add((x, -20, 0)) for x in np.linspace(-5, 5, 11)]
+    assert moved[0] is False and any(moved) and live.changed
+    assert np.abs(live.work - live.pts0).max() > 0.05
+    assert np.abs(mb.arrays(shape)[0] - live.pts0).max() == 0  # the body itself is untouched
+    assert st.LiveStroke(1, shape, st.Settings(brush="MASK", radius=3)).add((0, -20, 0)) is False
+    pts, tris = mb.arrays(shape)
+    assert st.mask_overlay(pts, tris, None) is None
+    mask = np.zeros(len(pts))
+    assert st.mask_overlay(pts, tris, mask) is None
+    mask[pts[:, 1] < -15] = 1
+    q, t = st.mask_overlay(pts, tris, mask)
+    assert len(t) and q[:, 1].max() < -14 and t.max() < len(q)
+
+
+def test_the_surface_moves_while_dragging(win, app):
+    _ball(win)
+    p = win.processor
+    vp = win.viewport
+    win.sculpt_action.setChecked(True)
+    shape = p.model.bodies[1].shape
+    pb = _drag(win, app, (-10, -30, 5), (10, -30, 5), release=False)
+    shown = vp._ais[1].Shape()
+    assert not shown.IsSame(shape)  # the preview
+    assert np.abs(mb.arrays(shown)[0] - mb.arrays(shape)[0]).max() > 0.05
+    assert vp._brush_ais is not None
+    QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, pb)
+    app.processEvents()
+    assert p.history[-1].text.startswith("SCULPT, 1, DRAW,")
+    assert vp._ais[1].Shape().IsSame(p.model.bodies[1].shape)
+    # Esc in the middle of a drag puts the body back
+    n = len(p.history)
+    _drag(win, app, (-10, -30, -5), (10, -30, -5), release=False)
+    QTest.keyClick(vp, Qt.Key_Escape)
+    assert len(p.history) == n and vp._ais[1].Shape().IsSame(p.model.bodies[1].shape)
+
+
+def test_brush_circle_follows_the_mouse(win, app):
+    _ball(win)
+    vp = win.viewport
+    win.sculpt_action.setChecked(True)
+    vp._hover_at = 0.0
+    QTest.mouseMove(vp, _logical(win, (0, -30, 0)))
+    app.processEvents()
+    assert vp._brush_ais is not None
+    vp._hover_at = 0.0
+    QTest.mouseMove(vp, _logical(win, (60, -30, 60)))
+    app.processEvents()
+    assert vp._brush_ais is None
+
+
+def test_frozen_areas_are_shown(win, app):
+    _ball(win)
+    vp = win.viewport
+    win.brush_actions["MASK"].trigger()
+    assert vp._mask_ais is None
+    _drag(win, app, (-10, -30, 0), (10, -30, 0))
+    assert vp._mask_ais is not None
+    win.execute("UNDO")
+    assert vp._mask_ais is None
+    win.execute("MASK, 1, ALL")
+    assert vp._mask_ais is not None
+    win.execute("MASK, 1, CLEAR")
+    assert vp._mask_ais is None
+    win.execute("MASK, 1, ALL")
+    win.sculpt_action.setChecked(False)
+    assert vp._mask_ais is None  # only while sculpting

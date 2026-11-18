@@ -15,6 +15,7 @@ import re
 
 import numpy as np
 
+from ..core.model import Event
 from ..geometry import meshbody as mb
 from ..geometry import sculpt as sc
 from ..lang.expr import fmt_num
@@ -133,6 +134,7 @@ def mask_cmd(p: Processor, b, mode, x, y, z, r, value, stroke):
             new = sc.sphere_mask(pts, c, r, value, new, mode)
     elif mode == "CLEAR":
         p.model.masks.pop(b, None)
+        p.model._emit(Event("mask", b))
         return f"mask on body {b} cleared"
     elif mode == "ALL":
         new = np.ones(len(pts))
@@ -141,6 +143,7 @@ def mask_cmd(p: Processor, b, mode, x, y, z, r, value, stroke):
     else:
         raise CommandError("MASK: use PAINT, ERASE, CLEAR, ALL or INVERT")
     p.model.masks[b] = new
+    p.model._emit(Event("mask", b))
     frozen = int(np.count_nonzero(new > 0.5))
     return f"mask on body {b}: {frozen:,} of {len(pts):,} points frozen"
 
