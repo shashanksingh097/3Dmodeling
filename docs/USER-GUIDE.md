@@ -449,6 +449,13 @@ macOS: `3Dmodeling.app/Contents/MacOS/3Dmodeling-cli`) for these.
 A script that ends with `EXPORT` makes files in batch: run it with
 different `-D` values to make a family of parts.
 
+**Other AI tools can model with the app.** `modeler mcp` (in the
+downloaded app: `3Dmodeling-cli mcp`) starts a Model Context Protocol
+server. Any MCP client, such as a chat app or a coding agent, can then use
+the same modelling tools as the built-in assistant, with no window. It can
+build a part, check it, and save or export it. How to add it to a client:
+[mcp.md](mcp.md).
+
 ---
 
 ## 13. Keyboard shortcuts

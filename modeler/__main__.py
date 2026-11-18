@@ -19,6 +19,9 @@
     python -m modeler copilot [status|login|quota|models|ask|check]
                                       the assistant on GitHub Copilot, from a shell;
                                       "check" tests sign-in and a question for one account
+    python -m modeler mcp [--script part.cmd]
+                                      serve the assistant's modelling tools to any MCP
+                                      client over stdin/stdout (docs/mcp.md)
     python -m modeler tools           the AI assistant's tool definitions, as JSON
     python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
                                       call one tool headless and print its JSON answer;
@@ -186,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args[:1] == ["tool"]:
         return _tool(args[1:])
+    if args[:1] == ["mcp"]:
+        from .ai.mcp_server import main as mcp_main
+
+        return mcp_main(args[1:])
     if args[:1] == ["copilot"]:
         from .ai.copilot import main as copilot_main
 

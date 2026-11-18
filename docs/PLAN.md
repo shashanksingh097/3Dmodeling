@@ -892,7 +892,8 @@ More features not yet in the app (added 2026-11-18, after item 16):
     Motion window), check collisions through the range of motion
     (`MOTION`), and save the motion as a picture sequence
     (`render --motion`, Save pictures); exploded views with trails.
-22. **The modelling tools for outside agents**: serve the assistant's tools
+22. **The modelling tools for outside agents** (done: `python -m modeler mcp`,
+    docs/mcp.md): serve the assistant's tools
     (DESCRIBE, PROBE, ASSERT, the sandbox ...) as an MCP server, so any MCP
     client can model with the app headless.
 23. **Scan to CAD, part 2**: split a scan into regions by curvature

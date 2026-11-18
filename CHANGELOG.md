@@ -55,6 +55,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   180, 18`) finds where parts run into each other and the exact value
   where they first meet. **Save pictures…** and `python -m modeler render
   part.cmd --motion A 0 180 18 frames` save a picture per step.
+- **The modelling tools for any MCP client**: `python -m modeler mcp`
+  serves the assistant's tools (run, describe, probe, check, the working
+  copy, undo) plus `apply`, `save_project` and `export`, over the Model
+  Context Protocol on stdin/stdout, headless. See docs/mcp.md.
 
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three
