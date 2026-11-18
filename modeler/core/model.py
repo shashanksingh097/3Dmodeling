@@ -266,6 +266,12 @@ class Model:
         self.fields: dict = {}
         # body ID -> sculpt mask (numpy, 0..1 per mesh point; 1 = frozen). Arrays are replaced, never changed
         self.masks: dict = {}
+        # body ID -> sheet metal record (geometry/sheetmetal.py Sheet); follows the body through changes
+        self.sheets: dict = {}
+        # body ID -> frame member record (geometry/frames.py Member): its profile and cut, for CUTLIST
+        self.members: dict = {}
+        # exploded views by upper-case name: a list of (body IDs, (dx, dy, dz)) steps (XSTEP, XSHOW)
+        self.xviews: dict = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -328,6 +334,9 @@ class Model:
             "instances": dict(self.instances),
             "fields": dict(self.fields),
             "masks": dict(self.masks),
+            "sheets": dict(self.sheets),
+            "members": dict(self.members),
+            "xviews": {k: list(v) for k, v in self.xviews.items()},
         }
 
     def restore(self, snap: dict) -> None:
@@ -353,6 +362,9 @@ class Model:
         self.instances = dict(snap.get("instances", {}))
         self.fields = dict(snap.get("fields", {}))
         self.masks = dict(snap.get("masks", {}))
+        self.sheets = dict(snap.get("sheets", {}))
+        self.members = dict(snap.get("members", {}))
+        self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.sketch_selection = []
         self._emit(Event("restored"))
 
@@ -432,6 +444,8 @@ class Model:
         del self.bodies[bid]
         self.hidden.discard(bid)
         self.instances.pop(bid, None)
+        self.sheets.pop(bid, None)
+        self.members.pop(bid, None)
         if emit:
             self._drop_stale_selection()
             self._emit(Event("body_removed", bid))
@@ -446,12 +460,18 @@ class Model:
         """
         for b in inputs:  # all or nothing: never use up some inputs and then stop
             self.check_unlocked(b)
+        sheet = self.sheets.get(inputs[0]) if inputs else None
+        member = self.members.get(inputs[0]) if inputs else None
         olds = [self.remove_body(b, emit=False) for b in inputs]
         for b in olds:
             self._emit(Event("body_removed", b.id))
         first = olds[0]
         inherit = first.name if not _is_default_name(first) else ""
         body = self.add_body(shape, what_name or inherit, (maker, olds), keep_id=first.id if same_id else None)
+        if sheet is not None:  # a hole cut in a sheet metal part leaves it sheet metal
+            self.sheets[body.id] = sheet
+        if member is not None:  # a hole drilled in a frame member leaves it on the cut list
+            self.members[body.id] = member
         self._remap_selection()
         return body
 

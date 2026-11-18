@@ -269,7 +269,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -283,7 +283,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
-| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2456,3 +2457,283 @@ FITSURF, 1, MASK, 0.1                  ! just the painted region, one face
 ```
 
 See `scripts/scan_to_cad.cmd` and docs/mesh-fit.md.
+
+## 30. Configurations and the parts list
+
+**Configurations** are named sets of parameter values for one model: the
+sizes of a family of parts.
+
+```
+W = 40
+H = 10
+BLOCK, 0, 0, 0, W, 30, H
+CONFIG, big, "W = 80, H = 20"         ! a history entry: defines (or redefines) BIG
+CONFIG, small, "W = 20"
+USECONFIG, big                        ! W and H keep BIG's values; the model rebuilds
+USECONFIG, DEFAULT                    ! back to the values the history gives
+USECONFIG                             ! lists them; * marks the one in use
+```
+
+While a configuration is in use, its parameters keep its values whatever
+their own assignments say (the way `-D` fixes a parameter in the batch
+runner); the others keep theirs. `USECONFIG` is not a history step: undo
+does not switch back, and the configuration in use is saved with the
+project. The Parameters panel shows a **Configuration** list once there is
+one, and its values in italics; **New…** (or the panel's right-click menu)
+opens the `CONFIG` form filled with every parameter's value now. The batch
+runner takes `-C name`:
+
+```
+python -m modeler run plate.cmd -C big
+```
+
+**`BOM`** lists the parts of the model: one row per part placed with
+`INST` (instances of the same part with the same values are counted
+together, with every parameter value shown) and one row per other solid
+body, with quantity, material, volume and mass (for bodies with a
+material). `BOM, parts.csv` also writes it as a CSV file. Bodies used up or
+kept hidden by the history are not counted.
+
+**Names.** A parameter and a body cannot have the same name, because in a
+command the name would mean the parameter's value: `NAME, b, W` is refused
+while `W` is a parameter, and `plate = 3` is refused while a body is called
+`plate`.
+
+## 31. Sheet metal
+
+A sheet metal part is a plate of one thickness with walls bent along its
+edges. It remembers its thickness, bend radius and K-factor, so it can be
+laid flat again for cutting.
+
+```
+SKETCH, base, XY
+SRECT, 0, 0, 60, 40
+SCIRCLE, 30, 20, 6                    ! holes in the sketch are holes in the plate
+ENDSKETCH
+SHEET, base, 2                        ! 2 thick; bend radius 2 (the thickness), K-factor 0.44
+SHEET, base, 2, 3, 0.4                ! or: bend radius 3, K-factor 0.4
+SEL, S, EDGE, AT, 30, 0, 2            ! the front edge of the top face
+FLANGE, , 25                          ! bends up 90 degrees, a 25 long wall
+FLANGE, 12, 15, 45                    ! edge 12, 45 degrees; an edge of the bottom face bends down
+FLANGE, 14, 10, 120, 1                ! bend radius 1 for this one
+SHEETINFO, 1                          ! thickness, radius, K and each flange with its flat length
+SBEND, 1, s2                          ! bend along the line in sketch s2: the smaller side turns up 90
+SBEND, 1, s2, 45, 1, DOWN, FLIP       ! 45 down, radius 1, and the bigger side turns
+UNFOLD, 1                             ! the flat blank as a body beside the part
+UNFOLD, 1, blank.dxf                  ! and a DXF to cut it from
+UNFOLD, 1, blank.dxf, NO              ! only the DXF
+```
+
+**`FLANGE`** bends along a straight edge of the plate's top face (the
+wall goes up) or bottom face (it goes down). The bend starts at the edge
+and its inside radius is the sheet's (or the one given), so the part
+grows past the edge by the radius plus the thickness before the wall
+starts. `FLANGE, , length` flanges every selected edge. Flanges on
+neighbouring edges leave an open corner.
+
+**`SBEND`** bends the plate itself along a line drawn in a sketch (one
+straight line, in any sketch seen square to the plate; it may run past the
+plate). The bend starts at the line, the smaller side turns (FLIP: the
+bigger one), UP towards the top side or DOWN, and it keeps its holes. The
+turning side loses the bend allowance from its flat width, so `UNFOLD`
+gives the plate back exactly as it was. Bend before adding flanges on the
+side that turns. The plate must cross the line in one piece.
+
+**`UNFOLD`** lays the plate's bottom face (with every hole through it) flat
+and adds each flange: a strip for the bend and the wall laid flat, with
+any holes cut in the wall after bending. A bend takes `angle × (r + K × t)` of
+flat length (in radians): the length of the line inside the bend that
+neither stretches nor squeezes, which sits `K × t` from the inside face. K
+is 0.44 unless `SHEET` says otherwise; use the value your shop or
+material supplier gives. With K = 0.5 the blank has exactly the part's
+volume. The DXF has the cut outline on layer OUTLINE, a centre line for
+each bend on layer BEND, and its direction, angle and radius
+(`UP 90° R2`) on layer TEXT.
+
+`HOLE`, `SUBTRACT` and other changes keep a body sheet metal; holes through
+the plate show in the flat pattern. Holes cut into a flange's wall do not
+(yet), and a flange cannot start from another flange's wall.
+
+## 32. Ribs, lips and wrapped sketches
+
+```
+PLANE, mid, XZ, 20
+SKETCH, r1, mid                       ! a sketch square to the walls the rib joins
+SLINE, -40, 20, -20, 20               ! the rib's top edge (an open line, arc or chain)
+ENDSKETCH
+RIB, r1, 2, box                       ! 2 thick (1 each side of the plane), down to the part
+RIB, r1, 2, box, FLIP                 ! fill the other side of the line instead
+SEL, S, FACE, AT, 1, 20, 30           ! the rim of an open box
+LIP, , 2, 0.8                         ! a band 0.8 wide along its inside edge, 2 high
+LIP, 32, 2, 0.8, GROOVE, 0.2          ! the other half: the band cut 2.2 deep and 1 wide
+WRAP, grips, 7, 1                     ! sketch grips raised 1 out of cylindrical face 7
+WRAP, band, , 0.4, CUT                ! sunk 0.4 into the selected cylindrical face
+```
+
+**`RIB`** carries the line's ends on straight along their direction, so a
+line drawn between two walls needs to touch neither. The rib fills the
+space between the line and the part on the side towards the middle of the
+part (`FLIP`: the other side). If on that side nothing stops it, the rib
+is refused.
+
+**`LIP`** works on a flat face. On a face with a hole (the rim of a shelled
+half) the band runs along the hole's edge, its outer corners rounded; on a
+face without one it runs inside its outline. `GROOVE` adds the clearance
+to both the width and the depth, so a lip made with the same numbers fits
+in it.
+
+**`WRAP`** needs a sketch on a plane parallel to the cylinder's axis. The
+sketch's direction across the axis becomes length round the cylinder (so a
+5 wide rectangle stays 5 wide on the surface) and the wrap starts where
+the sketch plane faces the cylinder. Keep a band shorter than the
+cylinder's circumference.
+
+A conical face works the same way: the sketch is laid on the cone's flat
+development (the sector the cone unrolls to), so sizes and angles are
+kept. Across the axis becomes length round the cone, and along the axis
+becomes length down its slope. Straight lines come out slightly curved on
+the cone, as a label on a cone does. The sketch must stay clear of the tip.
+
+## 33. Assemblies that move
+
+A mechanism moves by a parameter: set it in the history and use it in the
+steps that place the moving parts.
+
+```
+A = 60
+BLOCK, 0, 0, 5, 40, 30, 2
+NAME, LAST, lid
+ROTATE, lid, -A, 0, 0, 5, 0, 1, 0     ! (or MATE, ANGLE, FACE, 3, FACE, 9, A)
+DRIVE, A, 135                         ! hold A at 135: only the steps that read A run again
+DRIVE                                 ! lists what is driven
+DRIVE, A                              ! let go: back to the history's A = 60
+MOTION, A, 0, 180, 12                 ! A = 0, 15 ... 180: overlaps at each, then A is put back
+```
+
+**`DRIVE`** is not a history step: the history keeps `A = 60` (its Result
+column says `(driven)` while A is held), undo does not undo it, and it is
+not saved. **`MOTION`** checks every pair of shown solid bodies that come
+near each other at each position. It lists the positions, the ranges where
+a pair overlaps with the largest overlap, and the value where they first
+meet (found to a thousandth of a step). When nothing overlaps it gives the
+smallest gap seen. Parts that only touch, like a lid on its hinge, are
+not counted as a gap.
+
+The **Motion window** (Inspect > Motion…) does the same with a slider,
+Play, Check range and Save pictures. From a shell, one picture per step:
+
+```
+python -m modeler render part.cmd --motion A 0 180 18 frames
+```
+
+saves `frames/a_000.png` … `a_018.png`, with the camera fitted once to
+the position that needs the most room.
+
+## 34. Scan to CAD for machined parts
+
+`FITSURF` (section 29) fits smooth freeform surfaces. A scan of a machined
+part is mostly flat faces, bores and bosses, and those are better as exact
+planes, cylinders and spheres, so that a hole is a true hole you can
+measure and edit.
+
+```
+SEGMENT, scan                 ! the regions and what each is
+SEGMENT, scan, 15, 0.05       ! split at bends over 15 degrees, fit within 0.05
+RECONSTRUCT, scan             ! a new exact solid from the fitted faces; the mesh stays
+RECONSTRUCT, scan, 25, 0.2
+```
+
+**`SEGMENT`** splits the mesh at its sharp edges (a bend between
+neighbouring triangles sharper than `angle`, 25 degrees by default) and
+fits each region. It lists every region with its triangles, its share of
+the area and its fit: a plane (a point and its normal), a cylinder or a
+bore (radius, axis), a sphere (radius, centre), or freeform when nothing
+fits within `tol` (0.2% of the body's size by default). It is not a
+history step.
+
+**`RECONSTRUCT`** makes the solid: each fitted surface is made large,
+space is cut into pieces by all of them, and the pieces inside the mesh
+are joined. Directions within 0.3 degrees of a world axis or of a bigger
+plane's normal are made exact first, so a bore comes out exactly square to
+its face. It reports the faces it fitted and the solid's volume against the
+mesh's. The mesh must be closed. If a region is freeform, RECONSTRUCT
+names it and stops: fit it with FITSURF, or raise `tol`.
+
+An example is `scripts/scan_machined.cmd`.
+
+## 35. Exploded views
+
+An exploded view is a named list of steps, each moving some parts by a
+vector. It shows how an assembly goes together, without moving anything in
+the model.
+
+```
+XSTEP, apart, knob, 0, 0, 30                            ! step 1: the knob comes up
+XSTEP, apart, "screw_1 screw_2 screw_3 screw_4", 0, 0, 45
+XSTEP, apart, "lid knob", 0, 0, 25                      ! then the lid, taking the knob with it
+XSHOW, apart                                            ! show it, with trail lines
+XSHOW, apart, 0.5                                       ! half way
+XSHOW                                                   ! back together
+XSHOW, LIST                                             ! the views
+XSTEP, apart, CLEAR                                     ! forget a view
+```
+
+**`XSTEP`** is a history step and the views are saved with the project,
+but it moves nothing. Name the bodies by ID or name with spaces between,
+or SEL for the selected bodies. A body in several steps moves by their sum,
+so later steps can carry parts that moved before.
+
+**`XSHOW`** is not a history step. It moves the parts by the view's steps
+(times `factor`) and draws a thin grey trail from each part's centre back
+to its place, with a corner at each step (`trails` NO leaves them out).
+Looking around (`FIT`, `VIEW`, `LIST`, `DESCRIBE`) keeps the view shown.
+Any other command, `UNDO`, a rebuild or `SAVE` first puts the parts back,
+so an exploded view can never end up in the history or the saved model.
+For a picture: `python -m modeler render part.cmd` with `XSHOW, apart` in
+the shots file.
+
+An example is `scripts/exploded_view.cmd`.
+
+## 36. Frames and weldments
+
+A frame is structural members (tube, bar, angle, channel, I-beam) laid
+along straight lines. Draw the lines as a `POLYLINE` (in 3D) or in a
+sketch, then give the profile and its sizes:
+
+```
+POLYLINE, (0,0,450), (600,0,450), (600,400,450), (0,400,450), CLOSE
+MEMBER, LAST, SQUARE, 30x2                   ! square tube 30 wide, 2 wall, mitred corners: member_1 ... member_4
+MEMBER, legs, SQUARE, 30x2, BUTT, leg        ! butted, named leg_1 ...
+MEMBER, s2, IBEAM, 100x200x8, BUTT, beam, 90 ! turned 90 degrees about each member
+CUTLIST                                      ! what to cut, with how many of each
+CUTLIST, cuts.csv
+```
+
+| profile | size | |
+|---|---|---|
+| `SQUARE` | `w x t` | square tube, wall t (t 0: a solid bar) |
+| `RECT` | `w x h x t` | rectangular tube |
+| `ROUND` | `d x t` | round tube, outside diameter d (t 0: a solid bar) |
+| `FLAT` | `w x t` | flat bar |
+| `ANGLE` | `w x h x t` | angle (L) |
+| `CHANNEL` | `w x h x t` | channel (U) |
+| `IBEAM` | `w x h x t` | I-beam, flanges w wide, web and flanges t thick |
+
+Each straight piece of the path becomes one body. The profile is centred
+on the line. Its width (`w`) runs across, and its height (`h`) follows the
+normal of the path's plane (Z for a path that is not flat); `turn`
+rotates it about the member.
+
+**Corners.** `MITRE` cuts both members on the plane halfway between them.
+`BUTT` runs the first member on to the far side of the next one, and the
+next one stops at its side. A round tube stopping at another is coped (cut
+to the other's round). Where two members meet in a straight line they are
+cut square.
+
+**`CUTLIST`** groups the members by profile, size, length (end to end, the
+longest points) and end cut angles (from square: 45 for a mitre of a right
+angle), with how many of each and which bodies, plus the total length of
+each profile. Members keep their place on the list after holes or other
+cuts.
+
+An example is `scripts/welded_frame.cmd`.

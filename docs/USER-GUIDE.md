@@ -270,6 +270,13 @@ which joins are smooth (G2), tangent (G1) or creased. Details:
 [M5-nurbs.md](M5-nurbs.md); a worked example is the computer mouse,
 `scripts/mouse.cmd`.
 
+**Families of sizes.** A configuration is a named set of parameter values
+(`CONFIG, big, "W = 80, H = 20"`). Pick it from the **Configuration** list
+above the parameters and the model rebuilds with those values; **Default**
+goes back. **New…** starts one from the values you have now. `BOM` lists
+the parts with their quantities, material and mass, and `BOM, parts.csv`
+writes the list for a spreadsheet. Details: LANGUAGE.md section 30.
+
 **Sculpting.** The **Sculpt** tab shapes a mesh body like clay. Pick a
 body and press **Make sculptable** (it becomes a mesh body with fine, even
 triangles), choose a brush (Draw, Clay, Inflate, Smooth, Flatten, Pinch,
@@ -289,6 +296,54 @@ becomes a solid, and an open scan, or a region you painted with the Mask
 brush, becomes one smooth face. Give the largest distance from the mesh
 you accept; the message says how close it got. Details: LANGUAGE.md
 section 29; an example is `scripts/scan_to_cad.cmd`.
+
+A scan of a machined part (flat faces, holes, bosses) is better as exact
+faces: type `RECONSTRUCT, scan` (on the command menu under Mesh bodies).
+It splits the mesh at its sharp edges, fits each region as a plane,
+cylinder or sphere, and makes one solid; `SEGMENT, scan` first lists the
+regions and their fits. Details: LANGUAGE.md section 34; an example is
+`scripts/scan_machined.cmd`.
+
+**Sheet metal.** On the **Features** tab, **Sheet** makes a plate of one
+thickness from a closed sketch. Pick an edge of its top face and press
+**Flange** to bend a wall up along it (an edge of the bottom face bends
+down); give the wall's length, the angle and, if it differs from the
+sheet's, the bend radius. **Bend** folds the plate itself along a line
+you drew in a sketch (the smaller side turns). **Unfold** lays the part flat beside it and can
+write a DXF of the blank, with the bend lines and their angles, for a
+laser or punch. Details: LANGUAGE.md section 31; an example is
+`scripts/sheet_bracket.cmd`.
+
+**Frames.** Draw the frame's lines with `POLYLINE` (or in a sketch) and
+press **Member** on the Features tab: pick the profile (square, rectangular
+or round tube, flat bar, angle, channel, I-beam), its size like `40x3`,
+and mitred or butted corners. Each straight piece becomes one member.
+**Cut list** lists what to cut: lengths, end angles and how many of each.
+Details: LANGUAGE.md section 36; an example is `scripts/welded_frame.cmd`.
+
+**Ribs, lips and wrapping.** **Rib** (command `RIB`) turns an open sketch
+line into a thin wall that runs down to the part: draw the line where the
+rib's top edge goes, in a sketch square to the walls. **Lip** keys the two
+halves of an enclosure together: pick the rim face of one half for a
+raised band, and the rim of the other half with GROOVE for the matching
+cut. **Wrap** lays a sketch round a cylindrical or conical face, raised or
+cut, for grips, labels and bands. Details: LANGUAGE.md section 32; an example is
+`scripts/enclosure_halves.cmd`.
+
+**Exploded views.** Record how an assembly comes apart with `XSTEP` (the
+command menu, under Parts): each step moves some parts by a distance.
+`XSHOW, name` then shows the parts apart with thin trail lines back to
+their places, and `XSHOW` alone puts them back (so does the next change).
+Details: LANGUAGE.md section 35; an example is `scripts/exploded_view.cmd`.
+
+**Moving an assembly.** Write the moving part's position with a parameter
+(`A = 30` and then `MATE, ANGLE, ..., A`, or `ROTATE, lid, -A, ...`).
+**Motion…** on the Inspect tab opens a window with a slider over that
+parameter: the parts move as you drag (the history is not changed), and
+Play runs through the range. **Check range** lists every position where
+parts overlap and the value where they first meet. **Save pictures…**
+writes one picture per step. Closing the window puts the parameter back.
+Details: LANGUAGE.md section 33; an example is `scripts/hinged_lid.cmd`.
 
 ---
 
@@ -414,6 +469,13 @@ macOS: `3Dmodeling.app/Contents/MacOS/3Dmodeling-cli`) for these.
 
 A script that ends with `EXPORT` makes files in batch: run it with
 different `-D` values to make a family of parts.
+
+**Other AI tools can model with the app.** `modeler mcp` (in the
+downloaded app: `3Dmodeling-cli mcp`) starts a Model Context Protocol
+server. Any MCP client, such as a chat app or a coding agent, can then use
+the same modelling tools as the built-in assistant, with no window. It can
+build a part, check it, and save or export it. How to add it to a client:
+[mcp.md](mcp.md).
 
 ---
 

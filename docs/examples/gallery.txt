@@ -27,7 +27,13 @@ mesh_bodies.cmd | Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a 
 implicit_lattices.cmd | Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill | ISO
 knife_cuts.cmd | Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss | ISO
 sculpt_head.cmd | Sculpted head: brow ridges, nose and mouth brushed onto a mesh ball, mirrored, with a mask | FRONT
-scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face | FRONT
 cover_plate.cmd | Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole | TOP
 cam_plate.cmd | Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges | TOP
 spline_handle.cmd | Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline | TOP
+sheet_bracket.cmd | Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances | ISO
+enclosure_halves.cmd | Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips | ISO
+scan_machined.cmd | Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid | ISO
+hinged_lid.cmd | Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post | ISO
+scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face | FRONT
+exploded_view.cmd | Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone | ISO | XSHOW, apart
+welded_frame.cmd | Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts | 1,-0.6,0.45

@@ -46,10 +46,16 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/implicit_lattices.png" width="160">](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) | [Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) |
 | [<img src="examples/knife_cuts.png" width="160">](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) | [Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) |
 | [<img src="examples/sculpt_head.png" width="160">](#sculpted-head-brow-ridges-nose-and-mouth-brushed-onto-a-mesh-ball-mirrored-with-a-mask) | [Sculpted head: brow ridges, nose and mouth brushed onto a mesh ball, mirrored, with a mask](#sculpted-head-brow-ridges-nose-and-mouth-brushed-onto-a-mesh-ball-mirrored-with-a-mask) |
-| [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 | [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
 | [<img src="examples/cam_plate.png" width="160">](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) | [Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) |
 | [<img src="examples/spline_handle.png" width="160">](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) | [Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) |
+| [<img src="examples/sheet_bracket.png" width="160">](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) | [Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) |
+| [<img src="examples/enclosure_halves.png" width="160">](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) | [Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) |
+| [<img src="examples/scan_machined.png" width="160">](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) | [Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) |
+| [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
+| [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
+| [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
+| [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) |
 
 ---
 
@@ -1948,47 +1954,6 @@ SCULPT, head, SMOOTH, 3, 0.5, S4, X
 
 ---
 
-## Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face
-
-![Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](examples/scan_to_cad.png)
-
-Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md). A sculpted head stands in for a scanned part.
-
-**Script:** [scripts/scan_to_cad.cmd](../scripts/scan_to_cad.cmd) (22 lines) · **Run:** `python -m modeler scripts/scan_to_cad.cmd`
-
-**You should get:** 3 bodies, volume 65,178.4 mm³, 4 faces
-
-<details><summary>The whole script</summary>
-
-```text
-! Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md).
-! A sculpted head stands in for a scanned part.
-SPHERE, 0, 0, 0, 20
-NAME, LAST, scan
-TOMESH, scan
-REMESH, scan, 0.8
-STROKE, S1, "0,-20,-2  0,-20,0  0,-20,2"
-SCULPT, scan, INFLATE, 5, 0.9, S1
-STROKE, S2, "6,-18,6  10,-17,7  14,-15,7"
-SCULPT, scan, CLAY, 4, 0.6, S2, X
-! the whole closed mesh: one smooth surface wrapped round it, closed into a solid
-FITSURF, scan, ALL, 0.15
-NAME, LAST, fitted
-MOVE, fitted, 50, 0, 0
-! only the face of it: paint the region, then fit that region as one trimmed face
-MASK, scan, PAINT, 0, -20, 2, 16
-FITSURF, scan, MASK, 0.1
-NAME, LAST, front
-MOVE, front, 100, 0, 0
-! the fitted solid is ordinary CAD: it takes booleans, fillets and shells
-CYL, 50, 0, -30, 4, 60
-SUBTRACT, fitted, LAST
-```
-
-</details>
-
----
-
 ## Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole
 
 ![Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](examples/cover_plate.png)
@@ -2097,6 +2062,351 @@ SFILLET, 2.E, 3                          ! round the top left corner (line and s
 SCIRCLE, 12, 5, 2.5                      ! a hole for a lanyard
 ENDSKETCH
 EXTRUDE, handle, 8
+```
+
+</details>
+
+---
+
+## Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances
+
+![Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](examples/sheet_bracket.png)
+
+Sheet metal (SHEET, FLANGE, UNFOLD): a bent bracket and its flat blank (docs/sheet-metal.md).
+
+**Script:** [scripts/sheet_bracket.cmd](../scripts/sheet_bracket.cmd) (27 lines) · **Run:** `python -m modeler scripts/sheet_bracket.cmd`
+
+**You should get:** 2 bodies, volume 21,922.0 mm³, 42 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Sheet metal (SHEET, FLANGE, UNFOLD): a bent bracket and its flat blank (docs/sheet-metal.md).
+W = 60
+D = 40
+T = 2
+SKETCH, base, XY
+SRECT, 0, 0, W, D
+SCIRCLE, W/2, D/2, 6
+SSLOT, 12, 10, 12, 30, 2.5
+ENDSKETCH
+! a 2 mm plate, bend radius 2, K-factor 0.44
+SHEET, base, T, 2
+NAME, LAST, bracket
+! the front edge of the top face bends up 90 degrees, 25 long
+SEL, S, EDGE, AT, W/2, 0, T
+FLANGE, , 25
+! the right edge of the bottom face bends down 45 degrees
+SEL, S, EDGE, AT, W, D/2, 0
+FLANGE, , 15, 45
+! the back edge bends up a lip, 120 degrees, tighter radius
+SEL, S, EDGE, AT, W/2, D, T
+FLANGE, , 10, 120, 1
+SEL, NONE
+SHEETINFO, bracket
+! the flat blank beside it (UNFOLD, bracket, blank.dxf also writes the DXF to cut)
+UNFOLD, bracket
+NAME, LAST, blank
+FIT
+```
+
+</details>
+
+---
+
+## Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips
+
+![Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips](examples/enclosure_halves.png)
+
+Ribs, lips and wrapped text (RIB, LIP, WRAP): two halves of an enclosure and a knurled knob.
+
+**Script:** [scripts/enclosure_halves.cmd](../scripts/enclosure_halves.cmd) (62 lines) · **Run:** `python -m modeler scripts/enclosure_halves.cmd`
+
+**You should get:** 4 bodies, volume 38,000.7 mm³, 108 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Ribs, lips and wrapped text (RIB, LIP, WRAP): two halves of an enclosure and a knurled knob.
+W = 60
+D = 40
+H = 18
+T = 2
+! the base half: an open box with a rib across the floor and a lip on its rim
+BLOCK, 0, 0, 0, W, D, H
+NAME, LAST, base
+SEL, S, FACE, AT, W/2, D/2, H
+SHELL, T
+PLANE, mid, XZ, D/2
+SKETCH, r1, mid
+SLINE, -(W - T), H/2, -T, H/2
+ENDSKETCH
+RIB, r1, 1.5, base
+SEL, S, FACE, AT, T/2, D/2, H
+LIP, , 2, 0.8
+! the lid: the same box, upside down above it, with the matching groove
+BLOCK, 0, 0, H + 15, W, D, 8
+NAME, LAST, lid
+SEL, S, FACE, AT, W/2, D/2, H + 15
+SHELL, T
+SEL, S, FACE, AT, T/2, D/2, H + 15
+LIP, , 2, 0.8, GROOVE, 0.2
+! a gusset in the corner of an angle bracket
+BLOCK, 80, 0, 0, 40, 30, 4
+NAME, LAST, angle
+BLOCK, 80, 0, 0, 4, 30, 40
+UNION, angle, LAST
+PLANE, g, XZ, 15
+SKETCH, gs, g
+SLINE, -84, 30, -110, 4
+ENDSKETCH
+RIB, gs, 3, angle
+! a knob with raised grips and a sunk band wrapped round it
+CYL, 150, 20, 0, 12, 20
+NAME, LAST, knob
+PLANE, k, XZ, 5
+SKETCH, grips, k
+SRECT, -150 - 28 - 1.5, 5, -150 - 28 + 1.5, 17
+SRECT, -150 - 21 - 1.5, 5, -150 - 21 + 1.5, 17
+SRECT, -150 - 14 - 1.5, 5, -150 - 14 + 1.5, 17
+SRECT, -150 - 7 - 1.5, 5, -150 - 7 + 1.5, 17
+SRECT, -150 + 0 - 1.5, 5, -150 + 0 + 1.5, 17
+SRECT, -150 + 7 - 1.5, 5, -150 + 7 + 1.5, 17
+SRECT, -150 + 14 - 1.5, 5, -150 + 14 + 1.5, 17
+SRECT, -150 + 21 - 1.5, 5, -150 + 21 + 1.5, 17
+SRECT, -150 + 28 - 1.5, 5, -150 + 28 + 1.5, 17
+ENDSKETCH
+SEL, S, FACE, AT, 162, 20, 10
+WRAP, grips, , 1
+SKETCH, band, k
+SRECT, -150 - 35, 1.5, -150 + 35, 3
+ENDSKETCH
+SEL, S, FACE, AT, 162, 20, 10
+WRAP, band, , 0.4, CUT
+SEL, NONE
+! the planes were only for the sketches
+DATUM, DELETE, mid
+DATUM, DELETE, g
+DATUM, DELETE, k
+FIT
+```
+
+</details>
+
+---
+
+## Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid
+
+![Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid](examples/scan_machined.png)
+
+Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a bore, a boss and a dome is split at its sharp edges, each region is fitted exactly as a plane, cylinder or sphere, and the fitted faces are joined into one exact solid. Here the mesh is made with TOMESH; a real scan is IMPORTed.
+
+**Script:** [scripts/scan_machined.cmd](../scripts/scan_machined.cmd) (20 lines) · **Run:** `python -m modeler scripts/scan_machined.cmd`
+
+**You should get:** 2 bodies, volume 95,640.0 mm³, 12 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a bore, a boss and a dome
+! is split at its sharp edges, each region is fitted exactly as a plane, cylinder or sphere, and the
+! fitted faces are joined into one exact solid. Here the mesh is made with TOMESH; a real scan is IMPORTed.
+BLOCK, 0, 0, 0, 60, 40, 20
+NAME, LAST, part
+CYL, 35, 20, -1, 5, 30
+SUBTRACT, part, LAST
+CYL, 45, 20, 20, 6, 10
+UNION, part, LAST
+SPHERE, 15, 20, 20, 5
+UNION, part, LAST
+TOMESH, part
+NAME, part, scan
+! what is in the scan: 10 regions, each with its fit
+SEGMENT, scan
+RECONSTRUCT, scan
+NAME, LAST, solid
+MOVE, solid, 0, 50, 0
+COLOR, solid, ORANGE
+FIT
+```
+
+</details>
+
+---
+
+## Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post
+
+![Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](examples/hinged_lid.png)
+
+Assemblies that move (DRIVE, MOTION, the Motion window): a lid on a hinge and a post it hits. Motion window: Inspect > Motion…, parameter A from 0 to 180. From a shell: python -m modeler render scripts/hinged_lid.cmd --motion A 0 180 18 frames
+
+**Script:** [scripts/hinged_lid.cmd](../scripts/hinged_lid.cmd) (17 lines) · **Run:** `python -m modeler scripts/hinged_lid.cmd`
+
+**You should get:** 3 bodies, volume 9,248.2 mm³, 15 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Assemblies that move (DRIVE, MOTION, the Motion window): a lid on a hinge and a post it hits.
+! Motion window: Inspect > Motion…, parameter A from 0 to 180. From a shell:
+!   python -m modeler render scripts/hinged_lid.cmd --motion A 0 180 18 frames
+A = 60
+BLOCK, 0, 0, 0, 40, 30, 5
+NAME, LAST, base
+COLOR, base, BLUE
+BLOCK, 0, 0, 5, 40, 30, 2
+NAME, LAST, lid
+COLOR, lid, ORANGE
+! the hinge line is the base's top back edge, along Y
+ROTATE, lid, -A, 0, 0, 5, 0, 1, 0
+CYL, -20, 15, 0, 3, 30
+NAME, LAST, post
+! where does the lid hit the post? (MOTION reports it and puts A back)
+MOTION, A, 0, 180, 12
+FIT
+```
+
+</details>
+
+---
+
+## Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face
+
+![Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](examples/scan_to_cad.png)
+
+Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md). A sculpted head stands in for a scanned part.
+
+**Script:** [scripts/scan_to_cad.cmd](../scripts/scan_to_cad.cmd) (22 lines) · **Run:** `python -m modeler scripts/scan_to_cad.cmd`
+
+**You should get:** 3 bodies, volume 65,178.4 mm³, 4 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md).
+! A sculpted head stands in for a scanned part.
+SPHERE, 0, 0, 0, 20
+NAME, LAST, scan
+TOMESH, scan
+REMESH, scan, 0.8
+STROKE, S1, "0,-20,-2  0,-20,0  0,-20,2"
+SCULPT, scan, INFLATE, 5, 0.9, S1
+STROKE, S2, "6,-18,6  10,-17,7  14,-15,7"
+SCULPT, scan, CLAY, 4, 0.6, S2, X
+! the whole closed mesh: one smooth surface wrapped round it, closed into a solid
+FITSURF, scan, ALL, 0.15
+NAME, LAST, fitted
+MOVE, fitted, 50, 0, 0
+! only the face of it: paint the region, then fit that region as one trimmed face
+MASK, scan, PAINT, 0, -20, 2, 16
+FITSURF, scan, MASK, 0.1
+NAME, LAST, front
+MOVE, front, 100, 0, 0
+! the fitted solid is ordinary CAD: it takes booleans, fillets and shells
+CYL, 50, 0, -30, 4, 60
+SUBTRACT, fitted, LAST
+```
+
+</details>
+
+---
+
+## Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone
+
+![Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](examples/exploded_view.png)
+
+Exploded views (XSTEP, XSHOW) and a label wrapped onto a cone (WRAP): a box with a lid, four screws and a conical knob. XSTEP records how the parts come apart; XSHOW shows it with trail lines, and the parts go back before the next command (or XSHOW alone).
+
+**Script:** [scripts/exploded_view.cmd](../scripts/exploded_view.cmd) (39 lines) · **Run:** `python -m modeler scripts/exploded_view.cmd`
+
+**You should get:** 7 bodies, volume 60,789.1 mm³, 42 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Exploded views (XSTEP, XSHOW) and a label wrapped onto a cone (WRAP): a box with a lid, four screws
+! and a conical knob. XSTEP records how the parts come apart; XSHOW shows it with trail lines, and
+! the parts go back before the next command (or XSHOW alone).
+BLOCK, -30, -20, 0, 60, 40, 20
+NAME, LAST, box
+BLOCK, -30, -20, 20, 60, 40, 4
+NAME, LAST, lid
+COLOR, lid, ORANGE
+CYL, -25, -15, 14, 2, 14
+NAME, LAST, screw_1
+COLOR, LAST, GREY
+CYL, 25, -15, 14, 2, 14
+NAME, LAST, screw_2
+COLOR, LAST, GREY
+CYL, -25, 15, 14, 2, 14
+NAME, LAST, screw_3
+COLOR, LAST, GREY
+CYL, 25, 15, 14, 2, 14
+NAME, LAST, screw_4
+COLOR, LAST, GREY
+CONE, 0, 0, 24, 10, 6, 12
+NAME, LAST, knob
+COLOR, knob, BLUE
+! a band of text-like marks round the knob: the sketch is laid on the cone's development
+PLANE, w, XZ, -20
+SKETCH, marks, w
+SRECT, -1, 27, 1, 33
+SRECT, 4, 27, 6, 33
+SRECT, -6, 27, -4, 33
+ENDSKETCH
+SEL, S, FACE, TYPE, CONE
+WRAP, marks, , 0.6
+DATUM, DELETE, w
+! the exploded view: the knob and screws first, then the lid
+XSTEP, apart, knob, 0, 0, 30
+XSTEP, apart, "screw_1 screw_2 screw_3 screw_4", 0, 0, 45
+XSTEP, apart, "lid knob", 0, 0, 25
+! show it with: XSHOW, apart  (and XSHOW alone to put the parts back)
+FIT
+```
+
+</details>
+
+---
+
+## Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts
+
+![Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](examples/welded_frame.png)
+
+Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+
+**Script:** [scripts/welded_frame.cmd](../scripts/welded_frame.cmd) (25 lines) · **Run:** `python -m modeler scripts/welded_frame.cmd`
+
+**You should get:** 15 bodies, volume 913,900.0 mm³, 88 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with
+! mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between
+! two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+W = 600
+D = 400
+H = 450
+T = 30
+POLYLINE, (0,0,H), (W,0,H), (W,D,H), (0,D,H), CLOSE
+NAME, LAST, top_path
+MEMBER, top_path, SQUARE, 30x2, MITRE, rail
+HIDE, top_path
+*DO, i, 0, 1
+  *DO, j, 0, 1
+    POLYLINE, (T/2 + i*(W - T), T/2 + j*(D - T), 0), (T/2 + i*(W - T), T/2 + j*(D - T), H - T/2)
+    HIDE, LAST
+    MEMBER, LAST, SQUARE, 30x2, BUTT, leg
+  *ENDDO
+*ENDDO
+POLYLINE, (T, T/2, 120), (W - T, T/2, 120)
+NAME, LAST, brace_path
+MEMBER, brace_path, ANGLE, 25x25x3, BUTT, brace, 180
+HIDE, brace_path
+COLOR, brace_1, ORANGE
+CUTLIST
+FIT
 ```
 
 </details>

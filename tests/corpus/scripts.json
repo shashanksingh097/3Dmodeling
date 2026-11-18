@@ -39,6 +39,16 @@
   "faces": 94,
   "volume": 75017.747
  },
+ "enclosure_halves.cmd": {
+  "bodies": 4,
+  "faces": 108,
+  "volume": 38000.697
+ },
+ "exploded_view.cmd": {
+  "bodies": 7,
+  "faces": 42,
+  "volume": 60789.078
+ },
  "flange.cmd": {
   "bodies": 1,
   "faces": 15,
@@ -48,6 +58,11 @@
   "bodies": 11,
   "faces": 10,
   "volume": 36472.611
+ },
+ "hinged_lid.cmd": {
+  "bodies": 3,
+  "faces": 15,
+  "volume": 9248.23
  },
  "implicit_lattices.cmd": {
   "bodies": 6,
@@ -99,6 +114,11 @@
   "faces": 10,
   "volume": 5434.513
  },
+ "scan_machined.cmd": {
+  "bodies": 2,
+  "faces": 12,
+  "volume": 95640.044
+ },
  "scan_to_cad.cmd": {
   "bodies": 3,
   "faces": 4,
@@ -108,6 +128,11 @@
   "bodies": 1,
   "faces": 1,
   "volume": 33651.827
+ },
+ "sheet_bracket.cmd": {
+  "bodies": 2,
+  "faces": 42,
+  "volume": 21922.026
  },
  "sketch_bracket.cmd": {
   "bodies": 2,
@@ -138,6 +163,11 @@
   "bodies": 17,
   "faces": 1526,
   "volume": 121094.962
+ },
+ "welded_frame.cmd": {
+  "bodies": 15,
+  "faces": 88,
+  "volume": 913900.0
  },
  "wing_rails.cmd": {
   "bodies": 5,

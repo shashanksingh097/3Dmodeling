@@ -84,6 +84,9 @@ class Raw:
     """Argument type: the argument text as written; the handler evaluates it."""
 
 
+# commands that keep an exploded view (XSHOW) shown; any other command puts the model back first
+SHOWN_EXPLODED = {"XSHOW", "FIT", "VIEW", "RENDER", "LIST", "DESCRIBE", "MSG", "*MSG"}
+
 class BodyRef:
     """Argument type: a body, given by ID, by name, or by a parameter holding either."""
 
@@ -209,6 +212,14 @@ class Processor:
         self.history_listeners: list[Callable[[], None]] = []
         self.params: dict[str, Any] = {}
         self.macros: dict[str, MacroDef] = {}
+        # configurations: named sets of parameter values (CONFIG), by upper-case name; the one in use
+        # (USECONFIG) fixes those parameters the way -D does, until another is chosen
+        self.configs: dict[str, dict[str, Any]] = {}
+        self.config = ""
+        self.config_values: dict[str, Any] = {}
+        # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
+        self.drive: dict[str, Any] = {}
+        self.exploded: dict | None = None  # XSHOW: the model as it was, put back before the next command
         self.parts: dict[str, PartDef] = {}  # *PART definitions, by upper-case name
         # built part shapes by (definition text, parameter values); not undo state,
         # because a key never changes meaning
@@ -291,6 +302,14 @@ class Processor:
             return self._finish(self.run_unit(text))
         return self._finish(self.run_unit(line))
 
+    def unexplode(self) -> bool:
+        """Put the model back as it was before XSHOW (True if it was exploded)."""
+        if self.exploded is None:
+            return False
+        snap, self.exploded = self.exploded, None
+        self.model.restore(snap)
+        return True
+
     def cancel_pending(self) -> None:
         self._buffer = []
 
@@ -348,6 +367,9 @@ class Processor:
             return Result(label, False, str(exc))
         if not stmts:
             return Result("", True)
+        if self.exploded is not None and not (len(stmts) == 1 and isinstance(stmts[0], Cmd)
+                                              and stmts[0].name in SHOWN_EXPLODED):
+            self.unexplode()
         if len(stmts) == 1 and isinstance(stmts[0], Cmd):
             cmd = REGISTRY.get(stmts[0].name)
             if cmd is not None and not cmd.logged:
@@ -381,6 +403,11 @@ class Processor:
         self._scopes = []
         self.params = {}
         self.macros = {}
+        self.configs = {}
+        self.config = ""
+        self.config_values = {}
+        self.drive = {}
+        self.exploded = None
         self.parts = {}
         self.part_files = {}
         self.file_map = {}
@@ -435,6 +462,7 @@ class Processor:
 
     def undo(self, n: int = 1) -> str:
         """Take back the last n actions: new entries, roll backs and history edits."""
+        self.unexplode()
         if not self.can_undo:
             raise CommandError("nothing to undo")
         done: list[str] = []
@@ -459,6 +487,7 @@ class Processor:
         return "undid " + self._undo_words(done) + f"; {self.cursor} in history"
 
     def redo(self, n: int = 1) -> str:
+        self.unexplode()
         if not self._redo:
             raise CommandError("nothing to redo")
         done: list[str] = []
@@ -641,6 +670,7 @@ class Processor:
         again: what it did last time is copied over (``skip``; see
         core/track.py). Entries that read files or older states always run.
         """
+        self.unexplode()
         self._drop_redo_tail()
         m = self.model
         # the view's own changes are not history: keep them through the re-run
@@ -754,13 +784,15 @@ class Processor:
 
     def _state(self) -> dict:
         return {"model": self.model.snapshot(), "params": dict(self.params), "macros": dict(self.macros),
-                "parts": dict(self.parts), "part_files": dict(self.part_files)}
+                "parts": dict(self.parts), "part_files": dict(self.part_files),
+                "configs": {k: dict(v) for k, v in self.configs.items()}}
 
     def _restore(self, state: dict, emit: bool = True) -> None:
         self.params = dict(state["params"])
         self.macros = dict(state["macros"])
         self.parts = dict(state.get("parts", {}))
         self.part_files = dict(state.get("part_files", {}))
+        self.configs = {k: dict(v) for k, v in state.get("configs", {}).items()}
         if emit:
             self.model.restore(state["model"])
         else:
@@ -1019,6 +1051,16 @@ class Processor:
             self._set(name, value)
             self._say(f"{name} = {format_value(value)} (fixed from outside)")
             return
+        if not self._scopes and name in self.drive:
+            value = self.drive[name]
+            self._set(name, value)
+            self._say(f"{name} = {format_value(value)} (driven)")
+            return
+        if not self._scopes and name in self.config_values:
+            value = self.config_values[name]
+            self._set(name, value)
+            self._say(f"{name} = {format_value(value)} (configuration {self.config})")
+            return
         value = self.evaluator.eval(st.expr)
         self._set(name, value)
         self._say(f"{name} = {format_value(value)}")
@@ -1196,6 +1238,9 @@ class Processor:
     def _check_param_name(self, key: str) -> None:
         if key in RESERVED or self.evaluator.is_name(key):
             raise CommandError(f"{key} is a built-in name and cannot be a parameter")
+        if not self._scopes and key not in self.params and self.model.body_by_name(key) is not None:
+            raise CommandError(f"{key} is the name of a body; a parameter with the same name would hide it "
+                               f"in commands (pick another name, or rename the body with NAME)")
 
     def _number(self, expr: str, what: str) -> float:
         v = self.evaluator.eval(expr)

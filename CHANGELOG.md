@@ -6,6 +6,25 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Frames and weldments**: `MEMBER` lays square, rectangular or round
+  tube, flat bar, angle, channel or I-beam along a polyline or sketch, with
+  mitred or butted (coped for round tube) corners. `CUTLIST` lists what to
+  cut, with lengths, end angles and quantities, also as CSV.
+- **Exploded views**: `XSTEP` records how an assembly comes apart (named
+  views, saved with the project) and `XSHOW` shows it, with trail lines from
+  each part back to its place. The parts go back before the next change.
+- **Sheet metal bends along a sketched line**: `SBEND` (Bend… on the
+  Features tab) turns one side of a plate about a line, with its holes, and
+  `UNFOLD` lays it flat again.
+- **Holes in flange walls show in the flat pattern**: `UNFOLD` lays each
+  wall flat as it is, so holes cut after bending are in the blank and DXF.
+- **WRAP onto cones**: a sketch is laid on the cone's development, so sizes
+  and angles are kept.
+- **Scan to CAD for machined parts**: `SEGMENT` splits a mesh at its sharp
+  edges and says what each region is (a plane, a cylinder or bore, a sphere,
+  or freeform). `RECONSTRUCT` fits those exactly and joins them into one
+  solid. A scanned block with a bore, a boss and a dome comes back within
+  0.01% of its volume.
 - **Help browser**: Help > Command reference (Ctrl+F1) lists every command
   under the command menu's headings, searchable by name, help or argument.
   Each command's page has its arguments with their defaults, lines from the
@@ -32,9 +51,45 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   body. A closed rounded mesh becomes a solid; an open scan or a region
   painted with `MASK` becomes one trimmed face. It reports how far the
   surface is from the mesh. **Fit surface** on the Sculpt tab opens it.
+- **Configurations**: `CONFIG, big, "W = 80, H = 20"` names a set of
+  parameter values; `USECONFIG, big` (or the new list above the
+  parameters) rebuilds the model with them. Saved with the project; the
+  batch runner takes `-C big`.
+- **`BOM`**: the parts list, with instances of the same part counted
+  together, material and mass; `BOM, parts.csv` writes it as CSV.
+- **Sheet metal**: `SHEET` makes a plate of one thickness from a sketch,
+  `FLANGE` bends a wall up or down along an edge (angle, length, bend
+  radius) and `UNFOLD` lays the part flat, as a body and as a DXF to cut
+  with bend lines and their angles. The flat length of each bend follows
+  the sheet's K-factor. `SHEETINFO` lists the flanges. On the Features tab.
+- **Ribs, lips and wrapped sketches**: `RIB` makes a thin wall from an open
+  sketch line down to the part's faces (its ends carry on to the walls).
+  `LIP` raises a band along the inside edge of an enclosure's rim, and
+  `LIP, ..., GROOVE` cuts the matching step with a clearance. `WRAP` lays
+  a sketch round a cylinder, raised or cut, keeping its sizes. Rib, Lip and
+  Wrap buttons are on the Features tab.
+- **Assemblies that move**: Inspect > **Motion…** drives a parameter (a
+  `MATE` angle, a `ROTATE`, a `MOVE`) with a slider and Play, without
+  changing the history (`DRIVE, A, 75`). **Check range** (`MOTION, A, 0,
+  180, 18`) finds where parts run into each other and the exact value
+  where they first meet. **Save pictures…** and `python -m modeler render
+  part.cmd --motion A 0 180 18 frames` save a picture per step.
+- **The modelling tools for any MCP client**: `python -m modeler mcp`
+  serves the assistant's tools (run, describe, probe, check, the working
+  copy, undo) plus `apply`, `save_project` and `export`, over the Model
+  Context Protocol on stdin/stdout, headless. See docs/mcp.md.
+
+- **Sculpting a million triangles is smooth.** The brush circle follows
+  the mouse 50 times faster on a 1M-triangle mesh, drag steps are three
+  times faster and a finished stroke twice as fast.
 - **Long rebuilds no longer freeze the window.** A history edit whose steps
   took a second or more runs in a helper process; the view can be turned
   while it works, and Cancel stops it at once, even in the middle of a step.
+
+### Fixed
+
+- A body named like a parameter could not be reached in commands (the name
+  gave the parameter's value). Such names are now refused with a note.
 
 ## [0.3.0] - 2026-11-18
 

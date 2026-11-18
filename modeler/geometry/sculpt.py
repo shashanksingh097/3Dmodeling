@@ -152,8 +152,10 @@ class Report:
 
 def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strength: float,
            points, sym: str = "", mask: np.ndarray | None = None,
-           topo: Topology | None = None) -> tuple[np.ndarray, Report]:
-    """The points after one brush stroke (the input is not changed)."""
+           topo: Topology | None = None, candidates: np.ndarray | None = None) -> tuple[np.ndarray, Report]:
+    """The points after one brush stroke (the input is not changed).
+    ``candidates``: indices of every point the stroke (and its mirror copies) could reach, when the
+    caller knows them (a drag on a big mesh, see PointGrid); then only those are looked at."""
     t0 = time.perf_counter()
     brush = brush.upper()
     if brush not in BRUSHES:
@@ -199,7 +201,11 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
         for s in signs:
             # only the points near this copy of the stroke are looked at again
             slo, shi = np.minimum(lo * s, hi * s), np.maximum(lo * s, hi * s)
-            box = np.flatnonzero(np.all((out >= slo) & (out <= shi), axis=1))
+            if candidates is None:
+                box = np.flatnonzero(np.all((out >= slo) & (out <= shi), axis=1))
+            else:
+                q = out[candidates]
+                box = candidates[np.all((q >= slo) & (q <= shi), axis=1)]
             if not len(box):
                 continue
             if topo is not None and len(box) * 8 < len(out):
@@ -225,6 +231,36 @@ def stroke(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strengt
     idx = idx[moved > 0]
     return out, Report(dabs, len(idx), float(moved.max() if len(moved) else 0.0),
                        time.perf_counter() - t0, idx)
+
+
+class PointGrid:
+    """Points sorted into cubes, so the points inside a box are found without looking at all of
+    them (a drag on a big mesh asks this at every mouse move)."""
+
+    def __init__(self, pts: np.ndarray, cell: float):
+        self.cell = max(float(cell), 1e-9)
+        self.lo = pts.min(axis=0)
+        key = np.floor((pts - self.lo) / self.cell).astype(np.int64)
+        self.dims = key.max(axis=0) + 1
+        flat = (key[:, 0] * self.dims[1] + key[:, 1]) * self.dims[2] + key[:, 2]
+        self.order = np.argsort(flat, kind="stable")
+        self.keys = flat[self.order]
+
+    def inside(self, lo, hi) -> np.ndarray:
+        """Indices of the points in cubes that touch the box lo..hi (a few more than inside it)."""
+        a = np.clip(np.floor((np.asarray(lo) - self.lo) / self.cell).astype(np.int64), 0, self.dims - 1)
+        b = np.clip(np.floor((np.asarray(hi) - self.lo) / self.cell).astype(np.int64), 0, self.dims - 1)
+        if np.any(np.asarray(hi) < self.lo) or np.any(b < a):
+            return np.zeros(0, dtype=np.int64)
+        out = []
+        for i in range(a[0], b[0] + 1):
+            for j in range(a[1], b[1] + 1):
+                k0 = (i * self.dims[1] + j) * self.dims[2]
+                s0 = np.searchsorted(self.keys, k0 + a[2], "left")
+                s1 = np.searchsorted(self.keys, k0 + b[2], "right")
+                if s1 > s0:
+                    out.append(self.order[s0:s1])
+        return np.concatenate(out) if out else np.zeros(0, dtype=np.int64)
 
 
 def _near(pts: np.ndarray, c: np.ndarray, r: float) -> np.ndarray:

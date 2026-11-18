@@ -261,7 +261,10 @@ def info(shape: TopoDS_Shape) -> MeshInfo:
     if hit is not None and hit[0].IsEqual(shape):
         return hit[1]
     pts, t = arrays(shape)
-    out = MeshInfo(len(t), len(pts), _closed(t), volume(pts, t), area(pts, t))
+    a = pts[t[:, 0]]
+    n = np.cross(pts[t[:, 1]] - a, pts[t[:, 2]] - a)  # one cross product for both
+    vol = float(np.einsum("ij,ij->", a, n) / 6.0)
+    out = MeshInfo(len(t), len(pts), closed(t), vol, float(np.sqrt(np.einsum("ij,ij->i", n, n)).sum() / 2.0))
     _INFO[key] = (shape, out)
     while len(_INFO) > _CACHE_SIZE:
         _INFO.popitem(last=False)
@@ -281,6 +284,20 @@ def area(pts: np.ndarray, t: np.ndarray) -> float:
 def edge_lengths(pts: np.ndarray, t: np.ndarray) -> np.ndarray:
     e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
     return np.linalg.norm(pts[e[:, 0]] - pts[e[:, 1]], axis=1)
+
+
+_CLOSED: list = []  # [(triangles array, closed)]: a sculpt stroke keeps the same triangles
+
+
+def closed(t: np.ndarray) -> bool:
+    """_closed, remembered for the last few triangle arrays (by identity)."""
+    for arr, val in _CLOSED:
+        if arr is t:
+            return val
+    val = _closed(t)
+    _CLOSED.insert(0, (t, val))
+    del _CLOSED[8:]
+    return val
 
 
 def _closed(t: np.ndarray) -> bool:

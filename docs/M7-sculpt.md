@@ -205,8 +205,44 @@ within 1.25 radii of the stroke shorter than `JOIN` (0.4) times `detail`:
   joined settle to about the same number per stroke (about 950 each), and
   the surface stays closed and consistently oriented.
 
+## Part 5: a million triangles (PLAN item 16)
+
+Measured on a ball of 1,155,222 triangles (577,613 points), in the window,
+before and after:
+
+| Step | Before | After |
+| --- | --- | --- |
+| brush circle under the mouse (one ray test) | 0.24 s | 0.005 s |
+| one step of a drag (ray, brush, patch shown) | about 0.11 s | about 0.035 s |
+| a finished stroke (command, history, redraw) | 1.0 s | 0.46 s, of which 0.24 s is drawing on the test machine's software renderer |
+
+What changed:
+
+- **Ray tests use boxes.** Triangles are sorted along a space-filling curve
+  (Morton order) once per mesh and grouped 2,048 to a box; a ray tries only
+  the triangles in the boxes it passes through
+  (`gui/sculpt_tool.RayIndex`, used by `ray_hit` from 60,000 triangles).
+  The order stays while the triangles stay the same, so only the boxes are
+  worked out again after a stroke (0.1 s, done once). Turning on Sculpt
+  builds them, so the first mouse move does not wait.
+- **During a drag the boxes are not rebuilt.** No point is further from
+  where the drag started than the largest move so far, so the starting
+  boxes grown by that distance still hold every triangle.
+- **Brush steps look only near the brush.** A grid of cubes over the
+  starting points (`geometry/sculpt.PointGrid`) gives the points a drag
+  step can reach, mirror copies included; `sculpt.stroke` takes them as
+  `candidates` instead of testing every point of the mesh.
+- **Body messages no longer work out volume and area.** A mesh's message
+  only needs its triangle count and whether it is closed, and "closed" is
+  remembered while the triangles stay the same. Volume and area (for
+  `MASSPROP` and the AI tools) take one cross product instead of three.
+- **Mesh bodies are drawn without face borders.** Finding the border of a
+  million-triangle triangulation took 0.15 s per stroke, and a mesh body has
+  no edges to show.
+
 ## What is left
 
 - Splitting and joining during the drag rather than only on release (the
   live preview moves the triangles as they were).
-- The 1M-triangle goal of PLAN.md at interactive speed during a drag.
+- Keeping the normals of a sculpted mesh and updating only the moved ones,
+  instead of the view working them all out again after each stroke.

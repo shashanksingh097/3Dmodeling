@@ -14,6 +14,7 @@ from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QBrush, QColor, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QCompleter,
     QDialog,
     QDialogButtonBox,
@@ -343,7 +344,15 @@ class ParamPanel(QTableWidget):
     def _menu(self, pos) -> None:
         menu = QMenu(self)
         menu.addAction("New parameter…", lambda: self.win.open_form("="))
+        menu.addAction("New configuration from these values…", self.new_config)
         menu.exec(self.viewport().mapToGlobal(pos))
+
+    def new_config(self):
+        """The CONFIG form, filled with every parameter's value now (delete the ones that stay)."""
+        p = self.win.processor
+        vals = ", ".join(f"{k} = {format_value(v)}" for k, v in sorted(p.params.items())
+                         if isinstance(v, (int, float)) and not isinstance(v, bool))
+        return self.win.open_form("CONFIG", f'CONFIG, size2, "{vals}"')
 
     def refresh(self) -> None:
         p = self.win.processor
@@ -365,7 +374,14 @@ class ParamPanel(QTableWidget):
                     key.setToolTip(f"An input of part {p.part_doc.name}: its value here is the part's default")
                 val = QTableWidgetItem(format_value(value))
                 entry = p.entry_for_param(name)
-                if entry is None:
+                if name in p.config_values:
+                    val.setFlags(val.flags() & ~Qt.ItemIsEditable)
+                    f = val.font()
+                    f.setItalic(True)
+                    val.setFont(f)
+                    val.setToolTip(f"Set by configuration {p.config}: change it with CONFIG, {p.config}, ... "
+                                   "or choose Default above")
+                elif entry is None:
                     val.setFlags(val.flags() & ~Qt.ItemIsEditable)
                     val.setForeground(QBrush(QColor(140, 140, 140)))
                     val.setToolTip("Set inside a block or macro: edit it in the History panel")
@@ -392,6 +408,52 @@ class ParamPanel(QTableWidget):
         res = self.win.execute(param_edit(p, name, new))
         if not res.ok:
             self.refresh()
+
+
+class ConfigBar(QWidget):
+    """Above the parameters: which configuration the model uses (shown once there is one)."""
+
+    def __init__(self, window: "MainWindow") -> None:
+        super().__init__()
+        self.win = window
+        self._filling = False
+        row = QHBoxLayout(self)
+        row.setContentsMargins(4, 2, 4, 2)
+        row.addWidget(QLabel("Configuration"))
+        self.combo = QComboBox()
+        self.combo.setToolTip("Sizes of a family of parts (CONFIG). Choosing one runs USECONFIG and rebuilds")
+        self.combo.currentIndexChanged.connect(self._chosen)
+        row.addWidget(self.combo, 1)
+        new = QPushButton("New…")
+        new.setToolTip("A configuration from the parameters' values now (CONFIG)")
+        new.clicked.connect(lambda: window.param_panel.new_config())
+        row.addWidget(new)
+        self.refresh()
+
+    def refresh(self) -> None:
+        p = self.win.processor
+        self.setVisible(bool(p.configs))
+        self._filling = True
+        try:
+            self.combo.clear()
+            self.combo.addItem("Default", "DEFAULT")
+            for name, vals in p.configs.items():
+                from ..commands.config_handlers import describe_config
+
+                self.combo.addItem(name, name)
+                self.combo.setItemData(self.combo.count() - 1, describe_config(vals), Qt.ToolTipRole)
+            i = self.combo.findData(p.config or "DEFAULT")
+            self.combo.setCurrentIndex(max(i, 0))
+        finally:
+            self._filling = False
+
+    def _chosen(self, i: int) -> None:
+        if self._filling or i < 0:
+            return
+        name = self.combo.itemData(i)
+        if name != (self.win.processor.config or "DEFAULT"):
+            self.win.execute(f"USECONFIG, {name}")
+        self.refresh()
 
 
 class MainWindow(QMainWindow):
@@ -442,7 +504,14 @@ class MainWindow(QMainWindow):
         self.param_panel = ParamPanel(self)
         out = self._dock("Output", self.output, Qt.BottomDockWidgetArea)
         hist = self._dock("History", self.history_panel, Qt.RightDockWidgetArea)
-        params = self._dock("Parameters", self.param_panel, Qt.RightDockWidgetArea)
+        self.config_bar = ConfigBar(self)
+        box = QWidget()
+        col = QVBoxLayout(box)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(0)
+        col.addWidget(self.config_bar)
+        col.addWidget(self.param_panel, 1)
+        params = self._dock("Parameters", box, Qt.RightDockWidgetArea)
         from .layer_panel import LayerPanel
 
         self.layer_panel = LayerPanel(self)
@@ -643,8 +712,37 @@ class MainWindow(QMainWindow):
         act(tb, "Push/Pull…", "pushpull", "Move the selected faces along their normals (+ adds material, - removes it)\n"
                                           "Runs: PUSHPULL, d",
             lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
+        tbs.action(self, tb, "Rib…", "rib", "A thin wall from an open sketch line down to the part's faces\n"
+                                           "Runs: RIB, sketch, thickness", lambda: self.open_form("RIB"))
+        tbs.action(self, tb, "Lip…", "lip", "A band along the inside edge of the picked rim face, raised (lip) or "
+                                           "cut (groove), to key two halves together\nRuns: LIP, face, h, w [, GROOVE]",
+                   lambda: self.open_form("LIP"))
+        tbs.action(self, tb, "Wrap…", "wrap", "Wrap a sketch round the picked cylindrical face, raised or cut\n"
+                                             "Runs: WRAP, sketch, face, h [, CUT]", lambda: self.open_form("WRAP"))
         act(tb, "Delete faces", "delface", "Remove the selected faces and close the gap (a hole, boss or fillet goes "
                                            "away)\nRuns: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
+
+        tb = tbs.group(self, "Sheet metal", "sheetmetal", "Features")
+        tbs.action(self, tb, "Sheet…", "sm_sheet", "Start a sheet metal part: a plate of one thickness from a sketch\n"
+                                                  "Runs: SHEET, sketch, t [, bend radius, K-factor]",
+                   lambda: self.open_form("SHEET"))
+        tbs.action(self, tb, "Flange…", "sm_flange", "Bend a wall along the picked edges of the plate (a top-face edge "
+                                                    "bends up, a bottom-face edge down)\nRuns: FLANGE, , length, angle",
+                   lambda: self.open_form("FLANGE"))
+        tbs.action(self, tb, "Bend…", "sm_bend", "Bend the plate along a sketched line: the smaller side turns\n"
+                                                "Runs: SBEND, body, sketch, angle [, radius, UP/DOWN, FLIP]",
+                   lambda: self.open_form("SBEND"))
+        tbs.action(self, tb, "Unfold…", "sm_unfold", "Lay the part flat: the blank as a body, and a DXF to cut it from\n"
+                                                    "Runs: UNFOLD, body [, file.dxf]", lambda: self.open_form("UNFOLD"))
+
+        tb = tbs.group(self, "Frames", "frames", "Features")
+        tbs.action(self, tb, "Member…", "member", "Structural members (tube, angle, channel, I-beam ...) along a "
+                                                  "polyline or sketch, with mitred or butted corners\n"
+                                                  "Runs: MEMBER, path, profile, size [, MITRE/BUTT]",
+                   lambda: self.open_form("MEMBER"))
+        tbs.action(self, tb, "Cut list", "cutlist", "The frame's cut list: each member's profile, length and end "
+                                                    "cuts, with how many\nRuns: CUTLIST",
+                   lambda: self.execute("CUTLIST"))
 
         tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
@@ -673,6 +771,10 @@ class MainWindow(QMainWindow):
             lambda: fa.two_selected(p, "ANGLE"))
         act(tb, "Mass", "mass", "Volume, centre and inertia of the bodies\nRuns: MASSPROP", lambda: ["MASSPROP"])
         act(tb, "Clash", "clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
+        tbs.action(self, tb, "Motion…", "motion", "Move an assembly by a parameter with a slider, play it, check "
+                                                 "the range for parts running into each other, save pictures\n"
+                                                 "Runs: DRIVE, name, value · MOTION, name, from, to, steps",
+                   self.open_motion)
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
@@ -695,6 +797,12 @@ class MainWindow(QMainWindow):
         from .prefs import open_dialog
 
         return open_dialog(self)
+
+    def open_motion(self):
+        """The Motion window (gui/motion_panel.py): a slider that drives a parameter."""
+        from .motion_panel import open_motion
+
+        return open_motion(self)
 
     def open_sweep_editor(self, row: int | None = None):
         """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""
@@ -929,6 +1037,7 @@ class MainWindow(QMainWindow):
         p = self.processor
         self.history_panel.refresh()
         self.param_panel.refresh()
+        self.config_bar.refresh()
         self.undo_action.setEnabled(p.can_undo)
         self.redo_action.setEnabled(p.can_redo)
 
