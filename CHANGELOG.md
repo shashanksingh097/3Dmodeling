@@ -6,6 +6,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Scan to CAD for machined parts**: `SEGMENT` splits a mesh at its sharp
+  edges and says what each region is (a plane, a cylinder or bore, a sphere,
+  or freeform). `RECONSTRUCT` fits those exactly and joins them into one
+  solid. A scanned block with a bore, a boss and a dome comes back within
+  0.01% of its volume.
 - **Help browser**: Help > Command reference (Ctrl+F1) lists every command
   under the command menu's headings, searchable by name, help or argument.
   Each command's page has its arguments with their defaults, lines from the

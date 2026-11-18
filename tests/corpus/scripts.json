@@ -109,6 +109,11 @@
   "faces": 10,
   "volume": 5434.513
  },
+ "scan_machined.cmd": {
+  "bodies": 2,
+  "faces": 12,
+  "volume": 95640.044
+ },
  "scan_to_cad.cmd": {
   "bodies": 3,
   "faces": 4,

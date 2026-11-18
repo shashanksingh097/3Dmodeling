@@ -297,6 +297,13 @@ brush, becomes one smooth face. Give the largest distance from the mesh
 you accept; the message says how close it got. Details: LANGUAGE.md
 section 29; an example is `scripts/scan_to_cad.cmd`.
 
+A scan of a machined part (flat faces, holes, bosses) is better as exact
+faces: type `RECONSTRUCT, scan` (on the command menu under Mesh bodies).
+It splits the mesh at its sharp edges, fits each region as a plane,
+cylinder or sphere, and makes one solid; `SEGMENT, scan` first lists the
+regions and their fits. Details: LANGUAGE.md section 34; an example is
+`scripts/scan_machined.cmd`.
+
 **Sheet metal.** On the **Features** tab, **Sheet** makes a plate of one
 thickness from a closed sketch. Pick an edge of its top face and press
 **Flange** to bend a wall up along it (an edge of the bottom face bends

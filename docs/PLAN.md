@@ -896,7 +896,7 @@ More features not yet in the app (added 2026-11-18, after item 16):
     docs/mcp.md): serve the assistant's tools
     (DESCRIBE, PROBE, ASSERT, the sandbox ...) as an MCP server, so any MCP
     client can model with the app headless.
-23. **Scan to CAD, part 2**: split a scan into regions by curvature
+23. **Scan to CAD, part 2** (done: `SEGMENT`, `RECONSTRUCT`): split a scan into regions by curvature
     automatically, recognise planes, cylinders and spheres exactly, and
     join the fitted pieces into one solid.
 

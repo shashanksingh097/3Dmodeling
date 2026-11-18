@@ -46,13 +46,14 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/implicit_lattices.png" width="160">](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) | [Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill](#implicit-shapes-and-lattices-a-blend-a-superquadric-gyroid-walls-lattice-infill) |
 | [<img src="examples/knife_cuts.png" width="160">](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) | [Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) |
 | [<img src="examples/sculpt_head.png" width="160">](#sculpted-head-brow-ridges-nose-and-mouth-brushed-onto-a-mesh-ball-mirrored-with-a-mask) | [Sculpted head: brow ridges, nose and mouth brushed onto a mesh ball, mirrored, with a mask](#sculpted-head-brow-ridges-nose-and-mouth-brushed-onto-a-mesh-ball-mirrored-with-a-mask) |
-| [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 | [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
 | [<img src="examples/cam_plate.png" width="160">](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) | [Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) |
 | [<img src="examples/spline_handle.png" width="160">](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) | [Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) |
 | [<img src="examples/sheet_bracket.png" width="160">](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) | [Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) |
 | [<img src="examples/enclosure_halves.png" width="160">](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) | [Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) |
+| [<img src="examples/scan_machined.png" width="160">](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) | [Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) |
 | [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
+| [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 
 ---
 
@@ -1951,47 +1952,6 @@ SCULPT, head, SMOOTH, 3, 0.5, S4, X
 
 ---
 
-## Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face
-
-![Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](examples/scan_to_cad.png)
-
-Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md). A sculpted head stands in for a scanned part.
-
-**Script:** [scripts/scan_to_cad.cmd](../scripts/scan_to_cad.cmd) (22 lines) · **Run:** `python -m modeler scripts/scan_to_cad.cmd`
-
-**You should get:** 3 bodies, volume 65,178.4 mm³, 4 faces
-
-<details><summary>The whole script</summary>
-
-```text
-! Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md).
-! A sculpted head stands in for a scanned part.
-SPHERE, 0, 0, 0, 20
-NAME, LAST, scan
-TOMESH, scan
-REMESH, scan, 0.8
-STROKE, S1, "0,-20,-2  0,-20,0  0,-20,2"
-SCULPT, scan, INFLATE, 5, 0.9, S1
-STROKE, S2, "6,-18,6  10,-17,7  14,-15,7"
-SCULPT, scan, CLAY, 4, 0.6, S2, X
-! the whole closed mesh: one smooth surface wrapped round it, closed into a solid
-FITSURF, scan, ALL, 0.15
-NAME, LAST, fitted
-MOVE, fitted, 50, 0, 0
-! only the face of it: paint the region, then fit that region as one trimmed face
-MASK, scan, PAINT, 0, -20, 2, 16
-FITSURF, scan, MASK, 0.1
-NAME, LAST, front
-MOVE, front, 100, 0, 0
-! the fitted solid is ordinary CAD: it takes booleans, fillets and shells
-CYL, 50, 0, -30, 4, 60
-SUBTRACT, fitted, LAST
-```
-
-</details>
-
----
-
 ## Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole
 
 ![Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](examples/cover_plate.png)
@@ -2233,6 +2193,43 @@ FIT
 
 ---
 
+## Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid
+
+![Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid](examples/scan_machined.png)
+
+Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a bore, a boss and a dome is split at its sharp edges, each region is fitted exactly as a plane, cylinder or sphere, and the fitted faces are joined into one exact solid. Here the mesh is made with TOMESH; a real scan is IMPORTed.
+
+**Script:** [scripts/scan_machined.cmd](../scripts/scan_machined.cmd) (20 lines) · **Run:** `python -m modeler scripts/scan_machined.cmd`
+
+<details><summary>The whole script</summary>
+
+```text
+! Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a bore, a boss and a dome
+! is split at its sharp edges, each region is fitted exactly as a plane, cylinder or sphere, and the
+! fitted faces are joined into one exact solid. Here the mesh is made with TOMESH; a real scan is IMPORTed.
+BLOCK, 0, 0, 0, 60, 40, 20
+NAME, LAST, part
+CYL, 35, 20, -1, 5, 30
+SUBTRACT, part, LAST
+CYL, 45, 20, 20, 6, 10
+UNION, part, LAST
+SPHERE, 15, 20, 20, 5
+UNION, part, LAST
+TOMESH, part
+NAME, part, scan
+! what is in the scan: 10 regions, each with its fit
+SEGMENT, scan
+RECONSTRUCT, scan
+NAME, LAST, solid
+MOVE, solid, 0, 50, 0
+COLOR, solid, ORANGE
+FIT
+```
+
+</details>
+
+---
+
 ## Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post
 
 ![Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](examples/hinged_lid.png)
@@ -2263,6 +2260,47 @@ NAME, LAST, post
 ! where does the lid hit the post? (MOTION reports it and puts A back)
 MOTION, A, 0, 180, 12
 FIT
+```
+
+</details>
+
+---
+
+## Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face
+
+![Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](examples/scan_to_cad.png)
+
+Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md). A sculpted head stands in for a scanned part.
+
+**Script:** [scripts/scan_to_cad.cmd](../scripts/scan_to_cad.cmd) (22 lines) · **Run:** `python -m modeler scripts/scan_to_cad.cmd`
+
+**You should get:** 3 bodies, volume 65,178.4 mm³, 4 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Scan to CAD (FITSURF): smooth NURBS surfaces fitted to meshes (docs/mesh-fit.md).
+! A sculpted head stands in for a scanned part.
+SPHERE, 0, 0, 0, 20
+NAME, LAST, scan
+TOMESH, scan
+REMESH, scan, 0.8
+STROKE, S1, "0,-20,-2  0,-20,0  0,-20,2"
+SCULPT, scan, INFLATE, 5, 0.9, S1
+STROKE, S2, "6,-18,6  10,-17,7  14,-15,7"
+SCULPT, scan, CLAY, 4, 0.6, S2, X
+! the whole closed mesh: one smooth surface wrapped round it, closed into a solid
+FITSURF, scan, ALL, 0.15
+NAME, LAST, fitted
+MOVE, fitted, 50, 0, 0
+! only the face of it: paint the region, then fit that region as one trimmed face
+MASK, scan, PAINT, 0, -20, 2, 16
+FITSURF, scan, MASK, 0.1
+NAME, LAST, front
+MOVE, front, 100, 0, 0
+! the fitted solid is ordinary CAD: it takes booleans, fillets and shells
+CYL, 50, 0, -30, 4, 60
+SUBTRACT, fitted, LAST
 ```
 
 </details>
