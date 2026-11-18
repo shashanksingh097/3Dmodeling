@@ -2,6 +2,12 @@
 
     python -m modeler render part.cmd part.png [--view ISO] [--size 1600x1000] [-D NAME=value ...]
     python -m modeler render part.cmd --shots shots.txt OUTDIR [--size 1600x1000]
+    python -m modeler render part.cmd --motion A 0 90 18 OUTDIR [--view ISO]
+
+``--motion`` saves one picture per position of a moving assembly (DRIVE, A, value for A = 0, 5
+... 90) as OUTDIR/a_000.png, a_001.png ...: a picture sequence to make a film or GIF from. The
+camera is fitted once, wide enough for the position that needs the most room, so the parts
+move and the view stands still.
 
 The script runs in the real window (so colours, layers, see-through
 materials and hidden bodies look as they do in the app), every body is
@@ -36,6 +42,9 @@ class Shot:
     file: str
     commands: list[str]
     view: str = "ISO"
+    fit: bool = True  # False: keep the camera of the shot before (frames of a motion)
+    # set: try each command list, fit the camera, and keep the widest fit (a motion's whole range)
+    prefit: list | None = None
 
 
 def parse_shots(text: str) -> list[Shot]:
@@ -48,6 +57,28 @@ def parse_shots(text: str) -> list[Shot]:
         parts += [""] * (3 - len(parts))
         cmds = [c.strip() for c in parts[1].split(";") if c.strip()]
         shots.append(Shot(parts[0], cmds, parts[2] or "ISO"))
+    return shots
+
+
+def _set_view(win, vp, view: str) -> None:
+    if "," in view:
+        dx, dy, dz = (float(v) for v in view.split(","))
+        vp.view.SetProj(dx, dy, dz)
+        vp.view.SetUp(0, 0, 1)
+    else:
+        win.execute("VIEW, " + view.upper())
+
+
+def motion_shots(name: str, start: float, end: float, steps: int, view: str = "ISO") -> list[Shot]:
+    """Shots for a picture sequence: one frame per position, the camera fitted once (the widest
+    fit over the positions) and kept; a last shot (not saved) lets the parameter go."""
+    vals = [start + (end - start) * i / steps for i in range(steps + 1)]
+    key = name.lower()
+    shots = []
+    for i, v in enumerate(vals):
+        shots.append(Shot(f"{key}_{i:03d}.png", [f"DRIVE, {name}, {v:.10g}"], view, fit=False))
+    shots[0].prefit = [[f"DRIVE, {name}, {v:.10g}"] for v in vals]
+    shots.append(Shot("", [f"DRIVE, {name}"], view, fit=False))  # let go at the end (not saved)
     return shots
 
 
@@ -103,15 +134,36 @@ def render(script_text: str, shots: list[Shot], outdir: str = ".", size: tuple[i
                     raise RuntimeError(f"{shot.file}: {c}: {r.message}")
             vp.context.ClearSelected(False)
             pump()
-            if "," in shot.view:
-                dx, dy, dz = (float(v) for v in shot.view.split(","))
-                vp.view.SetProj(dx, dy, dz)
-                vp.view.SetUp(0, 0, 1)
-            else:
-                win.execute("VIEW, " + shot.view.upper())
-            vp.view.FitAll(0.06, False)
+            if shot.prefit:
+                widest = None
+                for cmds in shot.prefit:
+                    for c in cmds:
+                        win.execute(c)
+                    pump()
+                    _set_view(win, vp, shot.view)
+                    vp.view.FitAll(0.06, False)
+                    if widest is None or vp.view.Scale() < widest[0]:
+                        widest = (vp.view.Scale(), cmds)
+                for c in widest[1]:
+                    win.execute(c)
+                pump()
+                _set_view(win, vp, shot.view)
+                vp.view.FitAll(0.06, False)
+                for c in shot.commands:
+                    win.execute(c)
+                pump()
+            elif shot.fit:
+                if "," in shot.view:
+                    dx, dy, dz = (float(v) for v in shot.view.split(","))
+                    vp.view.SetProj(dx, dy, dz)
+                    vp.view.SetUp(0, 0, 1)
+                else:
+                    win.execute("VIEW, " + shot.view.upper())
+                vp.view.FitAll(0.06, False)
             vp.view.Redraw()
             pump()
+            if not shot.file:
+                continue
             path = os.path.join(outdir, shot.file)
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
             pix = Image_AlienPixMap()
@@ -128,7 +180,7 @@ def render(script_text: str, shots: list[Shot], outdir: str = ".", size: tuple[i
 def main(args: list[str]) -> int:
     from .lang.expr import Evaluator, ExprError
 
-    size, view, shots_file, overrides, pos = (1600, 1000), "ISO", None, {}, []
+    size, view, shots_file, overrides, pos, motion = (1600, 1000), "ISO", None, {}, [], None
     it = iter(args)
     try:
         for a in it:
@@ -139,6 +191,8 @@ def main(args: list[str]) -> int:
                 view = next(it)
             elif a == "--shots":
                 shots_file = next(it)
+            elif a == "--motion":
+                motion = (next(it), float(next(it)), float(next(it)), int(next(it)))
             elif a.startswith("-D"):
                 spec = a[2:] or next(it)
                 name, _, value = spec.partition("=")
@@ -154,7 +208,9 @@ def main(args: list[str]) -> int:
     script, out = pos
     with open(script, encoding="utf-8") as f:
         text = f.read()
-    if shots_file:
+    if motion:
+        shots, outdir = motion_shots(*motion, view), out
+    elif shots_file:
         with open(shots_file, encoding="utf-8") as f:
             shots, outdir = parse_shots(f.read()), out
     else:

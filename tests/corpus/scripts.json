@@ -54,6 +54,11 @@
   "faces": 10,
   "volume": 36472.611
  },
+ "hinged_lid.cmd": {
+  "bodies": 3,
+  "faces": 15,
+  "volume": 9248.23
+ },
  "implicit_lattices.cmd": {
   "bodies": 6,
   "faces": 6,

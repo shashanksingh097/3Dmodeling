@@ -2576,3 +2576,38 @@ sketch's direction across the axis becomes length round the cylinder (so a
 the sketch plane faces the cylinder. Keep a band shorter than the
 cylinder's circumference.
 
+## 33. Assemblies that move
+
+A mechanism moves by a parameter: set it in the history and use it in the
+steps that place the moving parts.
+
+```
+A = 60
+BLOCK, 0, 0, 5, 40, 30, 2
+NAME, LAST, lid
+ROTATE, lid, -A, 0, 0, 5, 0, 1, 0     ! (or MATE, ANGLE, FACE, 3, FACE, 9, A)
+DRIVE, A, 135                         ! hold A at 135: only the steps that read A run again
+DRIVE                                 ! lists what is driven
+DRIVE, A                              ! let go: back to the history's A = 60
+MOTION, A, 0, 180, 12                 ! A = 0, 15 ... 180: overlaps at each, then A is put back
+```
+
+**`DRIVE`** is not a history step: the history keeps `A = 60` (its Result
+column says `(driven)` while A is held), undo does not undo it, and it is
+not saved. **`MOTION`** checks every pair of shown solid bodies that come
+near each other at each position. It lists the positions, the ranges where
+a pair overlaps with the largest overlap, and the value where they first
+meet (found to a thousandth of a step). When nothing overlaps it gives the
+smallest gap seen. Parts that only touch, like a lid on its hinge, are
+not counted as a gap.
+
+The **Motion window** (Inspect > Motion…) does the same with a slider,
+Play, Check range and Save pictures. From a shell, one picture per step:
+
+```
+python -m modeler render part.cmd --motion A 0 180 18 frames
+```
+
+saves `frames/a_000.png` … `a_018.png`, with the camera fitted once to
+the position that needs the most room.
+

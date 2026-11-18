@@ -12,7 +12,8 @@
     python -m modeler --version       print the version
     python -m modeler render part.cmd part.png [--view ISO] [--size 1600x1000]
                                       save a picture of what a script makes
-                                      (--shots file.txt OUTDIR for several; see modeler/render.py)
+                                      (--shots file.txt OUTDIR for several, --motion A 0 90 18 OUTDIR
+                                      for a moving assembly; see modeler/render.py)
     python -m modeler gallery [NAME ...]
                                       remake docs/examples/ pictures and docs/EXAMPLES.md
     python -m modeler copilot [status|login|quota|models|ask|check]
