@@ -109,10 +109,12 @@ def sculpt_cmd(p: Processor, b, brush, radius, strength, stroke, sym):
     Arg("z", float, 0.0),
     Arg("r", float, 0.0, "the radius of the soft sphere PAINT and ERASE use"),
     Arg("value", float, 1.0, "how frozen, 0 to 1"),
+    Arg("stroke", Text, "", "PAINT or ERASE along a stroke (a name or points) instead of at x, y, z"),
     help="Freeze part of a mesh body so sculpting leaves it alone: MASK, b, PAINT, x, y, z, r freezes a soft "
-         "sphere; ERASE unfreezes one; CLEAR unfreezes all; ALL freezes all; INVERT swaps frozen and free.",
+         "sphere; ERASE unfreezes one; CLEAR unfreezes all; ALL freezes all; INVERT swaps frozen and free. "
+         "With a stroke (MASK, b, PAINT, 0,0,0, r, 1, S3) it paints along the stroke.",
 )
-def mask_cmd(p: Processor, b, mode, x, y, z, r, value):
+def mask_cmd(p: Processor, b, mode, x, y, z, r, value, stroke):
     pts, _t = _need_mesh(p, b, "MASK")
     mode = mode.upper()
     old = p.model.masks.get(b)
@@ -123,7 +125,12 @@ def mask_cmd(p: Processor, b, mode, x, y, z, r, value):
             raise CommandError(f"MASK: {mode} needs a radius")
         if not 0 < value <= 1:
             raise CommandError("MASK: the value is above 0 and at most 1")
-        new = sc.sphere_mask(pts, (x, y, z), r, value, old, mode)
+        centres = [(x, y, z)]
+        if stroke.strip():
+            centres = sc.resample(_stroke_points(p, stroke, "MASK"), r * sc.SPACING)
+        new = old
+        for c in centres:
+            new = sc.sphere_mask(pts, c, r, value, new, mode)
     elif mode == "CLEAR":
         p.model.masks.pop(b, None)
         return f"mask on body {b} cleared"

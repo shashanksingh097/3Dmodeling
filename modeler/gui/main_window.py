@@ -655,6 +655,10 @@ class MainWindow(QMainWindow):
                                   "creased (press again to end it; the form has curvature and draft maps)\n"
                                   "Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF", lambda: fa.zebra_toggle(p))
 
+        from . import sculpt_tool
+
+        sculpt_tool.build(self)
+
         tb = tbs.group(self, "Measure", "measure", "Inspect")
         act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
             lambda: fa.two_selected(p, "DIST"))

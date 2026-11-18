@@ -187,6 +187,8 @@ class OccViewport(QWidget):
     sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
     body_menu = Signal(int, object)  # right click without dragging: (body under the cursor or 0, global QPoint)
     knife_changed = Signal(bool)  # the Knife tool went on or off
+    sculpt_changed = Signal(bool)  # sculpting went on or off
+    sculpt_stroke = Signal(int, object, object)  # (mesh body, N x 3 hit points, keyboard modifiers)
 
     background = "grey"
 
@@ -230,6 +232,8 @@ class OccViewport(QWidget):
         self.knife_width = 0.0  # 0: split; more: cut a slot this wide
         self._knife_px: list[tuple[int, int]] = []
         self._knife_ais = None
+        self.sculpt_on = False  # Sculpt: a left drag over a mesh body is a brush stroke
+        self._sculpt_mods = Qt.NoModifier
         self._initialized = False
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "sketch", "point" (a control point)
@@ -1126,11 +1130,66 @@ class OccViewport(QWidget):
     # ---- knife ----------------------------------------------------------
     def set_knife(self, on: bool) -> None:
         """Turn the Knife tool on or off (Esc ends it)."""
+        if on and self.sculpt_on:
+            self.set_sculpt(False)
         self.knife = bool(on)
         self._knife_px = []
         self._draw_knife()
         self.setCursor(Qt.CrossCursor if self.knife else Qt.ArrowCursor)
         self.knife_changed.emit(self.knife)
+
+    # ---- sculpt ---------------------------------------------------------
+    def set_sculpt(self, on: bool) -> None:
+        """Turn sculpting on or off (Esc ends it). The Knife goes off while it is on."""
+        if on and self.knife:
+            self.set_knife(False)
+        self.sculpt_on = bool(on)
+        self._knife_px = []
+        self._draw_knife()
+        self.setCursor(Qt.CrossCursor if self.sculpt_on else Qt.ArrowCursor)
+        self.sculpt_changed.emit(self.sculpt_on)
+
+    def _sculpt_target(self, px) -> int | None:
+        from ..geometry import meshbody as mb
+
+        m = self.model
+        if m.selection_kind == "BODY" and len(m.selection) == 1:
+            b = m.selection[0]
+            if b in m.bodies and mb.is_mesh(m.bodies[b].shape):
+                return b
+        step = max(1, len(px) // 12)
+        for x, y in px[::step]:
+            b = self.body_at(int(x), int(y))
+            if b is not None and b in m.bodies and mb.is_mesh(m.bodies[b].shape):
+                return b
+        return None
+
+    def _sculpt_done(self) -> None:
+        """The stroke is finished: where its pixels meet the mesh, for the Sculpt tool."""
+        import numpy as np
+
+        from ..geometry import meshbody as mb
+        from ..gui.sculpt_tool import ray_hit
+
+        px, self._knife_px = self._knife_px, []
+        self._draw_knife()
+        body = self._sculpt_target(px)
+        if body is None:
+            self.sketch_hover.emit("Sculpt: drag over a mesh body (TOMESH a solid first, or use Make sculptable)")
+            return
+        pts, tris = mb.arrays(self.model.bodies[body].shape)
+        hits, last = [], None
+        for x, y in px:
+            if (x, y) == last:
+                continue
+            last = (x, y)
+            h = ray_hit(pts, tris, *self._ray(int(x), int(y)))
+            if h is not None:
+                hits.append(h)
+        if not hits:
+            self.sketch_hover.emit(f"Sculpt: the stroke missed body {body}")
+            return
+        self.sculpt_stroke.emit(body, np.vstack(hits), self._sculpt_mods)
 
     def _draw_knife(self) -> None:
         """The stroke being drawn, in front of everything."""
@@ -1156,7 +1215,8 @@ class OccViewport(QWidget):
                 poly.Add(gp_Pnt(*self._ray(int(x), int(y))[0]))
             if poly.IsDone():
                 ais = AIS_Shape(poly.Shape())
-                ais.SetColor(Quantity_Color(1.0, 0.2, 0.2, Quantity_TOC_RGB))
+                ais.SetColor(Quantity_Color(0.2, 0.6, 1.0, Quantity_TOC_RGB) if self.sculpt_on
+                             else Quantity_Color(1.0, 0.2, 0.2, Quantity_TOC_RGB))
                 ais.SetWidth(2.5)
                 ctx.Display(ais, False)
                 ctx.Deactivate(ais)
@@ -1307,6 +1367,11 @@ class OccViewport(QWidget):
             self._knife_px = [(x, y)]
             self._drag = "knife"
             return
+        if self.sculpt_on and not self._sketching() and e.button() == Qt.LeftButton:
+            self._knife_px = [(x, y)]
+            self._sculpt_mods = e.modifiers()
+            self._drag = "sculpt"
+            return
         if (self._cp is not None and e.button() == Qt.LeftButton
                 and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
             self._drag = "point"
@@ -1333,7 +1398,7 @@ class OccViewport(QWidget):
                     self.set_preview(pv)
                 self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
             return
-        if self._drag == "knife":
+        if self._drag in ("knife", "sculpt"):
             self._knife_px.append((x, y))
             self._draw_knife()
             return
@@ -1389,6 +1454,10 @@ class OccViewport(QWidget):
             self._knife_px.append((x, y))
             self._knife_cut()
             return
+        if drag == "sculpt":
+            self._knife_px.append((x, y))
+            self._sculpt_done()
+            return
         if drag == "point":
             if not moved:
                 self._cp.cancel()
@@ -1415,12 +1484,15 @@ class OccViewport(QWidget):
             self.edit_dimension.emit(name)
 
     def keyPressEvent(self, e) -> None:
-        if self._drag == "knife" and e.key() == Qt.Key_Escape:
+        if self._drag in ("knife", "sculpt") and e.key() == Qt.Key_Escape:
             self._drag, self._press, self._knife_px = "", None, []
             self._draw_knife()
             return
         if self.knife and e.key() == Qt.Key_Escape:
             self.set_knife(False)
+            return
+        if self.sculpt_on and e.key() == Qt.Key_Escape:
+            self.set_sculpt(False)
             return
         if self._drag == "point" and e.key() == Qt.Key_Escape:
             self._cp.cancel()
