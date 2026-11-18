@@ -110,6 +110,8 @@ def sfillet(p: Processor, **raws):
          help="Offset sketch curves: SOFFSET, 3, 1, 2, 3, 4 makes curves 3 away from lines 1..4. Curves joined end "
               "to end are offset as one chain and meet again at the corners. Positive goes outwards for a closed "
               "chain or circle, and to the left of an open chain (walking the lowest-numbered curve from its start). "
+              "A spline's offset is a spline through points kept at the distance (one too far for its bends is "
+              "refused); a chain that crosses itself has no outside, so positive goes to the left. "
               "The offset follows its original when that changes.")
 def soffset(p: Processor, d, **raws):
     sk = _active(p, "SOFFSET")

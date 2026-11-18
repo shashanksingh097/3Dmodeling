@@ -1054,6 +1054,30 @@ def _offset_eqs(sk: Sketch, con: Con, rs: list[Ref], pts) -> list[solver.Constra
     new, orig = rs[0].geo, rs[1].geo
     tag, k, dist = con.n, con.data["k"], con.value
     out = []
+    if orig.kind == "SPLINE":  # each point across from the original, at the fraction it was made at
+        from . import spline as sp
+
+        opts = pts(*[orig.pts[r] for r in _spline_roles(orig)])
+        off, closed = k * dist, orig.closed
+        for role, f in con.data["fs"].items():
+            if role not in new.pts:
+                continue
+            how = (con.data.get("corner") or {}).get(role)
+            if how == "on":  # meets the next offset: only its distance is held
+                out.append(C(tag, pts(new.pts[role]) + opts,
+                             lambda v, o=off, cl=closed: [sp.signed(v[2:], cl, (v[0], v[1])) - o]))
+            elif how == "past":  # an outside corner: on the straight line on from the offset's end
+                def on_past(v, end="S" if f < 0.5 else "E", o=off, f=f):
+                    a = sp.offset_point(v[2:], False, f, o)
+                    t = sp.end_direction(v[2:], False, end)
+                    return [(v[0] - a[0]) * t[1] - (v[1] - a[1]) * t[0]]
+                out.append(C(tag, pts(new.pts[role]) + opts, on_past))
+            else:
+                def across(v, f=f, o=off, cl=closed):
+                    q = sp.offset_point(v[2:], cl, f % 1.0 if cl else f, o)
+                    return [v[0] - q[0], v[1] - q[1]]
+                out.append(C(tag, pts(new.pts[role]) + opts, across))
+        return out
     if orig.kind == "LINE":
         s0, e0 = orig.pts["S"], orig.pts["E"]
         for role in ("S", "E"):
