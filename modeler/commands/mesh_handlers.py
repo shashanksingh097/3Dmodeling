@@ -45,8 +45,8 @@ def is_mesh_body(p: Processor, bid: int) -> bool:
 
 def describe(shape) -> str:
     """The size part of a body message: '(mesh, 12,000 triangles, closed)'."""
-    i = mb.info(shape)
-    return f"(mesh, {i.triangles:,} triangles{'' if i.closed else ', open'})"
+    _pts, t = mb.arrays(shape)  # (not mb.info: its volume and area take a while on a big mesh)
+    return f"(mesh, {len(t):,} triangles{'' if mb.closed(t) else ', open'})"
 
 
 def default_deflection(p: Processor, shape) -> float:

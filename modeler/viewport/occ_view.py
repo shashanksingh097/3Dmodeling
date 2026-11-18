@@ -39,6 +39,7 @@ from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QWidget
 
 from ..core.model import Event, Model, ModelError
+from ..geometry import meshbody as mb
 
 _TOPABS = {"BODY": TopAbs_SHAPE, "FACE": TopAbs_FACE, "EDGE": TopAbs_EDGE, "VERTEX": TopAbs_VERTEX}
 
@@ -490,7 +491,8 @@ class OccViewport(QWidget):
             ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
             face = col if col else (0.62, 0.66, 0.72)
             ais.SetColor(_rgb(*face))
-            ais.Attributes().SetFaceBoundaryDraw(True)
+            # (not on mesh bodies: finding a big triangulation's border costs more than drawing it)
+            ais.Attributes().SetFaceBoundaryDraw(not mb.is_mesh(shape))
             # edges a darker shade of the body: panel lines and shut gaps read at any zoom
             edge = _rgb(*(0.4 * c for c in face))
             ais.Attributes().SetFaceBoundaryAspect(Prs3d_LineAspect(edge, Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.0))

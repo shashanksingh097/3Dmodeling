@@ -865,6 +865,8 @@ pull request, in this order (the user can reorder or drop any):
     Fitting surfaces to meshes: `FITSURF` (height-field patches and closed
     star-shaped meshes; branch `mesh-surface-fit`, docs/mesh-fit.md); left:
     splitting other shapes into regions automatically.
+    1M-triangle sculpting: done (branch `sculpt-million`, docs/M7-sculpt.md
+    part 5).
     Rebuilds: done as a helper process, since the kernel keeps Python's lock
     and a thread cannot help (branch `worker-rebuilds`, docs/rebuild-helper.md).
 17. Release 0.4.0.
