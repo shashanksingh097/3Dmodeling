@@ -887,9 +887,11 @@ More features not yet in the app (added 2026-11-18, after item 16):
 20. **Ribs and lips** (done; WRAP onto cones later): `RIB` (a thin wall from an open sketch line up to
     the nearest faces), `LIP` and groove for enclosure halves, and `WRAP`
     (a sketch wrapped onto a cylinder or cone, embossed or cut).
-21. **Assemblies that move**: drive a `MATE` angle or distance with a
-    slider, check collisions through the range of motion, and save the
-    motion as a picture sequence; exploded views with trails.
+21. **Assemblies that move** (done, except exploded views with trails:
+    later): drive a `MATE` angle or distance with a slider (`DRIVE`, the
+    Motion window), check collisions through the range of motion
+    (`MOTION`), and save the motion as a picture sequence
+    (`render --motion`, Save pictures); exploded views with trails.
 22. **The modelling tools for outside agents**: serve the assistant's tools
     (DESCRIBE, PROBE, ASSERT, the sandbox ...) as an MCP server, so any MCP
     client can model with the app headless.

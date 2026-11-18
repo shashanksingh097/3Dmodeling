@@ -49,6 +49,12 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   `LIP, ..., GROOVE` cuts the matching step with a clearance. `WRAP` lays
   a sketch round a cylinder, raised or cut, keeping its sizes. Rib, Lip and
   Wrap buttons are on the Features tab.
+- **Assemblies that move**: Inspect > **Motion…** drives a parameter (a
+  `MATE` angle, a `ROTATE`, a `MOVE`) with a slider and Play, without
+  changing the history (`DRIVE, A, 75`). **Check range** (`MOTION, A, 0,
+  180, 18`) finds where parts run into each other and the exact value
+  where they first meet. **Save pictures…** and `python -m modeler render
+  part.cmd --motion A 0 180 18 frames` save a picture per step.
 
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three

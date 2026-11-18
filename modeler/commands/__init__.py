@@ -30,3 +30,4 @@ from . import sculpt_handlers  # noqa: F401  (SCULPT, MASK, STROKE: sculpting me
 from . import config_handlers  # noqa: F401  (CONFIG, USECONFIG: configurations; BOM: the parts list)
 from . import sheet_handlers  # noqa: F401  (SHEET, FLANGE, UNFOLD, SHEETINFO: sheet metal)
 from . import rib_handlers  # noqa: F401  (RIB, LIP, WRAP: ribs, enclosure lips, wrapped sketches)
+from . import motion_handlers  # noqa: F401  (DRIVE, MOTION: assemblies that move)

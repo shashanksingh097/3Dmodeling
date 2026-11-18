@@ -214,6 +214,8 @@ class Processor:
         self.configs: dict[str, dict[str, Any]] = {}
         self.config = ""
         self.config_values: dict[str, Any] = {}
+        # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
+        self.drive: dict[str, Any] = {}
         self.parts: dict[str, PartDef] = {}  # *PART definitions, by upper-case name
         # built part shapes by (definition text, parameter values); not undo state,
         # because a key never changes meaning
@@ -389,6 +391,7 @@ class Processor:
         self.configs = {}
         self.config = ""
         self.config_values = {}
+        self.drive = {}
         self.parts = {}
         self.part_files = {}
         self.file_map = {}
@@ -1028,6 +1031,11 @@ class Processor:
             value = self.overrides[name]
             self._set(name, value)
             self._say(f"{name} = {format_value(value)} (fixed from outside)")
+            return
+        if not self._scopes and name in self.drive:
+            value = self.drive[name]
+            self._set(name, value)
+            self._say(f"{name} = {format_value(value)} (driven)")
             return
         if not self._scopes and name in self.config_values:
             value = self.config_values[name]

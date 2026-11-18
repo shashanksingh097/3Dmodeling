@@ -759,6 +759,10 @@ class MainWindow(QMainWindow):
             lambda: fa.two_selected(p, "ANGLE"))
         act(tb, "Mass", "mass", "Volume, centre and inertia of the bodies\nRuns: MASSPROP", lambda: ["MASSPROP"])
         act(tb, "Clash", "clash", "Check whether any bodies overlap\nRuns: CLASH", lambda: ["CLASH"])
+        tbs.action(self, tb, "Motion…", "motion", "Move an assembly by a parameter with a slider, play it, check "
+                                                 "the range for parts running into each other, save pictures\n"
+                                                 "Runs: DRIVE, name, value · MOTION, name, from, to, steps",
+                   self.open_motion)
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
@@ -781,6 +785,12 @@ class MainWindow(QMainWindow):
         from .prefs import open_dialog
 
         return open_dialog(self)
+
+    def open_motion(self):
+        """The Motion window (gui/motion_panel.py): a slider that drives a parameter."""
+        from .motion_panel import open_motion
+
+        return open_motion(self)
 
     def open_sweep_editor(self, row: int | None = None):
         """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""

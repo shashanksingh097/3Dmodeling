@@ -52,6 +52,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/spline_handle.png" width="160">](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) | [Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) |
 | [<img src="examples/sheet_bracket.png" width="160">](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) | [Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) |
 | [<img src="examples/enclosure_halves.png" width="160">](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) | [Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips](#ribs-lips-and-wrapping-an-enclosures-two-halves-with-a-rib-and-a-lip-and-groove-a-gusset-a-knob-with-wrapped-grips) |
+| [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
 
 ---
 
@@ -2225,6 +2226,42 @@ SEL, NONE
 DATUM, DELETE, mid
 DATUM, DELETE, g
 DATUM, DELETE, k
+FIT
+```
+
+</details>
+
+---
+
+## Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post
+
+![Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](examples/hinged_lid.png)
+
+Assemblies that move (DRIVE, MOTION, the Motion window): a lid on a hinge and a post it hits. Motion window: Inspect > Motion…, parameter A from 0 to 180. From a shell: python -m modeler render scripts/hinged_lid.cmd --motion A 0 180 18 frames
+
+**Script:** [scripts/hinged_lid.cmd](../scripts/hinged_lid.cmd) (17 lines) · **Run:** `python -m modeler scripts/hinged_lid.cmd`
+
+**You should get:** 3 bodies, volume 9,248.2 mm³, 15 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Assemblies that move (DRIVE, MOTION, the Motion window): a lid on a hinge and a post it hits.
+! Motion window: Inspect > Motion…, parameter A from 0 to 180. From a shell:
+!   python -m modeler render scripts/hinged_lid.cmd --motion A 0 180 18 frames
+A = 60
+BLOCK, 0, 0, 0, 40, 30, 5
+NAME, LAST, base
+COLOR, base, BLUE
+BLOCK, 0, 0, 5, 40, 30, 2
+NAME, LAST, lid
+COLOR, lid, ORANGE
+! the hinge line is the base's top back edge, along Y
+ROTATE, lid, -A, 0, 0, 5, 0, 1, 0
+CYL, -20, 15, 0, 3, 30
+NAME, LAST, post
+! where does the lid hit the post? (MOTION reports it and puts A back)
+MOTION, A, 0, 180, 12
 FIT
 ```
 

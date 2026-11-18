@@ -315,6 +315,15 @@ cut. **Wrap** lays a sketch round a cylindrical face, raised or cut, for
 grips, labels and bands. Details: LANGUAGE.md section 32; an example is
 `scripts/enclosure_halves.cmd`.
 
+**Moving an assembly.** Write the moving part's position with a parameter
+(`A = 30` and then `MATE, ANGLE, ..., A`, or `ROTATE, lid, -A, ...`).
+**Motion…** on the Inspect tab opens a window with a slider over that
+parameter: the parts move as you drag (the history is not changed), and
+Play runs through the range. **Check range** lists every position where
+parts overlap and the value where they first meet. **Save pictures…**
+writes one picture per step. Closing the window puts the parameter back.
+Details: LANGUAGE.md section 33; an example is `scripts/hinged_lid.cmd`.
+
 ---
 
 ## 8. Parts you can reuse
