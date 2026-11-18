@@ -596,8 +596,9 @@ Rules:
 - Handlers register themselves with a decorator that declares argument names,
   types, defaults and help text. The same metadata drives the parser, the
   GUI forms, `HELP, CMD`, autocomplete, and the AI's tool list.
-- Long operations (big booleans, meshing) run on a worker thread with a
-  progress bar and cancel.
+- Long history rebuilds run in a helper process (the kernel keeps Python's
+  lock, so a thread would not help) with a progress bar and cancel; see
+  docs/rebuild-helper.md.
 
 Code layout:
 
@@ -649,7 +650,7 @@ work. Numbers were measured in November 2026 on the code after M2.
 |---|------|-------|---------------|--------------|
 | 1 | **References break when history is edited** (the topological naming problem). A pick that silently moves to another face makes every edited model suspect. | Much reduced | IDs carried through operations; IDs kept per entry, also when a loop shrinks and grows; IDs saved in project files; picks know which step made the entity and are repaired by fingerprint only when the match is unique, with a warning | Parent-based names for faces made by booleans; fingerprints for ID lists and named sets; GUI picks written as criteria (3.2, items 6 and 7) |
 | 2 | **The kernel returns bad shapes without saying so.** Measured: an oversized fillet gave an invalid body, a subtract that removed everything gave an empty body, a union left seams. | Much reduced | Every boolean and blend is checked; empty and invalid results are errors with the model unchanged; oversized fillets name the size that works; retry with a tolerance; seams merged; `CHECK`, `HEAL`, `CLEAN`; `HOLE`, `SPLIT`, `SHELL`, `DRAFT` and `OFFSET` are checked the same way (a shell too thick names the thickest wall that works); shapes made from curves get a section test that catches tight bends, sharp corners, overlapping turns and crossing sections (the kernel calls those valid), and a corpus of 22 hard cases plus every example runs in CI | Faces of a loft that cross between its sections are only found by `CHECK, b, SELF` (too slow to run every time) |
-| 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 11 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Much reduced | Snapshot after every entry, so only entries from the edit onwards re-run; one kernel call for many cuts: `SUBTRACT, a, SEL`, `ARRAY ... CUT, target` and `PATTERN` (feature patterns): the 300 holes take 0.3 to 0.4 s, and an edit of the patterned hole re-runs in 0.4 s; a progress dialog with Cancel (which puts everything back) for long rebuilds | Skip entries whose inputs did not change (needs each entry to record which bodies and parameters it read); running the rebuild on a worker thread, if the kernel lets go of Python's lock |
+| 3 | **Rebuilding long histories is slow.** Measured: 300 holes cut one by one take 11 to 15 s to build, and the same again after an edit near the start; an edit to the last entry takes 0.1 s; undo is instant. The time is inside the kernel, which rebuilds the whole body for each cut. | Much reduced | Snapshot after every entry, so only entries from the edit onwards re-run; one kernel call for many cuts: `SUBTRACT, a, SEL`, `ARRAY ... CUT, target` and `PATTERN` (feature patterns): the 300 holes take 0.3 to 0.4 s, and an edit of the patterned hole re-runs in 0.4 s; a progress dialog with Cancel (which puts everything back) for long rebuilds | Skip entries whose inputs did not change (needs each entry to record which bodies and parameters it read); long history edits now run in a helper process, so the window stays live (docs/rebuild-helper.md) |
 | 4 | **Sketcher and constraint solver.** The largest piece of new work, and the part users touch most. | Much reduced | Spike against planegcs and SolveSpace's solver (docs/M3-sketcher.md); own numpy solver, split into independent groups, with degrees of freedom, redundant and conflicting constraints named; a refused constraint leaves the sketch as it was; sketch steps are history entries, so a size edit re-runs the model | Real-user testing of the mouse tools; planegcs as a faster back end if big sketches get slow (trim, extend, offset, fillet, mirror, pattern and projection are in) |
 | 5 | **The viewer on real desktops** (macOS, HiDPI, Wayland). | Linux under a virtual display and Windows CI work; macOS and real GPUs untested | M0 spike, per-OS checklist in docs/M0.md | A run on a real Windows or macOS machine; pythonocc-core's viewer is the fallback |
 | 6 | **Mesh and CAD interop** (STL bodies in booleans, solid to mesh and back). | Mostly done | Export to STEP, IGES, BREP, STL, OBJ, 3MF, glTF; import of those plus PLY, OFF, VTK and simulation meshes; each closed mesh piece becomes a faceted solid that takes booleans (a 5,000-triangle sphere imports in 0.4 s; up to 100,000 triangles); mesh bodies for bigger meshes, with `manifold3d` booleans, `SMOOTH`, `REMESH`, `SIMPLIFY` and `TOMESH`/`TOSOLID` (a 1,000,000-triangle STL imports in 5 s and is subtracted from another in 5 s; 245,000 triangles in about 1 s) | Faster handing of triangles to OCCT for million-triangle meshes (now a Python loop); fitting smooth surfaces to meshes (later) |
@@ -861,6 +862,8 @@ pull request, in this order (the user can reorder or drop any):
 16. Bigger items to weigh first: **fitting smooth surfaces to meshes**
     (scan to CAD, risk 6), **rebuilds on a worker thread** so the window
     never freezes (risk 3), and the 1M-triangle sculpting goal.
+    Rebuilds: done as a helper process, since the kernel keeps Python's lock
+    and a thread cannot help (branch `worker-rebuilds`, docs/rebuild-helper.md).
 17. Release 0.4.0.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being

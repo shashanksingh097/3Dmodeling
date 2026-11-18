@@ -40,10 +40,8 @@ All four give the same volume to the last digit.
   0.5 s, with the step being run, and returns False when Cancel is pressed.
   The rebuild then stops, and `HIST` puts back the history, the saved states
   and the model exactly as they were before the edit.
-  The rebuild still runs on the GUI thread, and the dialog lets the window
-  repaint between steps. A worker thread would only help if the kernel
-  released Python's lock during long calls, and a step cannot be stopped
-  half way in any case.
+  Long rebuilds now run in a helper process instead, so the window stays
+  live and Cancel stops even a step half way (docs/rebuild-helper.md).
 
 ## Left for later
 

@@ -408,6 +408,9 @@ class MainWindow(QMainWindow):
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
         self.processor.progress = self.rebuild_progress
+        from .offload import Offload
+
+        self.offload = Offload(self)  # long history edits run in a helper process
 
         self.output = QPlainTextEdit(readOnly=True)
         self.output.setFont(_mono())
@@ -504,7 +507,11 @@ class MainWindow(QMainWindow):
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
+        if self.offload.busy:
+            self.offload.helper.cancel()
         self.shell.close_event(event)
+        if event.isAccepted():
+            self.offload.close()
 
     def _dock(self, title: str, widget: QWidget, area) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -867,14 +874,30 @@ class MainWindow(QMainWindow):
     # ---- running commands --------------------------------------------------
     def execute(self, text: str) -> Result:
         """The single entry point for GUI actions, clicks and typed text."""
+        if self.offload.busy:
+            self.statusBar().showMessage("A rebuild is running: wait for it, or press Cancel in its dialog", 4000)
+            return Result(text.strip(), False, "a rebuild is running")
         self.cmdline.remember(text)
         try:
+            if self.offload.wants(text):
+                res = self.offload.run(text)
+                if res is not None:
+                    return res
             if "\n" in text and not text.upper().startswith("HIST"):
                 results = self.processor.run_script(text)
                 return results[-1] if results else Result("", True)
             return self.processor.run(text)
         finally:
             self.rebuild_progress.finish()
+            self._warm_helper()
+
+    def _warm_helper(self) -> None:
+        """Start the rebuild helper once the history is slow enough to need it."""
+        from .offload import OFFLOAD_AFTER
+
+        o = self.offload
+        if o.enabled and not o.helper.alive() and sum(e.seconds for e in self.processor.history) >= OFFLOAD_AFTER:
+            o.warm_up()
 
     def _on_enter(self) -> None:
         text = self.cmdline.text()

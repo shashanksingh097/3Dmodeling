@@ -28,6 +28,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - **The assistant conversation is saved with the project.** Reopening the
   project shows it, and the assistant is given it with the next question.
   **New chat** clears it.
+- **Long rebuilds no longer freeze the window.** A history edit whose steps
+  took a second or more runs in a helper process; the view can be turned
+  while it works, and Cancel stops it at once, even in the middle of a step.
 
 ## [0.3.0] - 2026-11-18
 

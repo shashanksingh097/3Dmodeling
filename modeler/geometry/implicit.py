@@ -193,7 +193,10 @@ def compile_field(text: str, lookup: Callable[[str], float], fields: dict[str, F
             if key == "Z":
                 return lambda x, y, z: z
             if key in fields:
-                f = fields[key].fn
+                fd = fields[key]
+                if fd.fn is None:  # came back from the rebuild helper without its function
+                    object.__setattr__(fd, "fn", compile_field(fd.text, lookup, fields))
+                f = fd.fn
                 return lambda x, y, z: f(x, y, z)
             try:
                 v = lookup(key)
