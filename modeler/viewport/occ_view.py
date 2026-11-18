@@ -1085,7 +1085,8 @@ class OccViewport(QWidget):
 
         try:
             m = an.mesh(self.model.bodies[a.body].shape)
-            rgb = an.colours(m, a.mode, a.direction, a.angle)
+            rgb = an.colours(m, a.mode, a.direction, a.angle, field=getattr(a, "field", None),
+                             scale=getattr(a, "scale", 0.0))
         except Exception:  # noqa: BLE001  (a picture problem must not stop the app)
             traceback.print_exc()
             ctx.UpdateCurrentViewer()

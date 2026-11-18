@@ -6,6 +6,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **A first strength check**: `STRESS` holds some faces, pushes on others
+  (a force or a pressure) and colours the solid by stress, with the largest
+  stress, deflection and safety factor from its material. A quick linear
+  check while designing, solved in about a second. Adds scipy as a
+  dependency.
 - **Frames and weldments**: `MEMBER` lays square, rectangular or round
   tube, flat bar, angle, channel or I-beam along a polyline or sketch, with
   mitred or butted (coped for round tube) corners. `CUTLIST` lists what to

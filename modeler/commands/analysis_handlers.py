@@ -17,6 +17,8 @@ class Analysis:
     mode: str
     direction: tuple
     angle: float
+    field: object = None  # STRESS: the result (geometry/fea.py Result), whose .at(points) colours the faces
+    scale: float = 0.0  # STRESS: the value drawn red
 
 
 def _direction(p: Processor, mode: str, dx: float, dy: float, dz: float) -> tuple:

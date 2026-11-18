@@ -775,6 +775,10 @@ class MainWindow(QMainWindow):
                                                  "the range for parts running into each other, save pictures\n"
                                                  "Runs: DRIVE, name, value · MOTION, name, from, to, steps",
                    self.open_motion)
+        tbs.action(self, tb, "Strength…", "stress", "A first strength check: hold some faces, load others, and see "
+                                                   "the stress as colours with the largest stress, deflection and "
+                                                   "safety factor\nRuns: STRESS, body, fixed faces, loaded faces, "
+                                                   "FORCE, fx, fy, fz", lambda: self.open_form("STRESS"))
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
