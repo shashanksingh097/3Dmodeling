@@ -135,6 +135,9 @@ class Toolbox:
                   "where": _WHERE}, ("kind", "ids"), self.describe_entities),
             Tool("history", "History entries with number, text and status (ok, warning, suppressed, undone).",
                  {"first": {"type": "integer"}, "last": {"type": "integer"}, "where": _WHERE}, (), self.history),
+            Tool("user_context", "What the user is pointing at now: the selection (each entity described, and SEL "
+                 "lines for it), what a click picks, the open sketch, the work plane and the view direction. "
+                 "Call it for 'this face', 'these edges', 'here'.", {}, (), self.user_context),
             Tool("selector_for", "SEL lines that pick exactly this entity by what it is, not by ID, so scripts "
                  "survive history edits. Says when only the ID works.",
                  {"kind": {"type": "string", "enum": KINDS}, "id": {"type": "integer"}, "where": _WHERE},
@@ -286,6 +289,39 @@ class Toolbox:
                 row["warning"] = e.warning
             rows.append(row)
         return {"entries": rows, "applied": p.cursor}
+
+    def user_context(self) -> dict[str, Any]:
+        p = self.real
+        m = p.model
+        out: dict[str, Any] = {"selection": {"kind": m.selection_kind, "ids": list(m.selection)}}
+        if m.selection:
+            ids = list(m.selection)[:20]
+            if m.selection_kind == "BODY":
+                out["selection"]["bodies"] = [{"id": b, "name": getattr(m.bodies[b], "name", "") or ""}
+                                              for b in ids if b in m.bodies]
+            else:
+                out["selection"]["described"] = ds.describe_entities(p, m.selection_kind, ids)
+            if len(m.selection) == 1:
+                try:
+                    out["selection"]["selector"] = sl.selector_for(p, m.selection_kind, m.selection[0])
+                except sl.SelectorError as exc:
+                    out["selection"]["selector"] = {"error": str(exc)}
+            if len(m.selection) > 20:
+                out["selection"]["note"] = f"first 20 of {len(m.selection)} described"
+        else:
+            out["selection"]["note"] = "nothing is selected; ask_pick asks the user to click"
+        view = getattr(p, "view", None)
+        if view is not None:
+            out["click_picks"] = getattr(view, "pick_mode", "")
+            try:
+                d = view.view.Camera().Direction()
+                out["looking_along"] = [round(d.X(), 3), round(d.Y(), 3), round(d.Z(), 3)]
+            except Exception:  # noqa: BLE001 - no camera yet
+                pass
+        out["active_sketch"] = m.active_sketch or ""
+        wp = getattr(m, "workplane", None)
+        out["workplane"] = getattr(wp, "name", "") if wp is not None else "XY (default)"
+        return out
 
     def selector_for(self, kind: str, id: int, where: str = "model"):
         return sl.selector_for(self._p(where), kind, int(id))

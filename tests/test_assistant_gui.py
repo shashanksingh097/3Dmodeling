@@ -222,3 +222,37 @@ def test_own_key_settings(win, app, tmp_path, monkeypatch):
     assert panel.provider_setting().is_copilot and panel.sign_in_button.isVisibleTo(panel)
     assert panel._assistant().assistant.provider is None
     panel.shutdown()
+
+
+def test_ask_pick_in_the_view(win, app):
+    panel = win.assistant_panel
+    win.execute("BLOCK, 0,0,0, 40,30,10")
+    win.execute("PICKMODE, BODY")
+    pump(app)
+    got = []
+    panel.pick_request("FACE", "Click the top face", got.append)
+    pump(app)
+    assert panel.pick_box.isVisibleTo(panel) and "Click the top face" in panel.pick_label.text()
+    assert win.viewport.pick_mode == "FACE"
+    win.viewport.command.emit("PICK, FACE, 6")  # what a click in the view sends
+    pump(app)
+    assert got == [("FACE", 6)] and win.processor.model.selection == [6]
+    assert not panel.pick_box.isVisibleTo(panel) and win.viewport.pick_mode == "BODY"  # put back
+    assert "You picked face 6" in panel.transcript.toPlainText()
+
+    panel.pick_request("EDGE", "Click an edge", got.append)
+    panel.finish_pick(None)  # Cancel
+    assert got[-1] is None and win.viewport.pick_mode == "BODY"
+
+
+def test_highlight_marks_in_the_view(win, app):
+    panel = win.assistant_panel
+    win.execute("BLOCK, 0,0,0, 40,30,10")
+    pump(app)
+    assert panel.show_marks("FACE", [6], "the top")
+    assert len(win.viewport._mark_ais) == 1 and "Marked in orange: face 6" in panel.transcript.toPlainText()
+    panel.input.setText("thanks")
+    panel._busy = True  # nothing is sent; clearing the marks happens first
+    panel.clear_marks()
+    assert win.viewport._mark_ais == []
+    panel._busy = False

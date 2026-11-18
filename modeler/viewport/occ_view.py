@@ -215,6 +215,7 @@ class OccViewport(QWidget):
         self._clip = None  # the SECTION clip plane, if any
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
         self._preview_ais: list = []  # what a sketch tool is drawing
+        self._mark_ais: list = []  # what the assistant points at (set_marks)
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
@@ -416,6 +417,7 @@ class OccViewport(QWidget):
             self._datum_ais.clear()
             self._sketch_ais.clear()
             self._preview_ais.clear()
+            self._mark_ais.clear()
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._cp_ais.clear()
@@ -424,6 +426,7 @@ class OccViewport(QWidget):
             self._datum_ais.clear()
             self._sketch_ais.clear()
             self._preview_ais.clear()
+            self._mark_ais.clear()
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
             self._show_datums()
@@ -766,6 +769,34 @@ class OccViewport(QWidget):
         cam.SetUp(gp_Dir(*frame.y))
         self.view.FitAll(0.1, False)
         self.view.Redraw()
+
+    def set_marks(self, shapes) -> None:
+        """Draw shapes in orange over the model (what the assistant points at); [] clears."""
+        if not self._initialized:
+            return
+        from OCP.Aspect import Aspect_TOM_BALL
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
+
+        ctx = self.context
+        for ais in self._mark_ais:
+            ctx.Remove(ais, False)
+        self._mark_ais = []
+        orange = _rgb(1.0, 0.45, 0.0)
+        for shape in shapes:
+            ais = AIS_Shape(shape)
+            ais.SetColor(orange)
+            ais.SetWidth(4.0)
+            dr = ais.Attributes()
+            for asp in (dr.WireAspect(), dr.FreeBoundaryAspect(), dr.UnFreeBoundaryAspect(), dr.LineAspect()):
+                asp.SetColor(orange)
+                asp.SetWidth(4.0)
+            dr.SetPointAspect(Prs3d_PointAspect(Aspect_TOM_BALL, orange, 3.0))
+            ais.SetTransparency(0.35)
+            ctx.Display(ais, 1, -1, False)  # shaded, not pickable
+            ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
+            self._mark_ais.append(ais)
+        ctx.UpdateCurrentViewer()
 
     def set_preview(self, pv) -> None:
         """Draw what a sketch tool is making (dashed), and the point it snaps to."""

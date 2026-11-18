@@ -82,6 +82,7 @@ class AssistantPanel(QWidget):
         self._checked = False  # asked Copilot whether someone is signed in
         self._unsaved_keys: dict[str, str] = {}  # keys the user did not want kept: this session only
         self._copilot_models: list[str] = []
+        self._pick: tuple[str, Callable, str] | None = None  # (kind, done, pick mode before) while asking
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(4, 4, 4, 4)
@@ -138,6 +139,21 @@ class AssistantPanel(QWidget):
         self.tabs.addTab(self._debug_tab(), "Debug")
         lay.addWidget(self.tabs, 1)
 
+        # Copilot asked the user to click something in the 3D view
+        self.pick_box = QWidget()
+        pk = QHBoxLayout(self.pick_box)
+        pk.setContentsMargins(6, 4, 6, 4)
+        self.pick_box.setStyleSheet("QWidget { background: #fff1e0; } QLabel { color: #5a3200; }")
+        self.pick_label = QLabel()
+        self.pick_label.setWordWrap(True)
+        pk.addWidget(self.pick_label, 1)
+        cancel = QPushButton("Cancel")
+        cancel.setToolTip("Tell Copilot you do not want to pick anything")
+        cancel.clicked.connect(lambda: self.finish_pick(None))
+        pk.addWidget(cancel)
+        self.pick_box.hide()
+        lay.addWidget(self.pick_box)
+
         self.proposal_box = QWidget()
         pl = QVBoxLayout(self.proposal_box)
         pl.setContentsMargins(0, 0, 0, 0)
@@ -173,6 +189,9 @@ class AssistantPanel(QWidget):
 
         self.event.connect(self._on_event)
         self.done.connect(self._on_done)
+        view = getattr(win, "viewport", None)
+        if view is not None and hasattr(view, "command"):
+            view.command.connect(self._view_command)
         self.show_folder()
         self._show_provider()
 
@@ -305,6 +324,8 @@ class AssistantPanel(QWidget):
         if self._busy:
             return
         self.clear_proposal()
+        self.finish_pick(None, tell=False)
+        self.clear_marks()
         self.transcript.clear()
         self._say("system", "New chat. Copilot has forgotten the earlier conversation.")
         if self.thread is not None:
@@ -328,6 +349,65 @@ class AssistantPanel(QWidget):
                             f"<code>{html.escape(os.path.basename(path) or path)}</code>"
                             + (" (for this chat)" if answer == "chat" else ""))
         return answer
+
+    # ---- pointing: the user clicks for Copilot, Copilot marks for the user ------------------
+    def pick_request(self, kind: str | None, prompt: str, done: Callable | None) -> None:
+        """Copilot's ask_pick, on the GUI thread: show the request and let the next click answer it."""
+        if kind is None:
+            self.finish_pick(None, tell=False)
+            return
+        if self._pick is not None:
+            self.finish_pick(None)
+        view = getattr(self.win, "viewport", None)
+        if view is None or not getattr(view, "_initialized", False):
+            done(None)
+            return
+        before = getattr(view, "pick_mode", "FACE")
+        self._pick = (kind, done, before)
+        if before != kind:
+            self.win.execute(f"PICKMODE, {kind}")
+        self.pick_label.setText(f"<b>Copilot asks:</b> {html.escape(prompt)}<br>Click a {kind.lower()} in the "
+                                "3D view.")
+        self.pick_box.show()
+        self._say("system", f"Copilot asks you to click a {kind.lower()}: {html.escape(prompt)}")
+        self.tabs.setCurrentIndex(0)
+
+    def _view_command(self, text: str) -> None:
+        if self._pick is None or not text.startswith("PICK, "):
+            return
+        parts = [x.strip() for x in text.split(",")]
+        if len(parts) >= 3 and parts[1] == self._pick[0]:
+            self.finish_pick((parts[1], int(parts[2])))
+
+    def finish_pick(self, result: tuple[str, int] | None, tell: bool = True) -> None:
+        if self._pick is None:
+            return
+        kind, done, before = self._pick
+        self._pick = None
+        self.pick_box.hide()
+        if before != kind:
+            self.win.execute(f"PICKMODE, {before}")
+        if done is not None:
+            done(result)
+        if tell:
+            self._say("system", f"You picked {result[0].lower()} {result[1]}." if result else "No pick.")
+
+    def show_marks(self, kind: str, ids: list[int], note: str) -> bool:
+        """Copilot's highlight, on the GUI thread."""
+        view = getattr(self.win, "viewport", None)
+        if view is None or not getattr(view, "_initialized", False):
+            return False
+        m = self.win.processor.model
+        view.set_marks([m.entity_shape(kind, i) for i in ids] if kind else [])
+        if kind:
+            self._say("system", f"Marked in orange: {kind.lower()} {', '.join(map(str, ids))}"
+                                + (f" ({html.escape(note)})" if note else ""))
+        return True
+
+    def clear_marks(self) -> None:
+        view = getattr(self.win, "viewport", None)
+        if view is not None and getattr(view, "_mark_ais", None):
+            view.set_marks([])
 
     # ---- where the answers come from ----------------------------------------------------
     def provider_setting(self) -> pv.ProviderSetting:
@@ -391,7 +471,9 @@ class AssistantPanel(QWidget):
             asst = cp.CopilotAssistant(self.win.processor, run_on_model=self.calls.run,
                                        on_event=lambda kind, data: self.event.emit(kind, data), home=home,
                                        provider=self.provider_setting())
-            asst.ask_read = self.ask_read  # runs on the GUI thread (run_on_model)
+            asst.ask_read = self.ask_read  # these run on the GUI thread (run_on_model)
+            asst.pick_request = self.pick_request
+            asst.show_marks = self.show_marks
             self.thread = cp.AssistantThread(asst)
         return self.thread
 
@@ -404,6 +486,7 @@ class AssistantPanel(QWidget):
 
     def shutdown(self) -> None:
         """Stop Copilot (when the app closes)."""
+        self.finish_pick(None, tell=False)
         if self.thread is not None:
             self.thread.close()
             self.thread = None
@@ -496,6 +579,7 @@ class AssistantPanel(QWidget):
         if not text or self._busy:
             return
         self.input.clear()
+        self.clear_marks()
         self._say("you", html.escape(text))
         self._busy = True
         self.send_button.setEnabled(False)

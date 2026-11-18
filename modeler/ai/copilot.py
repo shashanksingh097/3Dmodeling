@@ -54,6 +54,9 @@ How to work:
   command's arguments, defaults and examples. Commands look like `BLOCK, 0,0,0, 10,20,5`.
 - Read the user's model with model_summary, describe_body, history, probe_ray, section_profile.
   Prefer these exact text answers to guessing.
+- "This face", "these edges", "here": call user_context for what is selected. If nothing fits,
+  ask_pick asks the user to click it in the 3D view; never guess an ID. To point at something in
+  an answer, highlight marks it in orange in the view.
 - Before you suggest a script, try it: sandbox, then run (and check with expectations such as
   'VOL(b), BETWEEN, 900, 1100' or 'VALID(b)'). Fix what fails.
 - When a script works, call propose_commands with the script and a one-line summary. The user
@@ -228,6 +231,12 @@ class CopilotAssistant:
         # ask_read(what, path) -> "once" | "chat" | "deny": may the assistant read this? (default: no)
         self.ask_read: Callable[[str, str], str] = lambda what, path: "deny"
         self._read_ok = False  # allowed for this chat
+        # pick_request(kind, prompt, done): ask the user to click one entity of kind in the view and
+        # call done((kind, id)) or done(None); pick_request(None, "", None) stops asking. GUI thread.
+        self.pick_request: Callable[[str | None, str, Callable | None], None] = (
+            lambda kind, prompt, done: done(None) if done else None)
+        # show_marks(kind, ids, note): mark these entities in the view (kind "" clears). GUI thread.
+        self.show_marks: Callable[[str, list[int], str], bool] = lambda kind, ids, note: False
 
     def _log(self, kind: str, **data: Any) -> dict[str, Any]:
         entry = {"kind": kind, "time": time.time(), **data}
@@ -407,6 +416,10 @@ class CopilotAssistant:
                         answer = self._propose(args)
                     elif name == "propose_edits":
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self._propose_edits(args))
+                    elif name == "ask_pick":
+                        answer = await self._ask_pick(args)
+                    elif name == "highlight":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._highlight(args))
                     elif name in ("read_file", "list_files"):
                         answer = await asyncio.to_thread(self._files, name, args)
                     else:
@@ -421,7 +434,8 @@ class CopilotAssistant:
             return handler
 
         tools = []
-        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _LIST_FILES, _READ_FILE]:
+        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT,
+                                                  _LIST_FILES, _READ_FILE]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
         del cp
@@ -489,6 +503,69 @@ class CopilotAssistant:
             self._reply.proposals.append(prop)
         self.on_event("proposal", prop)
         return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies)}
+
+    # ---- pointing: the user clicks for Copilot, Copilot marks for the user ---------------
+    async def _ask_pick(self, args: dict[str, Any], timeout: float = 300.0) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        try:
+            kind = check_kind(str(args.get("kind", "FACE")))
+        except ModelError as exc:
+            return {"error": str(exc)}
+        prompt = str(args.get("prompt", "") or f"Click a {kind.lower()}")
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+
+        def done(result) -> None:
+            loop.call_soon_threadsafe(lambda: fut.done() or fut.set_result(result))
+
+        self._log("pick_asked", what=kind, prompt=prompt)
+        await asyncio.to_thread(self.run_on_model, lambda: self.pick_request(kind, prompt, done))
+        try:
+            result = await asyncio.wait_for(fut, timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            await asyncio.to_thread(self.run_on_model, lambda: self.pick_request(None, "", None))
+            result = None
+            self._log("pick", answer="no click in time")
+            return {"error": f"the user did not click within {timeout / 60:g} minutes"}
+        if result is None:
+            self._log("pick", answer="cancelled")
+            return {"error": "the user did not pick anything (cancelled, or no 3D view)"}
+        kind, gid = result
+        self._log("pick", answer=f"{kind} {gid}")
+
+        def describe() -> dict[str, Any]:
+            p = self.toolbox.real
+            out: dict[str, Any] = {"kind": kind, "id": gid}
+            try:
+                if kind == "BODY":
+                    out["body"] = {"id": gid, "name": getattr(p.model.bodies.get(gid), "name", "") or ""}
+                else:
+                    out["described"] = self.toolbox.call("describe_entities", {"kind": kind, "ids": [gid]})
+                out["selector"] = self.toolbox.call("selector_for", {"kind": kind, "id": gid})
+            except Exception as exc:  # noqa: BLE001 - the pick itself is still the answer
+                out["note"] = str(exc)
+            return out
+
+        return await asyncio.to_thread(self.run_on_model, describe)
+
+    def _highlight(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        ids = [int(i) for i in (args.get("ids") or [])]
+        if not ids:
+            self.show_marks("", [], "")
+            return {"cleared": True}
+        try:
+            kind = check_kind(str(args.get("kind", "FACE")))
+            for gid in ids:
+                self.toolbox.real.model.entity_shape(kind, gid)
+        except ModelError as exc:
+            return {"error": str(exc)}
+        note = str(args.get("note", "") or "")
+        shown = self.show_marks(kind, ids, note)
+        return {"shown": bool(shown), "kind": kind, "ids": ids} if shown else {
+            "shown": False, "why": "there is no 3D view (the command line or a test)"}
 
     # ---- files in the working folder, only with the user's say-so ---------------------------
     def _inside(self, rel: str) -> str:
@@ -646,6 +723,29 @@ _PROPOSE_EDITS = {
 }
 
 
+_ASK_PICK = {
+    "name": "ask_pick",
+    "description": "Ask the user to click one body, face, edge or vertex in the 3D view and wait for it (up to "
+                   "5 minutes). Returns what was clicked, described, with SEL lines for it. Use it instead of "
+                   "guessing which face 'this one' is; prompt says what to click, e.g. 'Click the face the "
+                   "bracket should sit on'.",
+    "input_schema": {"type": "object", "properties": {
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "prompt": {"type": "string"}}, "required": ["kind", "prompt"]},
+}
+
+
+_HIGHLIGHT = {
+    "name": "highlight",
+    "description": "Mark entities in orange in the user's 3D view, to show what an answer is about (stays until "
+                   "the next question). No ids clears the marks. Nothing changes in the model.",
+    "input_schema": {"type": "object", "properties": {
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "ids": {"type": "array", "items": {"type": "integer"}},
+        "note": {"type": "string", "description": "a few words shown in the chat"}}, "required": ["kind", "ids"]},
+}
+
+
 _LIST_FILES = {
     "name": "list_files",
     "description": "List the files in the user's working folder (or a folder inside it: path). The user is asked "
@@ -699,6 +799,10 @@ def format_log(log: list[dict[str, Any]]) -> str:
             out.append(f"[{t}] ASKED TO {str(e.get('what', '')).upper()} {e.get('path')}: {e.get('answer')}")
         elif k == "error":
             out.append(f"[{t}] ERROR\n{e.get('text', '')}")
+        elif k == "pick_asked":
+            out.append(f"[{t}] ASKED THE USER TO CLICK A {e.get('what')}: {e.get('prompt')}")
+        elif k == "pick":
+            out.append(f"[{t}] THE USER CLICKED: {e.get('answer')}")
         elif k == "new_chat":
             out.append(f"[{t}] ---- NEW CHAT ----")
         else:
