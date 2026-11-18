@@ -312,7 +312,9 @@ def dxf(sh: Sheet, flat: Flat, deflection: float, units: str = "MM") -> str:
     for p, q, text in bends:
         g(0, "LINE"); g(8, "BEND"); g(10, f(p[0])); g(20, f(p[1])); g(30, 0); g(11, f(q[0])); g(21, f(q[1])); g(31, 0)
         mx, my = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
-        g(0, "TEXT"); g(8, "TEXT"); g(10, f(mx)); g(20, f(my + hgt * 0.6)); g(30, 0); g(40, f(hgt)); g(1, text)
+        # R12 text is plain ANSI: the degree sign is written %%d, which every reader shows as °
+        g(0, "TEXT"); g(8, "TEXT"); g(10, f(mx)); g(20, f(my + hgt * 0.6)); g(30, 0); g(40, f(hgt))
+        g(1, text.replace("°", "%%d"))
     g(0, "ENDSEC")
     g(0, "EOF")
     return "\n".join(L) + "\n"

@@ -85,13 +85,13 @@ def test_dxf_has_outline_bend_lines_and_notes(tmp_path):
     path = tmp_path / "blank.dxf"
     msg = run(p, f'UNFOLD, 1, "{path.as_posix()}", NO').message
     assert "written to" in msg and len(p.model.bodies) == 1
-    text = path.read_text().splitlines()
+    text = path.read_text(encoding="ascii").splitlines()  # R12: plain ANSI, no UTF-8
     pairs = list(zip(text[0::2], text[1::2]))
     layers = [v for c, v in pairs if c.strip() == "8"]
     assert layers.count("BEND") == 2
     assert layers.count("OUTLINE") > 8  # the rectangle, its two strips and the circle as short lines
-    notes = [v for c, v in pairs if c.strip() == "1" and "°" in v]
-    assert sorted(notes) == ["DOWN 45° R2", "UP 90° R2"]
+    notes = [v for c, v in pairs if c.strip() == "1" and "%%d" in v]
+    assert sorted(notes) == ["DOWN 45%%d R2", "UP 90%%d R2"]  # %%d is the DXF degree sign
     assert pairs[-1] == ("0", "EOF")
 
 

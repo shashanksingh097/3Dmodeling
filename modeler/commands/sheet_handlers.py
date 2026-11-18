@@ -199,7 +199,7 @@ def unfold(p: Processor, b, file, body):
         path = file if os.path.splitext(file)[1] else file + ".dxf"
         try:
             text = smt.dxf(sh, flat, robust.diagonal(flat.face) / 800 + 1e-6, m.units)
-            with open(path, "w", encoding="utf-8") as fh:
+            with open(path, "w", encoding="ascii", errors="replace") as fh:
                 fh.write(text)
         except OSError as exc:
             raise CommandError(f"UNFOLD: cannot write {path} ({exc})") from None
