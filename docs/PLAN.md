@@ -849,7 +849,8 @@ pull request, in this order (the user can reorder or drop any):
     searchable, opening the form), **sizes on 2D drawings** (overall sizes
     and hole diameters on `DRAWING` views), and **installers** (`.msi` for
     Windows, `.dmg` for macOS) made by the release workflow.
-14. The assistant (docs/M9-copilot.md): the answer **streamed into the
+14. Done except the benchmark numbers (branch `assistant-stream-keep`;
+    the numbers need a signed-in run by the owner): the assistant (docs/M9-copilot.md): the answer **streamed into the
     panel** as it is written, the **conversation kept with the project**,
     and **benchmark numbers** for a few models, published with a release.
 15. Leftovers: a sketch **offset of splines** and of chains that cross
