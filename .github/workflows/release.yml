@@ -165,7 +165,9 @@ jobs:
           $wix = Join-Path $env:USERPROFILE ".dotnet\tools\wix.exe"
           $v = python -c "import modeler; print(modeler.__version__)"
           $msi = "release\3Dmodeling-$v-${{ matrix.name }}.msi"
-          & $wix build packaging\3Dmodeling.wxs -arch x64 -d "Version=$v" -d "SourceDir=dist\3Dmodeling" -o $msi
+          # an absolute folder: WiX reads the Files glob relative to the .wxs, not to here
+          $src = (Resolve-Path dist\3Dmodeling).Path
+          & $wix build packaging\3Dmodeling.wxs -arch x64 -d "Version=$v" -d "SourceDir=$src" -o $msi
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Remove-Item release\*.wixpdb -ErrorAction SilentlyContinue
           if ($env:WIN_SIGN -eq "yes") {
