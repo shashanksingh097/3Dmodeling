@@ -306,6 +306,15 @@ write a DXF of the blank, with the bend lines and their angles, for a
 laser or punch. Details: LANGUAGE.md section 31; an example is
 `scripts/sheet_bracket.cmd`.
 
+**Ribs, lips and wrapping.** **Rib** (command `RIB`) turns an open sketch
+line into a thin wall that runs down to the part: draw the line where the
+rib's top edge goes, in a sketch square to the walls. **Lip** keys the two
+halves of an enclosure together: pick the rim face of one half for a
+raised band, and the rim of the other half with GROOVE for the matching
+cut. **Wrap** lays a sketch round a cylindrical face, raised or cut, for
+grips, labels and bands. Details: LANGUAGE.md section 32; an example is
+`scripts/enclosure_halves.cmd`.
+
 ---
 
 ## 8. Parts you can reuse

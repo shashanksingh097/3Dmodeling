@@ -884,7 +884,7 @@ More features not yet in the app (added 2026-11-18, after item 16):
     thickness and bend radius (`SHEET`), edge flanges (`FLANGE`), and the
     flat pattern (`UNFOLD`) written to DXF with bend lines, plus a K-factor
     setting. See docs/sheet-metal.md.
-20. **Ribs and lips**: `RIB` (a thin wall from an open sketch line up to
+20. **Ribs and lips** (done; WRAP onto cones later): `RIB` (a thin wall from an open sketch line up to
     the nearest faces), `LIP` and groove for enclosure halves, and `WRAP`
     (a sketch wrapped onto a cylinder or cone, embossed or cut).
 21. **Assemblies that move**: drive a `MATE` angle or distance with a

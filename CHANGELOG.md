@@ -43,6 +43,12 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   radius) and `UNFOLD` lays the part flat, as a body and as a DXF to cut
   with bend lines and their angles. The flat length of each bend follows
   the sheet's K-factor. `SHEETINFO` lists the flanges. On the Features tab.
+- **Ribs, lips and wrapped sketches**: `RIB` makes a thin wall from an open
+  sketch line down to the part's faces (its ends carry on to the walls).
+  `LIP` raises a band along the inside edge of an enclosure's rim, and
+  `LIP, ..., GROOVE` cuts the matching step with a clearance. `WRAP` lays
+  a sketch round a cylinder, raised or cut, keeping its sizes. Rib, Lip and
+  Wrap buttons are on the Features tab.
 
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three

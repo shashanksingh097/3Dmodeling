@@ -39,6 +39,11 @@
   "faces": 94,
   "volume": 75017.747
  },
+ "enclosure_halves.cmd": {
+  "bodies": 4,
+  "faces": 108,
+  "volume": 38000.697
+ },
  "flange.cmd": {
   "bodies": 1,
   "faces": 15,

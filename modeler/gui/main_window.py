@@ -712,6 +712,13 @@ class MainWindow(QMainWindow):
         act(tb, "Push/Pull…", "pushpull", "Move the selected faces along their normals (+ adds material, - removes it)\n"
                                           "Runs: PUSHPULL, d",
             lambda: fa.faces_selected(p, "PUSHPULL", ask("Push/Pull", "Distance:", 2.0, -1e6)))
+        tbs.action(self, tb, "Rib…", "rib", "A thin wall from an open sketch line down to the part's faces\n"
+                                           "Runs: RIB, sketch, thickness", lambda: self.open_form("RIB"))
+        tbs.action(self, tb, "Lip…", "lip", "A band along the inside edge of the picked rim face, raised (lip) or "
+                                           "cut (groove), to key two halves together\nRuns: LIP, face, h, w [, GROOVE]",
+                   lambda: self.open_form("LIP"))
+        tbs.action(self, tb, "Wrap…", "wrap", "Wrap a sketch round the picked cylindrical face, raised or cut\n"
+                                             "Runs: WRAP, sketch, face, h [, CUT]", lambda: self.open_form("WRAP"))
         act(tb, "Delete faces", "delface", "Remove the selected faces and close the gap (a hole, boss or fillet goes "
                                            "away)\nRuns: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
 
