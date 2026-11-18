@@ -148,6 +148,43 @@ def test_help_dialogs(win, app):
     win.shell.show_getting_started().close()
 
 
+def test_help_browser_pages_examples_and_form(win, app):
+    from PySide6.QtCore import QUrl
+
+    from modeler.commands.processor import REGISTRY
+    from modeler.gui import help_browser as hb
+
+    # every command sits under exactly one heading
+    listed = [n for _, names in hb.groups() for n in names]
+    assert sorted(listed) == sorted(REGISTRY)
+    assert hb.heading_of("FILLET") == "Features"
+    # examples come from the bundled scripts
+    assert hb.examples()["CYL"] and all(f.endswith(".cmd") for f, _ in hb.examples()["CYL"])
+    ref = win.shell.show_command_reference("fillet")
+    text = ref.view.toPlainText()
+    assert "Arguments" in text and "Also under Features" in text and "CHAMFER" in text
+    assert ref.form_button.isEnabled()
+    dlg = ref.open_form()
+    assert dlg is not None and dlg.isVisible()
+    dlg.close()
+    ref.put_in_command_line()
+    assert win.cmdline.text() == "FILLET, "
+    # links on the page move to another command; a command with no form disables the button
+    ref.view.anchorClicked.emit(QUrl("cmd:UNDO"))
+    assert ref.current == "UNDO" and not ref.form_button.isEnabled()
+    # search fills the tree with matching headings only, expanded
+    ref.search_box.setText("thread")
+    pump(app)
+    heads = [ref.tree.topLevelItem(i).text(0) for i in range(ref.tree.topLevelItemCount())]
+    assert any(h.startswith("Features") for h in heads) and not any(h.startswith("Sculpt") for h in heads)
+    ref.close()
+    win.cmdline.setText("HOLE, B1")
+    ref = win.shell.help_for_typed()
+    assert ref.current == "HOLE"
+    ref.close()
+    win.cmdline.clear()
+
+
 def test_error_in_a_slot_is_reported_not_fatal(win, app, tmp_path):
     guard = CrashGuard(str(tmp_path / "logs"), install=False)
     win.shell.guard = guard

@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QInputDialog,
-    QLineEdit,
     QMessageBox,
     QTextBrowser,
     QVBoxLayout,
@@ -422,7 +421,8 @@ class AppShell:
         a = self._action
         a(m, "&Getting started", self.show_getting_started, QKeySequence.HelpContents,
           "The basics: mouse, command line, forms, saving")
-        a(m, "&Command reference", self.show_command_reference, "Ctrl+F1", "Every command with its arguments")
+        a(m, "&Command reference", self.help_for_typed, "Ctrl+F1",
+          "Every command with its arguments and examples; opens at the command you are typing")
         a(m, "&Find a command…", self.win.form_for_typed, None, "Search commands by name or purpose (Ctrl+K)")
         a(m, "Ask the &assistant", self.show_assistant, "Ctrl+Shift+A",
           "Chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works too)")
@@ -436,7 +436,7 @@ class AppShell:
         a(m, f"&About {APP_NAME}", self.show_about)
 
     # ---- help ---------------------------------------------------------------------
-    def _text_dialog(self, title: str, html: str, search: bool = False) -> QDialog:
+    def _text_dialog(self, title: str, html: str) -> QDialog:
         dlg = QDialog(self.win)
         dlg.setWindowTitle(title)
         dlg.resize(760, 640)
@@ -444,13 +444,6 @@ class AppShell:
         view = QTextBrowser()
         view.setOpenExternalLinks(True)
         view.setHtml(html)
-        if search:
-            box = QLineEdit()
-            box.setPlaceholderText("Type to filter, e.g. fillet, hole, sweep")
-            box.setClearButtonEnabled(True)
-            box.textChanged.connect(lambda t: view.setHtml(self._reference_html(t)))
-            lay.addWidget(box)
-            dlg.search_box = box
         lay.addWidget(view, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(dlg.reject)
@@ -464,27 +457,24 @@ class AppShell:
         return self._text_dialog("Getting started", GETTING_STARTED.format(guide=USER_GUIDE_URL))
 
     def _reference_html(self, filt: str = "") -> str:
-        from html import escape
+        from .help_browser import list_html
 
-        from ..commands.processor import REGISTRY
+        return list_html(filt)
 
-        low = filt.strip().lower()
-        parts = []
-        for name in sorted(REGISTRY):
-            c = REGISTRY[name]
-            if low and low not in name.lower() and low not in c.help.lower():
-                continue
-            sig = ", ".join([c.name] + [x.name if x.default is None else f"[{x.name}]" for x in c.args])
-            args = "".join(f"<li><code>{escape(x.name)}</code>: {escape(x.help)}</li>" for x in c.args if x.help)
-            parts.append(f"<h3><code>{escape(sig)}</code></h3><p>{escape(c.help).replace(' · ', '<br>')}</p>"
-                         + (f"<ul>{args}</ul>" if args else ""))
-        head = (f"<p>{len(parts)} commands. Square brackets mark optional arguments. "
-                "Type <code>HELP, name</code> in the command line for the same text, or press F2 "
-                "with a command typed to fill it in a form.</p>")
-        return head + ("".join(parts) or "<p>No command matches.</p>")
+    def help_for_typed(self, *_):
+        text = self.win.cmdline.text().strip()
+        return self.show_command_reference(text.split(",")[0].strip().upper() if text else "")
 
-    def show_command_reference(self) -> QDialog:
-        return self._text_dialog("Command reference", self._reference_html(), search=True)
+    def show_command_reference(self, name: str = ""):
+        """The help browser (gui/help_browser.py); with a name, open at that command."""
+        from .help_browser import HelpBrowser
+
+        dlg = HelpBrowser(self.win)
+        if name:
+            dlg.show_command(name)
+        dlg.setModal(False)
+        dlg.show()
+        return dlg
 
     def show_about(self) -> QDialog:
         rows = "".join(f"<tr><td>{k}</td><td><b>{v}</b></td></tr>" for k, v in versions().items())

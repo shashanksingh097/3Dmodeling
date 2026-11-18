@@ -4,8 +4,12 @@ name: Release builds
 # - A pull request that touches packaging builds too (no release).
 # - Run it by hand (Actions > Release builds > Run workflow) to get test
 #   builds as downloadable artifacts.
+# - Each build is packed twice: a portable archive (.zip / .tar.gz) and, on
+#   Windows and macOS, an installer (.msi made with WiX, .dmg). Both installers
+#   are tried in the job: the .msi is installed and removed again, the .dmg
+#   mounted, and the installed app's command line run.
 # - Push a tag such as v0.1.0 and it also makes a DRAFT GitHub release with
-#   the three downloads attached; publishing the draft is a manual step.
+#   the downloads attached; publishing the draft is a manual step.
 # - Or run it by hand with a `tag` (and optionally the commit to build as
 #   `ref`): same draft release, and publishing it creates the tag on that
 #   commit. Handy when tags cannot be pushed from where you work.
@@ -126,6 +130,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
           v=$(python -c "import modeler; print(modeler.__version__)")
           out="3Dmodeling-$v-${{ matrix.name }}"
@@ -140,10 +145,62 @@ jobs:
                 xcrun stapler staple dist/3Dmodeling.app
                 rm "release/$out.zip"
                 ditto -c -k --keepParent dist/3Dmodeling.app "release/$out.zip"
-              fi ;;
+              fi
+              # the .dmg: the app beside a link to Applications, to drag it across
+              mkdir -p dmg && cp -R dist/3Dmodeling.app dmg/ && ln -s /Applications dmg/Applications
+              hdiutil create -volname 3Dmodeling -srcfolder dmg -ov -format UDZO "release/$out.dmg"
+              if [ "$MAC_SIGN" = "yes" ]; then codesign --sign "$MAC_IDENTITY" --timestamp "release/$out.dmg"; fi
+              rm -rf dmg ;;
             Linux)   tar -C dist -czf "release/$out.tar.gz" 3Dmodeling ;;
           esac
           ls -l release
+      - name: Installer (Windows .msi)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WIN_CERT: ${{ secrets.WINDOWS_CERT_PFX }}
+          WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          $wix = Join-Path $env:USERPROFILE ".dotnet\tools\wix.exe"
+          $v = python -c "import modeler; print(modeler.__version__)"
+          $msi = "release\3Dmodeling-$v-${{ matrix.name }}.msi"
+          # an absolute folder: WiX reads the Files glob relative to the .wxs, not to here
+          $src = (Resolve-Path dist\3Dmodeling).Path
+          & $wix build packaging\3Dmodeling.wxs -arch x64 -d "Version=$v" -d "SourceDir=$src" -o $msi
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Remove-Item release\*.wixpdb -ErrorAction SilentlyContinue
+          if ($env:WIN_SIGN -eq "yes") {
+            $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CERT))
+            $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName -Descending | Select-Object -First 1
+            & $signtool.FullName sign /f $pfx /p $env:WIN_CERT_PASSWORD /fd SHA256 `
+              /tr http://timestamp.digicert.com /td SHA256 /d 3Dmodeling $msi
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Remove-Item $pfx
+          }
+          # try it: install, run the installed command line, remove
+          $p = Start-Process msiexec -ArgumentList "/i `"$((Resolve-Path $msi).Path)`" /qn /l*v msi-install.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content msi-install.log -Tail 60; exit 1 }
+          & "C:\Program Files\3Dmodeling\3Dmodeling-cli.exe" --version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (-not (Test-Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\3Dmodeling.lnk")) {
+            Write-Host "no Start menu entry"; exit 1
+          }
+          $p = Start-Process msiexec -ArgumentList "/x `"$((Resolve-Path $msi).Path)`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit 1 }
+          if (Test-Path "C:\Program Files\3Dmodeling\3Dmodeling-cli.exe") { Write-Host "not removed"; exit 1 }
+          Get-ChildItem release
+      - name: Try the .dmg (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          dmg=$(ls release/*.dmg)
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg" "$dmg"
+          "$RUNNER_TEMP/dmg/3Dmodeling.app/Contents/MacOS/3Dmodeling-cli" --version
+          test -L "$RUNNER_TEMP/dmg/Applications"
+          hdiutil detach "$RUNNER_TEMP/dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: 3Dmodeling-${{ matrix.name }}
