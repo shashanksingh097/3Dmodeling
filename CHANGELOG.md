@@ -4,6 +4,22 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Added
+
+- **Help browser**: Help > Command reference (Ctrl+F1) lists every command
+  under the command menu's headings, searchable by name, help or argument.
+  Each command's page has its arguments with their defaults, lines from the
+  example scripts that use it, links to the commands beside it, and buttons
+  to open its form or put it in the command line. With a command typed,
+  Ctrl+F1 opens at it.
+- **Sizes on drawings**: `DRAWING` writes the overall width, depth and height
+  (exact, each once) and the diameter of every whole circle seen face-on,
+  equal ones counted (`6x Ø8`). New argument `sizes`: ALL, OVERALL, HOLES or
+  NONE. DXF puts them on layer DIMS.
+- **Installers**: the release workflow also makes a `.msi` for Windows
+  (Start menu entry, removable in Settings > Apps, a newer version replaces an
+  older one) and a `.dmg` for macOS, and tries both on the build machine.
+
 ## [0.3.0] - 2026-11-18
 
 The third release: sculpting, a model tree with a right-click menu, part

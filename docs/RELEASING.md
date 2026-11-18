@@ -32,8 +32,19 @@ dist/3Dmodeling/3Dmodeling         # macOS: open dist/3Dmodeling.app
 ## Test builds from GitHub
 
 Actions > **Release builds** > **Run workflow**. Each platform's zip (or
-tar.gz) is attached to the run as an artifact for 14 days. Every build is
-started headless and runs two example scripts before it is packed.
+tar.gz) is attached to the run as an artifact for 14 days, with the
+installers: a `.msi` for Windows and a `.dmg` for macOS. Every build is
+started headless and runs two example scripts before it is packed. The
+`.msi` is then installed on the build machine, its command line run from
+Program Files and its Start menu entry checked, and removed again; the
+`.dmg` is mounted and the app inside it started.
+
+The `.msi` is made with the WiX Toolset 5 (`dotnet tool install --global
+wix --version 5.0.2`) from `packaging/3Dmodeling.wxs`. It installs for all
+users into Program Files. Its `UpgradeCode` must never change: it is how a
+newer version knows to replace an older one. When the Windows signing
+secrets are set, the `.msi` is signed like the `.exe` files; when the macOS
+ones are, the `.dmg` is signed too (the app inside it is the notarized one).
 
 ## Making a release
 

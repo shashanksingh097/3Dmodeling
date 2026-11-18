@@ -844,7 +844,7 @@ Still open in the milestones already started, in the suggested order:
 Proposed from what the milestone notes left open, about three items per
 pull request, in this order (the user can reorder or drop any):
 
-13. The rest of M8 (docs/M8-polish.md): a **help browser** built from the
+13. Done (branch `help-dims-installers`): the rest of M8 (docs/M8-polish.md): a **help browser** built from the
     command list (every command with its arguments, help and an example,
     searchable, opening the form), **sizes on 2D drawings** (overall sizes
     and hole diameters on `DRAWING` views), and **installers** (`.msi` for

@@ -59,8 +59,50 @@ own `env` is not visible to its `if`, so job-level `WIN_SIGN` and
 
 The certificates themselves are the owner's to buy and add.
 
+## Part 2: help browser, sizes on drawings, installers
+
+**Help browser** (`gui/help_browser.py`, Help > Command reference, Ctrl+F1).
+Built from the command registry, so it is never out of date:
+
+- Left: every command under the command menu's headings (`forms.CATEGORIES`),
+  the rest under "Other". The search box matches names, help and argument
+  names or help, and keeps only the headings with matches, opened.
+- Right: with a search, every match with its signature and help (the old
+  reference page). A picked command gets its own page: signature, help, an
+  argument table with defaults, up to four lines from the example scripts
+  that use it, whether it has a form, and links to the commands beside it.
+- **Open form** and **Put in command line**. With a command typed, Ctrl+F1
+  opens at it.
+
+**Sizes on drawings** (`geometry/drawing.py`, `dimension`). Kept simple on
+purpose, so that it is right without a layout engine:
+
+- Overall sizes: each model direction once, on the first flat view that
+  shows it, outside the view (horizontal below, vertical at the left). The
+  number is the exact size of the bodies (`BRepBndLib.AddOptimal`), since
+  curves are drawn as short lines and their drawn extent is a little short.
+- Diameters: HLR keeps circles as circles in a view that sees them face-on
+  (`GeomAbs_Circle`, a full turn or arcs that add up to one), so these are
+  read from the visible edges. Equal ones in a view are counted; each
+  diameter is written once on the sheet. Each size of circle gets its own
+  leader angle (45, 135, 30, 150 degrees ...), so leaders of circles around
+  one centre do not lie on top of each other, and a label that would cover
+  another moves further out.
+- Pieces: lines, filled arrows and text, in a `*-dims` SVG group or the DXF
+  layer `DIMS` (TEXT with rotation, SOLID arrows, `%%c` for Ø).
+- `sizes`: ALL (default), OVERALL, HOLES, NONE.
+
+**Installers** (`.github/workflows/release.yml`, `packaging/3Dmodeling.wxs`):
+a `.msi` made with WiX 5 (the `Files` glob takes the whole PyInstaller
+folder; the main `.exe` is its own component so it can carry the advertised
+Start menu shortcut), signed when the Windows secrets are set; and a `.dmg`
+(the app plus a link to Applications, `hdiutil create -format UDZO`), signed
+when the macOS secrets are set. The job installs the `.msi`, runs the
+installed command line, checks the Start menu entry and removes it again;
+it mounts the `.dmg` and runs the app's command line from it. The zips stay
+for people who do not want to install.
+
 ## Still open in M8
 
-- Dimensions on drawings.
-- Installers (.msi, .dmg).
-- A help browser built from the command metadata.
+- Sizes between features (hole positions, steps), and radii of arcs.
+- A Linux AppImage or Flatpak.

@@ -6,7 +6,11 @@ is turned into a short line of text, a **command**, and kept in the
 change a number and watch the part rebuild, or write the whole part as text.
 
 This guide covers version 0.3. The full command language is in
-[LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**.
+[LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**
+(Ctrl+F1): every command under the same headings as the command menu, with a
+search box, what each argument means, lines from the example scripts that use
+it, and buttons that open its form or put it in the command line. With a
+command typed, Ctrl+F1 opens at that command.
 
 Contents:
 
@@ -32,14 +36,14 @@ Contents:
 
 ### Download (no Python needed)
 
-Get the zip for your system from the
+Get the installer (or the zip) for your system from the
 [Releases page](https://github.com/shashanksingh097/3Dmodeling/releases):
 
 | System | Download | Start it |
 |--------|----------|----------|
-| Windows 10 or 11 (64-bit) | `3Dmodeling-0.3.0-windows-x64.zip` | unzip, open the folder, run `3Dmodeling.exe` |
-| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-0.3.0-macos-arm64.zip` | unzip, move `3Dmodeling.app` to Applications, open it |
-| Linux (64-bit, X11 or XWayland) | `3Dmodeling-0.3.0-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
+| Windows 10 or 11 (64-bit) | `3Dmodeling-<version>-windows-x64.msi` (from 0.4.0), or the `.zip` | run the `.msi`; 3Dmodeling is then in the Start menu and can be removed in Settings > Apps. Or unzip the zip, open the folder, run `3Dmodeling.exe` |
+| macOS 12 or later on Apple silicon (M1 and newer) | `3Dmodeling-<version>-macos-arm64.dmg` (from 0.4.0), or the `.zip` | open the `.dmg` and drag `3Dmodeling.app` onto Applications; or unzip and move it there. Then open it |
+| Linux (64-bit, X11 or XWayland) | `3Dmodeling-<version>-linux-x64.tar.gz` | `tar xzf` it, run `3Dmodeling/3Dmodeling` |
 
 The builds are not signed yet, so the first start shows a warning:
 
@@ -373,7 +377,7 @@ be broken is refused with a reason, and the model stays as it was.
 | **File > Open…** (Ctrl+O), **Open recent** | `OPEN, file.m3d` | the history is replayed, so every step is still editable |
 | **File > Import…** (Ctrl+I) | `IMPORT, format, file` | STEP, IGES and BREP: each solid becomes a body. STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (`MESH`): each piece becomes a faceted body, a solid when closed |
 | **File > Export…** (Ctrl+E) | `EXPORT, format, file [, body]` | STEP or IGES for other CAD programs, STL or 3MF for 3D printing, OBJ or glTF for viewers and game engines, BREP for Open CASCADE |
-| **File > Export drawing…** (Ctrl+Shift+E) | `DRAWING, file [, views]` | a 2D drawing as DXF (for CAD programs and laser or CNC cutting) or SVG (for documents and the web): front, top, right and iso views at true size, hidden edges dashed |
+| **File > Export drawing…** (Ctrl+Shift+E) | `DRAWING, file [, views] [, body] [, sizes]` | a 2D drawing as DXF (for CAD programs and laser or CNC cutting) or SVG (for documents and the web): front, top, right and iso views at true size, hidden edges dashed, with the overall sizes and the hole diameters (`sizes` NONE leaves them off) |
 | **File > Save log…** | | the history as a plain `.cmd` script |
 | **File > Run script…** | `RUN, file.cmd` | runs a script; its lines join the history |
 
@@ -415,6 +419,7 @@ different `-D` values to make a family of parts.
 | F2 | open the form for the command being typed |
 | F | fit the view |
 | F1 | getting started |
+| Ctrl+F1 | the command reference, open at the command being typed |
 | Up, Down in the command line | earlier commands |
 | L, R, C, A, P, S, T, E, F (in a sketch) | line, rectangle, circle, arc, point, select, trim, extend, fillet |
 | Esc | end a line chain in a sketch, close a dialog |

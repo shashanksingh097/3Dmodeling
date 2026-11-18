@@ -1,0 +1,38 @@
+<!--
+  Windows installer (.msi) for the PyInstaller build in dist\3Dmodeling.
+  Built by .github/workflows/release.yml with the WiX Toolset 5 (a dotnet tool):
+
+    dotnet tool install --global wix --version 5.0.2
+    wix build packaging\3Dmodeling.wxs -arch x64 -d Version=0.3.0 -d SourceDir=dist\3Dmodeling -o 3Dmodeling.msi
+
+  Installs for all users into Program Files\3Dmodeling, adds a Start menu entry,
+  and shows up in Settings > Apps for removing. A newer version replaces an
+  older one (same UpgradeCode: never change it).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="3Dmodeling" Manufacturer="3Dmodeling" Version="$(var.Version)"
+           UpgradeCode="4bb18c9e-c5f8-464e-8879-7a17e220f44b" Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of 3Dmodeling is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/shashanksingh097/3Dmodeling" />
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="3Dmodeling">
+        <Component Id="MainExe">
+          <File Id="MainExe" Source="$(var.SourceDir)\3Dmodeling.exe" KeyPath="yes">
+            <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="3Dmodeling"
+                      Description="Command-driven 3D modeler" WorkingDirectory="INSTALLFOLDER" Advertise="yes" />
+          </File>
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="3Dmodeling">
+      <ComponentRef Id="MainExe" />
+      <Files Directory="INSTALLFOLDER" Include="$(var.SourceDir)\**">
+        <Exclude Files="$(var.SourceDir)\3Dmodeling.exe" />
+      </Files>
+    </Feature>
+  </Package>
+</Wix>

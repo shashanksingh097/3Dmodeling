@@ -504,20 +504,32 @@ metres with Y up, as viewers expect, as a binary `.glb` or a single
 DRAWING, "flange.dxf"                  ! front, top, right and iso views
 DRAWING, "flange.svg", TOP+FRONT       ! just these views
 DRAWING, "bolt.svg", ISO, bolt         ! one body
+DRAWING, "plate.dxf", TOP, 0, HOLES    ! only the hole diameters (0: all shown bodies)
 ```
 
-`DRAWING, file [, views] [, body]` writes the shown bodies (or one body)
+`DRAWING, file [, views] [, body] [, sizes]` writes the shown bodies (or one body)
 as a flat drawing at true size: one drawing unit is one model unit, so a
 DXF opens in any CAD program at the right size. `STANDARD` (the default)
 puts the front view at the bottom left, the top view above it, the right
 view beside it and an isometric view in the free corner; or name views
 joined with `+`: `TOP`, `FRONT`, `RIGHT`, `LEFT`, `BACK`, `BOTTOM`, `ISO`.
 Visible edges and outlines are solid, hidden ones dashed (DXF layers
-`VISIBLE`, `HIDDEN` and `TEXT`, with a `HIDDEN` line type); edges where
+`VISIBLE`, `HIDDEN`, `TEXT` and `DIMS`, with a `HIDDEN` line type); edges where
 faces meet smoothly, such as a fillet's, are left out. Mesh bodies are
 drawn from their triangles. The file type comes from the extension
 (`.svg` or `.dxf`). Like `EXPORT` it runs when given and is not kept in the
 history. **File > Export drawing…** (Ctrl+Shift+E) does the same.
+
+**Sizes.** `sizes` is `ALL` (the default), `OVERALL`, `HOLES` or `NONE`.
+The overall width, depth and height are each written once, outside the first
+flat view that shows them: on the standard sheet, width and height on the
+front view and depth on the top view. They are the exact sizes of the
+bodies, not of the drawn lines. Every whole circle seen face-on (a hole, a
+boss, a round outline) gets a diameter with a short leader; equal ones in a
+view are counted, as `6x Ø8`, and each diameter is written once on the
+sheet. In SVG the sizes are blue, in groups `front-dims`, `top-dims` and so
+on; in DXF they are lines, filled arrows and text on layer `DIMS`. The
+isometric view gets no sizes.
 
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
