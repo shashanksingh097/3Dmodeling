@@ -34,6 +34,7 @@ _COMMAND_CHOICES = {
     ("VIEW", "name"): ("ISO", "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT"),
     ("HIST", "action"): ("LIST", "EDIT", "INSERT", "DELETE", "SUPPRESS", "RESUME", "MOVE", "REPLAY", "PART"),
     ("EXPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF"),
+    ("DRAWING", "views"): ("STANDARD", "FRONT", "TOP", "RIGHT", "ISO", "TOP+FRONT+RIGHT"),
     ("IMPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH"),
     ("IMPORT", "kind"): ("AUTO", "SOLID", "MESH"),
     ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "SKETCH", "LAYERS", "MATERIALS"),

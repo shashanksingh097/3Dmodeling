@@ -50,16 +50,40 @@ builds > Run workflow) with `tag` set to `v0.1.0` and, if it is not the
 branch's head, `ref` set to the commit to release. It makes the same draft;
 publishing the draft creates the tag on that commit.
 
+## Code signing
+
+The workflow signs the builds when signing secrets are set on the
+repository (Settings > Secrets and variables > Actions); without them the
+builds are unsigned and the steps are skipped. Nothing else changes.
+
+| Secret | What it is |
+|--------|------------|
+| `WINDOWS_CERT_PFX` | a code-signing certificate (.pfx), base64: `base64 -w0 cert.pfx` (PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`) |
+| `WINDOWS_CERT_PASSWORD` | its password |
+| `MACOS_CERT_P12` | an Apple "Developer ID Application" certificate with its key, exported from Keychain Access as .p12, base64 |
+| `MACOS_CERT_PASSWORD` | the .p12's password |
+| `MACOS_SIGN_IDENTITY` | the certificate's name, e.g. `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | optional, for notarization: your Apple ID, team ID and an app-specific password (appleid.apple.com) |
+
+Windows: both `.exe` files are signed with `signtool` (SHA-256, timestamped).
+macOS: the app is signed with the hardened runtime and
+`packaging/entitlements.plist` (Python needs executable memory and its own
+libraries), checked with `codesign --verify`, and, with the Apple ID
+secrets, notarized and stapled so it opens without a warning. Every
+release also gets `SHA256SUMS.txt` with the downloads' checksums.
+
+Certificates cost money (Windows: from a certificate authority, or Azure
+Trusted Signing; macOS: the Apple Developer Program), so they are the
+owner's to buy; the workflow is ready for them.
+
 ## Unsigned builds
 
-The builds are not code-signed yet, so the first start shows a warning:
+Until the secrets are set, the first start shows a warning:
 
 * **Windows**: "Windows protected your PC": press *More info*, then *Run anyway*.
 * **macOS**: right-click (or Control-click) `3Dmodeling.app`, choose *Open*,
   then *Open* again. If macOS says the app "is damaged", run
   `xattr -dr com.apple.quarantine 3Dmodeling.app` once in Terminal.
-* **Linux**: unpack and run `3Dmodeling/3Dmodeling`. It needs a desktop with
-  X11 or XWayland (most do).
 
 ## Where the app keeps things
 

@@ -170,6 +170,15 @@ def _capsule(ptr: int):
     return new(ptr, None, None)
 
 
+# 3D view backgrounds (Preferences): name -> (bottom, top) colours of the gradient
+BACKGROUNDS = {
+    "grey": ((0.20, 0.22, 0.26), (0.55, 0.58, 0.62)),
+    "dark": ((0.06, 0.07, 0.09), (0.20, 0.22, 0.26)),
+    "light": ((0.72, 0.75, 0.80), (0.96, 0.97, 0.98)),
+    "white": ((1.0, 1.0, 1.0), (1.0, 1.0, 1.0)),
+}
+
+
 class OccViewport(QWidget):
     command = Signal(str)  # command text for the processor
     ready = Signal()
@@ -177,6 +186,24 @@ class OccViewport(QWidget):
     sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
     body_menu = Signal(int, object)  # right click without dragging: (body under the cursor or 0, global QPoint)
     knife_changed = Signal(bool)  # the Knife tool went on or off
+
+    background = "grey"
+
+    def set_background(self, name: str) -> None:
+        """The 3D view's background, one of BACKGROUNDS."""
+        if name not in BACKGROUNDS:
+            raise ValueError(name)
+        self.background = name
+        if getattr(self, "_initialized", False):
+            self._apply_background()
+            self.view.Redraw()
+
+    def _apply_background(self) -> None:
+        lo, hi = BACKGROUNDS.get(self.background, BACKGROUNDS["grey"])
+        self.view.SetBgGradientColors(_rgb(*lo), _rgb(*hi),
+                                      Aspect_GradientFillMethod.Aspect_GradientFillMethod_Vertical, True)
+        ink = _rgb(0.1, 0.1, 0.1) if sum(lo) > 1.5 else _rgb(1, 1, 1)  # the axes' labels stay readable
+        self.view.TriedronDisplay(Aspect_TOTP_LEFT_LOWER, ink, 0.08, V3d_ZBUFFER)
 
     def __init__(self, model: Model, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -244,9 +271,7 @@ class OccViewport(QWidget):
         self.view.SetWindow(self._window)
         if not self._window.IsMapped():
             self._window.Map()
-        self.view.SetBgGradientColors(_rgb(0.20, 0.22, 0.26), _rgb(0.55, 0.58, 0.62),
-                                    Aspect_GradientFillMethod.Aspect_GradientFillMethod_Vertical, True)
-        self.view.TriedronDisplay(Aspect_TOTP_LEFT_LOWER, _rgb(1, 1, 1), 0.08, V3d_ZBUFFER)
+        self._apply_background()
         self.view.SetProj(_VIEWS["ISO"])
         self.view.MustBeResized()
         self._initialized = True

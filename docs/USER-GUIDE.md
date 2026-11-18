@@ -81,7 +81,11 @@ does not open, see [When something goes wrong](#14-when-something-goes-wrong).
 | **Layers** (right, tab) | show, hide, lock and colour groups of bodies |
 | **Ribbon** (top) | one row of tabs, each holding a few labelled groups of buttons with an icon and a name: **Home** (File, Edit with undo, redo and find a command, Pick, View), **Model** (Shapes, Booleans, Patterns), **Features** (Sketch, Datums, and hole, fillet, chamfer, shell, draft, push/pull, delete faces), **Freeform** (control points, knife, zebra) and **Inspect** (measuring). While a sketch is open, **Sketch**, **Sketch edit** and **Constrain** tabs appear. Undo, redo, the pick modes and Fit stay as small icons at the right of the tabs on every tab. Double-click a tab to fold the ribbon to its tab names; click a tab to use it once. |
 | **Pick** and **View** (left of the 3D view) | what a click picks (body, face, edge, vertex), and the standard views and Fit |
-| **Menus** | **File**; **Commands**, a form for every command, by group; **View** (how toolbar buttons show: icons with names under or beside them, icons only, or names only; Collapse ribbon; Ribbon tab to jump to a tab); **Help** |
+| **Menus** | **File**; **Commands**, a form for every command, by group; **View** (how toolbar buttons show: icons with names under or beside them, icons only, or names only; Collapse ribbon; Ribbon tab to jump to a tab; **Preferences…**); **Help** |
+
+**Preferences** (View > Preferences…, Ctrl+,): the theme (the system's,
+light or dark), the 3D view's background (grey, dark, light or white) and
+how toolbar buttons show. Changes apply at once and are kept.
 
 **Picking.** A click picks what is under the mouse: a face by default, or
 an edge, vertex or body if you choose that on the toolbar. Ctrl+click adds
@@ -356,6 +360,7 @@ be broken is refused with a reason, and the model stays as it was.
 | **File > Open…** (Ctrl+O), **Open recent** | `OPEN, file.m3d` | the history is replayed, so every step is still editable |
 | **File > Import…** (Ctrl+I) | `IMPORT, format, file` | STEP, IGES and BREP: each solid becomes a body. STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes (`MESH`): each piece becomes a faceted body, a solid when closed |
 | **File > Export…** (Ctrl+E) | `EXPORT, format, file [, body]` | STEP or IGES for other CAD programs, STL or 3MF for 3D printing, OBJ or glTF for viewers and game engines, BREP for Open CASCADE |
+| **File > Export drawing…** (Ctrl+Shift+E) | `DRAWING, file [, views]` | a 2D drawing as DXF (for CAD programs and laser or CNC cutting) or SVG (for documents and the web): front, top, right and iso views at true size, hidden edges dashed |
 | **File > Save log…** | | the history as a plain `.cmd` script |
 | **File > Run script…** | `RUN, file.cmd` | runs a script; its lines join the history |
 
@@ -390,7 +395,8 @@ different `-D` values to make a family of parts.
 | Keys | Does |
 |------|------|
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | new, open, save, save as |
-| Ctrl+I, Ctrl+E | import, export |
+| Ctrl+I, Ctrl+E, Ctrl+Shift+E | import, export, export a drawing |
+| Ctrl+, | preferences |
 | Ctrl+Z, Ctrl+Shift+Z (or Ctrl+Y on Windows) | undo, redo (history edits too) |
 | Ctrl+K | find a command by name or purpose |
 | F2 | open the form for the command being typed |

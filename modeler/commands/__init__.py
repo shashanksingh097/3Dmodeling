@@ -25,3 +25,4 @@ from . import mesh_handlers  # noqa: F401  (TOMESH, TOSOLID, SMOOTH, REMESH, SIM
 from . import implicit_handlers  # noqa: F401  (IMPLICIT, LATTICE: shapes from equations, lattice infill)
 from . import knife_handlers  # noqa: F401  (KNIFE: cut along a drawn stroke)
 from . import mate_handlers  # noqa: F401  (MATE: place copies by faces, edges and axes)
+from . import drawing_handlers  # noqa: F401  (DRAWING: 2D drawings to SVG and DXF)

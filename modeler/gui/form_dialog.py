@@ -228,10 +228,11 @@ class _FieldWidget(QWidget):
         self.set_value(got)
 
     def browse(self) -> None:
-        save = self.dlg.spec.command == "EXPORT"
+        save = self.dlg.spec.command in ("EXPORT", "DRAWING")
         filt = "All files (*)"
         if save:
-            path, _ = QFileDialog.getSaveFileName(self, "Export to", "part.step", filt)
+            first = "drawing.dxf" if self.dlg.spec.command == "DRAWING" else "part.step"
+            path, _ = QFileDialog.getSaveFileName(self, "Export to", first, filt)
         else:
             path, _ = QFileDialog.getOpenFileName(self, "Choose a file", "", filt)
         if path:

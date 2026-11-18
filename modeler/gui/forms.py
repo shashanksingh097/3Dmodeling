@@ -123,7 +123,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT")),
     ("Parts", ("INST", "MATE", "EXPLODE", "LIB", "LIBSAVE")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT")),
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING")),
 ]
 
 # Commands with no form, and why: the GUI already does them another way.

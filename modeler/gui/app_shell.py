@@ -267,6 +267,21 @@ class AppShell:
             path += _DEFAULT_EXT[fmt]
         self.win.execute(f"EXPORT, {fmt}, {_quote(path)}")
 
+    def export_drawing(self, path: str | None = None, views: str = "STANDARD") -> None:
+        if not self.p.model.bodies:
+            QMessageBox.information(self.win, "Export drawing", "There is nothing to draw yet: the model has no "
+                                                                "bodies.")
+            return
+        if path is None:
+            base = os.path.splitext(self.p.project_path or os.path.join(self._start_dir(), "model"))[0]
+            path, chosen = QFileDialog.getSaveFileName(self.win, "Export a 2D drawing", base + ".dxf",
+                                                       "DXF drawing (*.dxf);;SVG drawing (*.svg)")
+            if not path:
+                return
+            if not os.path.splitext(path)[1]:
+                path += ".svg" if "SVG" in chosen else ".dxf"
+        self.win.execute(f"DRAWING, {_quote(path)}, {views}")
+
     def run_script(self, path: str | None = None) -> None:
         if path is None:
             path, _ = QFileDialog.getOpenFileName(self.win, "Run command script", self._start_dir(),
@@ -374,6 +389,9 @@ class AppShell:
         self.export_action = a(m, "&Export…", self.export_file, "Ctrl+E",
                                "Write all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP. "
                                "Runs: EXPORT, format, file")
+        self.drawing_action = a(m, "Export &drawing…", self.export_drawing, "Ctrl+Shift+E",
+                                "A 2D drawing of the bodies (front, top, right and iso views, hidden edges dashed) "
+                                "as SVG or DXF, at true size. Runs: DRAWING, file, views")
         self.link_part_action = a(m, "&Link part file…", self.link_part, None,
                                   "Use the parts of a part file here, following the file: when it changes, every "
                                   "copy updates. Runs: LIB, LINK, file")

@@ -282,7 +282,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance`; `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
@@ -497,6 +497,27 @@ whatever the size (up to the limit), and `AUTO` (the default) picks.
 its name and colour; 3MF records the model's units; glTF is written in
 metres with Y up, as viewers expect, as a binary `.glb` or a single
 `.gltf` file.
+
+### DRAWING: 2D drawings as SVG or DXF
+
+```
+DRAWING, "flange.dxf"                  ! front, top, right and iso views
+DRAWING, "flange.svg", TOP+FRONT       ! just these views
+DRAWING, "bolt.svg", ISO, bolt         ! one body
+```
+
+`DRAWING, file [, views] [, body]` writes the shown bodies (or one body)
+as a flat drawing at true size: one drawing unit is one model unit, so a
+DXF opens in any CAD program at the right size. `STANDARD` (the default)
+puts the front view at the bottom left, the top view above it, the right
+view beside it and an isometric view in the free corner; or name views
+joined with `+`: `TOP`, `FRONT`, `RIGHT`, `LEFT`, `BACK`, `BOTTOM`, `ISO`.
+Visible edges and outlines are solid, hidden ones dashed (DXF layers
+`VISIBLE`, `HIDDEN` and `TEXT`, with a `HIDDEN` line type); edges where
+faces meet smoothly, such as a fillet's, are left out. Mesh bodies are
+drawn from their triangles. The file type comes from the extension
+(`.svg` or `.dxf`). Like `EXPORT` it runs when given and is not kept in the
+history. **File > Export drawing…** (Ctrl+Shift+E) does the same.
 
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
