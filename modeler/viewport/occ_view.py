@@ -17,6 +17,7 @@ Mouse:
 from __future__ import annotations
 
 import ctypes
+import os
 import sys
 import traceback
 
@@ -770,11 +771,62 @@ class OccViewport(QWidget):
         self.view.FitAll(0.1, False)
         self.view.Redraw()
 
+    def snapshot(self, width: int, height: int, view: str = "", marks=None) -> bytes | None:
+        """A PNG of the 3D view as the user sees it (or from a named view or a direction
+        "dx,dy,dz", fitted), optionally with orange marks; the user's camera and marks are
+        put back afterwards. None when there is no view."""
+        if not self._initialized:
+            return None
+        import tempfile
+
+        from OCP.Graphic3d import Graphic3d_Camera
+        from OCP.Image import Image_AlienPixMap
+        from OCP.TCollection import TCollection_AsciiString
+
+        self._sync_size()
+        cam = self.view.Camera()
+        saved = Graphic3d_Camera()
+        saved.Copy(cam)
+        old_marks = [ais.Shape() for ais in self._mark_ais]
+        path = ""
+        try:
+            name = (view or "").strip().upper()
+            if name in _VIEWS:
+                self.view.SetProj(_VIEWS[name])
+                self.view.FitAll(0.08, False)
+            elif name.count(",") == 2:
+                dx, dy, dz = (float(v) for v in name.split(","))
+                self.view.SetProj(dx, dy, dz)
+                self.view.SetUp(0, 0, 1)
+                self.view.FitAll(0.08, False)
+            elif name == "FIT":
+                self.view.FitAll(0.08, False)
+            if marks is not None:
+                self.set_marks(marks)
+            self.view.Redraw()
+            fd, path = tempfile.mkstemp(suffix=".png")
+            os.close(fd)
+            pix = Image_AlienPixMap()
+            if not (self.view.ToPixMap(pix, int(width), int(height)) and pix.Save(TCollection_AsciiString(path))):
+                return None
+            with open(path, "rb") as f:
+                return f.read()
+        finally:
+            if path:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            cam.Copy(saved)
+            if marks is not None:
+                self.set_marks(old_marks)
+            self.view.Redraw()
+
     def set_marks(self, shapes) -> None:
         """Draw shapes in orange over the model (what the assistant points at); [] clears."""
         if not self._initialized:
             return
-        from OCP.Aspect import Aspect_TOM_BALL
+        from OCP.Aspect import Aspect_TOL_SOLID, Aspect_TOM_BALL
         from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
         from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
 
@@ -792,6 +844,8 @@ class OccViewport(QWidget):
                 asp.SetColor(orange)
                 asp.SetWidth(4.0)
             dr.SetPointAspect(Prs3d_PointAspect(Aspect_TOM_BALL, orange, 3.0))
+            dr.SetFaceBoundaryDraw(True)  # outlines too: a face seen edge-on still shows
+            dr.SetFaceBoundaryAspect(Prs3d_LineAspect(orange, Aspect_TOL_SOLID, 4.0))
             ais.SetTransparency(0.5)
             ctx.Display(ais, 1, -1, False)  # shaded, not pickable
             ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)

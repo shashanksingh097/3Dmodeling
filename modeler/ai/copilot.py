@@ -57,6 +57,9 @@ How to work:
 - "This face", "these edges", "here": call user_context for what is selected. If nothing fits,
   ask_pick asks the user to click it in the 3D view; never guess an ID. To point at something in
   an answer, highlight marks it in orange in the view.
+- Text first. Call render (a picture) only when text is not enough: looks and proportions,
+  freeform or sculpted surfaces, or when the user says it looks wrong and the text tools find
+  nothing. Keep pictures small.
 - Before you suggest a script, try it: sandbox, then run (and check with expectations such as
   'VOL(b), BETWEEN, 900, 1100' or 'VALID(b)'). Fix what fails.
 - When a script works, call propose_commands with the script and a one-line summary. The user
@@ -194,6 +197,9 @@ class Reply:
     tools: list[str] = field(default_factory=list)  # names of the tools called, in order
     proposals: list[Proposal] = field(default_factory=list)
     error: str = ""
+    turns: int = 0  # model calls (one per tool round)
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 # events passed to ``on_event``: ("delta", text) while the answer streams in,
@@ -237,6 +243,8 @@ class CopilotAssistant:
             lambda kind, prompt, done: done(None) if done else None)
         # show_marks(kind, ids, note): mark these entities in the view (kind "" clears). GUI thread.
         self.show_marks: Callable[[str, list[int], str], bool] = lambda kind, ids, note: False
+        # render_view(view, width, height, kind, ids) -> PNG bytes of the 3D view, or None. GUI thread.
+        self.render_view: Callable[[str, int, int, str, list[int]], bytes | None] = lambda *a: None
 
     def _log(self, kind: str, **data: Any) -> dict[str, Any]:
         entry = {"kind": kind, "time": time.time(), **data}
@@ -420,21 +428,34 @@ class CopilotAssistant:
                         answer = await self._ask_pick(args)
                     elif name == "highlight":
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self._highlight(args))
+                    elif name == "render":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._render(args))
                     elif name in ("read_file", "list_files"):
                         answer = await asyncio.to_thread(self._files, name, args)
                     else:
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self.toolbox.call(name, args))
                 except Exception as exc:  # noqa: BLE001 - the model hears about it, and so does the Debug tab
                     answer = {"error": f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__}
+                image = answer.pop("_png", None) if isinstance(answer, dict) else None
                 text = json.dumps(answer, separators=(",", ":"), default=str)
                 self._log("tool_result", name=name, ok="error" not in answer, ms=(time.perf_counter() - t0) * 1000,
-                          result=text)
-                return ToolResult(text_result_for_llm=text,
+                          result=text, **({"image_bytes": len(image)} if image else {}))
+                binary = None
+                if image:
+                    import base64
+
+                    from copilot.tools import ToolBinaryResult
+
+                    self.on_event("picture", image)
+                    binary = [ToolBinaryResult(data=base64.b64encode(image).decode("ascii"), mime_type="image/png",
+                                               type="image", description=answer.get("shows", "the 3D view"))]
+                return ToolResult(text_result_for_llm=text, binary_results_for_llm=binary,
                                   result_type="failure" if "error" in answer else "success")
             return handler
 
         tools = []
-        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT,
+        pictures = [_RENDER] if self.provider is None or self.provider.sees_pictures() else []
+        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT, *pictures,
                                                   _LIST_FILES, _READ_FILE]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
@@ -567,6 +588,30 @@ class CopilotAssistant:
         return {"shown": bool(shown), "kind": kind, "ids": ids} if shown else {
             "shown": False, "why": "there is no 3D view (the command line or a test)"}
 
+    def _render(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        width = max(128, min(int(args.get("width", 512) or 512), 1024))
+        height = max(96, min(int(args.get("height", 0) or round(width * 0.75)), 1024))
+        view = str(args.get("view", "") or "").strip()
+        ids = [int(i) for i in (args.get("highlight") or [])]
+        kind = ""
+        if ids:
+            try:
+                kind = check_kind(str(args.get("kind", "FACE")))
+                for gid in ids:
+                    self.toolbox.real.model.entity_shape(kind, gid)
+            except ModelError as exc:
+                return {"error": str(exc)}
+        png = self.render_view(view, width, height, kind, ids)
+        if not png:
+            return {"error": "there is no 3D view to take a picture of here (the command line or a test); "
+                             "use the text tools"}
+        shows = f"the 3D view{' from ' + view if view else ' as the user sees it'}"
+        if ids:
+            shows += f", {kind.lower()} {', '.join(map(str, ids))} marked in orange"
+        return {"image": "png", "width": width, "height": height, "shows": shows, "_png": png}
+
     # ---- files in the working folder, only with the user's say-so ---------------------------
     def _inside(self, rel: str) -> str:
         base = os.path.realpath(self.home or default_home())
@@ -636,7 +681,12 @@ class CopilotAssistant:
         if model:
             kwargs["model"] = model
         if self.provider is not None:
+            from copilot.session import ModelCapabilitiesOverride, ModelSupportsOverride
+
             kwargs["provider"] = self.provider.sdk_config()
+            # the runtime does not know the user's model: say whether it takes pictures
+            kwargs["model_capabilities"] = ModelCapabilitiesOverride(
+                supports=ModelSupportsOverride(vision=self.provider.sees_pictures()))
         try:
             self.session = await self.client.create_session(**kwargs)
         except Exception as exc:  # noqa: BLE001 - a wrong address or key shows up here or at the first answer
@@ -648,6 +698,7 @@ class CopilotAssistant:
         from copilot.session_events import (
             AssistantMessageData,
             AssistantMessageDeltaData,
+            AssistantUsageData,
             SessionErrorData,
             SessionIdleData,
         )
@@ -675,6 +726,10 @@ class CopilotAssistant:
                     parts.append(data.content)
                     self._log("reply", text=data.content)
                     self.on_event("message", data.content)
+            elif isinstance(data, AssistantUsageData):
+                reply.turns += 1
+                reply.input_tokens += int(getattr(data, "input_tokens", 0) or 0)
+                reply.output_tokens += int(getattr(data, "output_tokens", 0) or 0)
             elif isinstance(data, SessionErrorData):
                 reply.error = getattr(data, "message", "") or str(data)
                 done.set()
@@ -746,6 +801,21 @@ _HIGHLIGHT = {
 }
 
 
+_RENDER = {
+    "name": "render",
+    "description": "A picture of the user's 3D view (PNG). Only when text is not enough: the question is about "
+                   "looks (style, proportions, smooth or lumpy freeform or sculpted surfaces), the user says it "
+                   "looks wrong and the text tools find nothing, or text answers disagree with the user. view: "
+                   "empty = as the user sees it, a named view (ISO, TOP, FRONT, RIGHT, LEFT, BACK, BOTTOM), FIT, or "
+                   "a direction 'dx,dy,dz' towards the eye. Small pictures cost less: 512 wide by default, 1024 at "
+                   "most. highlight marks entities of kind in orange in the picture only.",
+    "input_schema": {"type": "object", "properties": {
+        "view": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"},
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "highlight": {"type": "array", "items": {"type": "integer"}}}},
+}
+
+
 _LIST_FILES = {
     "name": "list_files",
     "description": "List the files in the user's working folder (or a folder inside it: path). The user is asked "
@@ -791,8 +861,9 @@ def format_log(log: list[dict[str, Any]]) -> str:
                 pass
             if len(res) > 20000:
                 res = res[:20000] + f"\n... ({len(res) - 20000} more characters)"
+            img = f", picture {e['image_bytes'] // 1024 or 1} KB sent" if e.get("image_bytes") else ""
             out.append(f"[{t}] TOOL RESULT {e.get('name')} ({'ok' if e.get('ok') else 'error'}, "
-                       f"{e.get('ms', 0):.0f} ms)\n{res}")
+                       f"{e.get('ms', 0):.0f} ms{img})\n{res}")
         elif k == "reply":
             out.append(f"[{t}] COPILOT\n{e.get('text', '')}")
         elif k == "permission":
@@ -875,6 +946,11 @@ python -m modeler copilot ask [--script file.cmd] "question"
 python -m modeler copilot check           the whole test for one account (Copilot Free too):
                                           sign-in, allowance, models, and a question that must
                                           use the modeler's tools; prints PASS or FAIL per step
+python -m modeler copilot bench [--only a,b] [--out results.json]
+                                          the benchmark: ten modelling requests checked exactly
+                                          (tasks: flange, bracket, shelled_box, pipe_tee, spring,
+                                          vase, bolt_and_nut, edit_width, selected_face_holes,
+                                          impossible_fillet); prints PASS or FAIL per task
 --folder DIR                              the assistant's working folder (default: a temporary
                                           folder)
 --model NAME                              the model (GitHub Copilot: one your plan offers)
@@ -981,6 +1057,30 @@ async def _cli(asst: CopilotAssistant, args: list[str]) -> int:
             return 0
         if cmd == "check":
             return await _check(asst)
+        if cmd == "bench":
+            from . import bench
+
+            only, out = None, ""
+            rest = args[1:]
+            while rest:
+                opt = rest.pop(0)
+                if opt == "--only" and rest:
+                    only = [x.strip() for x in rest.pop(0).split(",") if x.strip()]
+                elif opt == "--out" and rest:
+                    out = rest.pop(0)
+            st = await asst.status()
+            if not st["signed_in"]:
+                print(f"ERROR: not ready: {st['message'] or 'sign in first (copilot login)'}")
+                return 1
+            results = await bench.run(bench.assistant_ask(asst), only)
+            s = bench.summary(results)
+            print(f"{s['passed']} of {s['tasks']} passed ({s['without_pictures']} without a picture), "
+                  f"{s['tool_calls']} tool calls, {s['tokens']} tokens, {s['seconds']} s. "
+                  + ("Goal met." if s["goal_met"] else "Goal (9 of 10) not met."))
+            if out:
+                bench.save(results, out, {"answers_from": st["login"], "model": asst.model or ""})
+                print(f"saved {out}")
+            return 0 if s["goal_met"] else 1
         print(USAGE)
         return 2
     except AssistantError as exc:

@@ -91,6 +91,20 @@ def test_missing_key_is_explained_before_starting(plate):
     assert a.client is None  # nothing was started
 
 
+def test_pictures_only_for_models_that_see_them(plate):
+    assert pv.ProviderSetting("openai").sees_pictures() and not pv.ProviderSetting("ollama").sees_pictures()
+    assert pv.ProviderSetting("ollama", vision=True).sees_pictures()
+    assert pv.from_settings(pv.ProviderSetting("custom", "m", vision=True).to_settings()).vision is True
+    assert pv.from_settings({"kind": "custom"}).vision is None
+
+    def names(setting):
+        return [t.name for t in cp.CopilotAssistant(plate, provider=setting).sdk_tools()]
+
+    assert "render" in names(pv.ProviderSetting("anthropic", "m", api_key="k"))
+    assert "render" not in names(pv.ProviderSetting("ollama", "qwen3"))
+    assert "render" in names(pv.ProviderSetting())  # Copilot knows its models
+
+
 def test_copilot_setting_keeps_the_copilot_path(plate):
     a = cp.CopilotAssistant(plate, provider=pv.ProviderSetting("copilot", "gpt-5"))
     assert a.provider is None and a.model == "gpt-5"
@@ -104,6 +118,7 @@ def test_cli_rejects_unknown_provider(capsys):
 # ---- the real runtime against a fake OpenAI-compatible service ----------------------------
 class FakeOpenAI(BaseHTTPRequestHandler):
     requests: list = []
+    tool = ("describe_body", {"body": "plate"})  # what the fake model calls first
 
     def log_message(self, *a):
         pass
@@ -129,7 +144,7 @@ class FakeOpenAI(BaseHTTPRequestHandler):
         else:
             delta = {"role": "assistant", "content": None, "tool_calls": [{
                 "index": 0, "id": "call_1", "type": "function",
-                "function": {"name": "describe_body", "arguments": json.dumps({"body": "plate"})}}]}
+                "function": {"name": FakeOpenAI.tool[0], "arguments": json.dumps(FakeOpenAI.tool[1])}}]}
             finish = "tool_calls"
         if not req.get("stream"):
             msg = dict(delta)
@@ -184,3 +199,70 @@ def test_runtime_with_own_key_uses_the_tools(plate, monkeypatch):
     result = [m for m in FakeOpenAI.requests[-1]["body"]["messages"] if m["role"] == "tool"]
     assert '"holes"' in str(result[0]["content"])
     assert [e["kind"] for e in a.log][:4] == ["system", "prompt", "tool_call", "tool_result"]
+
+
+@pytest.mark.skipif(os.environ.get("MODELER_TEST_COPILOT_RUNTIME") != "1",
+                    reason="starts the real Copilot runtime (set MODELER_TEST_COPILOT_RUNTIME=1)")
+def test_runtime_sends_pictures_to_the_model(plate, monkeypatch):
+    import base64
+
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    FakeOpenAI.requests = []
+    FakeOpenAI.tool = ("render", {"view": "ISO"})
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FakeOpenAI)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+    try:
+        a = cp.CopilotAssistant(plate, provider=pv.ProviderSetting("custom", "fake-model", url, "sk-test",
+                                                                   vision=True))
+        a.render_view = lambda *args: png
+
+        async def go():
+            try:
+                return await asyncio.wait_for(a.ask("Does it look right?", timeout=120), 150)
+            finally:
+                await a.stop()
+
+        reply = asyncio.run(go())
+    finally:
+        server.shutdown()
+        FakeOpenAI.tool = ("describe_body", {"body": "plate"})
+    assert not reply.error, reply.error
+    assert "render" in reply.tools
+    last = json.dumps(FakeOpenAI.requests[-1]["body"]["messages"])
+    assert base64.b64encode(png).decode() in last  # the picture reached the model
+    assert "omitted" not in last
+
+
+@pytest.mark.skipif(os.environ.get("MODELER_TEST_COPILOT_RUNTIME") != "1",
+                    reason="starts the real Copilot runtime (set MODELER_TEST_COPILOT_RUNTIME=1)")
+def test_runtime_benchmark_task(monkeypatch):
+    """The benchmark's path end to end: the fake model proposes the flange's reference script."""
+    from modeler.ai import bench
+
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    task = bench.TASKS[0]
+    FakeOpenAI.requests = []
+    FakeOpenAI.tool = ("propose_commands", {"script": task.reference, "summary": "a flange"})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FakeOpenAI)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+    try:
+        a = cp.CopilotAssistant(Processor(), provider=pv.ProviderSetting("custom", "fake-model", url, "sk"))
+
+        async def go():
+            try:
+                return await bench.run(bench.assistant_ask(a), ["flange"], log=lambda *x: None)
+            finally:
+                await a.stop()
+
+        results = asyncio.run(go())
+    finally:
+        server.shutdown()
+        FakeOpenAI.tool = ("describe_body", {"body": "plate"})
+    r = results[0]
+    assert r.passed, (r.note, r.checks)
+    assert r.turns == 2 and r.input_tokens > 0 and r.tools == ["propose_commands"]

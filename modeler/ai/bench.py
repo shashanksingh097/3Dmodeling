@@ -1,0 +1,253 @@
+"""The assistant's benchmark: ten modelling requests, each checked exactly.
+
+    python -m modeler copilot bench [--only NAME,...] [--out results.json] [--provider ... --model ...]
+
+Each task starts from a fresh model (some from a small starting script), asks
+the assistant once, runs what it proposed (as the user's **Run** would), and
+checks the result with expectations (the same as ``ASSERT``). One task is
+impossible and passes only when the assistant proposes nothing and says why.
+
+For each task it records: passed, the checks, model calls (turns), input and
+output tokens, tool calls, pictures used (``render``) and the time. The goal
+(docs/M9-ai-tools.md section 6): at least 9 of 10 finished correctly, most
+without a picture.
+
+Every task has a reference script that passes its checks
+(``tests/test_bench.py``), so a failure is the assistant's, not the check's.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Any, Awaitable, Callable
+
+from . import expect
+
+
+@dataclass
+class Task:
+    name: str
+    request: str
+    checks: list[str]  # expectations; {b} is the largest body, {n0} the history length before
+    setup: str = ""  # runs before the request
+    reference: str = ""  # a script that passes the checks (proves the checks are right)
+    refuse: tuple[str, ...] = ()  # an impossible task: no proposal, and the answer says one of these
+
+
+TASKS: list[Task] = [
+    Task("flange",
+         "Make a round flange: 100 mm across and 12 mm thick, with a 30 mm bore through the middle and 6 bolt "
+         "holes of 8 mm, evenly spaced on an 80 mm circle.",
+         ["VALID({b})", "BBOX({b}).dx, BETWEEN, 99.5, 100.5", "BBOX({b}).dz, BETWEEN, 11.5, 12.5",
+          "HOLES({b}, 8, 1), EQ, 6", "HOLES({b}, 30, 1), EQ, 1"],
+         reference="CYL, 0,0,0, 50, 12\nCYL, 0,0,-1, 15, 14\nSUBTRACT, 1, 2\n"
+                   "*DO, i, 0, 5\nCYL, 40*cos(60*i), 40*sin(60*i), -1, 4, 14\nSUBTRACT, LAST-1, LAST\n*ENDDO"),
+    Task("bracket",
+         "Make an L bracket from 5 mm plate: one leg 60 mm long lying flat, one leg 60 mm tall standing up "
+         "from one end, both 40 mm wide, as one solid, with two 6 mm holes through each leg.",
+         ["VALID({b})", "PIECES({b}), EQ, 1", "HOLES({b}, 6, 1), EQ, 4", "VOL({b}), BETWEEN, 21500, 23700"],
+         reference="BLOCK, 0,0,0, 60,40,5\nBLOCK, 0,0,0, 5,40,60\nUNION, 1, 2\n"
+                   "CYL, 30,12,-1, 3, 7\nSUBTRACT, LAST-1, LAST\nCYL, 30,28,-1, 3, 7\nSUBTRACT, LAST-1, LAST\n"
+                   "CYL, -1,12,35, 3, 7, 1,0,0\nSUBTRACT, LAST-1, LAST\nCYL, -1,28,35, 3, 7, 1,0,0\n"
+                   "SUBTRACT, LAST-1, LAST"),
+    Task("shelled_box",
+         "Make a box 80 x 60 x 40 mm (40 tall), open at the top, with 3 mm walls and a 3 mm bottom.",
+         ["VALID({b})", "BBOX({b}).dx, BETWEEN, 79.5, 80.5", "BBOX({b}).dy, BETWEEN, 59.5, 60.5",
+          "BBOX({b}).dz, BETWEEN, 39.5, 40.5", "VOL({b}), BETWEEN, 43000, 45500"],
+         reference="BLOCK, 0,0,0, 80,60,40\nBLOCK, 3,3,3, 74,54,40\nSUBTRACT, 1, 2"),
+    Task("pipe_tee",
+         "Make a pipe tee as one solid: a straight pipe 100 mm long, 30 mm outside and 24 mm inside diameter, "
+         "with a branch of the same pipe coming out of its middle at right angles, reaching 50 mm from the "
+         "main pipe's axis. The insides must connect.",
+         ["VALID({b})", "PIECES({b}), EQ, 1", "BBOX({b}).dx, BETWEEN, 99.5, 100.5",
+          "VOL({b}), BETWEEN, 29000, 36000"],
+         reference="CYL, -50,0,0, 15, 100, 1,0,0\nCYL, 0,0,0, 15, 50, 0,0,1\nUNION, 1, 2\n"
+                   "CYL, -51,0,0, 12, 102, 1,0,0\nSUBTRACT, LAST-1, LAST\nCYL, 0,0,0, 12, 51, 0,0,1\n"
+                   "SUBTRACT, LAST-1, LAST"),
+    Task("spring",
+         "Make a compression spring of 2 mm wire: 20 mm outside diameter, 8 turns, 40 mm long.",
+         ["VALID({b})", "BBOX({b}).dx, BETWEEN, 19.5, 20.6", "BBOX({b}).dz, BETWEEN, 38, 42.5"],
+         reference="SPRING, 0,0,0, 9, 4.75, 8, 2"),
+    Task("vase",
+         "Make a vase by revolving a profile: 80 mm tall, 40 mm across at the bottom, 60 mm at the widest "
+         "(halfway up) and 30 mm at the top rim, hollow with 2 mm walls, closed at the bottom, open at the top.",
+         ["VALID({b})", "BBOX({b}).dz, BETWEEN, 79, 81", "BBOX({b}).dx, BETWEEN, 58, 62.5",
+          "VOL({b}), BETWEEN, 15000, 50000"],
+         reference="SKETCH, outer, XZ\nSPOLY, 0,0, 20,0, 30,40, 15,80, 0,80, 0,0\nENDSKETCH\n"
+                   "REVOLVE, outer, Z\nSKETCH, inner, XZ\nSPOLY, 0,2, 18,2, 28,40, 13,80.5, 0,80.5, 0,2\n"
+                   "ENDSKETCH\nREVOLVE, inner, Z\nSUBTRACT, LAST-1, LAST"),
+    Task("bolt_and_nut",
+         "Make a bolt and a nut: a cylinder bolt 8 mm across and 40 mm long with a hexagonal head 13 mm across "
+         "the flats and 5 mm tall, and a separate hex nut 13 mm across the flats and 6.5 mm thick with an 8 mm "
+         "hole, placed beside the bolt (no threads needed).",
+         ["COUNT(\"BODY\"), GE, 2", "VALID({b})", "HOLES({b2}, 8, 1), EQ, 1", "BBOX({b}).dz, BETWEEN, 44.5, 45.5"],
+         reference="SKETCH, head, XY\nSPOLY, 7.5056,0, 3.7528,6.5, -3.7528,6.5, -7.5056,0, -3.7528,-6.5, "
+                   "3.7528,-6.5, 7.5056,0\nENDSKETCH\nEXTRUDE, head, 5\nCYL, 0,0,5, 4, 40\nUNION, LAST-1, LAST\n"
+                   "SKETCH, nut, XY\nSPOLY, 37.5056,0, 33.7528,6.5, 26.2472,6.5, 22.4944,0, 26.2472,-6.5, "
+                   "33.7528,-6.5, 37.5056,0\nENDSKETCH\nEXTRUDE, nut, 6.5\nCYL, 30,0,-1, 4, 8.5\n"
+                   "SUBTRACT, LAST-1, LAST"),
+    Task("edit_width",
+         "Make the plate 60 mm wide instead of 40, keeping the hole in its middle.",
+         ["BBOX(plate).dx, BETWEEN, 59.9, 60.1", "HOLES(plate, 8, 1), EQ, 1",
+          "CENT(plate)[0], BETWEEN, 29.9, 30.1", "HISTORY(), EQ, {n0}"],
+         setup="W = 40\nBLOCK, 0,0,0, W,30,10\nNAME, LAST, plate\nCYL, W/2,15,-1, 4, 12\nSUBTRACT, plate, LAST",
+         reference="HIST, EDIT, 1, \"W = 60\""),
+    Task("selected_face_holes",
+         "Put four 5 mm holes, 8 mm deep, into the selected face, each 6 mm in from two edges of its corner.",
+         ["HOLES(plate, 5, 0), EQ, 4", "VALID(plate)", "VOL(plate), BETWEEN, 12000 - 4*19.64*8 - 30, "
+          "12000 - 4*19.64*8 + 30"],
+         setup="BLOCK, 0,0,0, 40,30,10\nNAME, LAST, plate\nSEL, S, FACE, NORMAL, 0,0,1",
+         reference="HOLE, plate, 6,6,10, 5, 8\nHOLE, plate, 34,6,10, 5, 8\nHOLE, plate, 6,24,10, 5, 8\n"
+                   "HOLE, plate, 34,24,10, 5, 8"),
+    Task("impossible_fillet",
+         "Round all edges of the plate with a 30 mm radius.",
+         [],
+         setup="BLOCK, 0,0,0, 40,30,10\nNAME, LAST, plate",
+         refuse=("too large", "too big", "cannot", "can't", "not possible", "impossible", "larger than",
+                 "at most", "maximum")),
+]
+
+
+@dataclass
+class Result:
+    name: str
+    passed: bool
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    note: str = ""
+    turns: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    tool_calls: int = 0
+    pictures: int = 0
+    seconds: float = 0.0
+    tools: list[str] = field(default_factory=list)
+    answer: str = ""
+
+
+def fresh(task: Task):
+    """The processor a task starts from."""
+    from ..commands import Processor
+
+    p = Processor()
+    for res in p.run_script(task.setup) if task.setup else []:  # one history step per line
+        if not res.ok:
+            raise RuntimeError(f"{task.name}: the setup failed: {res.message}")
+    return p
+
+
+def _largest(p) -> tuple[int, int]:
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    vols = []
+    for bid, b in p.model.bodies.items():
+        g = GProp_GProps()
+        try:
+            BRepGProp.VolumeProperties_s(b.shape, g)
+            vols.append((abs(g.Mass()), bid))
+        except Exception:  # noqa: BLE001 - a body without volume
+            vols.append((0.0, bid))
+    vols.sort(reverse=True)
+    first = vols[0][1] if vols else 0
+    second = vols[1][1] if len(vols) > 1 else first
+    return first, second
+
+
+def score(task: Task, p, n0: int, proposals: list[list[str]], answer: str) -> tuple[bool, list[dict], str]:
+    """Run the proposals (each a list of command lines) and check. Returns (passed, checks, note)."""
+    if task.refuse:
+        if proposals:
+            return False, [], "proposed something for an impossible request"
+        said = answer.lower()
+        ok = any(w in said for w in task.refuse)
+        return ok, [], "" if ok else "proposed nothing, but did not say why"
+    if not proposals:
+        return False, [], "proposed nothing"
+    for lines in proposals:
+        for line in lines:
+            res = p.run(line)
+            if not res.ok:
+                return False, [], f"the proposal failed: {res.message.splitlines()[0][:200]}"
+    if not p.model.bodies:
+        return False, [], "no bodies"
+    b, b2 = _largest(p)
+    rows, passed = [], True
+    for text in task.checks:
+        line = (text.replace("{b}", str(b)).replace("{b2}", str(b2)).replace("{n0}", str(n0))
+                .replace("HISTORY()", str(p.cursor)))
+        try:
+            out = expect.check(p, line).as_dict()
+        except expect.ExpectError as exc:
+            out = {"check": line, "pass": False, "error": str(exc)}
+        rows.append(out)
+        passed = passed and bool(out.get("pass"))
+    return passed, rows, ""
+
+
+AskFn = Callable[[Task, Any], Awaitable[Any]]  # (task, processor) -> a copilot.Reply
+
+
+async def run_task(task: Task, ask: AskFn) -> Result:
+    p = fresh(task)
+    n0 = p.cursor
+    t = time.time()
+    reply = await ask(task, p)
+    seconds = time.time() - t
+    proposals = [prop.commands() for prop in reply.proposals]
+    if reply.error:
+        passed, checks, note = False, [], f"error: {reply.error}"
+    else:
+        passed, checks, note = score(task, p, n0, proposals, reply.text)
+    return Result(task.name, passed, checks, note, reply.turns, reply.input_tokens, reply.output_tokens,
+                  len(reply.tools), reply.tools.count("render"), round(seconds, 1), list(reply.tools),
+                  reply.text[:400])
+
+
+def _say(text: str) -> None:
+    print(text, flush=True)
+
+
+async def run(ask: AskFn, only: list[str] | None = None, log: Callable[[str], None] = _say) -> list[Result]:
+    results = []
+    for task in TASKS:
+        if only and task.name not in only:
+            continue
+        log(f"{task.name} ...")
+        r = await run_task(task, ask)
+        log(f"  {'PASS' if r.passed else 'FAIL'}  {r.turns} turns, {r.tool_calls} tool calls, {r.pictures} "
+            f"pictures, {r.input_tokens}+{r.output_tokens} tokens, {r.seconds:g} s"
+            + (f"  ({r.note})" if r.note else "")
+            + "".join(f"\n        failed: {c.get('check')} {c.get('error') or c.get('actual', '')}"
+                      for c in r.checks if not c.get("pass")))
+        results.append(r)
+    return results
+
+
+def summary(results: list[Result]) -> dict[str, Any]:
+    n = len(results)
+    ok = sum(r.passed for r in results)
+    return {"tasks": n, "passed": ok, "without_pictures": sum(r.passed and not r.pictures for r in results),
+            "goal_met": n > 0 and ok >= round(0.9 * n),
+            "tokens": sum(r.input_tokens + r.output_tokens for r in results),
+            "tool_calls": sum(r.tool_calls for r in results), "pictures": sum(r.pictures for r in results),
+            "seconds": round(sum(r.seconds for r in results), 1)}
+
+
+def save(results: list[Result], path: str, about: dict[str, Any] | None = None) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"about": about or {}, "summary": summary(results), "results": [asdict(r) for r in results]},
+                  f, indent=1)
+
+
+def assistant_ask(asst) -> AskFn:
+    """Ask with a real assistant (Copilot or your own key): a new chat for each task."""
+    from .tools import Toolbox
+
+    async def ask(task: Task, p):
+        await asst.new_chat()
+        asst.toolbox = Toolbox(p)
+        return await asst.ask(task.request)
+
+    return ask
