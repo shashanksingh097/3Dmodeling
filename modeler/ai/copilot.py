@@ -749,6 +749,9 @@ class AssistantThread:
     def new_chat(self) -> Future:
         return self.submit(self.assistant.new_chat())
 
+    def models(self) -> Future:
+        return self.submit(self.assistant.models())
+
     def close(self, wait: float = 5.0) -> None:
         try:
             self.submit(self.assistant.stop()).result(wait)

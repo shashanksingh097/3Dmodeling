@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..ai import copilot as cp
+from ..ai import providers as pv
 
 if TYPE_CHECKING:
     from .main_window import MainWindow
@@ -79,6 +80,8 @@ class AssistantPanel(QWidget):
         self._busy = False
         self._streaming = False
         self._checked = False  # asked Copilot whether someone is signed in
+        self._unsaved_keys: dict[str, str] = {}  # keys the user did not want kept: this session only
+        self._copilot_models: list[str] = []
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(4, 4, 4, 4)
@@ -90,6 +93,11 @@ class AssistantPanel(QWidget):
         self.new_chat_button.setToolTip("Start over: Copilot forgets this conversation (the sign-in stays)")
         self.new_chat_button.clicked.connect(self.new_chat)
         top.addWidget(self.new_chat_button)
+        self.settings_button = QPushButton("Model…")
+        self.settings_button.setToolTip("GitHub Copilot or your own key (OpenAI, Anthropic, Azure, Ollama...), "
+                                        "and the model")
+        self.settings_button.clicked.connect(self.open_settings)
+        top.addWidget(self.settings_button)
         self.sign_in_button = QPushButton("Sign in with GitHub")
         self.sign_in_button.setToolTip("Sign in with your own GitHub account; Copilot Free works too")
         self.sign_in_button.clicked.connect(self.sign_in)
@@ -166,11 +174,13 @@ class AssistantPanel(QWidget):
         self.event.connect(self._on_event)
         self.done.connect(self._on_done)
         self.show_folder()
+        self._show_provider()
 
         if not cp.sdk_available():
             self.status_label.setText("The assistant is not installed.")
             self._say("system", html.escape(cp.SDK_HINT))
-            for w in (self.sign_in_button, self.send_button, self.input, self.new_chat_button):
+            for w in (self.sign_in_button, self.send_button, self.input, self.new_chat_button,
+                      self.settings_button):
                 w.setEnabled(False)
         else:
             self._say("system", "Ask about commands, errors or your model. Copilot tries its scripts in a "
@@ -319,6 +329,58 @@ class AssistantPanel(QWidget):
                             + (" (for this chat)" if answer == "chat" else ""))
         return answer
 
+    # ---- where the answers come from ----------------------------------------------------
+    def provider_setting(self) -> pv.ProviderSetting:
+        st = self._settings()
+        values = {} if st is None else {k: st.value(f"assistant/provider_{k}", "") or ""
+                                        for k in ("kind", "model", "base_url")}
+        s = pv.from_settings(values)
+        if not s.is_copilot and not s.api_key:
+            s.api_key = self._unsaved_keys.get(s.kind, "")
+        return s
+
+    def set_provider(self, setting: pv.ProviderSetting, keep_key: bool) -> None:
+        st = self._settings()
+        if st is not None:
+            for k, v in setting.to_settings().items():
+                st.setValue(f"assistant/provider_{k}", v)
+        if not setting.is_copilot:
+            if keep_key:
+                pv.save_key(setting.kind, setting.api_key)
+                self._unsaved_keys.pop(setting.kind, None)
+            else:
+                if pv.load_key(setting.kind):
+                    pv.save_key(setting.kind, "")  # the user no longer wants it kept
+                self._unsaved_keys[setting.kind] = setting.api_key
+        self.shutdown()  # the next question starts with the new choice
+        self._checked = False
+        self._show_provider()
+        self._say("system", f"Answers now come from <b>{html.escape(setting.label())}</b>.")
+        if not setting.is_copilot:
+            self.refresh_status()
+
+    def open_settings(self) -> None:
+        from .assistant_settings import AssistantSettingsDialog
+
+        current = self.provider_setting()
+        dlg = AssistantSettingsDialog(self, current, copilot_models=self._copilot_models,
+                                      key_kept=bool(not current.is_copilot and pv.load_key(current.kind)))
+        if dlg.exec():
+            self.set_provider(dlg.setting(), dlg.remember.isChecked())
+
+    def _show_provider(self) -> None:
+        s = self.provider_setting()
+        self.sign_in_button.setVisible(s.is_copilot)
+        name = "Copilot" if s.is_copilot else s.info.label.split(" (")[0].split(" on ")[0]
+        self.input.setPlaceholderText(f"Ask {name}: \"add a 6 mm hole through the middle of the plate\"")
+        if not s.is_copilot:
+            problem = s.problem()
+            self.status_label.setText(f"Your own key: <b>{html.escape(s.label())}</b>"
+                                      + (f" · {html.escape(problem)} (Model…)" if problem else ""))
+        elif not self._checked:
+            self.status_label.setText("Assistant: GitHub Copilot"
+                                      + (f" ({html.escape(s.model)})" if s.model else ""))
+
     # ---- the assistant's thread ----------------------------------------------------------
     def _assistant(self) -> cp.AssistantThread:
         home, _ = self.working_folder()
@@ -327,7 +389,8 @@ class AssistantPanel(QWidget):
         self.show_folder()
         if self.thread is None:
             asst = cp.CopilotAssistant(self.win.processor, run_on_model=self.calls.run,
-                                       on_event=lambda kind, data: self.event.emit(kind, data), home=home)
+                                       on_event=lambda kind, data: self.event.emit(kind, data), home=home,
+                                       provider=self.provider_setting())
             asst.ask_read = self.ask_read  # runs on the GUI thread (run_on_model)
             self.thread = cp.AssistantThread(asst)
         return self.thread
@@ -352,13 +415,22 @@ class AssistantPanel(QWidget):
         except Exception as exc:  # noqa: BLE001
             self.status_label.setText(f"Copilot is not available: {exc}")
             return
-        if st["signed_in"]:
+        if st.get("own_key"):
+            self._show_provider()
+        elif st["signed_in"]:
             self.status_label.setText(f"Signed in as <b>{html.escape(st['login'])}</b>")
             self.sign_in_button.setText("Switch account")
             self._then(self._assistant().quota(), self._show_quota)
+            self._then(self._assistant().models(), self._got_models)
         else:
             self.status_label.setText("Not signed in")
             self.sign_in_button.setText("Sign in with GitHub")
+
+    def _got_models(self, fut: Future) -> None:
+        try:
+            self._copilot_models = [m["id"] for m in fut.result()]
+        except Exception:  # noqa: BLE001 - the list only fills the Model… box
+            pass
 
     def _show_quota(self, fut: Future) -> None:
         try:
