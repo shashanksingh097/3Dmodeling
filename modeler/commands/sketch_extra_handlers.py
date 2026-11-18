@@ -185,3 +185,20 @@ def _join_ends(sk, made, uid: int) -> None:
                 sk.add_con("COINCIDENT", (f"{g.n}.{a}", f"{h.n}.{b}"), uid=uid, auto=True, solve=False)
                 tied.add((h.n, b))
                 break
+
+
+@command("SJOIN", *_vals(40),
+         help="Join sketch curves that meet end to end into one smooth spline: SJOIN, 1, 2, 3 (corners where they "
+              "meet are rounded off; a closed chain makes a closed spline). One curve: SJOIN, 4 turns a line, arc, "
+              "circle or ellipse into a spline you can then reshape by its points. Constraints on the old curves "
+              "go, except those on the two free ends of the chain.")
+def sjoin(p: Processor, **raws):
+    from ..sketch import spline_edit as se
+
+    sk = _active(p, "SJOIN")
+    vals = [str(x).strip() for x in raws.values() if str(x).strip()]
+    if not vals:
+        raise CommandError("SJOIN: give the curves to join, e.g. SJOIN, 1, 2, 3")
+    with _sketch_error("SJOIN"):
+        said, _ = se.join(sk, vals, p.entry_uid)
+    return _store(p, sk, said)

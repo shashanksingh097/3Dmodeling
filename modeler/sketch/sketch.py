@@ -640,7 +640,7 @@ def _need(con: Con, rs: list[Ref], pattern: str, msg: str) -> None:
         k = r.geo.kind if r.geo is not None and not r.is_point else None
         return {"P": r.is_point, "L": k == "LINE", "R": k in ("ARC", "CIRCLE"), "G": k is not None, "*": True,
                 "C": k in ("LINE", "ARC", "CIRCLE") + ELLIPSES, "E": k in ELLIPSES,
-                "A": k in ("ARC", "EARC")}[ch]
+                "A": k in ("ARC", "EARC"), "S": k == "SPLINE"}[ch]
 
     if len(rs) != len(pattern) or not all(fits(r, ch) for r, ch in zip(rs, pattern)):
         raise SketchError(f"{con.kind}: {msg}")
@@ -650,10 +650,11 @@ def _check_shape(sk: Sketch, con: Con, rs: list[Ref]) -> None:
     k = con.kind
     pats = {
         "COINCIDENT": [("PP", "give two points, e.g. 1.E, 2.S")],
-        "ON": [("PC", "give a point and a line, arc or circle, e.g. 3.S, 1")],
+        "ON": [("PC", "give a point and a line, arc, circle, ellipse or spline, e.g. 3.S, 1"), ("PS", "")],
         "HORIZONTAL": [("L", ""), ("PP", "")], "VERTICAL": [("L", ""), ("PP", "")],
         "PARALLEL": [("LL", "give two lines")], "PERPENDICULAR": [("LL", "give two lines")],
-        "TANGENT": [("LR", ""), ("RL", ""), ("RR", ""), ("LE", ""), ("EL", "")],
+        "TANGENT": [("LR", ""), ("RL", ""), ("RR", ""), ("LE", ""), ("EL", ""),
+                    ("LS", ""), ("SL", ""), ("RS", ""), ("SR", "")],
         "EQUAL": [("LL", ""), ("RR", ""), ("EE", "")],
         "MIDPOINT": [("PL", "give a point and a line")],
         "SYMMETRIC": [("PPL", "give two points and the line they mirror about")],
@@ -670,7 +671,8 @@ def _check_shape(sk: Sketch, con: Con, rs: list[Ref]) -> None:
     }[k]
     hints = {
         "HORIZONTAL": "give a line, or two points", "VERTICAL": "give a line, or two points",
-        "TANGENT": "give a line and an arc, circle or ellipse, or two arcs/circles",
+        "TANGENT": "give a line and an arc, circle or ellipse, or two arcs/circles, or a spline and a line or arc "
+                   "(tangent at the spline's end)",
         "CONCENTRIC": "give two arcs, circles or ellipses",
         "EQUAL": "give two lines (same length), two arcs/circles (same radius) or two ellipses (same radii)",
         "FIX": "give a point or one piece of geometry",
@@ -728,7 +730,12 @@ def _choose_sides(sk: Sketch, con: Con, rs: list[Ref]) -> None:
     inside or outside tangency, which way an angle turns), so a dimension
     keeps the shape and never flips it."""
     k, x, d = con.kind, sk.x, con.data
-    if k == "TANGENT" and (rs[0].geo.kind in ELLIPSES or rs[1].geo.kind in ELLIPSES):
+    if k == "TANGENT" and "SPLINE" in (rs[0].geo.kind, rs[1].geo.kind):
+        spl, other = (rs[0].geo, rs[1].geo) if rs[0].geo.kind == "SPLINE" else (rs[1].geo, rs[0].geo)
+        if spl.closed:
+            raise SketchError(f"TANGENT: spline {spl.n} is closed, so it has no end to be tangent at")
+        d["end"] = min(("S", "E"), key=lambda e: _gap_to(sk, other, sk.pt(spl.pts[e])))
+    elif k == "TANGENT" and (rs[0].geo.kind in ELLIPSES or rs[1].geo.kind in ELLIPSES):
         ln, el = (rs[0], rs[1]) if rs[0].geo.kind == "LINE" else (rs[1], rs[0])
         s, e = _line(sk, ln)
         d["side"] = 1.0 if _signed_dist(sk, el.geo.pts["C"], s, e) >= 0 else -1.0
@@ -829,6 +836,9 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
             out.append(C(tag, pts(p, c) + (g.r,), lambda v: [math.hypot(v[0] - v[2], v[1] - v[3]) - abs(v[4])]))
         elif g.kind in ELLIPSES:
             out.append(C(tag, pts(p, g.pts["C"], g.pts["A"]) + (g.r,), _on_ellipse))
+        elif g.kind == "SPLINE":
+            out.append(C(tag, pts(p, *[g.pts[r] for r in _spline_roles(g)]),
+                         lambda v, cl=g.closed: [_on_spline(v, cl)]))
         else:
             c, s = g.pts["C"], g.pts["S"]
             out.append(C(tag, pts(p, c, s), lambda v: [math.hypot(v[0] - v[2], v[1] - v[3])
@@ -851,6 +861,17 @@ def _build(sk: Sketch, con: Con, scale: float) -> list[solver.Constraint]:
             s2, e2 = _line(sk, rs[1])
         target = math.radians(val) * d.get("side", 1.0)
         out.append(C(tag, pts(s1, e1, s2, e2), lambda v, t=target: [_angle_err(v, t) * scale]))
+    elif k == "TANGENT" and "SPLINE" in (rs[0].geo.kind, rs[1].geo.kind):
+        spl, other = (rs[0].geo, rs[1].geo) if rs[0].geo.kind == "SPLINE" else (rs[1].geo, rs[0].geo)
+        roles = _spline_roles(spl)
+        m = 2 * len(roles)
+        end = d.get("end", "E")
+        if other.kind == "LINE":
+            out.append(C(tag, pts(*[spl.pts[r] for r in roles], other.pts["S"], other.pts["E"]),
+                         lambda v, m=m, end=end: [_spline_tan_line(v, m, end)]))
+        else:
+            out.append(C(tag, pts(*[spl.pts[r] for r in roles], other.pts["C"]),
+                         lambda v, m=m, end=end: [_spline_tan_round(v, m, end)]))
     elif k == "TANGENT" and (rs[0].geo.kind in ELLIPSES or rs[1].geo.kind in ELLIPSES):
         ln, el = (rs[0], rs[1]) if rs[0].geo.kind == "LINE" else (rs[1], rs[0])
         s, e = _line(sk, ln)
@@ -1221,3 +1242,46 @@ def arc_length(sk: Sketch, g: Geo) -> float:
         return _arc_len([*sk.pt(g.pts["C"]), *sk.pt(g.pts["S"]), *sk.pt(g.pts["E"])])
     return _earc_len([*sk.pt(g.pts["C"]), *sk.pt(g.pts["A"]), *sk.pt(g.pts["S"]), *sk.pt(g.pts["E"]),
                       sk.x[g.r]])
+
+
+# ---- splines in constraints ----------------------------------------------------
+
+def _spline_roles(g: Geo) -> list[str]:
+    return sorted(g.pts, key=lambda r: (r == "E", 0 if r == "S" else int(r[1:]) if r[0] == "K" else 0))
+
+
+def _on_spline(v, closed: bool) -> float:
+    from . import spline as sp
+
+    return sp.signed(list(v[2:]), closed, (v[0], v[1]))
+
+
+def _spline_tan_line(v, m: int, end: str) -> float:
+    """The spline leaves its end along the line: the sine of the angle between them."""
+    from . import spline as sp
+
+    t = sp.end_direction(list(v[:m]), False, end)
+    dx, dy = v[m + 2] - v[m], v[m + 3] - v[m + 1]
+    L = math.hypot(dx, dy) or 1e-12
+    return (t[0] * dy - t[1] * dx) / L
+
+
+def _spline_tan_round(v, m: int, end: str) -> float:
+    """The spline leaves its end square to the radius of the arc or circle there."""
+    from . import spline as sp
+
+    t = sp.end_direction(list(v[:m]), False, end)
+    px, py = (v[0], v[1]) if end == "S" else (v[m - 2], v[m - 1])
+    dx, dy = px - v[m], py - v[m + 1]
+    L = math.hypot(dx, dy) or 1e-12
+    return (t[0] * dx + t[1] * dy) / L
+
+
+def _gap_to(sk: Sketch, g: Geo, q) -> float:
+    """How far q is from curve g's carrier (line or circle)."""
+    if g.kind == "LINE":
+        a, b = sk.pt(g.pts["S"]), sk.pt(g.pts["E"])
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy) or 1e-12
+        return abs(dx * (q[1] - a[1]) - dy * (q[0] - a[0])) / L
+    return abs(math.dist(q, sk.pt(g.pts["C"])) - sk.radius(g))

@@ -177,14 +177,22 @@ def split(sk: Sketch, n: int, at: list | int | str, uid: int = 0) -> tuple[str, 
     to where it was given) or where curve ``at`` (a number, or H / V) crosses
     it. The pieces stay joined end to end, on one line or circle. A circle
     needs two places or more, and becomes arcs."""
-    g = _curve(sk, n, "SSPLIT", ellipse=True)
+    g = _curve(sk, n, "SSPLIT", ellipse=True, spline=True)
+    if isinstance(at, (int, str)) and at not in ("H", "V"):
+        _curve(sk, at, "SSPLIT", ellipse=True, spline=True)
+        if at == n:
+            raise SketchError("a curve cannot be split by itself")
+    if g.kind == "SPLINE":
+        from . import spline_edit
+
+        return spline_edit.split(sk, g, at, uid)
     was = kname(g.kind)
     span, eps = _span(sk, g), _eps(sk, g)
     cutter = None
     if isinstance(at, (int, str)):
         cutter = at
         if cutter not in ("H", "V"):
-            _curve(sk, cutter, "SSPLIT", ellipse=True)
+            _curve(sk, cutter, "SSPLIT", ellipse=True, spline=True)
             if cutter == n:
                 raise SketchError("a curve cannot be split by itself")
         params = [p for p, _, _ in _cuts(sk, g, only=cutter)]

@@ -361,7 +361,7 @@ class SketchController:
             lo, hi, _, _ = sedit.trim_piece(sk, n, (u, v), self.trim_axes)
         except SketchError:
             return None
-        if g.kind in sedit.CLOSED and hi <= lo:
+        if sedit.is_closed(g) and hi <= lo:
             hi += 360.0
         k = 2 if g.kind == "LINE" else 33
         return [sedit._point_at(sk, g, lo + (hi - lo) * i / (k - 1)) for i in range(k)]
@@ -376,7 +376,7 @@ class SketchController:
             if not name or "." not in name:
                 return []
             g = sk.ref(name).geo
-            if g is None or g.kind not in ("LINE", "ARC"):
+            if g is None or g.kind not in ("LINE", "ARC", "SPLINE"):
                 return []
             try:
                 l1, a, l2, b = sedit._corner(sk, name)
@@ -403,10 +403,8 @@ class SketchController:
             return []
         g = sk.geos[n]
         if t == "SPLIT":
-            if g.kind == "SPLINE":
-                return []
             at = _uv(_foot_on(sk, g, (u, v)))
-            if g.kind not in sedit.CLOSED:
+            if g.kind not in sedit.CLOSED:  # a closed spline opens at one click
                 return [f"SSPLIT, {n}, {at}"]
             if self.picked and self.picked[0][0] == n:
                 first = _uv(self.picked[0][1])
@@ -424,7 +422,7 @@ class SketchController:
             return []
         if t == "TRIM":
             return [f"STRIM, {n}, {_uv((u, v))}" + (", AXES" if self.trim_axes else "")]
-        if g.kind in sedit.CLOSED:
+        if sedit.is_closed(g):
             return []
         ends = {r: sk.pt(g.pts[r]) for r in ("S", "E")}
         role = min(ends, key=lambda r: math.hypot(ends[r][0] - u, ends[r][1] - v))
@@ -614,7 +612,7 @@ class SketchController:
         if self.tool in ("FILLET", "CHAMFER"):
             return pv  # the snap mark on the corner says it
         n = self.curve_at(u, v, tol)
-        if self.tool == "SPLIT" and n is not None and sk.geos[n].kind != "SPLINE":
+        if self.tool == "SPLIT" and n is not None:
             pv.snap = _foot_on(sk, sk.geos[n], (u, v))
         if self.tool == "CORNER" and self.picked:
             n1, p1 = self.picked[0]
@@ -930,6 +928,11 @@ def _selected_geos(p: Processor, what: str, kinds=("LINE", "ARC", "CIRCLE", "POI
 def offset2_command(p: Processor, d_text: str, flat: bool = False) -> list[str]:
     geos = _selected_geos(p, "Offset both sides", ("LINE", "ARC", "CIRCLE"))
     return [f"SOFFSET2, {d_text.strip()}, {', '.join(geos)}" + (", FLAT" if flat else "")]
+
+
+def join_command(p: Processor) -> list[str]:
+    geos = _selected_geos(p, "Join to spline", ("LINE", "ARC", "CIRCLE", "ELLIPSE", "EARC", "SPLINE"))
+    return [f"SJOIN, {', '.join(geos)}"]
 
 
 def offset_command(p: Processor, d_text: str) -> list[str]:
@@ -1249,6 +1252,8 @@ def _foot_on(sk: Sketch, g, q) -> tuple[float, float]:
         return (a[0] + t * dx, a[1] + t * dy)
     if g.kind in sedit.ELLIPSES:
         return sel.foot(sk, g, q)[0]
+    if g.kind == "SPLINE":
+        return sedit.sp.foot(sk, g, q)
     c, r = sk.pt(g.pts["C"]), sk.radius(g)
     d = math.dist(c, q) or 1e-12
     return (c[0] + (q[0] - c[0]) * r / d, c[1] + (q[1] - c[1]) * r / d)

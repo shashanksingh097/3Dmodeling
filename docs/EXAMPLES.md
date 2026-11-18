@@ -47,6 +47,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/knife_cuts.png" width="160">](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) | [Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss](#knife-and-freehand-cuts-a-wavy-split-a-cookie-cutter-a-slot-through-a-mesh-ball-freehand-pocket-and-boss) |
 | [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
 | [<img src="examples/cam_plate.png" width="160">](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) | [Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) |
+| [<img src="examples/spline_handle.png" width="160">](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) | [Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) |
 
 ---
 
@@ -1974,6 +1975,45 @@ SLINE, 18, -4, 18, -24, CONSTR
 SCIRCLET, 8, 9, R, 4, AT, 23, -9        ! ... and a hole of radius 4 touching both
 ENDSKETCH
 EXTRUDE, cam, 6
+```
+
+</details>
+
+---
+
+## Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline
+
+![Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](examples/spline_handle.png)
+
+A handle outline made with spline editing: a stepped top edge and a nose joined into one smooth spline (SJOIN), carried on to the base (SEXTEND), the base extended to meet it, and the top left corner rounded with a fillet between a line and a spline.
+
+**Script:** [scripts/spline_handle.cmd](../scripts/spline_handle.cmd) (20 lines) · **Run:** `python -m modeler scripts/spline_handle.cmd`
+
+**You should get:** 1 body, volume 8,557.1 mm³, 7 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! A handle outline made with spline editing: a stepped top edge and a nose
+! joined into one smooth spline (SJOIN), carried on to the base (SEXTEND),
+! the base extended to meet it, and the top left corner rounded with a
+! fillet between a line and a spline.
+SKETCH, handle, XY
+SLINE, 0, 0, 60, 0                       ! 1: the base
+SLINE, 0, 0, 0, 12                       ! 2: the left end
+SCON, COINCIDENT, 1.S, 2.S
+SLINE, 0, 12, 20, 12                     ! 3, 4, 5: a step-shaped top edge ...
+SARC, 30, 12, 10, 0, 180
+SARC, 50, 12, 10, 180, 360
+SSPLINE, 60, 12, 70, 20, 78, 14          ! 6: ... and a nose
+SJOIN, 3, 4, 5, 6                        ! joined into one smooth spline (7)
+SCON, COINCIDENT, 7.S, 2.E
+SEXTEND, 7.E, 1                          ! carried on until it meets the base's line
+SEXTEND, 1.E, 7                          ! and the base carried on to meet it
+SFILLET, 2.E, 3                          ! round the top left corner (line and spline)
+SCIRCLE, 12, 5, 2.5                      ! a hole for a lanyard
+ENDSKETCH
+EXTRUDE, handle, 8
 ```
 
 </details>

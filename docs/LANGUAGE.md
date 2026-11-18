@@ -266,7 +266,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
-| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
+| Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
@@ -965,6 +965,7 @@ radius (`SDIM, RADIUS, ...`), or a side a length.
 | `SCIRCLET, 1, 2, 3, AT, u, v` | a circle touching three curves; they set its size |
 | `SOFFSET2, d, 1, 2 ... [, FLAT]` | the curves offset by d to both sides, with round ends round the path's ends (`FLAT`: straight ends): a slot along a path. A closed chain gets an outline inside and one outside. The path becomes construction geometry |
 | `SINTERSECT, body [, body ...]` | the curves where the bodies cut the sketch plane, fixed: lines, circles, arcs and ellipses (a cylinder cut at a slant gives an ellipse) |
+| `SJOIN, 1, 2, 3 ...` | the curves (meeting end to end, in any order) joined into one smooth spline; corners where they meet are rounded off, a closed chain gives a closed spline. `SJOIN, 4` turns one line, arc, circle or ellipse into a spline to reshape by its points |
 
 An ellipse is its centre `n.C`, the end of its first axis `n.A` and its
 second radius: five degrees of freedom (an elliptical arc has two more, its
@@ -972,6 +973,20 @@ ends). It can be trimmed, split, extended, mirrored, patterned, moved and
 scaled, and it takes `ON`, `CONCENTRIC`, `EQUAL` (two ellipses) and
 `TANGENT` with a line. `SPROJECT` brings ellipse edges flat on the sketch
 in as ellipses.
+
+**Splines in the editing tools.** `STRIM`, `SEXTEND`, `SSPLIT` and
+`SFILLET` work on splines, and splines cut other curves. A cut piece keeps
+the points the spline ran through (with their constraints) and gains the
+cut point, plus one point half way along each span the cut shortened, so
+it keeps close to the old shape. A trimmed end stays `ON` the curve that
+cut it (a point can be `ON` a spline too: `SCON, ON, 5, 3`). `SEXTEND`
+carries a spline on the way it leaves its end; the old end stays as a
+point it runs through. A split spline's pieces meet end to end but are not
+held smooth where they meet; a closed spline split at one point opens
+there. `SFILLET` rounds the corner of a spline and a line or arc: the
+spline is cut back to where the arc touches it and held `TANGENT` to it.
+`SCON, TANGENT, spline, line or arc` makes the spline leave its nearer end
+along the line, or square to the arc's radius.
 
 **Constraints made while drawing.** With the Line, Centreline, Rectangle,
 Circle and Point tools a click on a curve puts the point on it (`SCON, ON`),
@@ -2262,8 +2277,9 @@ that matter and written as `SSPLINE` (a nearly straight stroke becomes
 cut or a boss, or `REVOLVE`; starting or ending on a sketch point ties the
 curve there. A spline's points are `3.S`, `3.K1` ... `3.E`: drag them to
 reshape it, or hold them with `SCON` (`FIX`, `COINCIDENT`). `SMIRROR` and
-`SPATTERN` copy splines; `STRIM`, `SEXTEND`, `SFILLET` and `SOFFSET` do not
-work on them yet.
+`SPATTERN` copy splines; `STRIM`, `SEXTEND`, `SSPLIT` and `SFILLET` work on
+them (section 16), `SOFFSET` does not yet. `SJOIN` makes one spline of a
+chain of curves.
 
 ```
 SKETCH, pocket, top

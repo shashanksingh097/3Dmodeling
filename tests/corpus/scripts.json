@@ -109,6 +109,11 @@
   "faces": 28,
   "volume": 20855.549
  },
+ "spline_handle.cmd": {
+  "bodies": 1,
+  "faces": 7,
+  "volume": 8557.06
+ },
  "surface_ops.cmd": {
   "bodies": 11,
   "faces": 11,

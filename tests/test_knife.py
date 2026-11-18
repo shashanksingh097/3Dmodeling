@@ -48,8 +48,9 @@ def test_spline_points_drag_and_take_constraints():
     sk = p.model.sketches["S"]
     assert sk.pt(sk.ref("1.K1").point) == pytest.approx((10, 15))
     assert sk.pt(sk.ref("1.K2").point) == pytest.approx((20, 0))
-    r = p.run("STRIM, 1, 5, 5")
-    assert not r.ok and "spline" in r.message
+    r = p.run("STRIM, 1, 5, 5")  # splines trim now: nothing crosses it, so all of it goes
+    assert r.ok and "deleted spline 1" in r.message
+    assert p.run("UNDO").ok
     assert p.run("SMIRROR, H, 1").ok
 
 

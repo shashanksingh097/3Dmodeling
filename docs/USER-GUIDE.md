@@ -214,8 +214,10 @@ push (**Extrude**) or turn (**Revolve**) into a solid.
    trimmed or extended to meet). Switch on **Axes cut** to let the H and V
    axes cut when trimming. **Offset…**, **Mirror…**, **Pattern…**,
    **Move/Copy…** (move, turn or scale the selection, or copies of it),
-   **Offset both…** (a slot along the selected path), **Project…** and
+   **Offset both…** (a slot along the selected path), **Join to spline**
+   (the selected curves, end to end, as one smooth spline), **Project…** and
    **Cut bodies…** (the section of bodies in the sketch plane) are there too.
+   Trim, Extend, Split and Fillet work on splines as well.
 5. Press **Extrude…** or **Revolve…**. Make a new body, add a boss to the
    body under the sketch, or cut a pocket.
 
