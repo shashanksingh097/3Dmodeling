@@ -185,6 +185,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_headless(args[1:])
     if args[:1] == ["check"]:
         return _check()
+    if args[:1] == ["rebuild-helper"]:  # started by the window for long rebuilds (core/helper.py)
+        from .core.helper import main as helper_main
+
+        return helper_main()
     if len(args) > 1 or (args and args[0].startswith("-")):
         print(__doc__)
         return 2

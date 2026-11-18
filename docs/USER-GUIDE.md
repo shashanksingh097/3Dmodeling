@@ -186,7 +186,10 @@ says so. A step that fails turns red with the reason, and the steps after it
 wait until it is fixed.
 
 Long rebuilds show a progress bar with **Cancel**, which puts everything
-back as it was.
+back as it was. When the steps to re-run took a second or more last time,
+the rebuild runs in a separate helper process: the window stays live, so
+you can turn and zoom the view while it works (other commands wait until it
+is done), and Cancel stops it at once.
 
 ---
 

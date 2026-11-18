@@ -151,6 +151,7 @@ class Entry:
     before: object = field(default=None, repr=False, compare=False)
     after: object = field(default=None, repr=False, compare=False)
     reads: object = field(default=None, repr=False, compare=False)
+    seconds: float = field(default=0.0, repr=False, compare=False)  # how long its last run took; not saved
 
     def __deepcopy__(self, memo):
         import copy as _copy
@@ -822,6 +823,13 @@ class Processor:
 
     def _run_entry(self, entry: Entry, stmts: list[Stmt]) -> tuple[bool, str]:
         """Run an entry atomically. Returns (ok, message)."""
+        t0 = time.perf_counter()
+        try:
+            return self._run_entry_timed(entry, stmts)
+        finally:
+            entry.seconds = time.perf_counter() - t0
+
+    def _run_entry_timed(self, entry: Entry, stmts: list[Stmt]) -> tuple[bool, str]:
         before = self._state()
         revision = self.model_revision()
         self._trace, self._steps, self._loops, self._scopes = [], 0, 0, []
