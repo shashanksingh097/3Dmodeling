@@ -114,7 +114,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
-    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "IMPLICIT", "LATTICE")),
+    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "ROTATE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
@@ -220,6 +220,8 @@ _LABELS = {
 }
 # labels that differ for one command
 _COMMAND_LABELS = {
+    ("FITSURF", "region"): "Region",
+    ("FITSURF", "trim"): "Trim to outline",
     ("LAYER", "name"): "Layer",
     ("LAYER", "action"): "Do",
     ("LAYER", "value"): "Colour, bodies or new name",
@@ -253,6 +255,8 @@ _EXTRA_CHOICES = {
     ("EXTRUDE", "mode"): ("NEW", "ADD", "CUT"),
     ("REVOLVE", "mode"): ("NEW", "ADD", "CUT"),
     ("SWEEP", "mode"): ("MINTWIST", "FRENET", "FIXED", "NORMAL"),
+    ("FITSURF", "region"): ("ALL", "MASK", "UNMASKED"),
+    ("FITSURF", "trim"): ("YES", "NO"),
     ("SCULPT", "brush"): ("DRAW", "CLAY", "INFLATE", "SMOOTH", "FLATTEN", "PINCH", "CREASE", "GRAB"),
     ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "LAYERS", "MATERIALS"),
     ("MATERIAL", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",

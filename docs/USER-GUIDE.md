@@ -283,6 +283,13 @@ add finer triangles where you brush, for sharp creases. Each stroke is one `SCUL
 History, so Undo takes it back. Details: [LANGUAGE.md](LANGUAGE.md)
 section 28; an example is `scripts/sculpt_head.cmd`.
 
+**Scan to CAD.** **Fit surface** on the Sculpt tab (command `FITSURF`)
+turns a mesh body into smooth NURBS geometry: a closed, rounded mesh
+becomes a solid, and an open scan, or a region you painted with the Mask
+brush, becomes one smooth face. Give the largest distance from the mesh
+you accept; the message says how close it got. Details: LANGUAGE.md
+section 29; an example is `scripts/scan_to_cad.cmd`.
+
 ---
 
 ## 8. Parts you can reuse

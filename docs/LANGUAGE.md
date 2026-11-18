@@ -283,7 +283,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
-| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance`; `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2410,3 +2410,49 @@ release gives the final result, so Esc during a drag leaves the body as it
 was), and frozen areas are drawn purple.
 
 See `scripts/sculpt_head.cmd`.
+
+## 29. Fitting smooth surfaces to meshes (scan to CAD)
+
+`FITSURF` turns a mesh body (a scan, an imported STL, a sculpture) into
+smooth NURBS geometry that takes booleans, fillets and shells like any
+other CAD body. The mesh stays; the fitted body is added.
+
+```
+FITSURF, b [, region [, tol [, trim]]]
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `region` | `ALL` (default) the whole mesh; `MASK` only the points painted with `MASK` (section 28); `UNMASKED` the rest |
+| `tol` | the largest distance from the mesh allowed; 0 (default) is a thousandth of the body's size |
+| `trim` | `YES` (default) cuts the surface to the region's outline and holes; `NO` keeps the whole rectangle |
+
+- **A closed mesh** with `ALL` becomes one smooth surface wrapped round it
+  and closed into a solid. It must be seen whole from its centre (a ball,
+  a head, a pebble, a bottle without handles); a shape that hides parts of
+  itself, like a U, is refused. The two points where the surface gathers
+  go where the shape is plainest, and so does its seam.
+- **An open mesh, or a region**, becomes one trimmed face. The region must
+  not fold back on itself when seen from its average direction (a cap, a
+  panel, a face of a part); fit a bigger shape in such pieces.
+- The control grid starts coarse and gets finer until every mesh point is
+  within `tol`, up to 40 x 40 control points and never more than the mesh
+  can support. If `tol` is still not met, the step is marked with a
+  warning saying how far off it is.
+
+The message says how many control points were used and how far the
+surface is from the mesh, at most and on average. The Sculpt tab's **Fit
+surface** button opens the form for the picked mesh body, with `MASK` as
+the region when it has a mask.
+
+```
+SPHERE, 0, 0, 0, 20
+TOMESH, 1
+REMESH, 1, 0.8
+...sculpt...
+FITSURF, 1, ALL, 0.15                  ! a solid, within 0.15 mm
+MASK, 1, PAINT, 0, -20, 2, 16
+FITSURF, 1, MASK, 0.1                  ! just the painted region, one face
+```
+
+See `scripts/scan_to_cad.cmd` and docs/mesh-fit.md.

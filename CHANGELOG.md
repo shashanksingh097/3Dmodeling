@@ -28,6 +28,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - **The assistant conversation is saved with the project.** Reopening the
   project shows it, and the assistant is given it with the next question.
   **New chat** clears it.
+- **Scan to CAD with `FITSURF`**: fits a smooth NURBS surface to a mesh
+  body. A closed rounded mesh becomes a solid; an open scan or a region
+  painted with `MASK` becomes one trimmed face. It reports how far the
+  surface is from the mesh. **Fit surface** on the Sculpt tab opens it.
 - **Long rebuilds no longer freeze the window.** A history edit whose steps
   took a second or more runs in a helper process; the view can be turned
   while it works, and Cancel stops it at once, even in the middle of a step.
