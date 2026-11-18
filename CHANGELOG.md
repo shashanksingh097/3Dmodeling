@@ -19,6 +19,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - **Installers**: the release workflow also makes a `.msi` for Windows
   (Start menu entry, removable in Settings > Apps, a newer version replaces an
   older one) and a `.dmg` for macOS, and tries both on the build machine.
+- **Assistant answers stream in** as they are written. While it answers,
+  **Stop** ends the answer and keeps what was written.
+- **The assistant conversation is saved with the project.** Reopening the
+  project shows it, and the assistant is given it with the next question.
+  **New chat** clears it.
 
 ## [0.3.0] - 2026-11-18
 

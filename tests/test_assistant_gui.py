@@ -277,3 +277,75 @@ def test_render_takes_a_picture_and_keeps_the_camera(win, app):
     assert vp._mark_ais == []  # the marks were for the picture only
     panel.show_picture(png)
     assert "looked at a picture" in panel.transcript.toPlainText()
+
+
+def test_answer_streams_in_then_is_formatted(win, app):
+    panel = win.assistant_panel
+    win.processor.chat.clear()
+    for piece in ("Use `FIL", "LET`", " with r = 2."):
+        panel._on_event("delta", piece)
+    assert "Use `FILLET` with r = 2." in panel.transcript.toPlainText()  # as written, unformatted
+    panel._on_event("message", "Use `FILLET` with r = 2.")
+    text = panel.transcript.toPlainText()
+    assert text.count("FILLET") == 1 and "`" not in text  # replaced by the formatted answer
+    assert "<code>" in panel.transcript.toHtml() or "FILLET" in text
+    assert win.processor.chat[-1] == {"who": "assistant", "text": "Use `FILLET` with r = 2."}
+    # a tool starting mid-answer keeps what was written; the same complete answer is not shown twice
+    panel._on_event("delta", "Let me look")
+    panel._on_event("tool", "describe_body")
+    panel._on_event("message", "Let me look")
+    assert panel.transcript.toPlainText().count("Let me look") == 1
+    assert [e["text"] for e in win.processor.chat].count("Let me look") == 1
+
+
+def test_stop_button_while_busy(win, app):
+    panel = win.assistant_panel
+    asked = []
+
+    class FakeThread:
+        assistant = type("A", (), {"earlier": "", "home": panel.working_folder()[0]})()
+
+        def stop_answer(self):
+            asked.append("stop")
+
+        def close(self):
+            pass
+
+        def new_chat(self):
+            pass
+
+    panel.thread = FakeThread()
+    panel._checked = True  # no status call after the answer
+    panel._set_busy(True)
+    assert panel.stop_button.isVisibleTo(panel) and not panel.send_button.isVisibleTo(panel)
+    panel.stop()
+    assert asked == ["stop"] and not panel.stop_button.isEnabled()
+    from concurrent.futures import Future
+
+    fut = Future()
+    fut.set_result(cp.Reply(text="part", stopped=True))
+    panel._on_event("delta", "part")
+    panel._answered(fut)
+    assert panel.send_button.isVisibleTo(panel) and not panel.stop_button.isVisibleTo(panel)
+    assert "part" in panel.transcript.toPlainText() and "Stopped." in panel.transcript.toPlainText()
+    panel.thread = None
+
+
+def test_conversation_is_saved_with_the_project(win, app, tmp_path):
+    panel = win.assistant_panel
+    win.processor.chat[:] = [{"who": "you", "text": "make a plate"},
+                             {"who": "assistant", "text": "Run `BLOCK, 0,0,0, 40,30,5`."}]
+    assert win.execute("BLOCK, 0,0,0, 40,30,5").ok
+    path = tmp_path / "plate.m3d"
+    assert win.execute(f'SAVE, "{path}"').ok
+    assert win.execute("NEW").ok
+    assert win.processor.chat == [] and "make a plate" not in panel.transcript.toPlainText()
+    assert win.execute(f'OPEN, "{path}"').ok
+    pump(app)
+    assert win.processor.chat[0] == {"who": "you", "text": "make a plate"}
+    text = panel.transcript.toPlainText()
+    assert "saved with this project (2 messages)" in text and "make a plate" in text
+    # the next question gives it to the fresh chat
+    assert "make a plate" in cp.earlier_text(win.processor.chat)
+    panel.new_chat()
+    assert win.processor.chat == []
