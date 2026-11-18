@@ -308,7 +308,8 @@ regions and their fits. Details: LANGUAGE.md section 34; an example is
 thickness from a closed sketch. Pick an edge of its top face and press
 **Flange** to bend a wall up along it (an edge of the bottom face bends
 down); give the wall's length, the angle and, if it differs from the
-sheet's, the bend radius. **Unfold** lays the part flat beside it and can
+sheet's, the bend radius. **Bend** folds the plate itself along a line
+you drew in a sketch (the smaller side turns). **Unfold** lays the part flat beside it and can
 write a DXF of the blank, with the bend lines and their angles, for a
 laser or punch. Details: LANGUAGE.md section 31; an example is
 `scripts/sheet_bracket.cmd`.

@@ -729,6 +729,9 @@ class MainWindow(QMainWindow):
         tbs.action(self, tb, "Flange…", "sm_flange", "Bend a wall along the picked edges of the plate (a top-face edge "
                                                     "bends up, a bottom-face edge down)\nRuns: FLANGE, , length, angle",
                    lambda: self.open_form("FLANGE"))
+        tbs.action(self, tb, "Bend…", "sm_bend", "Bend the plate along a sketched line: the smaller side turns\n"
+                                                "Runs: SBEND, body, sketch, angle [, radius, UP/DOWN, FLIP]",
+                   lambda: self.open_form("SBEND"))
         tbs.action(self, tb, "Unfold…", "sm_unfold", "Lay the part flat: the blank as a body, and a DXF to cut it from\n"
                                                     "Runs: UNFOLD, body [, file.dxf]", lambda: self.open_form("UNFOLD"))
 

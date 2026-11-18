@@ -2516,6 +2516,8 @@ FLANGE, , 25                          ! bends up 90 degrees, a 25 long wall
 FLANGE, 12, 15, 45                    ! edge 12, 45 degrees; an edge of the bottom face bends down
 FLANGE, 14, 10, 120, 1                ! bend radius 1 for this one
 SHEETINFO, 1                          ! thickness, radius, K and each flange with its flat length
+SBEND, 1, s2                          ! bend along the line in sketch s2: the smaller side turns up 90
+SBEND, 1, s2, 45, 1, DOWN, FLIP       ! 45 down, radius 1, and the bigger side turns
 UNFOLD, 1                             ! the flat blank as a body beside the part
 UNFOLD, 1, blank.dxf                  ! and a DXF to cut it from
 UNFOLD, 1, blank.dxf, NO              ! only the DXF
@@ -2527,6 +2529,14 @@ and its inside radius is the sheet's (or the one given), so the part
 grows past the edge by the radius plus the thickness before the wall
 starts. `FLANGE, , length` flanges every selected edge. Flanges on
 neighbouring edges leave an open corner.
+
+**`SBEND`** bends the plate itself along a line drawn in a sketch (one
+straight line, in any sketch seen square to the plate; it may run past the
+plate). The bend starts at the line, the smaller side turns (FLIP: the
+bigger one), UP towards the top side or DOWN, and it keeps its holes. The
+turning side loses the bend allowance from its flat width, so `UNFOLD`
+gives the plate back exactly as it was. Bend before adding flanges on the
+side that turns. The plate must cross the line in one piece.
 
 **`UNFOLD`** lays the plate's bottom face (with every hole through it) flat
 and adds each flange: a strip for the bend and the wall laid flat, with

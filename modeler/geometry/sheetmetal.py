@@ -78,7 +78,11 @@ def _vec(q):
 def flange_solid(sh: Sheet, a, b, up: bool, angle: float, length: float, radius: float):
     """The bend and wall of one flange, as a solid to join to the plate. ``a``-``b`` is the edge on
     the face it starts from (the top face for up, the bottom face for down)."""
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
+    from OCP.BRepBuilderAPI import (
+        BRepBuilderAPI_MakeEdge,
+        BRepBuilderAPI_MakeFace,
+        BRepBuilderAPI_MakeWire,
+    )
     from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
     from OCP.GC import GC_MakeArcOfCircle
 
@@ -202,27 +206,13 @@ def flat_pattern(sh: Sheet, body_shape) -> Flat:
     return Flat(shape, bends, (hi[0] - lo[0], hi[1] - lo[1]))
 
 
-def _wall_faces(sh: Sheet, fl: Flange, shape, ba: float) -> list:
-    """A flange wall's faces on the sheet's bottom side, laid flat where the wall goes in the
-    flat pattern: so holes and cuts made in the wall after bending show in the blank."""
-    from OCP.BRepAdaptor import BRepAdaptor_Surface
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
-    from OCP.BRepGProp import BRepGProp
-    from OCP.GeomAbs import GeomAbs_SurfaceType
-    from OCP.GProp import GProp_GProps
-    from OCP.gp import gp_Ax3, gp_Dir, gp_Trsf
-    from OCP.TopAbs import TopAbs_FACE
-    from OCP.TopExp import TopExp_Explorer
-    from OCP.TopoDS import TopoDS
-
-    as_face = getattr(TopoDS, "Face_s", None) or TopoDS.Face
-    surface_props = getattr(BRepGProp, "SurfaceProperties_s", None) or BRepGProp.SurfaceProperties
+def bent_frame(sh: Sheet, fl: Flange):
+    """Where a flange's wall starts on the sheet's bottom side: (w0, d3, along), the point at the end
+    of the bend arc, the wall's direction and the bend line's direction."""
     n = np.asarray(sh.n, float)
-    a = np.asarray(fl.a, float)
-    b = np.asarray(fl.b, float)
+    a, b = np.asarray(fl.a, float), np.asarray(fl.b, float)
     out = np.asarray(fl.out, float)
-    span = float(np.linalg.norm(b - a))
-    al = (b - a) / span
+    al = (b - a) / float(np.linalg.norm(b - a))
     t, r = sh.t, fl.radius
     if fl.up:  # the bottom side is the outside of an up bend
         edge0, nn, rad = a + t * n, n, r + t
@@ -231,6 +221,157 @@ def _wall_faces(sh: Sheet, fl: Flange, shape, ba: float) -> list:
     q0 = -math.pi / 2 + math.radians(fl.angle)
     w0 = edge0 + (rad * math.cos(q0)) * out + (r + rad * math.sin(q0)) * nn
     d3 = -math.sin(q0) * out + math.cos(q0) * nn
+    return w0, d3, al
+
+
+def bend_trsf(sh: Sheet, fl: Flange, ba: float):
+    """The rigid motion taking the flat wall (past the bend allowance) to the bent one."""
+    from OCP.gp import gp_Ax3, gp_Dir, gp_Trsf
+
+    w0, d3, al = bent_frame(sh, fl)
+    a, out = np.asarray(fl.a, float), np.asarray(fl.out, float)
+    tr = gp_Trsf()
+    tr.SetDisplacement(gp_Ax3(_pnt(a + ba * out), gp_Dir(*np.cross(out, al)), gp_Dir(*out)),
+                       gp_Ax3(_pnt(w0), gp_Dir(*np.cross(d3, al)), gp_Dir(*d3)))
+    return tr
+
+
+def sketched_bend(sh: Sheet, shape, p, q, angle: float, radius: float, up: bool, flip: bool):
+    """Bend a flat plate along the line p-q (in or above the sheet's plane): the smaller side (the
+    other with ``flip``) turns about the line by ``angle``. Returns (new shape, Flange record)."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Fuse
+    from OCP.BRepBuilderAPI import (
+        BRepBuilderAPI_MakeFace,
+        BRepBuilderAPI_MakePolygon,
+        BRepBuilderAPI_Transform,
+    )
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+    from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
+
+    if not 0 < angle <= 180:
+        raise SheetError("the bend angle is more than 0 and at most 180 degrees")
+    n = np.asarray(sh.n, float)
+    lp, lq = sh.local(p), sh.local(q)
+    a = np.asarray(sh.world(lp[0], lp[1]), float)  # on the base plane
+    b = np.asarray(sh.world(lq[0], lq[1]), float)
+    if np.linalg.norm(b - a) < 1e-9:
+        raise SheetError("the bend line has no length in the sheet's plane")
+    al = (b - a) / np.linalg.norm(b - a)
+    out = np.cross(al, n)
+    lo, hi = _box(sh, shape)
+    big = 4 * (float(np.hypot(hi[0] - lo[0], hi[1] - lo[1])) + sh.t + 1.0)
+
+    def region(start: float, sign: float):
+        c = [a - big * al + start * out, b + big * al + start * out, b + big * al + sign * big * out,
+             a - big * al + sign * big * out]
+        poly = BRepBuilderAPI_MakePolygon(*(_pnt(x - big * n) for x in c), True)
+        face = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
+        mk = BRepPrimAPI_MakePrism(face, _vec(2 * big * n))
+        mk.Build()
+        return mk.Shape()
+
+    def common(s1, s2):
+        mk = BRepAlgoAPI_Common(s1, s2)
+        mk.Build()
+        if not mk.IsDone():
+            raise SheetError("could not split the plate at the bend line")
+        return mk.Shape()
+
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    def vol(s):
+        g = GProp_GProps()
+        (getattr(BRepGProp, "VolumeProperties_s", None) or BRepGProp.VolumeProperties)(s, g)
+        return g.Mass()
+
+    plus, minus = common(shape, region(0.0, 1.0)), common(shape, region(0.0, -1.0))
+    if vol(plus) < 1e-9 or vol(minus) < 1e-9:
+        raise SheetError("the bend line does not cross the plate")
+    if (vol(plus) > vol(minus)) != flip:  # the smaller side moves (FLIP: the bigger one)
+        a, b, al, out = b, a, -al, -out
+    # where the plate meets the line: the bend runs along exactly that
+    cut_lo, cut_hi = _span(common(shape, region(0.0, 1.0)), a, al, out, sh.t)
+    if cut_hi - cut_lo < 1e-9:
+        raise SheetError("the bend line does not cross the plate")
+    a2, b2 = a + cut_lo * al, a + cut_hi * al
+    ba = sh.allowance(angle, radius)
+    fixed = common(shape, region(0.0, -1.0))
+    moving = common(shape, region(ba, 1.0))
+    reach = _reach(moving, a2, out) - ba
+    if reach <= 1e-9:
+        raise SheetError("the side that bends is narrower than the bend itself")
+    rec = Flange(tuple(a2), tuple(b2), tuple(out), up, float(angle), float(reach), float(radius))
+    moved = BRepBuilderAPI_Transform(moving, bend_trsf(sh, rec, ba), True).Shape()
+    start = a2 + (sh.t * n if up else 0), b2 + (sh.t * n if up else 0)
+    bend = flange_solid(sh, start[0], start[1], up, angle, 0.0, radius)
+    mk = BRepAlgoAPI_Fuse(fixed, bend)
+    mk.Build()
+    mk2 = BRepAlgoAPI_Fuse(mk.Shape(), moved)
+    mk2.Build()
+    if not mk2.IsDone():
+        raise SheetError("could not join the bent side")
+    u = ShapeUpgrade_UnifySameDomain(mk2.Shape(), True, True, True)
+    u.Build()
+    return u.Shape(), rec
+
+
+def _span(shape, a, al, out, t) -> tuple[float, float]:
+    """The range along the line a + s al where ``shape`` touches it (within the sheet's band)."""
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_v = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+    pnt = getattr(BRep_Tool, "Pnt_s", None) or BRep_Tool.Pnt
+    ss = []
+    ex = TopExp_Explorer(shape, TopAbs_VERTEX)
+    while ex.More():
+        q = pnt(as_v(ex.Current()))
+        d = np.array([q.X(), q.Y(), q.Z()]) - a
+        if abs(d @ out) < 1e-6 * max(1.0, t) + 1e-7:
+            ss.append(float(d @ al))
+        ex.Next()
+    return (min(ss), max(ss)) if ss else (0.0, 0.0)
+
+
+def _reach(shape, a, out) -> float:
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_v = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+    pnt = getattr(BRep_Tool, "Pnt_s", None) or BRep_Tool.Pnt
+    best = 0.0
+    ex = TopExp_Explorer(shape, TopAbs_VERTEX)
+    while ex.More():
+        q = pnt(as_v(ex.Current()))
+        best = max(best, float((np.array([q.X(), q.Y(), q.Z()]) - a) @ out))
+        ex.Next()
+    return best
+
+
+def _wall_faces(sh: Sheet, fl: Flange, shape, ba: float) -> list:
+    """A flange wall's faces on the sheet's bottom side, laid flat where the wall goes in the
+    flat pattern: so holes and cuts made in the wall after bending show in the blank."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GeomAbs import GeomAbs_SurfaceType
+    from OCP.GProp import GProp_GProps
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_face = getattr(TopoDS, "Face_s", None) or TopoDS.Face
+    surface_props = getattr(BRepGProp, "SurfaceProperties_s", None) or BRepGProp.SurfaceProperties
+    a, b = np.asarray(fl.a, float), np.asarray(fl.b, float)
+    span = float(np.linalg.norm(b - a))
+    w0, d3, al = bent_frame(sh, fl)
+    edge0 = a + (sh.t * np.asarray(sh.n, float) if fl.up else 0)
+    t = sh.t
     nw = np.cross(d3, al)
     tol = 1e-6 * max(1.0, t) + 1e-7
     found = []
@@ -257,9 +398,7 @@ def _wall_faces(sh: Sheet, fl: Flange, shape, ba: float) -> list:
             found.append(f)
     if not found:
         return []
-    tr = gp_Trsf()
-    tr.SetDisplacement(gp_Ax3(_pnt(w0), gp_Dir(*np.cross(d3, al)), gp_Dir(*d3)),
-                       gp_Ax3(_pnt(a + ba * out), gp_Dir(*np.cross(out, al)), gp_Dir(*out)))
+    tr = bend_trsf(sh, fl, ba).Inverted()
     return [BRepBuilderAPI_Transform(f, tr, True).Shape() for f in found]
 
 

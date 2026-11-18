@@ -9,6 +9,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - **Exploded views**: `XSTEP` records how an assembly comes apart (named
   views, saved with the project) and `XSHOW` shows it, with trail lines from
   each part back to its place. The parts go back before the next change.
+- **Sheet metal bends along a sketched line**: `SBEND` (Bend… on the
+  Features tab) turns one side of a plate about a line, with its holes, and
+  `UNFOLD` lays it flat again.
 - **Holes in flange walls show in the flat pattern**: `UNFOLD` lays each
   wall flat as it is, so holes cut after bending are in the blank and DXF.
 - **WRAP onto cones**: a sketch is laid on the cone's development, so sizes
