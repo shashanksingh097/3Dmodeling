@@ -340,3 +340,36 @@ def pieces(sk: Sketch, g: Geo, ranges: list[tuple[float, float]], uid: int = 0) 
 def from_points(sk: Sketch, pts: list, uid: int = 0, construction: bool = False) -> Geo:
     """A new open spline through pts (u, v pairs)."""
     return sk.add_spline(list(pts), False, uid, construction)
+
+
+def offset_point(pts_flat, closed: bool, f: float, off: float):
+    """The point ``off`` to the left (seen running S to E) of the spline through
+    pts_flat at fraction f (0..1 of the way along, or round for a closed one):
+    the SOFFSET-of-a-spline constraint."""
+    from OCP.gp import gp_Pnt2d, gp_Vec2d
+
+    pts = [(pts_flat[i], pts_flat[i + 1]) for i in range(0, len(pts_flat), 2)]
+    c = curve_through(pts, closed)
+    t0, t1 = _range(c)
+    p, d = gp_Pnt2d(), gp_Vec2d()
+    c.D1(t0 + (t1 - t0) * f, p, d)
+    L = math.hypot(d.X(), d.Y()) or 1e-12
+    return (p.X() - d.Y() / L * off, p.Y() + d.X() / L * off)
+
+
+def offset_samples(sk: Sketch, g: Geo, f0: float, f1: float, off: float) -> tuple[list[float], list]:
+    """Fractions from f0 to f1 and the points ``off`` to the left of g there:
+    the points a spline's offset is drawn through (two per span of g, at
+    least eight spans), so it follows g closely."""
+    n = max(8, 2 * (len(g.pts) - (0 if g.closed else 1)))
+    if g.closed and f1 <= f0:
+        f1 += 1.0
+    fs = [f0 + (f1 - f0) * i / n for i in range(n + 1)]
+    flat = [x for q in sk.spline_points(g) for x in q]
+    return fs, [offset_point(flat, g.closed, f % 1.0 if g.closed else f, off) for f in fs]
+
+
+def fraction(sk: Sketch, g: Geo, q) -> float:
+    """Where q (on or beside g) is along g, as a fraction 0..1."""
+    p = param(sk, g, q)
+    return p / 360.0 if g.closed else p

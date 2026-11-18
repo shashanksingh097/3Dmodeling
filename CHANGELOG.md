@@ -21,6 +21,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   older one) and a `.dmg` for macOS, and tries both on the build machine.
 - **Assistant answers stream in** as they are written. While it answers,
   **Stop** ends the answer and keeps what was written.
+- **SOFFSET of splines**, alone, closed or in chains with lines and arcs.
+  A closed chain that crosses itself can now be offset too.
+- **Sculpting with a detail size joins squeezed edges** after each stroke,
+  so the triangles stay even stroke after stroke.
 - **The assistant conversation is saved with the project.** Reopening the
   project shows it, and the assistant is given it with the next question.
   **New chat** clears it.

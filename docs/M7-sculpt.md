@@ -187,9 +187,26 @@ stroke before the brush runs (`sculpt.refine_near`):
 The live preview runs on the triangles as they were; the command on
 release adds the detail.
 
+## Part 4: joining squeezed edges (after 0.3.0)
+
+`sculpt.collapse_near` runs after the brush when `detail` is given, on edges
+within 1.25 radii of the stroke shorter than `JOIN` (0.4) times `detail`:
+
+- Each pass takes the short edges shortest first. An edge is joined (both
+  ends to its middle, the mask averaged) only if neither end is locked, the
+  ends share exactly two neighbours (the link condition, so the surface
+  stays a closed 2-manifold), no triangle left at either end turns over or
+  nearly so, and neither end is frozen (mask 0.5 or more). The 1-rings of
+  both ends are then locked for the pass, so each check sees current data.
+- Up to six passes; then points no triangle uses are dropped and the rest
+  renumbered in order (the mask goes with them), as the point-order rules
+  in part 1 need.
+- On a sphere with four PINCH strokes at detail 0.5 the points added and
+  joined settle to about the same number per stroke (about 950 each), and
+  the surface stays closed and consistently oriented.
+
 ## What is left
 
-- Joining short edges where a brush has squeezed triangles together (the
-  other half of dynamic topology), and splitting during the drag rather than
-  only on release.
+- Splitting and joining during the drag rather than only on release (the
+  live preview moves the triangles as they were).
 - The 1M-triangle goal of PLAN.md at interactive speed during a drag.

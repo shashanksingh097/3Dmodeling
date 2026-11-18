@@ -231,6 +231,69 @@ def test_offset_inside_a_profile_makes_a_wall(p):
     assert p.evaluate("VOL(LAST)") == pytest.approx(800 - 36 * 16)
 
 
+def _gaps(s, orig, new):
+    from modeler.sketch import spline as sp
+
+    flat = [x for q in s.spline_points(s.geos[orig]) for x in q]
+    return [sp.signed(flat, s.geos[orig].closed, s.pt(i)) for i in s.geos[new].pts.values()]
+
+
+def test_offset_of_an_open_spline_follows_it(p):
+    ok(p, "SKETCH, s, XY\nSSPLINE, 0,0, 10,8, 20,0, 30,-6, 40,0\nSOFFSET, 2, 1\nSOFFSET, -1.5, 1")
+    s = sk(p)
+    assert s.geos[2].kind == "SPLINE" and not s.redundant
+    assert _gaps(s, 1, 2) == pytest.approx([2.0] * len(s.geos[2].pts), abs=1e-6)  # to the left
+    assert _gaps(s, 1, 3) == pytest.approx([-1.5] * len(s.geos[3].pts), abs=1e-6)
+    ok(p, "SMOVE, 1.K1, 12, 14")  # the original changes: the offsets follow
+    s = sk(p)
+    assert _gaps(s, 1, 2) == pytest.approx([2.0] * len(s.geos[2].pts), abs=1e-5)
+
+
+def test_offset_of_a_closed_spline_goes_outwards(p):
+    ok(p, "SKETCH, s, XY\nSSPLINE, 10,10, 25,30, 45,25, 50,8, 30,5, CLOSE\nSOFFSET, 3, 1\nSOFFSET, -2, 1\n"
+          "ENDSKETCH\nEXTRUDE, s, 1")
+    s = sk(p)
+    assert s.geos[2].closed and s.geos[3].closed
+    flat = [x for q in s.spline_points(s.geos[1]) for x in q]
+    from modeler.sketch import spline as sp
+
+    outer = [abs(sp.signed(flat, True, s.pt(i))) for i in s.geos[2].pts.values()]
+    assert outer == pytest.approx([3.0] * len(outer), abs=1e-6)
+    assert p.evaluate("VOL(LAST)") > 0
+    assert "bends tighter" in err(p, "SKETCH, t, XY\nSSPLINE, 10,10, 25,30, 45,25, 50,8, 30,5, CLOSE\n"
+                                     "SOFFSET, -8, 1")
+
+
+@pytest.mark.parametrize("d", [2, -2])
+def test_offset_of_a_chain_with_a_spline_meets_at_the_corners(p, d):
+    ok(p, f"SKETCH, s, XY\nSLINE, 0,0, 40,0\nSSPLINE, 1.E, 30,20, 10,20, 1.S\nSOFFSET, {d}, 1, 2")
+    s = sk(p)
+    line, curve = s.geos[3], s.geos[4]
+    assert line.kind == "LINE" and curve.kind == "SPLINE" and not s.redundant
+    assert all(v == pytest.approx(-d) for v in (s.pt(line.pts["S"])[1], s.pt(line.pts["E"])[1]))
+    assert close(s.pt(line.pts["E"]), s.pt(curve.pts["S"])) and close(s.pt(curve.pts["E"]), s.pt(line.pts["S"]))
+    ok(p, "SMOVE, 2.K1, 34, 26")  # outside corners lie past the spline's ends; they stay corners
+    s = sk(p)
+    assert close(s.pt(line.pts["E"]), s.pt(curve.pts["S"])) and close(s.pt(curve.pts["E"]), s.pt(line.pts["S"]))
+    ok(p, "ENDSKETCH\nEXTRUDE, s, 1")
+    assert 150 < p.evaluate("VOL(LAST)") < 350  # a band 2 wide round an outline about 110 long
+
+
+def test_offset_of_a_chain_that_crosses_itself(p):
+    r = ok(p, "SKETCH, s, XY\nSLINE, 0,0, 10,10\nSLINE, 1.E, 10,0\nSLINE, 2.E, 0,10\nSLINE, 3.E, 1.S\n"
+              "SOFFSET, 1, 1, 2, 3, 4")
+    assert "crosses itself" in r.message
+    s = sk(p)
+    a, b = s.pt(s.geos[5].pts["S"]), s.pt(s.geos[5].pts["E"])
+    assert (b[1] - b[0]) == pytest.approx(2 ** 0.5) and (a[1] - a[0]) == pytest.approx(2 ** 0.5)  # left of 1
+    assert "crosses itself" not in ok(p, "ENDSKETCH\n" + RECT.replace("SKETCH, s", "SKETCH, r") + "SOFFSET, 1, 1, 2, 3, 4").message
+
+
+def test_two_splines_at_a_corner_are_offset_one_at_a_time(p):
+    ok(p, "SKETCH, s, XY\nSSPLINE, 0,0, 10,8, 20,0\nSSPLINE, 1.E, 30,10, 40,0")
+    assert "meet at a corner" in err(p, "SOFFSET, 1, 1, 2")
+
+
 # ---- STRIM, SEXTEND --------------------------------------------------------------------------
 
 CROSS = """SKETCH, t, XY

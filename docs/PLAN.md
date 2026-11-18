@@ -853,7 +853,8 @@ pull request, in this order (the user can reorder or drop any):
     the numbers need a signed-in run by the owner): the assistant (docs/M9-copilot.md): the answer **streamed into the
     panel** as it is written, the **conversation kept with the project**,
     and **benchmark numbers** for a few models, published with a release.
-15. Leftovers: a sketch **offset of splines** and of chains that cross
+15. Done except splitting during the drag (branch
+    `sketch-offset-sculpt-collapse`). Leftovers: a sketch **offset of splines** and of chains that cross
     themselves (docs/M3-sketch-tools-4.md), and the other half of dynamic
     topology for sculpting: **joining squeezed edges** and adding detail
     during the drag (docs/M7-sculpt.md).

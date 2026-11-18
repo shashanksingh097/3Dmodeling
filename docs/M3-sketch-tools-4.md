@@ -59,6 +59,23 @@ the spline's ends; the rest go and are listed.
 - A test sketch whose lines are not joined by `COINCIDENT` drifts when a
   fillet solves; real sketches join them as they are drawn.
 
-## Still open in item 7
+## Offsets of splines and of chains that cross themselves (after 0.3.0)
 
-An offset of a spline, and an offset of a chain that crosses itself.
+- **A spline's offset** is a new spline through points across from the
+  original at fixed fractions along it (two per span, at least eight
+  spans), each held by the `OFFSET` constraint: the point equals
+  `offset_point(original's points, fraction, distance)`, so it follows when
+  the original changes. A closed spline gives a closed one.
+- **In a chain**, a corner between a spline and a line or arc is where the
+  offsets cross (`_meet`, as the fillet code finds it). At an outside corner
+  they do not cross within the spline, so the spline's offset goes on
+  straight from its end (`_past_end`) and the corner is an extra point at
+  the start or end of the new spline, held on that straight line ("past");
+  a corner within the spline is held only at the distance ("on"). Two
+  splines meeting at a sharp corner are refused: offset them one at a time.
+- **Too far**: points nearer another part of the spline than the distance
+  mean the offset would cross itself, and it is refused.
+- **A chain that crosses itself** (closed, like a figure eight) has no
+  inside, so its area sign says nothing. It is offset like an open chain,
+  to the left of the walk along its lowest-numbered curve, and the message
+  says so.

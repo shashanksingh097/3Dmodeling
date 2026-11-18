@@ -805,6 +805,8 @@ def _tangent(sk: Sketch, g: Geo, q, fwd: bool):
     """The walking direction of piece g at point q."""
     if g.kind == "LINE":
         d = _unit(_sub(sk.pt(g.pts["E"]), sk.pt(g.pts["S"])))
+    elif g.kind == "SPLINE":
+        d = sp.tangent(sk, g, sp.param(sk, g, q))
     else:
         c = sk.pt(g.pts["C"])
         rr = _unit(_sub(q, c))
@@ -820,7 +822,7 @@ def _chains(sk: Sketch, geos: list[Geo]) -> list[tuple[list[_Piece], bool]]:
     while left:
         start = left.pop(min(left))
         chain = [_Piece(start, True)]
-        if start.kind == "CIRCLE":
+        if start.kind == "CIRCLE" or (start.kind == "SPLINE" and start.closed):
             out.append((chain, True))
             continue
 
@@ -831,7 +833,7 @@ def _chains(sk: Sketch, geos: list[Geo]) -> list[tuple[list[_Piece], bool]]:
                 tip = b if at_end else a
                 found = []
                 for n, h in left.items():
-                    if h.kind == "CIRCLE":
+                    if h.kind == "CIRCLE" or (h.kind == "SPLINE" and h.closed):
                         continue
                     for role in ("S", "E"):
                         if math.dist(sk.pt(h.pts[role]), tip) <= tol:
@@ -860,18 +862,47 @@ def _chains(sk: Sketch, geos: list[Geo]) -> list[tuple[list[_Piece], bool]]:
 
 
 def _area(sk: Sketch, chain: list[_Piece]) -> float:
+    poly = _outline(sk, chain)
+    return 0.5 * sum(_cross(poly[i], poly[(i + 1) % len(poly)]) for i in range(len(poly)))
+
+
+def _crosses_itself(sk: Sketch, chain: list[_Piece]) -> bool:
+    """Whether a closed chain crosses itself (a figure eight has no inside)."""
+    poly = _outline(sk, chain)
+    m = len(poly)
+    tol = 1e-9 * max(1.0, sk.extent()) ** 2
+    for i in range(m):
+        a, b = poly[i], poly[(i + 1) % m]
+        for j in range(i + 2, m):
+            if i == 0 and j == m - 1:
+                continue  # neighbours round the closing point
+            c, e = poly[j], poly[(j + 1) % m]
+            d1, d2 = _cross(_sub(b, a), _sub(c, a)), _cross(_sub(b, a), _sub(e, a))
+            d3, d4 = _cross(_sub(e, c), _sub(a, c)), _cross(_sub(e, c), _sub(b, c))
+            if d1 * d2 < -tol and d3 * d4 < -tol:
+                return True
+    return False
+
+
+def _outline(sk: Sketch, chain: list[_Piece]) -> list:
+    """A closed chain as a polygon, in walking order."""
     poly = []
     for pc in chain:
         g = pc.g
         if g.kind == "LINE":
             poly.append(_ends(sk, g, pc.fwd)[0])
             continue
+        if g.kind == "SPLINE":
+            k = 32 if g.closed else 16
+            pts = [sp.at(sk, g, (360.0 if g.closed else 1.0) * i / k) for i in range(k)]
+            poly += pts if pc.fwd else pts[::-1]
+            continue
         c, r = sk.pt(g.pts["C"]), sk.radius(g)
         a1, a2 = (0.0, 360.0) if g.kind == "CIRCLE" else sk.arc_angles(g)
         pts = [(c[0] + r * math.cos(math.radians(a1 + (a2 - a1) * i / 16)),
                 c[1] + r * math.sin(math.radians(a1 + (a2 - a1) * i / 16))) for i in range(16)]
         poly += pts if pc.fwd else pts[::-1]
-    return 0.5 * sum(_cross(poly[i], poly[(i + 1) % len(poly)]) for i in range(len(poly)))
+    return poly
 
 
 def _offset_hits(lines_or_circles, near):
@@ -907,6 +938,48 @@ def _offset_hits(lines_or_circles, near):
     return min(pts, key=lambda q: math.dist(q, near))
 
 
+def _check_offset_spline(sk: Sketch, g: Geo, q: list, off: float, d: float) -> None:
+    """An offset inwards further than the spline bends would loop back on itself."""
+    for a, b in zip(q, q[1:]):
+        if math.dist(a, b) < 1e-9 * max(1.0, sk.extent()):
+            raise SketchError(f"{_n(abs(d))} is too far: the offset of spline {g.n} folds over; "
+                              "try a smaller distance")
+    flat = [x for p in sk.spline_points(g) for x in p]
+    for p in q[1:-1]:  # each point must be about |off| from the spline, not nearer another part of it
+        if abs(abs(sp.signed(flat, g.closed, p)) - abs(off)) > 1e-3 * abs(off) + 1e-9:
+            raise SketchError(f"{_n(abs(d))} is too far: spline {g.n} bends tighter than that, so its offset "
+                              "would cross itself; try a smaller distance")
+
+
+def _past_end(sk: Sketch, pc: _Piece, role: str, s: float):
+    """The straight carrier of a spline's offset past its end ``role``: through the
+    offset end point, along the spline's direction there (an outside corner)."""
+    g = pc.g
+    f = 0.0 if role == "S" else 1.0
+    off = s if pc.fwd else -s
+    flat = [x for p in sk.spline_points(g) for x in p]
+    a = sp.offset_point(flat, False, f, off)
+    t = sp.end_direction(flat, False, role)
+    return ("L", a, t)
+
+
+def _hold_spline_offset(sk: Sketch, new: Geo, g: Geo, fs: list, off: float, dist: float, corners,
+                        uid: int) -> None:
+    """Keep spline ``new`` at ``off`` beside spline g as g changes: each of its
+    points stays across from g at the fraction it was made at. A corner end
+    (where it meets the next curve's offset) only keeps its distance ("on"),
+    or, past the spline's end, stays on the straight line on from the offset's
+    end ("past"); the next curve's offset holds the rest."""
+    from .sketch import _spline_roles
+
+    roles = _spline_roles(new)
+    sk.cons[sk._next_con] = Con(sk._next_con, "OFFSET", (str(new.n), str(g.n)), dist,
+                                data={"k": 1.0 if off > 0 else -1.0, "fs": dict(zip(roles, fs)),
+                                      "corner": dict.fromkeys(corners, "on") if isinstance(corners, list)
+                                      else dict(corners)}, uid=uid, auto=True)
+    sk._next_con += 1
+
+
 def offset(sk: Sketch, d: float, names: list, uid: int = 0) -> tuple[str, list[Geo]]:
     """Offset curves by d. Curves joined end to end are offset as one chain,
     with corners met again (sharp corners stay sharp). For a closed chain or
@@ -916,21 +989,30 @@ def offset(sk: Sketch, d: float, names: list, uid: int = 0) -> tuple[str, list[G
         raise SketchError("the distance must not be 0")
     geos = []
     for t in names:
-        g = _curve(sk, _num(t), "SOFFSET")
+        g = _curve(sk, _num(t), "SOFFSET", spline=True)
         if g not in geos:
             geos.append(g)
     if not geos:
         raise SketchError("give the curves to offset")
     made: list[Geo] = []
+    note = ""
     for chain, closed in _chains(sk, geos):
         made += _offset_chain(sk, chain, closed, d, uid)
+        if closed and len(chain) > 1 and _crosses_itself(sk, chain):
+            note = (" (the chain crosses itself, so it has no outside: positive went to the left walking "
+                    "along the lowest-numbered curve)")
     sk.solve()
-    return f"offset {', '.join(str(g.n) for g in geos)} by {_n(d)}: {', '.join(str(g.n) for g in made)}", made
+    return (f"offset {', '.join(str(g.n) for g in geos)} by {_n(d)}: {', '.join(str(g.n) for g in made)}"
+            + note), made
 
 
 def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: int) -> list[Geo]:
     lowest = min(chain, key=lambda pc: pc.g.n)
-    if closed:
+    if closed and len(chain) > 1 and _crosses_itself(sk, chain):
+        closed_inside = False  # a figure eight has no outside: to the left, as for an open chain
+    else:
+        closed_inside = closed
+    if closed_inside:
         sigma = -1.0 if _area(sk, chain) > 0 else 1.0  # outwards is to the right of a counter-clockwise walk
     else:
         sigma = 1.0 if lowest.fwd else -1.0
@@ -945,12 +1027,23 @@ def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: 
                                     data={"k": -1.0}, uid=uid, auto=True)
         sk._next_con += 1
         return [new]
+    if len(chain) == 1 and chain[0].g.kind == "SPLINE" and chain[0].g.closed:
+        g = chain[0].g
+        off = s  # left of g's own direction (the walk)
+        fs, q = sp.offset_samples(sk, g, 0.0, 1.0, off)
+        fs, q = fs[:-1], q[:-1]  # round: the last is the first
+        _check_offset_spline(sk, g, q, off, d)
+        new = sk.add_spline(q, True, uid, g.construction)
+        _hold_spline_offset(sk, new, g, fs, off, abs(d), [], uid)
+        return [new]
     for pc in chain:
         if pc.g.kind == "CIRCLE":
             raise SketchError(f"circle {pc.g.n} has no ends to join to other curves; offset it on its own")
 
     def carrier(pc):
         g = pc.g
+        if g.kind == "SPLINE":  # moved to the left of the walk, point by point (see _meet)
+            return ("S", sk, g, s if pc.fwd else -s)
         if g.kind == "LINE":
             a, b = _ends(sk, g, pc.fwd)
             dirn = _unit(_sub(b, a))
@@ -963,6 +1056,7 @@ def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: 
         return ("C", c, r)
 
     n = len(chain)
+    beyond: set = set()  # (piece, its own end) where the corner lies past a spline's end
     joints = []  # per joint between piece i and i+1: (point, tangent?)
     for i in range(n if closed else n - 1):
         pa, pb = chain[i], chain[(i + 1) % n]
@@ -973,7 +1067,23 @@ def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: 
             joints.append((_add(J, (-ta[1], ta[0]), s), True))
         else:
             near = _add(J, _unit(_add((-ta[1], ta[0]), (-tb[1], tb[0]))) if abs(_dot(ta, tb) + 1) > 1e-9 else (-ta[1], ta[0]), s)
-            q = _offset_hits((carrier(pa), carrier(pb)), near)
+            ca, cb = carrier(pa), carrier(pb)
+            if ca[0] == "S" and cb[0] == "S":
+                raise SketchError(f"splines {pa.g.n} and {pb.g.n} meet at a corner; offset them one at a time "
+                                  "(or round the corner with SFILLET first)")
+            if "S" in (ca[0], cb[0]):
+                hits = _meet(ca, cb)
+                if not hits:  # an outside corner: the spline's offset goes on straight past its end
+                    if ca[0] == "S":
+                        ca = _past_end(sk, pa, "E" if pa.fwd else "S", s)
+                        beyond.add((i, "E" if pa.fwd else "S"))
+                    else:
+                        cb = _past_end(sk, pb, "S" if pb.fwd else "E", s)
+                        beyond.add(((i + 1) % n, "S" if pb.fwd else "E"))
+                    hits = _meet(ca, cb)
+                q = min(hits, key=lambda h: math.dist(h, near)) if hits else None
+            else:
+                q = _offset_hits((ca, cb), near)
             if q is None:
                 raise SketchError(f"the offsets of {pa.g.n} and {pb.g.n} do not meet again; try a smaller distance")
             joints.append((q, False))
@@ -1004,6 +1114,30 @@ def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: 
             new = sk.add_line(own_s, own_e, uid, g.construction)
             k = 1.0 if pc.fwd else -1.0  # signed distance of the new line from g's own start->end
             k *= 1.0 if s > 0 else -1.0
+        elif g.kind == "SPLINE":
+            off = s if pc.fwd else -s  # to the left of g's own direction
+            past_s, past_e = (i, "S") in beyond, (i, "E") in beyond
+            # an open end or a smooth joint is across from the spline's own end; only a
+            # corner met within the spline's length is found by projecting back
+            f0 = 0.0 if past_s or "S" in normal else sp.fraction(sk, g, own_s)
+            f1 = 1.0 if past_e or "E" in normal else sp.fraction(sk, g, own_e)
+            if f1 - f0 <= 1e-6:
+                raise SketchError(f"{_n(abs(d))} is too far: spline {g.n} would turn round; try a smaller distance")
+            fs, q = sp.offset_samples(sk, g, f0, f1, off)
+            if past_s:  # the corner, then the offset of the spline's end
+                fs, q = [0.0] + fs, [own_s] + q
+            else:
+                q[0] = own_s
+            if past_e:
+                fs, q = fs + [1.0], q + [own_e]
+            else:
+                q[-1] = own_e
+            _check_offset_spline(sk, g, q[1:-1] if past_s or past_e else q, off, d)
+            new = sk.add_spline(q, False, uid, g.construction)
+            corners = {r: ("past" if (i, r) in beyond else "on") for r in ("S", "E") if r not in normal}
+            _hold_spline_offset(sk, new, g, fs, off, abs(d), corners, uid)
+            made.append(new)
+            continue
         else:
             c = sk.pt(g.pts["C"])
             r = math.dist(c, own_s)

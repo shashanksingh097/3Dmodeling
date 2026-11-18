@@ -37,6 +37,9 @@ BRUSHES = ("DRAW", "CLAY", "INFLATE", "SMOOTH", "FLATTEN", "PINCH", "CREASE", "G
 SPACING = 0.25  # dabs this far apart, as a part of the radius
 
 
+JOIN = 0.4  # with a detail size, edges shorter than this times it are joined after the stroke
+
+
 class SculptError(ValueError):
     pass
 
@@ -435,3 +438,86 @@ def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach
             d -= (d * nrm).sum(axis=1)[:, None] * nrm
             p[new] += 0.5 * d
     return p, t, m, len(p) - n0
+
+
+def collapse_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach: float,
+                  mask: np.ndarray | None = None, passes: int = 6):
+    """Join the points of edges shorter than ``length`` within ``reach`` of the centres (the other
+    half of dynamic topology: where a brush squeezed triangles together, as PINCH and CREASE do,
+    they are merged again, so the mesh keeps an even size there and no slivers).
+
+    Each pass takes edges shortest first, at most one per neighbourhood, and joins the two ends at
+    the edge's middle, unless that would make the surface non-manifold (the ends must share exactly
+    two neighbours), turn a triangle over, or move a frozen (masked) point. Points no triangle uses
+    are then dropped and the rest renumbered in order. Returns (points, triangles, mask or None,
+    number of points removed)."""
+    if length <= 0:
+        raise SculptError("the detail size must be positive")
+    p = np.asarray(pts, dtype=float).copy()
+    t = np.asarray(tris, dtype=np.int64).copy()
+    m = None if mask is None else np.asarray(mask, dtype=float).copy()
+    c = np.asarray(centres, dtype=float).reshape(-1, 3)
+    n0 = len(p)
+    joined = 0
+    for _ in range(passes):
+        inside = _region(p, c, reach)
+        if m is not None:
+            inside &= m < 0.5  # frozen points stay
+        cand = np.flatnonzero(inside[t].all(axis=1))
+        if not len(cand):
+            break
+        tc = t[cand]
+        a = tc.reshape(-1)
+        b = tc[:, [1, 2, 0]].reshape(-1)
+        lens = np.linalg.norm(p[a] - p[b], axis=1)
+        short = lens < length
+        if not short.any():
+            break
+        lo, hi = np.minimum(a, b)[short], np.maximum(a, b)[short]
+        order = np.argsort(lens[short], kind="stable")
+        pairs = np.unique(np.stack([lo[order], hi[order]], 1), axis=0, return_index=True)
+        edges = pairs[0][np.argsort(pairs[1])]  # shortest first, each once
+        topo = Topology.of(t, len(p))
+        nb = lambda i: topo.indices[topo.indptr[i]:topo.indptr[i + 1]]  # noqa: E731
+        locked = np.zeros(len(p), dtype=bool)
+        remap = np.arange(len(p))
+        done = 0
+        for ea, eb in edges:
+            if locked[ea] or locked[eb]:
+                continue
+            na, nbb = nb(ea), nb(eb)
+            if len(np.intersect1d(na, nbb, assume_unique=True)) != 2:
+                continue  # joining would pinch the surface
+            mid = (p[ea] + p[eb]) / 2
+            # the triangles that stay (not on the edge) at either end must not turn over
+            ts = t[topo.triangles_of(np.array([ea, eb]))]
+            keep = ~(((ts == ea) | (ts == eb)).sum(axis=1) == 2)
+            ts = ts[keep]
+            before = np.cross(p[ts[:, 1]] - p[ts[:, 0]], p[ts[:, 2]] - p[ts[:, 0]])
+            moved = np.where((ts == ea) | (ts == eb), -1, ts)
+            corners = np.where(moved[..., None] < 0, mid, p[np.maximum(moved, 0)])
+            after = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
+            if (np.einsum("ij,ij->i", before, after) <= 0.05 * np.linalg.norm(before, axis=1)
+                    * np.linalg.norm(after, axis=1)).any():
+                continue
+            p[ea] = mid
+            if m is not None:
+                m[ea] = (m[ea] + m[eb]) / 2
+            remap[eb] = ea
+            locked[na] = locked[nbb] = True
+            locked[ea] = locked[eb] = True
+            done += 1
+        if not done:
+            break
+        joined += done
+        t = remap[t]
+        t = t[(t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 2] != t[:, 0])]
+    if joined:
+        used = np.zeros(len(p), dtype=bool)
+        used[t.reshape(-1)] = True
+        new_index = np.cumsum(used) - 1
+        p = p[used]
+        t = new_index[t]
+        if m is not None:
+            m = m[used]
+    return p, t, m, n0 - len(p)

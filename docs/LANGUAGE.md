@@ -912,7 +912,7 @@ See `scripts/sketch_bracket.cmd`.
 | `SEXTEND, 3.E, V` | ... up to the vertical axis (`H`: the horizontal one) |
 | `SFILLET, 1.E, 4` | rounds the corner where curve 1 ends and another curve meets it, radius 4: two lines, a line and an arc, or two arcs |
 | `SFILLET, 1.E, 2.E, 3.E, 4` | several corners, one radius |
-| `SOFFSET, 3, 1, 2, 3, 4` | curves 3 away from curves 1..4 |
+| `SOFFSET, 3, 1, 2, 3, 4` | curves 3 away from curves 1..4: lines, arcs, circles and splines; a chain meets again at its corners (a corner past a spline's end goes on straight from it). A closed chain that crosses itself (a figure eight) has no outside, so positive goes to the left walking along its lowest-numbered curve |
 | `SMIRROR, V, 1, 2` | mirror copies of 1 and 2 about the vertical axis (or about a line: its number) |
 | `SPATTERN, LINEAR, 4, 15, 0, 5` | 4 of circle 5 in all, each 15 to the right of the one before |
 | `SPATTERN, POLAR, 6, 360, O, 5` | 6 round the origin, spread over the full turn (less than 360: the last one at that angle) |
@@ -2311,8 +2311,10 @@ cut or a boss, or `REVOLVE`; starting or ending on a sketch point ties the
 curve there. A spline's points are `3.S`, `3.K1` ... `3.E`: drag them to
 reshape it, or hold them with `SCON` (`FIX`, `COINCIDENT`). `SMIRROR` and
 `SPATTERN` copy splines; `STRIM`, `SEXTEND`, `SSPLIT` and `SFILLET` work on
-them (section 16), `SOFFSET` does not yet. `SJOIN` makes one spline of a
-chain of curves.
+them (section 16), and so does `SOFFSET`: a spline's offset is a spline
+through points kept at the distance (more than the spline's tightest bend
+inwards is refused, since it would cross itself). `SJOIN` makes one spline
+of a chain of curves.
 
 ```
 SKETCH, pocket, top
@@ -2372,8 +2374,12 @@ splits the triangles near the stroke (within 1.25 radii, mirrors included)
 until no edge there is longer than `detail`, then runs the brush. A crease
 or a fine ridge then comes out sharp without making the whole body fine.
 The new points take the mask of the edge they split; points near the
-stroke slide a little along the surface so the triangles stay even. Leave
-`sym` empty to skip it: `SCULPT, head, CREASE, 2.5, 0.6, S3, , 0.25`.
+stroke slide a little along the surface so the triangles stay even. After
+the brush, edges near the stroke that it squeezed shorter than 0.4 times
+`detail` are joined again (PINCH and CREASE squeeze), so stroke after stroke
+the triangles keep about the same size and no slivers build up; frozen
+points are never joined. Leave `sym` empty to skip it:
+`SCULPT, head, CREASE, 2.5, 0.6, S3, , 0.25`.
 
 **MASK** freezes part of a mesh body; sculpting leaves frozen points alone
 (a half-frozen point moves half as far):
