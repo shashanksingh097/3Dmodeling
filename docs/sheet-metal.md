@@ -32,11 +32,20 @@ edge, half the thickness into the plate, with `BRepClass3d_SolidClassifier`.
 
 `UNFOLD` collects the planar faces of the body that lie in the sheet plane
 (the plate's bottom face, with its holes), adds for each flange a rectangle
-of depth `angle (r + k t) + length` beyond its bend edge, fuses them and
+of depth `angle (r + k t)` for the bend beyond its bend edge and the wall
+itself, fuses them and
 unifies the result into one face. The blank body is that face pushed `t`
 along the normal and moved along the sheet's x past the part. With `k = 0.5`
 the blank's volume equals the part's exactly (an annular sector's area is
 `angle t (r + t/2)`), which the tests check.
+
+The wall is laid flat as it is: its faces on the sheet's bottom side (the
+outside of an up bend, the inside of a down one) are found by plane and
+position and moved flat by the rigid motion that takes the wall's frame
+(the end of the bend arc, the wall's direction, the bend line) to the
+flat one (the bend edge plus the bend allowance, outwards). Holes and cuts
+made in a wall after bending therefore show in the blank. Holes that cross
+the bend itself do not (the bend stays a plain strip).
 
 The DXF (`sheetmetal.dxf`) is plain R12 ASCII written by hand: layers
 OUTLINE (white, continuous), BEND (red, CENTER line type) and TEXT; curved

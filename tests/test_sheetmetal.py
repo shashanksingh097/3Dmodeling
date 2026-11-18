@@ -147,3 +147,30 @@ def test_an_edge_on_the_side_is_refused():
     run(p, "SEL, S, EDGE, AT, 0, 0, 1")
     r = p.run("FLANGE, , 10")
     assert not r.ok and "top or bottom" in r.message
+
+
+def test_holes_in_flange_walls_show_in_the_flat_pattern():
+    p = plate()
+    run(p, "SEL, S, EDGE, AT, 30, 0, 2", "FLANGE, , 20",  # up
+        "SEL, S, EDGE, AT, 60, 20, 0", "FLANGE, , 15",  # down
+        "NAME, 1, part",
+        "CYL, 30, -20, 14, 3, 30, 0, 1, 0", "SUBTRACT, part, LAST",  # through the up wall
+        "CYL, 50, 20, -10, 2.5, 30, 1, 0, 0", "SUBTRACT, part, LAST")  # through the down wall
+    bid = p.model.body_by_name("part").id
+    part = p.model.body(bid).shape
+    run(p, f"UNFOLD, {bid}")
+    blank = p.model.body(max(p.model.bodies)).shape
+    # with K = 0.5 bending keeps the volume, so the blank has both holes when the volumes match
+    assert robust.volume(blank) == pytest.approx(robust.volume(part), rel=1e-6)
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    from modeler.geometry import sheetmetal as smt
+
+    flat = smt.flat_pattern(p.model.sheets[bid], part)
+    ex = TopExp_Explorer(flat.face, TopAbs_FACE)
+    faces = 0
+    while ex.More():
+        faces += 1
+        ex.Next()
+    assert faces == 1  # one piece: the walls join the bends

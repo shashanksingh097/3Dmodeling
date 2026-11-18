@@ -904,7 +904,8 @@ More features not yet in the app (added 2026-11-18, after item 23), about
 three to a pull request:
 
 24. **Leftovers from items 19 to 21** (exploded views and WRAP onto cones
-    done: `XSTEP`, `XSHOW`; sketched bends next): exploded views with trails
+    done: `XSTEP`, `XSHOW`; holes in flange walls show in the flat pattern;
+    sketched bends next): exploded views with trails
     (`EXPLODE` steps saved as a view, lines from each part back to its
     place), `WRAP` onto cones, and sheet metal bends along a sketched line
     (`SBEND`) with holes in flange walls shown in the flat pattern.

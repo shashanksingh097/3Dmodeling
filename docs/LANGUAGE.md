@@ -2529,7 +2529,8 @@ starts. `FLANGE, , length` flanges every selected edge. Flanges on
 neighbouring edges leave an open corner.
 
 **`UNFOLD`** lays the plate's bottom face (with every hole through it) flat
-and adds a strip for each flange. A bend takes `angle × (r + K × t)` of
+and adds each flange: a strip for the bend and the wall laid flat, with
+any holes cut in the wall after bending. A bend takes `angle × (r + K × t)` of
 flat length (in radians): the length of the line inside the bend that
 neither stretches nor squeezes, which sits `K × t` from the inside face. K
 is 0.44 unless `SHEET` says otherwise; use the value your shop or

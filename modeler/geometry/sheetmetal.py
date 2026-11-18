@@ -184,10 +184,14 @@ def flat_pattern(sh: Sheet, body_shape) -> Flat:
         a, b = np.asarray(fl.a, float), np.asarray(fl.b, float)
         out = np.asarray(fl.out, float)
         ba = sh.allowance(fl.angle, fl.radius)
-        depth = ba + fl.length
-        poly = BRepBuilderAPI_MakePolygon(_pnt(a), _pnt(b), _pnt(b + depth * out), _pnt(a + depth * out), True)
-        strip = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
-        shape = BRepAlgoAPI_Fuse(shape, strip).Shape()
+        wall = _wall_faces(sh, fl, body_shape, ba) if fl.length > 1e-9 else []
+        depth = ba if wall else ba + fl.length  # the wall as it really is (with its holes), else a strip
+        if depth > 1e-9:
+            poly = BRepBuilderAPI_MakePolygon(_pnt(a), _pnt(b), _pnt(b + depth * out), _pnt(a + depth * out), True)
+            strip = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
+            shape = BRepAlgoAPI_Fuse(shape, strip).Shape()
+        for wf in wall:
+            shape = BRepAlgoAPI_Fuse(shape, wf).Shape()
         word = "UP" if fl.up else "DOWN"
         bends.append((tuple(a + ba / 2 * out), tuple(b + ba / 2 * out),
                       f"{word} {fl.angle:g}° R{fl.radius:g}"))
@@ -196,6 +200,67 @@ def flat_pattern(sh: Sheet, body_shape) -> Flat:
     shape = u.Shape()
     lo, hi = _box(sh, shape)
     return Flat(shape, bends, (hi[0] - lo[0], hi[1] - lo[1]))
+
+
+def _wall_faces(sh: Sheet, fl: Flange, shape, ba: float) -> list:
+    """A flange wall's faces on the sheet's bottom side, laid flat where the wall goes in the
+    flat pattern: so holes and cuts made in the wall after bending show in the blank."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GeomAbs import GeomAbs_SurfaceType
+    from OCP.GProp import GProp_GProps
+    from OCP.gp import gp_Ax3, gp_Dir, gp_Trsf
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_face = getattr(TopoDS, "Face_s", None) or TopoDS.Face
+    surface_props = getattr(BRepGProp, "SurfaceProperties_s", None) or BRepGProp.SurfaceProperties
+    n = np.asarray(sh.n, float)
+    a = np.asarray(fl.a, float)
+    b = np.asarray(fl.b, float)
+    out = np.asarray(fl.out, float)
+    span = float(np.linalg.norm(b - a))
+    al = (b - a) / span
+    t, r = sh.t, fl.radius
+    if fl.up:  # the bottom side is the outside of an up bend
+        edge0, nn, rad = a + t * n, n, r + t
+    else:
+        edge0, nn, rad = a, -n, r
+    q0 = -math.pi / 2 + math.radians(fl.angle)
+    w0 = edge0 + (rad * math.cos(q0)) * out + (r + rad * math.sin(q0)) * nn
+    d3 = -math.sin(q0) * out + math.cos(q0) * nn
+    nw = np.cross(d3, al)
+    tol = 1e-6 * max(1.0, t) + 1e-7
+    found = []
+    ex = TopExp_Explorer(shape, TopAbs_FACE)
+    while ex.More():
+        f = as_face(ex.Current())
+        ex.Next()
+        s = BRepAdaptor_Surface(f)
+        if s.GetType() != GeomAbs_SurfaceType.GeomAbs_Plane:
+            continue
+        pl = s.Plane()
+        d = pl.Axis().Direction()
+        if abs(abs(np.array([d.X(), d.Y(), d.Z()]) @ nw) - 1) > 1e-7:
+            continue
+        loc = pl.Location()
+        if abs((np.array([loc.X(), loc.Y(), loc.Z()]) - w0) @ nw) > tol:
+            continue
+        g = GProp_GProps()
+        surface_props(f, g)
+        c = g.CentreOfMass()
+        c = np.array([c.X(), c.Y(), c.Z()])
+        e, w = (c - edge0) @ al, (c - w0) @ d3
+        if -tol <= e <= span + tol and -tol <= w <= fl.length + tol:
+            found.append(f)
+    if not found:
+        return []
+    tr = gp_Trsf()
+    tr.SetDisplacement(gp_Ax3(_pnt(w0), gp_Dir(*np.cross(d3, al)), gp_Dir(*d3)),
+                       gp_Ax3(_pnt(a + ba * out), gp_Dir(*np.cross(out, al)), gp_Dir(*out)))
+    return [BRepBuilderAPI_Transform(f, tr, True).Shape() for f in found]
 
 
 def _bottom_faces(sh: Sheet, shape) -> list:
