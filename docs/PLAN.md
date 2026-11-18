@@ -834,6 +834,9 @@ Still open in the milestones already started, in the suggested order:
     drawn purple. Part 3 done: dynamic detail (`SCULPT ..., detail` splits
     the triangles near the stroke first, longest edge first) and a `REMESH`
     that keeps the mask. M7 is done; joining short edges is left for later.
+12. Release 0.3.0: everything from items 4 to 11 (model tree, part
+    documents, mesh bodies, implicit shapes, knife, sketch tools, ribbon,
+    drawings, themes, the assistant's own key and pointing, sculpting).
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
