@@ -197,6 +197,9 @@ class Reply:
     tools: list[str] = field(default_factory=list)  # names of the tools called, in order
     proposals: list[Proposal] = field(default_factory=list)
     error: str = ""
+    turns: int = 0  # model calls (one per tool round)
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 # events passed to ``on_event``: ("delta", text) while the answer streams in,
@@ -695,6 +698,7 @@ class CopilotAssistant:
         from copilot.session_events import (
             AssistantMessageData,
             AssistantMessageDeltaData,
+            AssistantUsageData,
             SessionErrorData,
             SessionIdleData,
         )
@@ -722,6 +726,10 @@ class CopilotAssistant:
                     parts.append(data.content)
                     self._log("reply", text=data.content)
                     self.on_event("message", data.content)
+            elif isinstance(data, AssistantUsageData):
+                reply.turns += 1
+                reply.input_tokens += int(getattr(data, "input_tokens", 0) or 0)
+                reply.output_tokens += int(getattr(data, "output_tokens", 0) or 0)
             elif isinstance(data, SessionErrorData):
                 reply.error = getattr(data, "message", "") or str(data)
                 done.set()
@@ -938,6 +946,11 @@ python -m modeler copilot ask [--script file.cmd] "question"
 python -m modeler copilot check           the whole test for one account (Copilot Free too):
                                           sign-in, allowance, models, and a question that must
                                           use the modeler's tools; prints PASS or FAIL per step
+python -m modeler copilot bench [--only a,b] [--out results.json]
+                                          the benchmark: ten modelling requests checked exactly
+                                          (tasks: flange, bracket, shelled_box, pipe_tee, spring,
+                                          vase, bolt_and_nut, edit_width, selected_face_holes,
+                                          impossible_fillet); prints PASS or FAIL per task
 --folder DIR                              the assistant's working folder (default: a temporary
                                           folder)
 --model NAME                              the model (GitHub Copilot: one your plan offers)
@@ -1044,6 +1057,30 @@ async def _cli(asst: CopilotAssistant, args: list[str]) -> int:
             return 0
         if cmd == "check":
             return await _check(asst)
+        if cmd == "bench":
+            from . import bench
+
+            only, out = None, ""
+            rest = args[1:]
+            while rest:
+                opt = rest.pop(0)
+                if opt == "--only" and rest:
+                    only = [x.strip() for x in rest.pop(0).split(",") if x.strip()]
+                elif opt == "--out" and rest:
+                    out = rest.pop(0)
+            st = await asst.status()
+            if not st["signed_in"]:
+                print(f"ERROR: not ready: {st['message'] or 'sign in first (copilot login)'}")
+                return 1
+            results = await bench.run(bench.assistant_ask(asst), only)
+            s = bench.summary(results)
+            print(f"{s['passed']} of {s['tasks']} passed ({s['without_pictures']} without a picture), "
+                  f"{s['tool_calls']} tool calls, {s['tokens']} tokens, {s['seconds']} s. "
+                  + ("Goal met." if s["goal_met"] else "Goal (9 of 10) not met."))
+            if out:
+                bench.save(results, out, {"answers_from": st["login"], "model": asst.model or ""})
+                print(f"saved {out}")
+            return 0 if s["goal_met"] else 1
         print(USAGE)
         return 2
     except AssistantError as exc:

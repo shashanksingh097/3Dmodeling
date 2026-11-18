@@ -234,3 +234,35 @@ def test_runtime_sends_pictures_to_the_model(plate, monkeypatch):
     last = json.dumps(FakeOpenAI.requests[-1]["body"]["messages"])
     assert base64.b64encode(png).decode() in last  # the picture reached the model
     assert "omitted" not in last
+
+
+@pytest.mark.skipif(os.environ.get("MODELER_TEST_COPILOT_RUNTIME") != "1",
+                    reason="starts the real Copilot runtime (set MODELER_TEST_COPILOT_RUNTIME=1)")
+def test_runtime_benchmark_task(monkeypatch):
+    """The benchmark's path end to end: the fake model proposes the flange's reference script."""
+    from modeler.ai import bench
+
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    task = bench.TASKS[0]
+    FakeOpenAI.requests = []
+    FakeOpenAI.tool = ("propose_commands", {"script": task.reference, "summary": "a flange"})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FakeOpenAI)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+    try:
+        a = cp.CopilotAssistant(Processor(), provider=pv.ProviderSetting("custom", "fake-model", url, "sk"))
+
+        async def go():
+            try:
+                return await bench.run(bench.assistant_ask(a), ["flange"], log=lambda *x: None)
+            finally:
+                await a.stop()
+
+        results = asyncio.run(go())
+    finally:
+        server.shutdown()
+        FakeOpenAI.tool = ("describe_body", {"body": "plate"})
+    r = results[0]
+    assert r.passed, (r.note, r.checks)
+    assert r.turns == 2 and r.input_tokens > 0 and r.tools == ["propose_commands"]
