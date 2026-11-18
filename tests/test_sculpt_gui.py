@@ -6,8 +6,6 @@ import sys
 import numpy as np
 import pytest
 
-from modeler.gui import sculpt_tool as st
-
 if os.environ.get("MODELER_GUI_TESTS") == "0":
     pytest.skip("GUI tests disabled", allow_module_level=True)
 if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
@@ -18,6 +16,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from modeler.geometry import meshbody as mb  # noqa: E402
+from modeler.gui import sculpt_tool as st  # noqa: E402
 from modeler.gui.main_window import MainWindow  # noqa: E402
 
 
