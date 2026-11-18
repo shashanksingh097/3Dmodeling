@@ -216,6 +216,8 @@ class Processor:
         # sculpt strokes by name (S1, S2 ...): points the brush went through, kept with the project
         # (strokes.npz) because a stroke is too long to write into a history line
         self.strokes: dict = {}
+        # the assistant conversation: [{"who": "you"/"assistant", "text": ...}], saved with the project
+        self.chat: list[dict] = []
         # LIB, LINK names as written -> what the last run read (part_handlers.Link);
         # not undo state: it says what the file held, which RELOAD compares
         self.links: dict = {}
@@ -382,6 +384,7 @@ class Processor:
         self.part_files = {}
         self.file_map = {}
         self.strokes = {}
+        self.chat = []
         self.links = {}
         self.link_paths = {}
         self.project_dir = ""

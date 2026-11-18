@@ -162,8 +162,36 @@ Copilot runs on a background thread with its own asyncio loop
   with a script, checked by exact measures, with a reference script that
   must pass. The results file records the model.
 
+## Streaming, Stop, and the conversation kept with the project (after 0.3.0)
+
+- **Streaming.** The session already ran with `streaming=True` and passed
+  `("delta", text)` events on; the panel now shows them: the first piece adds
+  a "Copilot:" paragraph and the pieces go in as plain text (the view
+  follows the end unless the user scrolled up). When the complete message
+  comes, the streamed text is taken out and the formatted answer
+  (`_markdownish`) put in its place. When a tool starts mid-answer, what was
+  written is kept as it is, and the same complete message is not shown again.
+- **Stop.** While busy, Send is swapped for Stop.
+  `CopilotAssistant.stop_answer()` ends the wait (`Reply.stopped`) and then
+  calls `session.abort()` so the runtime stops generating and calling tools.
+  The partial answer stays.
+- **Kept with the project.** `Processor.chat` holds `{"who": "you" |
+  "assistant", "text"}`. The panel appends each question and each answer.
+  `save_project` writes the newest 200 into `project.json` (`"chat"`),
+  `open_project` reads them back, and `reset` (NEW, OPEN) clears them. After
+  OPEN or NEW the panel shows the kept conversation and starts a fresh chat.
+- **Remembered.** Before each question the panel sets
+  `assistant.earlier = earlier_text(chat)`. Only a fresh session uses it:
+  the first message is prefixed with `EARLIER_HEAD` and the conversation as
+  plain text (newest turns first to be kept, up to 8000 characters), with a
+  warning that the model may have changed since. It is the same with every
+  provider, because the SDK's own session resume is tied to one runtime's
+  state folder, which a project file does not carry.
+- **New chat** also clears the kept conversation.
+
 ## Next
 
-1. Streaming the answer into the panel as it is written, and keeping the
-   conversation with the project.
-2. Benchmark numbers for a few models, published with a release.
+1. Benchmark numbers for a few models, published with a release. This needs a
+   signed-in run (a Copilot plan or keys for each model), so it is the
+   owner's to run: `3Dmodeling-cli copilot bench --model <name>` writes the
+   results file.

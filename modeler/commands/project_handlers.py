@@ -216,6 +216,9 @@ def _link_paths(p: Processor, project: str) -> dict:
     return out
 
 
+CHAT_KEEP = 200  # assistant messages kept with a project (the newest)
+
+
 def save_project(p: Processor, path: str) -> int:
     """Write the project zip; returns the number of history entries."""
     os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
@@ -250,6 +253,8 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.chat:  # the assistant conversation, kept with the project
+            meta["chat"] = [{"who": e.get("who", ""), "text": e.get("text", "")} for e in p.chat[-CHAT_KEEP:]]
         if p.strokes:  # sculpt strokes: their points, by name
             import io
 
@@ -297,6 +302,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.reset()
     p.file_map = mapping
     p.strokes = strokes
+    p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
     results = p.run_script(script, meta.get("history"))

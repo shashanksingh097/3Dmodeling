@@ -495,8 +495,17 @@ type, and **Undo** takes them back. Copilot's own coding tools (shell,
 files, web) are switched off in this app; it reads files only as described
 below, when you allow it.
 
+**Answers appear as they are written.** While Copilot answers, **Send**
+becomes **Stop**: it stops the answer, and what was written so far stays.
+
+**The conversation is saved with the project.** Save the project and the
+chat goes into the project file with it (the newest 200 messages). Open the
+project later and the panel shows that conversation again; Copilot is given
+it with your next question, so you can carry on where you left off.
+
 **New chat** starts over: Copilot forgets the conversation (you stay
-signed in), and the next question starts fresh.
+signed in), the next question starts fresh, and the project no longer
+keeps the old conversation.
 
 **Reading your files.** Copilot can list and read text files (scripts,
 notes, logs) in the working folder, never elsewhere, and only when you

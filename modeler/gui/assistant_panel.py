@@ -19,7 +19,7 @@ from concurrent.futures import Future
 from typing import TYPE_CHECKING, Any, Callable
 
 from PySide6.QtCore import QObject, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QActionGroup, QDesktopServices, QFontDatabase, QGuiApplication
+from PySide6.QtGui import QActionGroup, QDesktopServices, QFontDatabase, QGuiApplication, QTextCursor
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -185,10 +185,19 @@ class AssistantPanel(QWidget):
         self.send_button = QPushButton("Send")
         self.send_button.clicked.connect(self.send)
         row.addWidget(self.send_button)
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.setToolTip("Stop this answer; what is written so far stays")
+        self.stop_button.clicked.connect(self.stop)
+        self.stop_button.hide()
+        row.addWidget(self.stop_button)
         lay.addLayout(row)
 
         self.event.connect(self._on_event)
         self.done.connect(self._on_done)
+        self._stream_start = -1  # where the answer being written starts in the transcript (-1: none)
+        self._stream_text = ""
+        self._kept = ""  # an answer kept as written (a tool started before it was complete)
+        win.processor.listeners.append(self._on_result)
         view = getattr(win, "viewport", None)
         if view is not None and hasattr(view, "command"):
             view.command.connect(self._view_command)
@@ -327,6 +336,7 @@ class AssistantPanel(QWidget):
         self.finish_pick(None, tell=False)
         self.clear_marks()
         self.transcript.clear()
+        self.win.processor.chat.clear()
         self._say("system", "New chat. Copilot has forgotten the earlier conversation.")
         if self.thread is not None:
             self.thread.new_chat()
@@ -605,19 +615,39 @@ class AssistantPanel(QWidget):
         self.input.clear()
         self.clear_marks()
         self._say("you", html.escape(text))
-        self._busy = True
-        self.send_button.setEnabled(False)
+        chat = self.win.processor.chat
+        thread = self._assistant()
+        thread.assistant.earlier = cp.earlier_text(chat)  # used only if this starts a fresh chat
+        chat.append({"who": "you", "text": text})
+        self._set_busy(True)
         self._streaming = False
-        self._then(self._assistant().ask(text), self._answered)
+        self._then(thread.ask(text), self._answered)
+
+    def _set_busy(self, busy: bool) -> None:
+        self._busy = busy
+        self.send_button.setVisible(not busy)
+        self.send_button.setEnabled(not busy)
+        self.stop_button.setVisible(busy)
+        self.stop_button.setEnabled(busy)
+
+    def stop(self) -> None:
+        """Stop the answer being written: what came so far stays in the chat."""
+        if not self._busy or self.thread is None:
+            return
+        self.stop_button.setEnabled(False)
+        self.thread.stop_answer()
 
     def _answered(self, fut: Future) -> None:
-        self._busy = False
-        self.send_button.setEnabled(True)
+        self._set_busy(False)
         try:
             reply: cp.Reply = fut.result()
         except Exception as exc:  # noqa: BLE001
+            self._end_stream(keep=True)
             self._say("error", html.escape(str(exc)))
             return
+        if reply.stopped:
+            self._end_stream(keep=True)
+            self._say("system", "Stopped.")
         if reply.error:
             self._say("error", html.escape(reply.error))
         if not self._checked:
@@ -637,9 +667,18 @@ class AssistantPanel(QWidget):
                                     f"{html.escape(url)}</a>")
                 QDesktopServices.openUrl(QUrl(url))
         elif kind == "tool":
+            self._end_stream(keep=True)
             self._say("tool", html.escape(str(data)))
+        elif kind == "delta":
+            self._stream(str(data))
         elif kind == "message":
+            self._end_stream(keep=False)
+            if str(data).strip() == self._kept:  # already shown as it was written
+                self._kept = ""
+                return
+            self._kept = ""
             self._say("copilot", _markdownish(str(data)))
+            self.win.processor.chat.append({"who": "assistant", "text": str(data)})
         elif kind == "proposal":
             self.show_proposal(data)
         elif kind == "debug":
@@ -692,6 +731,73 @@ class AssistantPanel(QWidget):
             self._say("system", "Changed: " + "; ".join(
                 html.escape(f"step {e['entry']} was “{e['old']}”") for e in prop.edits if e["old"]))
         self.clear_proposal()
+
+    # ---- the answer as it is written ---------------------------------------------------
+    def _stream(self, piece: str) -> None:
+        """Show a piece of the answer being written, as plain text; the whole
+        answer replaces it (formatted) when it is complete."""
+        if not piece:
+            return
+        cur = QTextCursor(self.transcript.document())
+        cur.movePosition(QTextCursor.End)
+        if self._stream_start < 0:
+            self._say("copilot", "")
+            cur.movePosition(QTextCursor.End)
+            self._stream_start = cur.position()
+            self._stream_text = ""
+        self._stream_text += piece
+        cur.insertText(piece)
+        bar = self.transcript.verticalScrollBar()
+        if bar.value() >= bar.maximum() - 40:  # follow the end unless the user scrolled up
+            bar.setValue(bar.maximum())
+
+    def _end_stream(self, keep: bool) -> None:
+        """Finish the answer being written: keep it as it stands (a tool started,
+        or Stop), or take it out because the whole answer follows."""
+        if self._stream_start < 0:
+            return
+        if not keep:
+            cur = QTextCursor(self.transcript.document())
+            cur.setPosition(self._stream_start)
+            cur.movePosition(QTextCursor.StartOfBlock)  # with its "Copilot:" label
+            cur.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+            cur.removeSelectedText()
+            cur.deletePreviousChar()  # the empty paragraph left behind
+        elif self._stream_text.strip():
+            self.win.processor.chat.append({"who": "assistant", "text": self._stream_text})
+            self._kept = self._stream_text.strip()
+        self._stream_start = -1
+        self._stream_text = ""
+
+    # ---- the conversation kept with the project ------------------------------------------
+    def _on_result(self, res) -> None:
+        word = (res.line or "").split(",")[0].strip().upper()
+        if res.ok and word in ("OPEN", "NEW"):
+            self.show_kept_chat()
+
+    def show_kept_chat(self) -> None:
+        """After a project is opened (or a new one started): show its conversation, and
+        start a fresh chat that is given that conversation with the first question."""
+        if self._busy:
+            self.stop()
+        self.clear_proposal()
+        self.finish_pick(None, tell=False)
+        self.clear_marks()
+        if self.thread is not None:
+            self.thread.new_chat()
+        self.transcript.clear()
+        chat = self.win.processor.chat
+        if not chat:
+            self._say("system", "Ask about commands, errors or your model. The conversation is saved with "
+                                "the project.")
+            return
+        self._say("system", f"The conversation saved with this project ({len(chat)} messages). Copilot "
+                            "is given it with your next question.")
+        for e in chat:
+            if e.get("who") == "you":
+                self._say("you", html.escape(e.get("text", "")))
+            else:
+                self._say("copilot", _markdownish(e.get("text", "")))
 
     def _say(self, who: str, body_html: str) -> None:
         label = {"you": "You", "copilot": "Copilot", "tool": "·", "system": "", "error": "Problem"}[who]

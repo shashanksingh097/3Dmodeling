@@ -197,9 +197,34 @@ class Reply:
     tools: list[str] = field(default_factory=list)  # names of the tools called, in order
     proposals: list[Proposal] = field(default_factory=list)
     error: str = ""
+    stopped: bool = False  # the user pressed Stop
     turns: int = 0  # model calls (one per tool round)
     input_tokens: int = 0
     output_tokens: int = 0
+
+
+EARLIER_LIMIT = 8000  # characters of the earlier conversation given to a fresh chat
+
+
+def earlier_text(chat: list[dict[str, str]], limit: int = EARLIER_LIMIT) -> str:
+    """The kept conversation (``Processor.chat``: {"who": "you"/"assistant", "text"}) as
+    plain text for a fresh chat, newest kept whole: older turns are dropped first."""
+    out: list[str] = []
+    used = 0
+    for e in reversed(chat):
+        who = "User" if e.get("who") == "you" else "Assistant"
+        line = f"{who}: {e.get('text', '').strip()}"
+        if used + len(line) > limit:
+            if not out:
+                out.append(line[: limit])
+            break
+        out.append(line)
+        used += len(line) + 2
+    return "\n\n".join(reversed(out))
+
+
+EARLIER_HEAD = ("Earlier conversation about this project (from before it was saved and reopened; the model "
+                "may have changed since, so look again before relying on it):")
 
 
 # events passed to ``on_event``: ("delta", text) while the answer streams in,
@@ -232,6 +257,9 @@ class CopilotAssistant:
         self.client = None
         self.session = None
         self._reply: Reply | None = None
+        self._stop: Callable[[], None] | None = None  # ends the answer being waited for
+        # the conversation so far in this project, given once to a fresh chat (see earlier_text)
+        self.earlier: str = ""
         # everything sent and received, in order, for the panel's Debug tab
         self.log: list[dict[str, Any]] = []
         # ask_read(what, path) -> "once" | "chat" | "deny": may the assistant read this? (default: no)
@@ -251,6 +279,13 @@ class CopilotAssistant:
         self.log.append(entry)
         self.on_event("debug", entry)
         return entry
+
+    async def stop_answer(self) -> bool:
+        """Stop waiting for the answer being written (the Stop button); False if none."""
+        if self._stop is None:
+            return False
+        self._stop()
+        return True
 
     async def new_chat(self) -> None:
         """End the conversation; the next question starts a fresh one (with the
@@ -708,7 +743,11 @@ class CopilotAssistant:
             raise AssistantError(f"{self.provider.label()}: {status['message']} (Assistant settings)")
         if not status["signed_in"] and not self.github_token:
             raise AssistantError("not signed in to GitHub: sign in first")
+        fresh = self.session is None
         session = await self._session()
+        if fresh and self.earlier.strip():
+            text = f"{EARLIER_HEAD}\n\n{self.earlier.strip()}\n\n---\nThe user's new message:\n{text}"
+        self.earlier = ""
         self._log("prompt", text=text)
         reply = Reply()
         self._reply = reply
@@ -736,6 +775,11 @@ class CopilotAssistant:
             elif isinstance(data, SessionIdleData):
                 done.set()
 
+        def stop() -> None:
+            reply.stopped = True
+            done.set()
+
+        self._stop = stop
         unsubscribe = session.on(on_event)
         try:
             await session.send(text)
@@ -747,6 +791,13 @@ class CopilotAssistant:
         finally:
             unsubscribe()
             self._reply = None
+            self._stop = None
+        if reply.stopped:
+            try:  # tell the runtime too, so it stops generating (and calling tools)
+                await session.abort()
+            except Exception:  # noqa: BLE001 - stopped on our side anyway
+                pass
+            self._log("stopped")
         reply.text = "\n\n".join(parts)
         if reply.error:
             reply.error = explain_error(reply.error)
@@ -923,6 +974,9 @@ class AssistantThread:
 
     def new_chat(self) -> Future:
         return self.submit(self.assistant.new_chat())
+
+    def stop_answer(self) -> Future:
+        return self.submit(self.assistant.stop_answer())
 
     def models(self) -> Future:
         return self.submit(self.assistant.models())

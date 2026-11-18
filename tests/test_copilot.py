@@ -527,3 +527,63 @@ def test_render_sends_the_picture(plate):
     assert "_png" not in res.text_result_for_llm
     assert ("picture", png) in seen
     assert a.log[-1]["image_bytes"] == len(png) and "picture 1 KB sent" in cp.format_log(a.log)
+
+
+# ---- the conversation kept with the project, and Stop --------------------------------------
+async def _signed_in():
+    return {"signed_in": True, "login": "octo", "message": ""}
+
+
+def test_earlier_text_keeps_the_newest_turns():
+    chat = []
+    for i in range(50):
+        chat += [{"who": "you", "text": f"question {i}"}, {"who": "assistant", "text": f"answer {i} " + "x" * 80}]
+    text = cp.earlier_text(chat, limit=1000)
+    assert len(text) <= 1000
+    assert text.endswith("answer 49 " + "x" * 80) and "User: question 49" in text
+    assert "question 0" not in text
+    assert cp.earlier_text([]) == ""
+
+
+def test_a_fresh_chat_is_given_the_earlier_conversation_once(plate):
+    events = [Ev(AssistantMessageData(content="ok", message_id="m1")), Ev(SessionIdleData())]
+    session = FakeSession(events=events)
+    a = cp.CopilotAssistant(plate)
+    a.status = _signed_in
+
+    async def fresh_session():  # like the real one: a session is made once per chat
+        a.session = session
+        return session
+
+    a._session = fresh_session
+    a.earlier = "User: make a plate\n\nAssistant: done, 40 x 30"
+    run(a.ask("now a hole"))
+    assert session.sent[0].startswith(cp.EARLIER_HEAD) and "done, 40 x 30" in session.sent[0]
+    assert session.sent[0].endswith("now a hole")
+    a.earlier = "User: something else"
+    run(a.ask("and another"))  # the chat goes on: not given again
+    assert session.sent[1] == "and another"
+
+
+def test_stop_ends_the_wait_and_aborts(plate):
+    class SlowSession(FakeSession):
+        aborted = False
+
+        async def abort(self):
+            self.aborted = True
+
+    session = SlowSession(events=[Ev(AssistantMessageData(content="partial", message_id="m1"))])  # never idle
+    a = _assistant(plate, session)
+    a.status = _signed_in
+
+    async def go():
+        task = asyncio.ensure_future(a.ask("long one"))
+        for _ in range(20):
+            await asyncio.sleep(0)
+        assert await a.stop_answer()
+        return await asyncio.wait_for(task, 5)
+
+    reply = run(go())
+    assert reply.stopped and reply.text == "partial" and not reply.error
+    assert session.aborted
+    assert not run(a.stop_answer())  # nothing to stop now
