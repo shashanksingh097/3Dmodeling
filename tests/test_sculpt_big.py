@@ -6,7 +6,10 @@ import pytest
 from modeler.geometry import meshbody as mb
 from modeler.geometry import sculpt as sc
 
-st = pytest.importorskip("modeler.gui.sculpt_tool")
+try:  # the sculpt tool imports Qt widgets, which need libEGL; CI's plain runners do not have it
+    from modeler.gui import sculpt_tool as st
+except ImportError as exc:
+    pytest.skip(f"Qt widgets cannot load here ({exc})", allow_module_level=True)
 
 
 @pytest.fixture(scope="module")
