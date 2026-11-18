@@ -27,6 +27,7 @@ mesh_bodies.cmd | Mesh bodies: a lamp shade cut as a mesh, a smoothed pebble, a 
 implicit_lattices.cmd | Implicit shapes and lattices: a blend, a superquadric, gyroid walls, lattice infill | ISO
 knife_cuts.cmd | Knife and freehand cuts: a wavy split, a cookie cutter, a slot through a mesh ball, freehand pocket and boss | ISO
 sculpt_head.cmd | Sculpted head: brow ridges, nose and mouth brushed onto a mesh ball, mirrored, with a mask | FRONT
+scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face | FRONT
 cover_plate.cmd | Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole | TOP
 cam_plate.cmd | Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges | TOP
 spline_handle.cmd | Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline | TOP

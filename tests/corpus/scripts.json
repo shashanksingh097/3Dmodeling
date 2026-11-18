@@ -99,6 +99,11 @@
   "faces": 10,
   "volume": 5434.513
  },
+ "scan_to_cad.cmd": {
+  "bodies": 3,
+  "faces": 4,
+  "volume": 65178.402
+ },
  "sculpt_head.cmd": {
   "bodies": 1,
   "faces": 1,

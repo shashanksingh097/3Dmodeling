@@ -23,7 +23,7 @@ MESH_OK = {
     "EXPORT", "COLOR", "LAYER", "MATERIAL", "FADE", "UNFADE", "DISPLAY", "ISOLATE", "DESCRIBE", "MASSPROP",
     "STEPS", "TOSOLID", "TOMESH", "SMOOTH", "REMESH", "SIMPLIFY", "BEND", "TWIST", "TAPER", "STRETCH", "FLOW",
     "LIST", "FIT", "ASSERT", "DIST", "CLASH", "PROBE", "ECHO", "PICK", "SEL", "CM", "CMSEL", "CMDEL", "PICKMODE",
-    "RELATE", "CHECK", "LATTICE", "KNIFE", "DRAWING", "SCULPT", "MASK",
+    "RELATE", "CHECK", "LATTICE", "KNIFE", "DRAWING", "SCULPT", "MASK", "FITSURF",
 }
 
 
@@ -267,3 +267,61 @@ def simplify(p: Processor, b, tolerance):
     except mb.MeshError as exc:
         raise CommandError(f"SIMPLIFY: {exc}") from None
     return _swap(p, b, new_pts, new_t, f"SIMPLIFY body {b} from {len(t):,} triangles")
+
+
+# =============================================================================
+# Fitting smooth surfaces to meshes (scan to CAD)
+# =============================================================================
+@command(
+    "FITSURF",
+    Arg("b", BodyRef),
+    Arg("region", str, "ALL", "ALL, MASK (the points painted with MASK) or UNMASKED"),
+    Arg("tol", float, 0.0, "largest distance from the mesh allowed (0: 0.1% of the body's size)"),
+    Arg("trim", str, "YES", "YES: cut the surface to the region's outline; NO: keep the whole rectangle"),
+    help="Fit a smooth NURBS surface to a mesh body, for scan to CAD: FITSURF, b gives a solid for a closed "
+         "rounded mesh, or a face for an open scan · FITSURF, b, MASK fits only the region painted with MASK "
+         "(it must not fold back on itself; fit a shape in pieces) · tol: the largest distance allowed; the "
+         "control grid gets finer until it is met · the mesh stays; the new body is added",
+)
+def fitsurf(p: Processor, b, region, tol, trim):
+    from ..geometry import meshfit as mf
+    from .handlers import _added
+
+    pts, t = _need_mesh(p, b, "FITSURF")
+    region, trim = region.upper(), trim.upper()
+    if region not in ("ALL", "MASK", "UNMASKED"):
+        raise CommandError("FITSURF: the region is ALL, MASK or UNMASKED")
+    if trim not in ("YES", "NO"):
+        raise CommandError("FITSURF: trim is YES or NO")
+    if tol < 0:
+        raise CommandError("FITSURF: the tolerance cannot be negative")
+    size = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
+    tol = tol or 1e-3 * size
+    keep = None
+    if region != "ALL":
+        m = p.model.masks.get(b)
+        if m is None or len(m) != len(pts):
+            raise CommandError(f"FITSURF: body {b} has no mask; paint the region with MASK, {b}, PAINT first")
+        keep = m > 0.5 if region == "MASK" else m <= 0.5
+    try:
+        if keep is None and mb._closed(t):
+            fit = mf.fit_closed(pts, t, tol)
+            kind = "solid"
+        else:
+            pp, tt, pieces = mf.patch(pts, t, keep)
+            if pieces > 1:
+                p.warn(f"FITSURF: the region is in {pieces} separate pieces; only the biggest was fitted")
+            fit = mf.fit_patch(pp, tt, tol, trim=trim == "YES")
+            kind = "face"
+    except mf.FitError as exc:
+        raise CommandError(f"FITSURF: {exc}") from None
+    except nb.NurbsError as exc:
+        raise CommandError(f"FITSURF: {exc}") from None
+    u = p.model.units.lower()
+    if not fit.reached:
+        p.warn(f"FITSURF: the finest grid ({fit.poles[0]} x {fit.poles[1]}) is still up to "
+               f"{fit.max_dev:.3g} {u} away (asked {tol:.3g}); fit smaller regions for more detail, or a "
+               f"denser mesh (REMESH)")
+    body = p.model.add_body(fit.shape)
+    return _added(p, body, f"FITSURF body {b} ({kind}, {fit.poles[0]} x {fit.poles[1]} control points, "
+                           f"off by at most {fit.max_dev:.3g} {u}, {fit.mean_dev:.2g} on average)")

@@ -248,6 +248,9 @@ def build(win) -> None:
     tbs.action(win, tb, "Make sculptable", "sc_mesh",
                "Turn the picked body into a mesh body with even, fine triangles to sculpt\n"
                "Runs: TOMESH, b then REMESH, b, size/150", lambda: make_sculptable(win))
+    tbs.action(win, tb, "Fit surface", "sc_fit",
+               "Fit a smooth NURBS surface to the picked mesh body (the masked region if it has a mask), "
+               "in a form to set the tolerance\nRuns: FITSURF, b, region, tolerance", lambda: fit_surface(win))
 
     tb = tbs.group(win, "Brush", "sculpt_brushes", "Sculpt")
     group = QActionGroup(win)
@@ -376,6 +379,17 @@ def make_sculptable(win):
         if not win.execute(c).ok:
             break
     return []
+
+
+def fit_surface(win):
+    """The FITSURF form for the picked mesh body, with MASK as region when it has a mask."""
+    m = win.processor.model
+    b = sculpt_target(win)
+    if b is None:
+        win.statusBar().showMessage("Fit surface: pick one mesh body first (Body pick mode)", 6000)
+        return None
+    region = "MASK" if m.masks.get(b) is not None else "ALL"
+    return win.open_form("FITSURF", f"FITSURF, {b}, {region}")
 
 
 def mask_all(win, mode: str):
