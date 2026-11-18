@@ -2542,3 +2542,37 @@ each bend on layer BEND, and its direction, angle and radius
 the plate show in the flat pattern. Holes cut into a flange's wall do not
 (yet), and a flange cannot start from another flange's wall.
 
+## 32. Ribs, lips and wrapped sketches
+
+```
+PLANE, mid, XZ, 20
+SKETCH, r1, mid                       ! a sketch square to the walls the rib joins
+SLINE, -40, 20, -20, 20               ! the rib's top edge (an open line, arc or chain)
+ENDSKETCH
+RIB, r1, 2, box                       ! 2 thick (1 each side of the plane), down to the part
+RIB, r1, 2, box, FLIP                 ! fill the other side of the line instead
+SEL, S, FACE, AT, 1, 20, 30           ! the rim of an open box
+LIP, , 2, 0.8                         ! a band 0.8 wide along its inside edge, 2 high
+LIP, 32, 2, 0.8, GROOVE, 0.2          ! the other half: the band cut 2.2 deep and 1 wide
+WRAP, grips, 7, 1                     ! sketch grips raised 1 out of cylindrical face 7
+WRAP, band, , 0.4, CUT                ! sunk 0.4 into the selected cylindrical face
+```
+
+**`RIB`** carries the line's ends on straight along their direction, so a
+line drawn between two walls needs to touch neither. The rib fills the
+space between the line and the part on the side towards the middle of the
+part (`FLIP`: the other side). If on that side nothing stops it, the rib
+is refused.
+
+**`LIP`** works on a flat face. On a face with a hole (the rim of a shelled
+half) the band runs along the hole's edge, its outer corners rounded; on a
+face without one it runs inside its outline. `GROOVE` adds the clearance
+to both the width and the depth, so a lip made with the same numbers fits
+in it.
+
+**`WRAP`** needs a sketch on a plane parallel to the cylinder's axis. The
+sketch's direction across the axis becomes length round the cylinder (so a
+5 wide rectangle stays 5 wide on the surface) and the wrap starts where
+the sketch plane faces the cylinder. Keep a band shorter than the
+cylinder's circumference.
+

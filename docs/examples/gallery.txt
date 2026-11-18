@@ -32,3 +32,4 @@ cover_plate.cmd | Cover plate: chamfers, a hexagon window, a slot bent along an 
 cam_plate.cmd | Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges | TOP
 spline_handle.cmd | Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline | TOP
 sheet_bracket.cmd | Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances | ISO
+enclosure_halves.cmd | Ribs, lips and wrapping: an enclosure's two halves with a rib and a lip and groove, a gusset, a knob with wrapped grips | ISO
