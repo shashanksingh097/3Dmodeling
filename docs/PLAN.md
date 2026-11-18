@@ -834,9 +834,32 @@ Still open in the milestones already started, in the suggested order:
     drawn purple. Part 3 done: dynamic detail (`SCULPT ..., detail` splits
     the triangles near the stroke first, longest edge first) and a `REMESH`
     that keeps the mask. M7 is done; joining short edges is left for later.
-12. Release 0.3.0: everything from items 4 to 11 (model tree, part
-    documents, mesh bodies, implicit shapes, knife, sketch tools, ribbon,
-    drawings, themes, the assistant's own key and pointing, sculpting).
+12. Done: release 0.3.0 (published 2026-11-18): everything from items 4 to
+    11 (model tree, part documents, mesh bodies, implicit shapes, knife,
+    sketch tools, ribbon, drawings, themes, the assistant's own key and
+    pointing, sculpting).
+
+### After 0.3.0
+
+Proposed from what the milestone notes left open, about three items per
+pull request, in this order (the user can reorder or drop any):
+
+13. The rest of M8 (docs/M8-polish.md): a **help browser** built from the
+    command list (every command with its arguments, help and an example,
+    searchable, opening the form), **sizes on 2D drawings** (overall sizes
+    and hole diameters on `DRAWING` views), and **installers** (`.msi` for
+    Windows, `.dmg` for macOS) made by the release workflow.
+14. The assistant (docs/M9-copilot.md): the answer **streamed into the
+    panel** as it is written, the **conversation kept with the project**,
+    and **benchmark numbers** for a few models, published with a release.
+15. Leftovers: a sketch **offset of splines** and of chains that cross
+    themselves (docs/M3-sketch-tools-4.md), and the other half of dynamic
+    topology for sculpting: **joining squeezed edges** and adding detail
+    during the drag (docs/M7-sculpt.md).
+16. Bigger items to weigh first: **fitting smooth surfaces to meshes**
+    (scan to CAD, risk 6), **rebuilds on a worker thread** so the window
+    never freezes (risk 3), and the 1M-triangle sculpting goal.
+17. Release 0.4.0.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
