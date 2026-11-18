@@ -28,14 +28,16 @@ import asyncio
 import json
 import os
 import sys
+import re
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any
 
-from .tools import Toolbox
+from .tools import LANGUAGE_BASICS, Toolbox, command_catalogue
 
 SDK_HINT = 'The assistant needs the GitHub Copilot SDK and Python 3.11 or newer: pip install -e ".[ai]" in a checkout, or pip install "modeler3d[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"'
 DEVICE_URL = "https://github.com/login/device"
@@ -117,7 +119,20 @@ def runtime_dir() -> str:
 PLAINTEXT_ALLOW = "allow"
 FOLDER_PROMPT = """- The user's working folder is {0}. Put files from EXPORT and SAVE there and look
   for IMPORT and RUN files there, unless the user names another folder. Always write full paths.
+- list_files and read_file read that folder (scripts, notes, logs), but only after the user allows
+  it; when the user declines, do without and say what you would have looked at.
 """
+
+
+def first_prompt(home: str) -> str:
+    """The system message of every new chat: how to work, the folder, the
+    language in short and every command in one line."""
+    return (SYSTEM_PROMPT + FOLDER_PROMPT.format(home) + "\n" + LANGUAGE_BASICS
+            + "\nEvery command (arguments in [brackets] are optional; command_help gives the details and "
+              "examples):\n" + command_catalogue() + "\n")
+
+
+READ_LIMIT = 200_000  # bytes read_file returns at most
 
 
 class AssistantError(Exception):
@@ -202,6 +217,29 @@ class CopilotAssistant:
         self.client = None
         self.session = None
         self._reply: Reply | None = None
+        # everything sent and received, in order, for the panel's Debug tab
+        self.log: list[dict[str, Any]] = []
+        # ask_read(what, path) -> "once" | "chat" | "deny": may the assistant read this? (default: no)
+        self.ask_read: Callable[[str, str], str] = lambda what, path: "deny"
+        self._read_ok = False  # allowed for this chat
+
+    def _log(self, kind: str, **data: Any) -> dict[str, Any]:
+        entry = {"kind": kind, "time": time.time(), **data}
+        self.log.append(entry)
+        self.on_event("debug", entry)
+        return entry
+
+    async def new_chat(self) -> None:
+        """End the conversation; the next question starts a fresh one (with the
+        full first prompt again). The sign-in stays."""
+        if self.session is not None:
+            try:
+                await self.session.disconnect()
+            except Exception:  # noqa: BLE001 - starting over anyway
+                pass
+            self.session = None
+        self._read_ok = False
+        self._log("new_chat")
 
     # ---- runtime ---------------------------------------------------------------------
     async def start(self) -> None:
@@ -346,19 +384,28 @@ class CopilotAssistant:
                 self.on_event("tool", name)
                 if self._reply is not None:
                     self._reply.tools.append(name)
-                if name == "propose_commands":
-                    answer = self._propose(args)
-                elif name == "propose_edits":
-                    answer = await asyncio.to_thread(self.run_on_model, lambda: self._propose_edits(args))
-                else:
-                    answer = await asyncio.to_thread(self.run_on_model, lambda: self.toolbox.call(name, args))
+                self._log("tool_call", name=name, args=args)
+                t0 = time.perf_counter()
+                try:
+                    if name == "propose_commands":
+                        answer = self._propose(args)
+                    elif name == "propose_edits":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._propose_edits(args))
+                    elif name in ("read_file", "list_files"):
+                        answer = await asyncio.to_thread(self._files, name, args)
+                    else:
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self.toolbox.call(name, args))
+                except Exception as exc:  # noqa: BLE001 - the model hears about it, and so does the Debug tab
+                    answer = {"error": f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__}
                 text = json.dumps(answer, separators=(",", ":"), default=str)
+                self._log("tool_result", name=name, ok="error" not in answer, ms=(time.perf_counter() - t0) * 1000,
+                          result=text)
                 return ToolResult(text_result_for_llm=text,
                                   result_type="failure" if "error" in answer else "success")
             return handler
 
         tools = []
-        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS]:
+        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _LIST_FILES, _READ_FILE]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
         del cp
@@ -427,6 +474,50 @@ class CopilotAssistant:
         self.on_event("proposal", prop)
         return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies)}
 
+    # ---- files in the working folder, only with the user's say-so ---------------------------
+    def _inside(self, rel: str) -> str:
+        base = os.path.realpath(self.home or default_home())
+        path = os.path.realpath(os.path.join(base, rel or "."))
+        if os.path.commonpath([base, path]) != base:
+            raise AssistantError(f"{rel} is outside the working folder {base}")
+        return path
+
+    def _allowed(self, what: str, path: str) -> bool:
+        if self._read_ok:
+            return True
+        answer = self.run_on_model(lambda: self.ask_read(what, path))
+        self._log("permission", what=what, path=path, answer=answer)
+        if answer == "chat":
+            self._read_ok = True
+        return answer in ("once", "chat")
+
+    def _files(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            path = self._inside(str(args.get("path", "") or ""))
+        except AssistantError as exc:
+            return {"error": str(exc)}
+        if name == "list_files":
+            if not os.path.isdir(path):
+                return {"error": f"no folder {args.get('path', '')!r} in the working folder"}
+            if not self._allowed("list the files in", path):
+                return {"error": "the user did not allow it"}
+            rows = []
+            for entry in sorted(os.scandir(path), key=lambda e: (not e.is_dir(), e.name.lower()))[:500]:
+                rows.append(entry.name + "/" if entry.is_dir() else f"{entry.name} ({entry.stat().st_size} bytes)")
+            return {"folder": path, "entries": rows}
+        if not os.path.isfile(path):
+            return {"error": f"no file {args.get('path', '')!r} in the working folder"}
+        if not self._allowed("read", path):
+            return {"error": "the user did not allow it"}
+        with open(path, "rb") as f:
+            data = f.read(READ_LIMIT + 1)
+        if b"\0" in data[:4096]:
+            return {"error": "that is not a text file"}
+        out: dict[str, Any] = {"path": path, "text": data[:READ_LIMIT].decode("utf-8", errors="replace")}
+        if len(data) > READ_LIMIT:
+            out["cut"] = f"only the first {READ_LIMIT} bytes"
+        return out
+
     async def _session(self):
         if self.session is not None:
             return self.session
@@ -434,11 +525,15 @@ class CopilotAssistant:
         cp = _need_sdk()
         from copilot.session import PermissionHandler
 
+        system = first_prompt(self.home)
+        tools = self.sdk_tools()
+        self._log("system", text=system, tools=[t.name for t in tools], model=self.model or "auto")
+
         kwargs: dict[str, Any] = dict(
             on_permission_request=PermissionHandler.approve_all,  # only our own read-only tools exist
-            tools=self.sdk_tools(),
+            tools=tools,
             available_tools=cp.ToolSet().add_custom("*"),  # none of the runtime's coding tools
-            system_message={"mode": "replace", "content": SYSTEM_PROMPT + FOLDER_PROMPT.format(self.home)},
+            system_message={"mode": "replace", "content": system},
             streaming=True,
             client_name="3Dmodeling",
             working_directory=self.home,
@@ -461,6 +556,7 @@ class CopilotAssistant:
         if not status["signed_in"] and not self.github_token:
             raise AssistantError("not signed in to GitHub: sign in first")
         session = await self._session()
+        self._log("prompt", text=text)
         reply = Reply()
         self._reply = reply
         done = asyncio.Event()
@@ -475,6 +571,7 @@ class CopilotAssistant:
             elif isinstance(data, AssistantMessageData):
                 if data.content:
                     parts.append(data.content)
+                    self._log("reply", text=data.content)
                     self.on_event("message", data.content)
             elif isinstance(data, SessionErrorData):
                 reply.error = getattr(data, "message", "") or str(data)
@@ -496,6 +593,7 @@ class CopilotAssistant:
         reply.text = "\n\n".join(parts)
         if reply.error:
             reply.error = explain_error(reply.error)
+            self._log("error", text=reply.error)
         return reply
 
 
@@ -521,6 +619,66 @@ _PROPOSE_EDITS = {
             "entry": {"type": "integer"}, "text": {"type": "string"}}, "required": ["entry"]}},
         "summary": {"type": "string"}}, "required": ["edits"]},
 }
+
+
+_LIST_FILES = {
+    "name": "list_files",
+    "description": "List the files in the user's working folder (or a folder inside it: path). The user is asked "
+                   "first and may decline.",
+    "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+}
+
+
+_READ_FILE = {
+    "name": "read_file",
+    "description": "Read a text file (a script, notes, a log) in the user's working folder; path is relative to "
+                   "it. The user is asked first and may decline. At most 200 KB.",
+    "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+}
+
+
+def _pretty(value: Any) -> str:
+    """Indented JSON, but lists of plain numbers or words stay on one line ([20.0, 15.0, 0.0])."""
+    text = json.dumps(value, indent=2, ensure_ascii=False, default=str)
+    return re.sub(r"\[\s*((?:[-\w.\"]+,\s*)*[-\w.\"]+)\s*\]",
+                  lambda m: "[" + re.sub(r",\s+", ", ", m.group(1)) + "]", text)
+
+
+def format_log(log: list[dict[str, Any]]) -> str:
+    """The Debug tab's text: every entry of a conversation log, in order, easy to read."""
+    out = []
+    for e in log:
+        t = time.strftime("%H:%M:%S", time.localtime(e.get("time", 0)))
+        k = e.get("kind")
+        if k == "system":
+            out.append(f"[{t}] SYSTEM MESSAGE (model {e.get('model')}, {len(e.get('tools', []))} tools: "
+                       f"{', '.join(e.get('tools', []))})\n{e.get('text', '')}")
+        elif k == "prompt":
+            out.append(f"[{t}] YOU\n{e.get('text', '')}")
+        elif k == "tool_call":
+            out.append(f"[{t}] TOOL CALL {e.get('name')} "
+                       f"{json.dumps(e.get('args', {}), ensure_ascii=False, default=str)}")
+        elif k == "tool_result":
+            res = str(e.get("result", ""))
+            try:
+                res = _pretty(json.loads(res))
+            except ValueError:
+                pass
+            if len(res) > 20000:
+                res = res[:20000] + f"\n... ({len(res) - 20000} more characters)"
+            out.append(f"[{t}] TOOL RESULT {e.get('name')} ({'ok' if e.get('ok') else 'error'}, "
+                       f"{e.get('ms', 0):.0f} ms)\n{res}")
+        elif k == "reply":
+            out.append(f"[{t}] COPILOT\n{e.get('text', '')}")
+        elif k == "permission":
+            out.append(f"[{t}] ASKED TO {str(e.get('what', '')).upper()} {e.get('path')}: {e.get('answer')}")
+        elif k == "error":
+            out.append(f"[{t}] ERROR\n{e.get('text', '')}")
+        elif k == "new_chat":
+            out.append(f"[{t}] ---- NEW CHAT ----")
+        else:
+            out.append(f"[{t}] {str(k).upper()} {json.dumps({x: y for x, y in e.items() if x not in ('kind', 'time')}, default=str)}")
+    return "\n\n".join(out) + ("\n" if out else "")
 
 
 def explain_error(exc) -> str:
@@ -562,6 +720,9 @@ class AssistantThread:
 
     def quota(self) -> Future:
         return self.submit(self.assistant.quota())
+
+    def new_chat(self) -> Future:
+        return self.submit(self.assistant.new_chat())
 
     def close(self, wait: float = 5.0) -> None:
         try:

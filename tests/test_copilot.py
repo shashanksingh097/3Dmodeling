@@ -39,7 +39,7 @@ def plate():
 def test_every_modeler_tool_is_offered(plate):
     a = cp.CopilotAssistant(plate)
     names = [t.name for t in a.sdk_tools()]
-    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits"]
+    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "list_files", "read_file"]
     assert all(t.skip_permission for t in a.sdk_tools())  # read-only or sandboxed: no prompts
 
 
@@ -229,7 +229,7 @@ def test_runtime_registers_only_our_tools(plate, tmp_path):
 
     names = run(go())
     assert names == sorted([d["name"] for d in cp.CopilotAssistant(plate).toolbox.definitions()]
-                           + ["propose_commands", "propose_edits"])
+                           + ["propose_commands", "propose_edits", "list_files", "read_file"])
 
 
 # ---- changing what is there ---------------------------------------------------------------
@@ -338,3 +338,100 @@ def test_sign_in_data_folder_per_platform(tmp_path, monkeypatch):
     monkeypatch.setattr(cp.sys, "platform", "linux")
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "share"))
     assert cp.runtime_dir() == os.path.join(str(tmp_path / "share"), "3Dmodeling", "copilot")
+
+
+# ---- the first prompt, the Debug log, new chats, files ------------------------------------
+def test_first_prompt_carries_every_command():
+    from modeler.commands import REGISTRY
+    text = cp.first_prompt("/work")
+    assert "/work" in text and "Every command" in text
+    for name in REGISTRY:
+        assert f"\n{name}" in text or text.startswith(name), name
+    assert "`!` starts a comment" in text and "LAST is the newest body" in text  # the basics
+    assert len(text) < 40_000
+
+
+def test_the_log_records_tool_calls_and_results(plate):
+    seen = []
+    a = cp.CopilotAssistant(plate, on_event=lambda k, d: seen.append((k, d)))
+    tools = {t.name: t for t in a.sdk_tools()}
+    run(tools["describe_body"].handler(ToolInvocation(arguments={"body": "plate"})))
+    kinds = [e["kind"] for e in a.log]
+    assert kinds == ["tool_call", "tool_result"]
+    call, result = a.log
+    assert call["args"] == {"body": "plate"} and result["ok"] and result["ms"] >= 0
+    assert '"holes"' in result["result"]
+    assert [d for k, d in seen if k == "debug"] == a.log
+    text = cp.format_log(a.log)
+    assert "TOOL CALL describe_body" in text and "TOOL RESULT describe_body (ok" in text
+
+
+def test_ask_logs_the_system_message_prompt_and_reply(plate, monkeypatch):
+    events = [Ev(AssistantMessageData(content="One hole.", message_id="m1")), Ev(SessionIdleData())]
+    session = FakeSession(events=events)
+    a = _assistant(plate, session)
+
+    async def signed_in():
+        return {"signed_in": True, "login": "octo", "message": ""}
+
+    a.status = signed_in
+    run(a.ask("holes?"))
+    kinds = [e["kind"] for e in a.log]
+    assert kinds == ["prompt", "reply"]
+    a.session = session
+    run(a.new_chat())
+    assert session.disconnected and a.session is None
+    assert a.log[-1]["kind"] == "new_chat"
+    assert "NEW CHAT" in cp.format_log(a.log)
+
+
+def _files(plate, tmp_path, answers):
+    (tmp_path / "notes.txt").write_text("bolt circle 60 mm")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "blob.bin").write_bytes(b"\0\1\2")
+    a = cp.CopilotAssistant(plate, home=str(tmp_path))
+    asked = []
+
+    def ask(what, path):
+        asked.append((what, path))
+        return answers.pop(0) if answers else "deny"
+
+    a.ask_read = ask
+    return a, asked
+
+
+def test_reading_files_asks_first(plate, tmp_path):
+    a, asked = _files(plate, tmp_path, ["deny", "once", "once"])
+    assert "not allow" in a._files("read_file", {"path": "notes.txt"})["error"]
+    assert a._files("read_file", {"path": "notes.txt"})["text"] == "bolt circle 60 mm"
+    listing = a._files("list_files", {})
+    assert listing["entries"][0] == "sub/" and any(e.startswith("notes.txt") for e in listing["entries"])
+    assert len(asked) == 3
+    assert [e["answer"] for e in a.log if e["kind"] == "permission"] == ["deny", "once", "once"]
+
+
+def test_allow_for_this_chat_lasts_until_a_new_chat(plate, tmp_path):
+    a, asked = _files(plate, tmp_path, ["chat"])
+    assert "text" in a._files("read_file", {"path": "notes.txt"})
+    assert "entries" in a._files("list_files", {"path": "sub"})
+    assert len(asked) == 1
+    run(a.new_chat())
+    assert "error" in a._files("read_file", {"path": "notes.txt"})  # asked again, and the default is no
+    assert len(asked) == 2
+
+
+def test_files_stay_inside_the_working_folder(plate, tmp_path):
+    a, asked = _files(plate, tmp_path, ["chat"])
+    assert "outside" in a._files("read_file", {"path": "../secret.txt"})["error"]
+    assert "outside" in a._files("read_file", {"path": "/etc/passwd"})["error"]
+    assert "outside" in a._files("list_files", {"path": ".."})["error"]
+    assert "no file" in a._files("read_file", {"path": "missing.txt"})["error"]
+    assert asked == []  # refused before asking
+    assert "not a text file" in a._files("read_file", {"path": "blob.bin"})["error"]
+
+
+def test_file_tools_through_the_sdk(plate, tmp_path):
+    a, _ = _files(plate, tmp_path, ["once"])
+    tool = {t.name: t for t in a.sdk_tools()}["read_file"]
+    res = run(tool.handler(ToolInvocation(arguments={"path": "notes.txt"})))
+    assert res.result_type == "success" and "bolt circle" in res.text_result_for_llm

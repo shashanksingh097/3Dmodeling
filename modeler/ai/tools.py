@@ -400,3 +400,45 @@ def _type_name(t) -> str:
 
     return {float: "number", int: "integer", str: "keyword", Text: "text", Path: "file", Raw: "expression",
             BodyRef: "body"}.get(t, getattr(t, "__name__", str(t)))
+
+
+LANGUAGE_BASICS = """\
+The language in short:
+- One command per line: NAME, arg, arg, ... (`BLOCK, 0,0,0, 40,20,10`). Arguments are numbers, expressions
+  (`W/2 + 3`), keywords or quoted text. `!` starts a comment.
+- Parameters: `W = 40` makes a named number; change it and everything that uses it rebuilds. Expressions
+  use + - * / ^, functions (sin cos ... in degrees, sqrt, min, max) and queries such as VOL(b), BBOX(b).dz.
+- Bodies have IDs (1, 2, ...) and names (NAME); LAST is the newest body.
+- Selection: SEL, S/R/A/U, kind (FACE, EDGE, VERTEX, BODY), criterion... picks entities by a rule that
+  survives edits (LOC, NORMAL, RADIUS, TYPE ...); features such as FILLET and HOLE work on the selection.
+- Blocks: *DO, i, 1, 5 ... *ENDDO; *IF ... *ENDIF; *PART ... *ENDPART for reusable parts; *MACRO.
+- Sketches: SKETCH, name, plane ... S-commands (SLINE, SCIRCLE, SCON, SDIM ...) ... ENDSKETCH, then
+  EXTRUDE or REVOLVE.
+- History: every top-level line is a step. HIST, EDIT/INSERT/DELETE changes old steps; the model rebuilds.
+  Commands marked (not kept) run without being stored (queries, views, export).
+"""
+
+
+def command_catalogue() -> str:
+    """Every command in one line each: its arguments (optional ones in brackets)
+    and the first sentence of its help. Sent to the assistant once per chat."""
+    lines = []
+    for name in sorted(REGISTRY):
+        c = REGISTRY[name]
+        args = []
+        for a in c.args:
+            stem = a.name.rstrip("0123456789")
+            if stem != a.name and args and args[-1].strip("[]").rstrip("0123456789.") == stem:
+                if not args[-1].endswith("..."):
+                    args[-1] = args[-1].strip("[]") + "..."
+                continue  # v1, v2 ... v16: one entry
+            args.append(f"[{a.name}]" if a.default is not None else a.name)
+        head = name + (", " + ", ".join(args) if args else "")
+        first = c.help.split(" · ")[0].split(": ")[0].strip()
+        if ". " in first.replace("e.g. ", "e.g.\u00a0"):
+            first = first.replace("e.g. ", "e.g.\u00a0").split(". ")[0].replace("\u00a0", " ")
+        first = first.rstrip(".")
+        if len(first) > 110:
+            first = first[:107] + "..."
+        lines.append(f"{head} - {first}" + ("" if c.logged else " (not kept)"))
+    return "\n".join(lines)

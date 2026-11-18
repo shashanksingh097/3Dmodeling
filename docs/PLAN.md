@@ -803,7 +803,9 @@ Still open in the milestones already started, in the suggested order:
    in M8: dimensions on drawings, and installers (.msi, .dmg).
 10. The rest of M9c: "use your own key", picking for the assistant,
    pictures as a fallback, the benchmark of modelling requests, and these
-   improvements to the Assistant panel asked for by the user after 0.2.0:
+   improvements to the Assistant panel asked for by the user after 0.2.0
+   (the four below are done, docs/M9-copilot.md "Debug tab, first prompt,
+   files"):
    - A **Debug tab** in the Assistant panel that shows in detail what is
      going on: the exact prompt and system message sent, each tool call
      with its arguments, its JSON answer and how long it took, errors, and

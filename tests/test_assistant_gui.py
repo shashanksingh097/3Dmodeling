@@ -131,3 +131,54 @@ def test_working_folder_choices(win, tmp_path, monkeypatch):
     assert panel.working_folder() == (str(tmp_path / "proj"), "")
     assert panel._assistant().assistant.home == str(tmp_path / "proj")  # nothing starts until it is used
     panel.shutdown()
+
+
+def test_debug_tab_shows_everything(win, app, tmp_path):
+    panel = win.assistant_panel
+    assert [panel.tabs.tabText(i) for i in range(panel.tabs.count())] == ["Chat", "Debug"]
+    panel.clear_debug()
+    for e in ({"kind": "system", "time": 0, "text": "You are the assistant", "tools": ["model_summary"],
+               "model": "auto"},
+              {"kind": "prompt", "time": 0, "text": "holes?"},
+              {"kind": "tool_call", "time": 0, "name": "model_summary", "args": {}},
+              {"kind": "tool_result", "time": 0, "name": "model_summary", "ok": True, "ms": 12.0,
+               "result": '{"bodies":1}'},
+              {"kind": "reply", "time": 0, "text": "One body."}):
+        panel.event.emit("debug", e)
+    pump(app)
+    text = panel.debug_text.toPlainText()
+    assert "SYSTEM MESSAGE" in text and "TOOL CALL model_summary {}" in text and "12 ms" in text
+    assert '"bodies": 1' in text and "One body." in text
+    assert panel.debug_count.text() == "1 prompt(s), 1 tool call(s)"
+    panel.save_debug(str(tmp_path / "log.txt"))
+    assert "TOOL RESULT model_summary" in (tmp_path / "log.txt").read_text()
+    panel.copy_debug()
+    assert "One body." in QApplication.clipboard().text()
+    panel.clear_debug()
+    assert panel.debug_text.toPlainText() == ""
+
+
+def test_new_chat_clears_the_chat(win, app):
+    panel = win.assistant_panel
+    panel._say("you", "hello")
+    panel.show_proposal(cp.Proposal("CYL, 0,0,0, 1, 2", "a pin"))
+    panel.new_chat()
+    pump(app)
+    assert "hello" not in panel.transcript.toPlainText() and "New chat" in panel.transcript.toPlainText()
+    assert not panel.proposal_box.isVisibleTo(panel)
+
+
+@pytest.mark.parametrize("button,answer", [("Allow once", "once"), ("Allow for this chat", "chat"), ("Deny", "deny")])
+def test_read_permission_dialog(win, app, button, answer):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QMessageBox
+
+    panel = win.assistant_panel
+
+    def press():
+        box = next(w for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox) and w.isVisible())
+        next(b for b in box.buttons() if b.text() == button).click()
+
+    QTimer.singleShot(100, press)
+    assert panel.ask_read("read", "/work/notes.txt") == answer
+    assert "notes.txt" in panel.transcript.toPlainText()
