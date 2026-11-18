@@ -236,6 +236,7 @@ class OccViewport(QWidget):
         self._sculpt_mods = Qt.NoModifier
         self.sculpt_settings = None  # the Sculpt tab's Settings (brush, radius ...), set by the tab
         self._live = None  # the stroke being dragged (sculpt_tool.LiveStroke)
+        self._patch_ais = None  # on a big mesh: the moved triangles, drawn over the body while dragging
         self._topo = (None, None)  # (triangles array, its neighbour lists): kept while the triangles stay
         self._brush_ais = None  # the brush circle under the mouse
         self._mask_ais = None  # frozen areas, drawn dark over the body
@@ -426,7 +427,7 @@ class OccViewport(QWidget):
             self.context.RemoveAll(False)
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
-            self._brush_ais = self._mask_ais = None
+            self._brush_ais = self._mask_ais = self._patch_ais = None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -436,7 +437,7 @@ class OccViewport(QWidget):
             self.context.RemoveAll(False)
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
-            self._brush_ais = self._mask_ais = None
+            self._brush_ais = self._mask_ais = self._patch_ais = None
             self._ais.clear()
             self._datum_ais.clear()
             self._sketch_ais.clear()
@@ -1195,10 +1196,41 @@ class OccViewport(QWidget):
             return
         self._draw_brush(h, update=False)
         if live.add(h):
-            ais = self._ais.get(live.body)
-            if ais is not None:
-                ais.SetShape(live.preview())
-                self.context.Redisplay(ais, False)
+            if len(live.tris) >= live.BIG:
+                self._draw_patch(live.patch(), live.body)
+            else:
+                ais = self._ais.get(live.body)
+                if ais is not None:
+                    ais.SetShape(live.preview())
+                    self.context.Redisplay(ais, False)
+        self.context.UpdateCurrentViewer()
+
+    def _draw_patch(self, shape, bid: int | None = None) -> None:
+        """The moved part of a big mesh, drawn in front of the body (None removes it)."""
+        ctx = self.context
+        if self._patch_ais is not None:
+            ctx.Remove(self._patch_ais, False)
+            self._patch_ais = None
+        if shape is None:
+            return
+        ais = AIS_Shape(shape)
+        ais.SetMaterial(Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial.Graphic3d_NameOfMaterial_Steel))
+        col = self.model.display_color(bid) if bid in self.model.bodies else None
+        ais.SetColor(_rgb(*(col or (0.62, 0.66, 0.72))))
+        ctx.Display(ais, 1, -1, False)
+        ctx.Deactivate(ais)
+        _on_top(ctx, ais)
+        self._patch_ais = ais
+
+    def _end_live(self, live) -> None:
+        """The drag is over: take the preview away when the body did not change (Esc, a failed command)."""
+        self._draw_patch(None)
+        body = self.model.bodies.get(live.body)
+        ais = self._ais.get(live.body)
+        if live.changed and body is not None and ais is not None and body.shape.IsSame(live.shape) \
+                and not ais.Shape().IsSame(live.shape):
+            ais.SetShape(live.shape)
+            self.context.Redisplay(ais, False)
         self.context.UpdateCurrentViewer()
 
     def _brush_hover(self, x: int, y: int) -> None:
@@ -1320,14 +1352,10 @@ class OccViewport(QWidget):
         if live is not None:
             if len(live.hits) == 0:
                 self.sketch_hover.emit(f"Sculpt: the stroke missed body {live.body}")
+                self._end_live(live)
                 return
             self.sculpt_stroke.emit(live.body, np.vstack(live.hits), self._sculpt_mods)
-            body = self.model.bodies.get(live.body)
-            ais = self._ais.get(live.body)
-            if live.changed and body is not None and ais is not None and body.shape.IsSame(live.shape):
-                ais.SetShape(live.shape)  # the command failed: show the body as it is
-                self.context.Redisplay(ais, False)
-                self.context.UpdateCurrentViewer()
+            self._end_live(live)
             return
         body = self._sculpt_target(px)
         if body is None:
@@ -1647,10 +1675,7 @@ class OccViewport(QWidget):
     def keyPressEvent(self, e) -> None:
         if self._drag == "sculpt" and e.key() == Qt.Key_Escape and self._live is not None:
             live, self._live = self._live, None
-            ais = self._ais.get(live.body)
-            if ais is not None and live.changed:
-                ais.SetShape(live.shape)
-                self.context.Redisplay(ais, False)
+            self._end_live(live)
         if self._drag in ("knife", "sculpt") and e.key() == Qt.Key_Escape:
             self._drag, self._press, self._knife_px = "", None, []
             self._draw_knife()
