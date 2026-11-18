@@ -286,6 +286,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
+| Gravity | `GRAVITY [, ground, fastened, dx, dy, dz, gap]` · `GRAVITY, OFF` (does the assembly stand up, section 39) |
+| Making | `PRINTCHECK, b [, up/BEST, angle, wall]` · `MILL, b, FACE/POCKET/OUTLINE, faces [, tool, down, over, file.nc, feed, speed]` · `MILL, OFF` (3D printing checks and milling paths, section 38) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2787,3 +2789,103 @@ than peak stress. Curved faces become steps of cells, so treat stress right
 at a curved surface as rough.
 
 An example is `scripts/bracket_strength.cmd`.
+
+## 38. Making it: 3D printing checks and milling paths
+
+### Ready to print?
+
+```
+PRINTCHECK, hook                  ! built along +Z, 45 degree overhangs, 0.8 walls
+PRINTCHECK, hook, BEST            ! tries +X, -X, +Y, -Y, +Z, -Z and uses the one needing least support
+PRINTCHECK, hook, -Y, 50, 1.2     ! built along -Y, the printer manages 50 degrees, walls of 1.2
+ANALYZE, OFF                      ! ends the colours
+```
+
+`PRINTCHECK` looks at the part the way a slicer will, and says:
+
+- **bed**: how much flat face sits on the bed. A part that touches only at
+  a point or an edge (a ball, a cylinder on its side) needs a flat or a
+  brim.
+- **overhangs**: the area facing down steeper than `angle` from vertical
+  (45 by default), which needs support, with its faces and the height of
+  the lowest one. A flat roof over a gap counts too, even though a short one
+  often bridges.
+- **walls**: places thinner than `wall` (about two nozzle widths; 0 skips
+  this), measured as `THICK` does.
+- **hollows**: closed spaces inside the part. Resin or powder stays trapped
+  in them, so add a drain hole.
+
+The part is coloured: blue sits on the bed, red needs support, the rest is
+green. `up` is the build direction, from the bed upwards: `+Z`, `-X` and so
+on, three numbers, or `BEST`, which lists all six directions and checks the
+best one.
+
+### Milling paths
+
+```
+MILL, plate, POCKET, floor, 6, 4              ! clear down to the floor faces, 6 mm end mill, 4 mm a cut
+MILL, plate, OUTLINE, bottom, 6, 3, , part.nc  ! cut the part out of a plate, and write G-code
+MILL, plate, FACE, top, 20                     ! flatten the top with a 20 mm cutter
+MILL, OFF                                      ! hides the path
+```
+
+`MILL` makes 2.5D paths for a flat end mill coming down along Z. The faces
+must be flat and face up (`OUTLINE` also takes a face facing down, such as
+the bottom).
+
+| op | what it cuts |
+|---|---|
+| `POCKET` | down to a floor face from the top of the part, in rings from the middle out to the wall, the last ring a tool radius off the wall; islands (the floor's holes) are cut around |
+| `OUTLINE` | around the face's outline, with the tool outside the part, and inside its holes, from the top down to the bottom of the part. Holes smaller than the tool are left and listed |
+| `FACE` | zig-zag passes along X over the face, grown by the tool radius |
+
+`tool` is the diameter (6). `down` is the most each cut goes down (half the
+tool); the depth is split into equal cuts. `over` is the step between
+passes (40% of the tool), and it cannot be wider than the tool. `feed` is in
+mm/min (600; plunges go at a third of it), and `speed` is the spindle in rpm
+(10000).
+
+The path's centre line shows in the view in cyan. The message gives the
+number of passes, the cutting length, the time at the feed and how far the
+tool goes. With a file name, the G-code (mm, absolute, G0/G1 moves only) is
+written. Coordinates are the part's own, so set the machine's zero where the
+part's zero is, and run the file in your machine's simulator before
+cutting. The tool lifts to 2 mm above the part (or a tool radius) between
+passes.
+
+Examples are `scripts/print_check.cmd` and `scripts/milled_plate.cmd`.
+
+## 39. Will it stand up? (gravity and connections)
+
+`GRAVITY` checks every shown solid of an assembly under gravity. It looks at
+how the parts touch and where their centres of mass are, so it is quick,
+but it does not work out forces or bending (that is `STRESS`, part by part).
+
+```
+GRAVITY                            ! on a floor under the lowest part, gravity along -Z
+GRAVITY, base                      ! base stays put instead of a floor
+GRAVITY, FLOOR, "bolt_1 shelf"     ! these are bolted, glued or welded to what they touch
+GRAVITY, FLOOR, , 0, -1, 0         ! gravity along -Y
+GRAVITY, OFF                       ! clears the marks
+```
+
+For each part it says one of these:
+
+| | |
+|---|---|
+| rests on ... | it sits on the parts named (or the floor). Its centre of mass, seen from above, is inside the outline of the places they hold it from below, by the margin given |
+| TIPS off ... | its centre of mass is outside that outline (or it is balanced on an edge or a point), so it falls off |
+| FLOATS | no chain of touching parts links it to the ground: it would fall |
+| held only at its sides | it touches others, but nothing is under it: it needs a fastener, or list it as fastened |
+| held | it is listed as fastened, or it cuts into a neighbour (a press fit) |
+
+It also lists **gaps**: parts closer than `gap` (0.5% of the assembly's size
+unless given) that do not touch, which were probably meant to. It lists
+**overlaps**: parts that cut into each other. With the floor, it gives **the
+whole on the floor**: whether the centre of mass of all the parts is inside
+the footprint, and how far the assembly can lean before it tips.
+
+Masses come from each body's `MATERIAL` (water's density for a body with
+none). Parts with problems are marked in the view.
+
+An example is `scripts/gravity_check.cmd`.

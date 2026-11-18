@@ -329,6 +329,21 @@ from the part's material. It is a quick check while you design, not a full
 analysis. Details: LANGUAGE.md section 37; an example is
 `scripts/bracket_strength.cmd`.
 
+**Will it stand up?** **Gravity** on the Inspect tab checks the whole
+assembly: parts that float, tip off what they rest on, or are held only at
+their sides, small gaps where parts should touch, overlaps, and how far it
+can lean before it tips over. Problem parts are marked. List the bolted or
+glued parts so they count as held. Details: LANGUAGE.md section 39; an
+example is `scripts/gravity_check.cmd`.
+
+**3D printing and milling.** **Print check** on the Inspect tab colours the
+part: blue sits on the bed, red overhangs and needs support. It also lists
+thin walls and closed hollows, and can pick the build direction that needs
+least support. **Mill** makes milling paths for a flat end mill from flat
+faces: pockets, outlines and facing. The path shows in the view, and with a
+file name the G-code is written. Details: LANGUAGE.md section 38; examples
+are `scripts/print_check.cmd` and `scripts/milled_plate.cmd`.
+
 **Ribs, lips and wrapping.** **Rib** (command `RIB`) turns an open sketch
 line into a thin wall that runs down to the part: draw the line where the
 rib's top edge goes, in a sketch square to the walls. **Lip** keys the two

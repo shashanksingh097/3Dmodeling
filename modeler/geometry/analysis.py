@@ -415,6 +415,10 @@ def colours(m: Mesh, mode: str, d=(0.0, 0.0, 1.0), min_deg: float = 1.0, stripes
     if mode == "STRESS":  # a strength check's von Mises: blue (none) to red (scale); magenta past it
         v = np.asarray(field.at(m.nodes), float) / max(scale, 1e-30)
         return rainbow(v)
+    if mode == "PRINT":  # PRINTCHECK: d is the build direction, min_deg the overhang limit
+        from . import printing
+
+        return printing.colours(m, d, min_deg)
     if mode == "ZEBRA":
         e = np.asarray(d, float)
         e = e / np.linalg.norm(e)

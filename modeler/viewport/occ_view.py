@@ -220,6 +220,7 @@ class OccViewport(QWidget):
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
         self._preview_ais: list = []  # what a sketch tool is drawing
         self._mark_ais: list = []  # what the assistant points at (set_marks)
+        self._path_ais = None  # MILL's milling path (show_toolpath)
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
@@ -434,6 +435,7 @@ class OccViewport(QWidget):
             self._sketch_ais.clear()
             self._preview_ais.clear()
             self._mark_ais.clear()
+            self._path_ais = None
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._cp_ais.clear()
@@ -444,6 +446,7 @@ class OccViewport(QWidget):
             self._sketch_ais.clear()
             self._preview_ais.clear()
             self._mark_ais.clear()
+            self._path_ais = None
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
             self._show_datums()
@@ -867,6 +870,30 @@ class OccViewport(QWidget):
             ctx.Display(ais, 1, -1, False)  # shaded, not pickable
             ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
             self._mark_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
+    def show_toolpath(self, shape) -> None:
+        """Draw a milling path (MILL) as thin cyan lines over the model; None hides it."""
+        if not self._initialized:
+            return
+        ctx = self.context
+        if self._path_ais is not None:
+            ctx.Remove(self._path_ais, False)
+            self._path_ais = None
+        if shape is not None:
+            from OCP.Prs3d import Prs3d_LineAspect
+            from OCP.Aspect import Aspect_TOL_SOLID
+
+            cyan = _rgb(0.1, 0.85, 0.95)
+            ais = AIS_Shape(shape)
+            asp = Prs3d_LineAspect(cyan, Aspect_TOL_SOLID, 1.5)
+            for setter in ("SetWireAspect", "SetFreeBoundaryAspect", "SetLineAspect"):
+                getattr(ais.Attributes(), setter)(asp)
+            ais.SetColor(cyan)
+            ctx.Display(ais, 0, -1, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._path_ais = ais
         ctx.UpdateCurrentViewer()
 
     def set_preview(self, pv) -> None:

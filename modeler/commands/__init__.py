@@ -35,3 +35,6 @@ from . import scan_handlers  # noqa: F401  (SEGMENT, RECONSTRUCT: scan to CAD fo
 from . import xview_handlers  # noqa: F401  (XSTEP, XSHOW: exploded views)
 from . import frame_handlers  # noqa: F401  (MEMBER, CUTLIST: frames and weldments)
 from . import stress_handlers  # noqa: F401  (STRESS: a first strength check)
+from . import print_handlers  # noqa: F401  (PRINTCHECK: ready to 3D print?)
+from . import mill_handlers  # noqa: F401  (MILL: 2.5D milling paths and G-code)
+from . import gravity_handlers  # noqa: F401  (GRAVITY: does the assembly stand up?)

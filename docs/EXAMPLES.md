@@ -57,6 +57,9 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
 | [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) |
 | [<img src="examples/bracket_strength.png" width="160">](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) | [A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) |
+| [<img src="examples/print_check.png" width="160">](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) | [Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) |
+| [<img src="examples/milled_plate.png" width="160">](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) | [2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) |
+| [<img src="examples/gravity_check.png" width="160">](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) | [Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) |
 
 ---
 
@@ -2448,6 +2451,124 @@ CM, tip, FACE
 SEL, NONE
 STRESS, bracket, wall, tip, FORCE, 0, 0, -400
 FIT
+```
+
+</details>
+
+---
+
+## Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)
+
+![Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)](examples/print_check.png)
+
+Ready to 3D print? (PRINTCHECK): a wall hook with a cable hole through its back and an arm sticking out. Built standing up (+Z), the arm's underside and the top of the hole hang over more than 45 degrees and are coloured red (they need support); blue sits on the bed. PRINTCHECK, hook, BEST tries the six directions: on its side (+X) only the top of the hole needs support.
+
+**Script:** [scripts/print_check.cmd](../scripts/print_check.cmd) (13 lines) · **Run:** `python -m modeler scripts/print_check.cmd`
+
+**You should get:** 1 body, volume 32,011.7 mm³, 13 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Ready to 3D print? (PRINTCHECK): a wall hook with a cable hole through its back and an arm
+! sticking out. Built standing up (+Z), the arm's underside and the top of the hole hang
+! over more than 45 degrees and are coloured red (they need support); blue sits on the bed.
+! PRINTCHECK, hook, BEST tries the six directions: on its side (+X) only the top of the hole needs support.
+BLOCK, 0, 0, 0, 40, 8, 60
+NAME, LAST, hook
+BLOCK, 0, 0, 44, 40, 40, 8
+UNION, hook, LAST
+BLOCK, 0, 32, 52, 40, 8, 10
+UNION, hook, LAST
+CYL, 20, -1, 20, 5, 10, 0, 1, 0
+SUBTRACT, hook, LAST
+PRINTCHECK, hook
+```
+
+</details>
+
+---
+
+## 2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)
+
+![2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)](examples/milled_plate.png)
+
+2.5D milling (MILL): a plate with a pocket around a round boss and two bolt holes. The pocket is cleared down to its floor in rings, from the middle out to the wall, 4 mm a cut with a 6 mm end mill; MILL, ..., file.nc writes the G-code. The cyan lines are the tool's centre.
+
+**Script:** [scripts/milled_plate.cmd](../scripts/milled_plate.cmd) (17 lines) · **Run:** `python -m modeler scripts/milled_plate.cmd`
+
+**You should get:** 1 body, volume 60,154.6 mm³, 15 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! 2.5D milling (MILL): a plate with a pocket around a round boss and two bolt holes. The pocket
+! is cleared down to its floor in rings, from the middle out to the wall, 4 mm a cut with a 6 mm
+! end mill; MILL, ..., file.nc writes the G-code. The cyan lines are the tool's centre.
+BLOCK, 0, 0, 0, 80, 60, 16
+NAME, LAST, plate
+BLOCK, 12, 12, 6, 48, 36, 20
+SUBTRACT, plate, LAST
+CYL, 36, 30, 6, 7, 10
+UNION, plate, LAST
+CYL, 70, 10, -1, 3, 20
+SUBTRACT, plate, LAST
+CYL, 70, 50, -1, 3, 20
+SUBTRACT, plate, LAST
+SEL, S, FACE, LOC, Z, 6
+CM, floor, FACE
+SEL, NONE
+MILL, plate, POCKET, floor, 6, 4
+```
+
+</details>
+
+---
+
+## Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)
+
+![Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](examples/gravity_check.png)
+
+Will it stand up? (GRAVITY): a small table on four legs with things on it. The vase stands well, the book hangs too far over the edge and tips off, the lamp shade was drawn 0.4 above its stand (a gap: it floats), and the side shelf touches only the table's side, so it needs fasteners unless it is listed as fastened. Problem parts are marked in the view.
+
+**Script:** [scripts/gravity_check.cmd](../scripts/gravity_check.cmd) (31 lines) · **Run:** `python -m modeler scripts/gravity_check.cmd`
+
+**You should get:** 10 bodies, volume 43,705.5 mm³, 51 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Will it stand up? (GRAVITY): a small table on four legs with things on it. The vase stands
+! well, the book hangs too far over the edge and tips off, the lamp shade was drawn 0.4 above
+! its stand (a gap: it floats), and the side shelf touches only the table's side, so it needs
+! fasteners unless it is listed as fastened. Problem parts are marked in the view.
+BLOCK, 0, 0, 0, 6, 6, 70
+NAME, LAST, leg1
+BLOCK, 94, 0, 0, 6, 6, 70
+NAME, LAST, leg2
+BLOCK, 0, 54, 0, 6, 6, 70
+NAME, LAST, leg3
+BLOCK, 94, 54, 0, 6, 6, 70
+NAME, LAST, leg4
+BLOCK, 0, 0, 70, 100, 60, 4
+NAME, LAST, top
+MATERIAL, leg1, WOOD
+MATERIAL, leg2, WOOD
+MATERIAL, leg3, WOOD
+MATERIAL, leg4, WOOD
+MATERIAL, top, WOOD
+CYL, 25, 30, 74, 6, 20
+NAME, LAST, vase
+MATERIAL, vase, GLASS
+BLOCK, 88, 20, 74, 30, 20, 4
+NAME, LAST, book
+CYL, 60, 40, 74, 4, 25
+NAME, LAST, stand
+CONE, 60, 40, 99.4, 10, 4, 8
+NAME, LAST, shade
+BLOCK, 100, 10, 68, 15, 40, 4
+NAME, LAST, shelf
+GRAVITY
 ```
 
 </details>

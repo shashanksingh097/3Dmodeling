@@ -779,8 +779,23 @@ class MainWindow(QMainWindow):
                                                    "the stress as colours with the largest stress, deflection and "
                                                    "safety factor\nRuns: STRESS, body, fixed faces, loaded faces, "
                                                    "FORCE, fx, fy, fz", lambda: self.open_form("STRESS"))
+        tbs.action(self, tb, "Gravity…", "gravity", "Will the assembly stand up? Floating parts, parts that tip off "
+                                                  "what they rest on or hang only at their sides, small gaps, "
+                                                  "overlaps, and the whole on the floor\n"
+                                                  "Runs: GRAVITY [, ground, fastened parts]",
+                   lambda: self.open_form("GRAVITY"))
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+
+        tb = tbs.group(self, "Make", "printer", "Inspect")
+        tbs.action(self, tb, "Print check…", "printer", "Ready to 3D print? What sits on the bed, what overhangs "
+                                                        "and needs support, thin walls and closed hollows\n"
+                                                        "Runs: PRINTCHECK, body, up, angle, wall",
+                   lambda: self.open_form("PRINTCHECK"))
+        tbs.action(self, tb, "Mill…", "mill", "2.5D milling paths from flat faces (facing, pockets, outlines), "
+                                             "shown in the view and written as G-code\n"
+                                             "Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down",
+                   lambda: self.open_form("MILL"))
 
     def build_view_menu(self) -> None:
         """View > Toolbar buttons (icons and names, icons only ...), Collapse ribbon and Ribbon tab."""
