@@ -715,6 +715,16 @@ class MainWindow(QMainWindow):
         act(tb, "Delete faces", "delface", "Remove the selected faces and close the gap (a hole, boss or fillet goes "
                                            "away)\nRuns: DELFACE", lambda: fa.faces_selected(p, "DELFACE", None))
 
+        tb = tbs.group(self, "Sheet metal", "sheetmetal", "Features")
+        tbs.action(self, tb, "Sheet…", "sm_sheet", "Start a sheet metal part: a plate of one thickness from a sketch\n"
+                                                  "Runs: SHEET, sketch, t [, bend radius, K-factor]",
+                   lambda: self.open_form("SHEET"))
+        tbs.action(self, tb, "Flange…", "sm_flange", "Bend a wall along the picked edges of the plate (a top-face edge "
+                                                    "bends up, a bottom-face edge down)\nRuns: FLANGE, , length, angle",
+                   lambda: self.open_form("FLANGE"))
+        tbs.action(self, tb, "Unfold…", "sm_unfold", "Lay the part flat: the blank as a body, and a DXF to cut it from\n"
+                                                    "Runs: UNFOLD, body [, file.dxf]", lambda: self.open_form("UNFOLD"))
+
         tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
                                              "move it (press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",

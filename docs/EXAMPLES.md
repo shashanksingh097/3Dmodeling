@@ -50,6 +50,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/cover_plate.png" width="160">](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) | [Cover plate: chamfers, a hexagon window, a slot bent along an arc, a copied hole](#cover-plate-chamfers-a-hexagon-window-a-slot-bent-along-an-arc-a-copied-hole) |
 | [<img src="examples/cam_plate.png" width="160">](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) | [Cam plate: an elliptical outline, a slot along a curved path, an elliptical window, a hole touching two edges](#cam-plate-an-elliptical-outline-a-slot-along-a-curved-path-an-elliptical-window-a-hole-touching-two-edges) |
 | [<img src="examples/spline_handle.png" width="160">](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) | [Handle: a stepped edge joined into one spline, a nose spline extended to the base, a fillet between a line and a spline](#handle-a-stepped-edge-joined-into-one-spline-a-nose-spline-extended-to-the-base-a-fillet-between-a-line-and-a-spline) |
+| [<img src="examples/sheet_bracket.png" width="160">](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) | [Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](#sheet-metal-bracket-flanges-bent-up-and-down-at-three-angles-and-its-flat-blank-with-the-bend-allowances) |
 
 ---
 
@@ -2097,6 +2098,52 @@ SFILLET, 2.E, 3                          ! round the top left corner (line and s
 SCIRCLE, 12, 5, 2.5                      ! a hole for a lanyard
 ENDSKETCH
 EXTRUDE, handle, 8
+```
+
+</details>
+
+---
+
+## Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances
+
+![Sheet metal bracket: flanges bent up and down at three angles, and its flat blank with the bend allowances](examples/sheet_bracket.png)
+
+Sheet metal (SHEET, FLANGE, UNFOLD): a bent bracket and its flat blank (docs/sheet-metal.md).
+
+**Script:** [scripts/sheet_bracket.cmd](../scripts/sheet_bracket.cmd) (27 lines) · **Run:** `python -m modeler scripts/sheet_bracket.cmd`
+
+**You should get:** 2 bodies, volume 21,922.0 mm³, 42 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Sheet metal (SHEET, FLANGE, UNFOLD): a bent bracket and its flat blank (docs/sheet-metal.md).
+W = 60
+D = 40
+T = 2
+SKETCH, base, XY
+SRECT, 0, 0, W, D
+SCIRCLE, W/2, D/2, 6
+SSLOT, 12, 10, 12, 30, 2.5
+ENDSKETCH
+! a 2 mm plate, bend radius 2, K-factor 0.44
+SHEET, base, T, 2
+NAME, LAST, bracket
+! the front edge of the top face bends up 90 degrees, 25 long
+SEL, S, EDGE, AT, W/2, 0, T
+FLANGE, , 25
+! the right edge of the bottom face bends down 45 degrees
+SEL, S, EDGE, AT, W, D/2, 0
+FLANGE, , 15, 45
+! the back edge bends up a lip, 120 degrees, tighter radius
+SEL, S, EDGE, AT, W/2, D, T
+FLANGE, , 10, 120, 1
+SEL, NONE
+SHEETINFO, bracket
+! the flat blank beside it (UNFOLD, bracket, blank.dxf also writes the DXF to cut)
+UNFOLD, bracket
+NAME, LAST, blank
+FIT
 ```
 
 </details>
