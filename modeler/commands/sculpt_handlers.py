@@ -80,25 +80,44 @@ def stroke_cmd(p: Processor, name, points):
     Arg("strength", help="how far one dab moves, -1 to 1 as a part of the radius (negative: the other way)"),
     Arg("stroke", Text, help="a stroke name (S1) or the points in quotes"),
     Arg("sym", str, "", "mirror the stroke in x = 0, y = 0 and/or z = 0: X, Y, Z, XY ..."),
-    help="Run one sculpt brush stroke over a mesh body: SCULPT, b, brush, radius, strength, stroke [, sym]. "
+    Arg("detail", float, 0.0, "first split the triangles near the stroke until no edge there is longer than "
+                              "this, so the brush has enough points to shape (0: keep the triangles)"),
+    help="Run one sculpt brush stroke over a mesh body: SCULPT, b, brush, radius, strength, stroke [, sym "
+         "[, detail]]. "
          "Brushes: DRAW (raise along the surface), CLAY (build up flat layers), INFLATE, SMOOTH, FLATTEN, "
          "PINCH, CREASE (a sharp groove), GRAB (move what is under the first point to the last). A masked "
          "region (MASK) does not move. TOMESH a solid first; REMESH it so there are enough points to move.",
 )
-def sculpt_cmd(p: Processor, b, brush, radius, strength, stroke, sym):
+def sculpt_cmd(p: Processor, b, brush, radius, strength, stroke, sym, detail):
     pts, t = _need_mesh(p, b, "SCULPT")
     path = _stroke_points(p, stroke, "SCULPT")
     mask = p.model.masks.get(b)
+    if mask is not None and len(mask) != len(pts):
+        mask = None
+    added = 0
     try:
+        if detail < 0:
+            raise sc.SculptError("the detail size is 0 (off) or more")
+        if detail > 0:
+            if float(radius) / detail > 200:
+                raise sc.SculptError(f"a detail of {fmt_num(detail)} is too fine for a radius of {fmt_num(radius)} "
+                                     f"(use at least {fmt_num(float(radius) / 200)})")
+            centres = sc.resample(path, float(radius) * sc.SPACING)
+            centres = np.vstack([centres * s for s in sc._mirrors(sym)])
+            pts, t, mask, added = sc.refine_near(pts, t, detail, centres, float(radius) * 1.25, mask)
+            if len(t) > mb.MAX_MESH_BODY_TRIANGLES:
+                raise sc.SculptError(f"that makes {len(t):,} triangles, more than {mb.MAX_MESH_BODY_TRIANGLES:,}; "
+                                     f"use a larger detail size")
         new, rep = sc.stroke(pts, t, brush, float(radius), float(strength), path, sym, mask)
     except sc.SculptError as exc:
         raise CommandError(f"SCULPT: {exc}") from None
     if rep.moved == 0:
         raise CommandError(f"SCULPT: the stroke is not near body {b} (no point within {fmt_num(radius)} of it)")
-    msg = _swap(p, b, new, t, f"SCULPT {brush.upper()} on body {b}", moved_only=True)
+    msg = _swap(p, b, new, t, f"SCULPT {brush.upper()} on body {b}", moved_only=not added)
     if mask is not None and len(mask) == len(new):
-        p.model.masks[b] = mask  # the same points: the mask still fits
-    return f"{msg}; {rep.moved:,} points moved (at most {fmt_num(round(rep.largest, 4))}), {rep.dabs} dabs"
+        p.model.masks[b] = mask  # the same points (or the new ones given their edge's mask): it still fits
+    more = f", {added:,} points added for detail" if added else ""
+    return f"{msg}; {rep.moved:,} points moved (at most {fmt_num(round(rep.largest, 4))}), {rep.dabs} dabs{more}"
 
 
 @command(

@@ -10,9 +10,9 @@ SCULPT, head, CLAY, 4, 0.8, S1, X
 ! the nose
 STROKE, S2, "0,-20,-2  0,-20,0  0,-20,2"
 SCULPT, head, INFLATE, 4, 0.9, S2
-! the mouth
+! the mouth (detail 0.25: the triangles there are split first, so the crease is sharp)
 STROKE, S3, "2,-18,-8  4,-18,-8.4  6,-18,-8.9  9,-18,-9.5"
-SCULPT, head, CREASE, 2.5, 0.6, S3, X
+SCULPT, head, CREASE, 2.5, 0.6, S3, X, 0.25
 ! keep the brows, then dig the eye sockets
 MASK, head, PAINT, 0, 0, 0, 4, 1, S1
 STROKE, S4, "6,-16,2  7.5,-16,2  9,-16,2"

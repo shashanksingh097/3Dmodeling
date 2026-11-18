@@ -18,6 +18,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - A stroke on a mesh of 820,000 triangles takes about half a second.
 - The surface moves while you drag, a circle shows the brush's size on the
   surface under the mouse, and frozen areas are drawn purple.
+- **Detail** on the Sculpt tab (`SCULPT ..., detail`): the triangles near
+  each stroke are split first, so creases and fine ridges come out sharp.
+  `REMESH` keeps the sculpt mask.
 
 ### The assistant: Debug tab, every command up front, files with permission
 

@@ -229,14 +229,26 @@ def remesh(p: Processor, b, length):
     if size / length > 2000:
         raise CommandError(f"REMESH: {fmt_num(length)} is too fine for a body {fmt_num(size)} across "
                            f"(it would make millions of triangles); use at least {fmt_num(size / 2000)}")
+    mask = p.model.masks.get(b)
+    if mask is not None and len(mask) != len(pts):
+        mask = None
     try:
-        new_pts, new_t = mb.refine(pts, t, length)
+        if mask is None:
+            new_pts, new_t = mb.refine(pts, t, length)
+        else:  # split edges in place, so the points keep their order and the sculpt mask still fits
+            from ..geometry import sculpt as sc
+
+            new_pts, new_t, mask, _ = sc.refine_near(pts, t, length, None, 0.0, mask, passes=30, relax=0)
     except mb.MeshError as exc:
         raise CommandError(f"REMESH: {exc}") from None
     if len(new_t) > mb.MAX_MESH_BODY_TRIANGLES:
         raise CommandError(f"REMESH: that makes {len(new_t):,} triangles, more than "
                            f"{mb.MAX_MESH_BODY_TRIANGLES:,}; use a longer length")
-    return _swap(p, b, new_pts, new_t, f"REMESH body {b} to edges of at most {fmt_num(length)}")
+    msg = _swap(p, b, new_pts, new_t, f"REMESH body {b} to edges of at most {fmt_num(length)}")
+    if mask is not None:
+        p.model.masks[b] = mask
+        msg += "; the sculpt mask is kept"
+    return msg
 
 
 @command(

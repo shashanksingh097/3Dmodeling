@@ -43,6 +43,7 @@ class Settings:
     radius: float = 3.0
     strength: float = 0.5
     sym: set = field(default_factory=set)
+    detail: float = 0.0  # 0: keep the triangles; more: split edges near the stroke down to this length
 
 
 # ---- where the mouse ray meets a mesh ----------------------------------------------------------
@@ -108,7 +109,10 @@ def stroke_command(p, body: int, points, s: Settings, invert: bool = False, smoo
         return f"MASK, {body}, {'ERASE' if invert else 'PAINT'}, 0, 0, 0, {r}, 1, {name}"
     brush, strength = brush_for(s, invert, smooth)
     sym = "".join(a for a in "XYZ" if a in s.sym)
-    return f"SCULPT, {body}, {brush}, {r}, {fmt_num(round(strength, 4))}, {name}" + (f", {sym}" if sym else "")
+    text = f"SCULPT, {body}, {brush}, {r}, {fmt_num(round(strength, 4))}, {name}"
+    if s.detail > 0:
+        return text + f", {sym}, {fmt_num(round(s.detail, 4))}"
+    return text + (f", {sym}" if sym else "")
 
 
 def brush_for(s: Settings, invert: bool = False, smooth: bool = False) -> tuple[str, float]:
@@ -276,6 +280,16 @@ def build(win) -> None:
     win.strength_box.setToolTip("How far one dab moves, as a part of the radius")
     win.strength_box.valueChanged.connect(lambda v: setattr(s, "strength", float(v)))
     tb.addWidget(win.strength_box)
+    tb.addWidget(QLabel(" Detail "))
+    win.detail_box = QDoubleSpinBox()
+    win.detail_box.setDecimals(3)
+    win.detail_box.setRange(0.0, 1e6)
+    win.detail_box.setSpecialValueText("off")
+    win.detail_box.setValue(s.detail)
+    win.detail_box.setToolTip("Dynamic detail: before each stroke, split the triangles near it until no edge there "
+                              "is longer than this, so fine shapes come out sharp (off: keep the triangles)")
+    win.detail_box.valueChanged.connect(lambda v: setattr(s, "detail", float(v)))
+    tb.addWidget(win.detail_box)
     win.sym_actions = {}
     for axis in "XYZ":
         a = tbs.action(win, tb, f"Mirror {axis}", "sc_sym",
