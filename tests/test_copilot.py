@@ -39,7 +39,7 @@ def plate():
 def test_every_modeler_tool_is_offered(plate):
     a = cp.CopilotAssistant(plate)
     names = [t.name for t in a.sdk_tools()]
-    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "list_files", "read_file"]
+    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "ask_pick", "highlight", "list_files", "read_file"]
     assert all(t.skip_permission for t in a.sdk_tools())  # read-only or sandboxed: no prompts
 
 
@@ -229,7 +229,7 @@ def test_runtime_registers_only_our_tools(plate, tmp_path):
 
     names = run(go())
     assert names == sorted([d["name"] for d in cp.CopilotAssistant(plate).toolbox.definitions()]
-                           + ["propose_commands", "propose_edits", "list_files", "read_file"])
+                           + ["propose_commands", "propose_edits", "ask_pick", "highlight", "list_files", "read_file"])
 
 
 # ---- changing what is there ---------------------------------------------------------------
@@ -435,3 +435,63 @@ def test_file_tools_through_the_sdk(plate, tmp_path):
     tool = {t.name: t for t in a.sdk_tools()}["read_file"]
     res = run(tool.handler(ToolInvocation(arguments={"path": "notes.txt"})))
     assert res.result_type == "success" and "bolt circle" in res.text_result_for_llm
+
+
+# ---- pointing ------------------------------------------------------------------------------
+def test_ask_pick_waits_for_the_click(plate):
+    import threading as th
+
+    a = cp.CopilotAssistant(plate)
+    asked = []
+
+    def pick_request(kind, prompt, done):
+        asked.append((kind, prompt))
+        if done:  # the user clicks a little later, from another thread (as the GUI does)
+            th.Timer(0.05, lambda: done(("FACE", 7))).start()
+
+    a.pick_request = pick_request
+    tool = {t.name: t for t in a.sdk_tools()}["ask_pick"]
+    res = run(tool.handler(ToolInvocation(arguments={"kind": "face", "prompt": "Click the top face"})))
+    assert res.result_type == "success", res.text_result_for_llm
+    assert asked == [("FACE", "Click the top face")]
+    assert '"id":7' in res.text_result_for_llm and '"selector"' in res.text_result_for_llm
+    assert [e["kind"] for e in a.log if e["kind"].startswith("pick")] == ["pick_asked", "pick"]
+    assert "THE USER CLICKED: FACE 7" in cp.format_log(a.log)
+
+
+def test_ask_pick_without_a_view_or_cancelled(plate):
+    a = cp.CopilotAssistant(plate)  # the default: no view, answers at once
+    assert "did not pick" in run(a._ask_pick({"kind": "EDGE", "prompt": "x"}))["error"]
+    assert "error" in run(a._ask_pick({"kind": "PLANET", "prompt": "x"}))
+
+
+def test_ask_pick_gives_up_and_stops_asking(plate):
+    a = cp.CopilotAssistant(plate)
+    calls = []
+    a.pick_request = lambda kind, prompt, done: calls.append(kind)
+    assert "did not click" in run(a._ask_pick({"kind": "FACE", "prompt": "x"}, timeout=0.05))["error"]
+    assert calls == ["FACE", None]  # asked, then stopped asking
+
+
+def test_highlight_checks_ids_and_marks(plate):
+    a = cp.CopilotAssistant(plate)
+    assert a._highlight({"kind": "FACE", "ids": [7]})["shown"] is False  # no view
+    marks = []
+    a.show_marks = lambda kind, ids, note: marks.append((kind, ids, note)) or True
+    assert a._highlight({"kind": "FACE", "ids": [7], "note": "the hole"}) == {"shown": True, "kind": "FACE",
+                                                                              "ids": [7]}
+    assert "error" in a._highlight({"kind": "FACE", "ids": [9999]})
+    assert a._highlight({"kind": "FACE", "ids": []}) == {"cleared": True}
+    assert marks == [("FACE", [7], "the hole"), ("", [], "")]
+
+
+def test_user_context_describes_the_selection(plate):
+    from modeler.ai.tools import Toolbox
+
+    assert plate.run("PICK, FACE, 7").ok
+    ctx = Toolbox(plate).call("user_context", {})
+    assert ctx["selection"]["kind"] == "FACE" and ctx["selection"]["ids"] == [7]
+    assert ctx["selection"]["described"]["faces"][0]["id"] == 7
+    assert ctx["selection"]["selector"]["lines"]
+    assert plate.run("SEL, NONE").ok
+    assert "ask_pick" in Toolbox(plate).call("user_context", {})["selection"]["note"]

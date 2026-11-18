@@ -182,3 +182,77 @@ def test_read_permission_dialog(win, app, button, answer):
     QTimer.singleShot(100, press)
     assert panel.ask_read("read", "/work/notes.txt") == answer
     assert "notes.txt" in panel.transcript.toPlainText()
+
+
+def test_own_key_settings(win, app, tmp_path, monkeypatch):
+    from modeler.ai import providers as pv
+    from modeler.gui.assistant_settings import AssistantSettingsDialog
+
+    monkeypatch.setenv("MODELER_COPILOT_DATA", str(tmp_path / "data"))
+    monkeypatch.delenv("MODELER_AI_KEY", raising=False)
+    panel = win.assistant_panel
+    assert panel.provider_setting().is_copilot and panel.sign_in_button.isVisibleTo(panel)
+
+    dlg = AssistantSettingsDialog(panel, panel.provider_setting(), copilot_models=["gpt-a", "gpt-b"])
+    assert dlg.model.count() == 3 and not dlg.key.isEnabled() and dlg.ok_button.isEnabled()
+    dlg.kind.setCurrentIndex(dlg.kind.findData("anthropic"))
+    assert dlg.key.isEnabled() and not dlg.url.isEnabled() and not dlg.ok_button.isEnabled()
+    dlg.model.setEditText("claude-sonnet-5-5")
+    assert "API key" in dlg.problem.text()
+    dlg.key.setText("sk-ant")
+    assert dlg.ok_button.isEnabled()
+    s = dlg.setting()
+    assert (s.kind, s.model, s.base_url, s.api_key) == ("anthropic", "claude-sonnet-5-5", "", "sk-ant")
+    dlg.kind.setCurrentIndex(dlg.kind.findData("ollama"))  # switching back and forth keeps what was typed
+    assert dlg.url.text() == "http://localhost:11434/v1" and dlg.url.isEnabled()
+    dlg.kind.setCurrentIndex(dlg.kind.findData("anthropic"))
+    assert dlg.model.currentText() == "claude-sonnet-5-5" and dlg.key.text() == "sk-ant"
+
+    panel.set_provider(s, keep_key=False)  # not kept: this session only
+    pump(app)
+    assert pv.load_key("anthropic") == ""
+    got = panel.provider_setting()
+    assert got.kind == "anthropic" and got.api_key == "sk-ant"
+    assert not panel.sign_in_button.isVisibleTo(panel)
+    assert "Anthropic Claude: claude-sonnet-5-5" in panel.status_label.text()
+    assert panel._assistant().assistant.provider.api_key == "sk-ant"
+    panel.set_provider(s, keep_key=True)
+    assert pv.load_key("anthropic") == "sk-ant"
+    panel.set_provider(pv.ProviderSetting(), keep_key=False)
+    assert panel.provider_setting().is_copilot and panel.sign_in_button.isVisibleTo(panel)
+    assert panel._assistant().assistant.provider is None
+    panel.shutdown()
+
+
+def test_ask_pick_in_the_view(win, app):
+    panel = win.assistant_panel
+    win.execute("BLOCK, 0,0,0, 40,30,10")
+    win.execute("PICKMODE, BODY")
+    pump(app)
+    got = []
+    panel.pick_request("FACE", "Click the top face", got.append)
+    pump(app)
+    assert panel.pick_box.isVisibleTo(panel) and "Click the top face" in panel.pick_label.text()
+    assert win.viewport.pick_mode == "FACE"
+    win.viewport.command.emit("PICK, FACE, 6")  # what a click in the view sends
+    pump(app)
+    assert got == [("FACE", 6)] and win.processor.model.selection == [6]
+    assert not panel.pick_box.isVisibleTo(panel) and win.viewport.pick_mode == "BODY"  # put back
+    assert "You picked face 6" in panel.transcript.toPlainText()
+
+    panel.pick_request("EDGE", "Click an edge", got.append)
+    panel.finish_pick(None)  # Cancel
+    assert got[-1] is None and win.viewport.pick_mode == "BODY"
+
+
+def test_highlight_marks_in_the_view(win, app):
+    panel = win.assistant_panel
+    win.execute("BLOCK, 0,0,0, 40,30,10")
+    pump(app)
+    assert panel.show_marks("FACE", [6], "the top")
+    assert len(win.viewport._mark_ais) == 1 and "Marked in orange: face 6" in panel.transcript.toPlainText()
+    panel.input.setText("thanks")
+    panel._busy = True  # nothing is sent; clearing the marks happens first
+    panel.clear_marks()
+    assert win.viewport._mark_ais == []
+    panel._busy = False

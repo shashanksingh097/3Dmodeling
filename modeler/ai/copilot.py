@@ -37,6 +37,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any
 
+from .providers import ProviderSetting
 from .tools import LANGUAGE_BASICS, Toolbox, command_catalogue
 
 SDK_HINT = 'The assistant needs the GitHub Copilot SDK and Python 3.11 or newer: pip install -e ".[ai]" in a checkout, or pip install "modeler3d[ai] @ git+https://github.com/shashanksingh097/3Dmodeling"'
@@ -53,6 +54,9 @@ How to work:
   command's arguments, defaults and examples. Commands look like `BLOCK, 0,0,0, 10,20,5`.
 - Read the user's model with model_summary, describe_body, history, probe_ray, section_profile.
   Prefer these exact text answers to guessing.
+- "This face", "these edges", "here": call user_context for what is selected. If nothing fits,
+  ask_pick asks the user to click it in the 3D view; never guess an ID. To point at something in
+  an answer, highlight marks it in orange in the view.
 - Before you suggest a script, try it: sandbox, then run (and check with expectations such as
   'VOL(b), BETWEEN, 900, 1100' or 'VALID(b)'). Fix what fails.
 - When a script works, call propose_commands with the script and a one-line summary. The user
@@ -207,13 +211,18 @@ class CopilotAssistant:
 
     def __init__(self, processor, *, run_on_model: Callable[[Callable[[], Any]], Any] | None = None,
                  on_event: EventFn | None = None, model: str | None = None,
-                 home: str | None = None, github_token: str | None = None) -> None:
+                 home: str | None = None, github_token: str | None = None,
+                 provider: ProviderSetting | None = None) -> None:
         self.toolbox = Toolbox(processor)
         self.run_on_model = run_on_model or (lambda fn: fn())
         self.on_event = on_event or (lambda kind, data: None)
         self.model = model
         self.home = home
         self.github_token = github_token
+        # "your own key": another model service through the same runtime (None: GitHub Copilot)
+        self.provider = provider if provider is not None and not provider.is_copilot else None
+        if provider is not None and provider.is_copilot and provider.model and not model:
+            self.model = provider.model
         self.client = None
         self.session = None
         self._reply: Reply | None = None
@@ -222,6 +231,12 @@ class CopilotAssistant:
         # ask_read(what, path) -> "once" | "chat" | "deny": may the assistant read this? (default: no)
         self.ask_read: Callable[[str, str], str] = lambda what, path: "deny"
         self._read_ok = False  # allowed for this chat
+        # pick_request(kind, prompt, done): ask the user to click one entity of kind in the view and
+        # call done((kind, id)) or done(None); pick_request(None, "", None) stops asking. GUI thread.
+        self.pick_request: Callable[[str | None, str, Callable | None], None] = (
+            lambda kind, prompt, done: done(None) if done else None)
+        # show_marks(kind, ids, note): mark these entities in the view (kind "" clears). GUI thread.
+        self.show_marks: Callable[[str, list[int], str], bool] = lambda kind, ids, note: False
 
     def _log(self, kind: str, **data: Any) -> dict[str, Any]:
         entry = {"kind": kind, "time": time.time(), **data}
@@ -281,7 +296,11 @@ class CopilotAssistant:
 
     # ---- account ---------------------------------------------------------------------
     async def status(self) -> dict[str, Any]:
-        """{"signed_in": bool, "login": str, "message": str}."""
+        """{"signed_in": bool, "login": str, "message": str}; with your own key, "signed in"
+        means ready (no GitHub account is needed) and ``own_key`` is True."""
+        if self.provider is not None:
+            problem = self.provider.problem()
+            return {"signed_in": not problem, "login": self.provider.label(), "message": problem, "own_key": True}
         await self.start()
         st = await self.client.get_auth_status()
         return {"signed_in": bool(st.isAuthenticated), "login": st.login or "",
@@ -296,6 +315,8 @@ class CopilotAssistant:
         file in the user's app-data folder (the SDK's clean mode has no keychain)."""
         from copilot.generated import rpc as R
 
+        if self.provider is not None:
+            raise AssistantError("the assistant uses your own key, not GitHub: choose GitHub Copilot first")
         session = await self._session()
         login = session.rpc.accounts.login
         try:
@@ -349,6 +370,8 @@ class CopilotAssistant:
         """What is left of the user's Copilot allowance, by kind (chat, premium_interactions, ...)."""
         from copilot.generated import rpc as R
 
+        if self.provider is not None:
+            return {}  # billed by the service, not a Copilot allowance
         await self.start()
         try:
             res = await self.client.rpc.account.get_quota(R.AccountGetQuotaRequest())
@@ -362,6 +385,8 @@ class CopilotAssistant:
         return out
 
     async def models(self) -> list[dict[str, Any]]:
+        if self.provider is not None:
+            return [{"id": self.provider.model, "name": self.provider.label()}]
         await self.start()
         try:
             models = await self.client.list_models()
@@ -391,6 +416,10 @@ class CopilotAssistant:
                         answer = self._propose(args)
                     elif name == "propose_edits":
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self._propose_edits(args))
+                    elif name == "ask_pick":
+                        answer = await self._ask_pick(args)
+                    elif name == "highlight":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._highlight(args))
                     elif name in ("read_file", "list_files"):
                         answer = await asyncio.to_thread(self._files, name, args)
                     else:
@@ -405,7 +434,8 @@ class CopilotAssistant:
             return handler
 
         tools = []
-        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _LIST_FILES, _READ_FILE]:
+        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT,
+                                                  _LIST_FILES, _READ_FILE]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
         del cp
@@ -474,6 +504,69 @@ class CopilotAssistant:
         self.on_event("proposal", prop)
         return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies)}
 
+    # ---- pointing: the user clicks for Copilot, Copilot marks for the user ---------------
+    async def _ask_pick(self, args: dict[str, Any], timeout: float = 300.0) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        try:
+            kind = check_kind(str(args.get("kind", "FACE")))
+        except ModelError as exc:
+            return {"error": str(exc)}
+        prompt = str(args.get("prompt", "") or f"Click a {kind.lower()}")
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+
+        def done(result) -> None:
+            loop.call_soon_threadsafe(lambda: fut.done() or fut.set_result(result))
+
+        self._log("pick_asked", what=kind, prompt=prompt)
+        await asyncio.to_thread(self.run_on_model, lambda: self.pick_request(kind, prompt, done))
+        try:
+            result = await asyncio.wait_for(fut, timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            await asyncio.to_thread(self.run_on_model, lambda: self.pick_request(None, "", None))
+            result = None
+            self._log("pick", answer="no click in time")
+            return {"error": f"the user did not click within {timeout / 60:g} minutes"}
+        if result is None:
+            self._log("pick", answer="cancelled")
+            return {"error": "the user did not pick anything (cancelled, or no 3D view)"}
+        kind, gid = result
+        self._log("pick", answer=f"{kind} {gid}")
+
+        def describe() -> dict[str, Any]:
+            p = self.toolbox.real
+            out: dict[str, Any] = {"kind": kind, "id": gid}
+            try:
+                if kind == "BODY":
+                    out["body"] = {"id": gid, "name": getattr(p.model.bodies.get(gid), "name", "") or ""}
+                else:
+                    out["described"] = self.toolbox.call("describe_entities", {"kind": kind, "ids": [gid]})
+                out["selector"] = self.toolbox.call("selector_for", {"kind": kind, "id": gid})
+            except Exception as exc:  # noqa: BLE001 - the pick itself is still the answer
+                out["note"] = str(exc)
+            return out
+
+        return await asyncio.to_thread(self.run_on_model, describe)
+
+    def _highlight(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        ids = [int(i) for i in (args.get("ids") or [])]
+        if not ids:
+            self.show_marks("", [], "")
+            return {"cleared": True}
+        try:
+            kind = check_kind(str(args.get("kind", "FACE")))
+            for gid in ids:
+                self.toolbox.real.model.entity_shape(kind, gid)
+        except ModelError as exc:
+            return {"error": str(exc)}
+        note = str(args.get("note", "") or "")
+        shown = self.show_marks(kind, ids, note)
+        return {"shown": bool(shown), "kind": kind, "ids": ids} if shown else {
+            "shown": False, "why": "there is no 3D view (the command line or a test)"}
+
     # ---- files in the working folder, only with the user's say-so ---------------------------
     def _inside(self, rel: str) -> str:
         base = os.path.realpath(self.home or default_home())
@@ -527,7 +620,9 @@ class CopilotAssistant:
 
         system = first_prompt(self.home)
         tools = self.sdk_tools()
-        self._log("system", text=system, tools=[t.name for t in tools], model=self.model or "auto")
+        model = self.provider.model.strip() if self.provider is not None else self.model
+        self._log("system", text=system, tools=[t.name for t in tools],
+                  model=(self.provider.label() if self.provider is not None else model or "auto"))
 
         kwargs: dict[str, Any] = dict(
             on_permission_request=PermissionHandler.approve_all,  # only our own read-only tools exist
@@ -538,9 +633,14 @@ class CopilotAssistant:
             client_name="3Dmodeling",
             working_directory=self.home,
         )
-        if self.model:
-            kwargs["model"] = self.model
-        self.session = await self.client.create_session(**kwargs)
+        if model:
+            kwargs["model"] = model
+        if self.provider is not None:
+            kwargs["provider"] = self.provider.sdk_config()
+        try:
+            self.session = await self.client.create_session(**kwargs)
+        except Exception as exc:  # noqa: BLE001 - a wrong address or key shows up here or at the first answer
+            raise AssistantError(f"could not start the chat: {exc}") from None
         return self.session
 
     async def ask(self, text: str, timeout: float = 600.0) -> Reply:
@@ -553,6 +653,8 @@ class CopilotAssistant:
         )
 
         status = await self.status()
+        if self.provider is not None and not status["signed_in"]:
+            raise AssistantError(f"{self.provider.label()}: {status['message']} (Assistant settings)")
         if not status["signed_in"] and not self.github_token:
             raise AssistantError("not signed in to GitHub: sign in first")
         session = await self._session()
@@ -621,6 +723,29 @@ _PROPOSE_EDITS = {
 }
 
 
+_ASK_PICK = {
+    "name": "ask_pick",
+    "description": "Ask the user to click one body, face, edge or vertex in the 3D view and wait for it (up to "
+                   "5 minutes). Returns what was clicked, described, with SEL lines for it. Use it instead of "
+                   "guessing which face 'this one' is; prompt says what to click, e.g. 'Click the face the "
+                   "bracket should sit on'.",
+    "input_schema": {"type": "object", "properties": {
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "prompt": {"type": "string"}}, "required": ["kind", "prompt"]},
+}
+
+
+_HIGHLIGHT = {
+    "name": "highlight",
+    "description": "Mark entities in orange in the user's 3D view, to show what an answer is about (stays until "
+                   "the next question). No ids clears the marks. Nothing changes in the model.",
+    "input_schema": {"type": "object", "properties": {
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "ids": {"type": "array", "items": {"type": "integer"}},
+        "note": {"type": "string", "description": "a few words shown in the chat"}}, "required": ["kind", "ids"]},
+}
+
+
 _LIST_FILES = {
     "name": "list_files",
     "description": "List the files in the user's working folder (or a folder inside it: path). The user is asked "
@@ -674,6 +799,10 @@ def format_log(log: list[dict[str, Any]]) -> str:
             out.append(f"[{t}] ASKED TO {str(e.get('what', '')).upper()} {e.get('path')}: {e.get('answer')}")
         elif k == "error":
             out.append(f"[{t}] ERROR\n{e.get('text', '')}")
+        elif k == "pick_asked":
+            out.append(f"[{t}] ASKED THE USER TO CLICK A {e.get('what')}: {e.get('prompt')}")
+        elif k == "pick":
+            out.append(f"[{t}] THE USER CLICKED: {e.get('answer')}")
         elif k == "new_chat":
             out.append(f"[{t}] ---- NEW CHAT ----")
         else:
@@ -724,6 +853,9 @@ class AssistantThread:
     def new_chat(self) -> Future:
         return self.submit(self.assistant.new_chat())
 
+    def models(self) -> Future:
+        return self.submit(self.assistant.models())
+
     def close(self, wait: float = 5.0) -> None:
         try:
             self.submit(self.assistant.stop()).result(wait)
@@ -745,6 +877,10 @@ python -m modeler copilot check           the whole test for one account (Copilo
                                           use the modeler's tools; prints PASS or FAIL per step
 --folder DIR                              the assistant's working folder (default: a temporary
                                           folder)
+--model NAME                              the model (GitHub Copilot: one your plan offers)
+--provider KIND [--base-url URL]          use your own key instead of GitHub: openai, anthropic,
+                                          azure, ollama or custom (OpenAI-compatible); the key
+                                          comes from MODELER_AI_KEY or the one the app keeps
 """
 
 
@@ -769,6 +905,23 @@ def main(args: list[str]) -> int:
                 print(res.message)
                 return 1
 
+    def option(name: str) -> str | None:
+        if name not in args:
+            return None
+        i = args.index(name)
+        value = args[i + 1] if i + 1 < len(args) else None
+        del args[i:i + 2]
+        return value
+
+    from . import providers
+
+    kind, model, url = option("--provider"), option("--model"), option("--base-url")
+    setting = None
+    if kind:
+        if kind not in providers.KINDS:
+            print(f"unknown provider {kind}: one of {', '.join(providers.KINDS)}")
+            return 2
+        setting = providers.ProviderSetting(kind, model or "", url or "", providers.load_key(kind))
     home = None
     if "--folder" in args:
         i = args.index("--folder")
@@ -781,7 +934,8 @@ def main(args: list[str]) -> int:
         elif kind == "proposal":
             print(f"  [proposal] {data.summary}\n" + "\n".join("    " + x for x in data.script.splitlines()))
 
-    asst = CopilotAssistant(p, on_event=on_event, model=os.environ.get("MODELER_COPILOT_MODEL") or None, home=home)
+    asst = CopilotAssistant(p, on_event=on_event, model=model or os.environ.get("MODELER_COPILOT_MODEL") or None,
+                            home=home, provider=setting)
     return asyncio.run(_cli(asst, args))
 
 
@@ -851,7 +1005,11 @@ async def _check(asst: CopilotAssistant) -> int:
         report(False, "start Copilot", str(exc))
         return fails
     report(True, "start Copilot", f"working folder {asst.home}")
-    if not st["signed_in"]:
+    if st.get("own_key"):
+        report(st["signed_in"], "your own key", st["login"] + (f": {st['message']}" if st["message"] else ""))
+        if not st["signed_in"]:
+            return fails
+    elif not st["signed_in"]:
         print("Not signed in yet: signing in.")
         try:
             await asst.sign_in(_show_code, _ask_plaintext)
@@ -859,9 +1017,10 @@ async def _check(asst: CopilotAssistant) -> int:
         except AssistantError as exc:
             report(False, "sign in with GitHub", str(exc))
             return fails
-    report(st["signed_in"], "signed in", st["login"] or st["message"])
+    if not st.get("own_key"):
+        report(st["signed_in"], "signed in", st["login"] or st["message"])
     try:
-        q = await asst.quota()
+        q = {} if st.get("own_key") else await asst.quota()
         report(True, "Copilot allowance", ", ".join(
             f"{k} {'unlimited' if v['unlimited'] else str(v['left_percent']) + '% left'}" for k, v in q.items())
             or "no allowance reported")
