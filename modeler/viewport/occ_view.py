@@ -826,7 +826,7 @@ class OccViewport(QWidget):
         """Draw shapes in orange over the model (what the assistant points at); [] clears."""
         if not self._initialized:
             return
-        from OCP.Aspect import Aspect_TOM_BALL
+        from OCP.Aspect import Aspect_TOL_SOLID, Aspect_TOM_BALL
         from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
         from OCP.Prs3d import Prs3d_LineAspect, Prs3d_PointAspect
 
@@ -844,6 +844,8 @@ class OccViewport(QWidget):
                 asp.SetColor(orange)
                 asp.SetWidth(4.0)
             dr.SetPointAspect(Prs3d_PointAspect(Aspect_TOM_BALL, orange, 3.0))
+            dr.SetFaceBoundaryDraw(True)  # outlines too: a face seen edge-on still shows
+            dr.SetFaceBoundaryAspect(Prs3d_LineAspect(orange, Aspect_TOL_SOLID, 4.0))
             ais.SetTransparency(0.5)
             ctx.Display(ais, 1, -1, False)  # shaded, not pickable
             ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
