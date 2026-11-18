@@ -4,6 +4,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### The assistant: Debug tab, every command up front, files with permission
+
+- The Assistant panel has a **Debug** tab: the full system message, each
+  question, every tool call with its input, JSON answer and time, errors
+  and replies, in order. **Copy**, **Save…** and **Clear**.
+- Every new chat starts with the whole command list (one line per command)
+  and the basics of the language, so Copilot knows the commands without
+  looking each one up.
+- **New chat** starts a fresh conversation and keeps the sign-in.
+- Copilot can list and read text files in the working folder, asking you
+  first each time (allow once, allow for this chat, or deny).
+
 ### Drawings, themes and signed builds
 
 - `DRAWING, file.svg/.dxf [, views] [, body]` and **File > Export drawing…**:

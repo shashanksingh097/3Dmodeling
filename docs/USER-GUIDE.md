@@ -474,7 +474,23 @@ exact text tools (sizes, holes, sections, wall thickness), tries its
 scripts in a sandbox copy, and then shows a **Proposal** with a **Run**
 button. Running it puts the commands in the History like anything you
 type, and **Undo** takes them back. Copilot's own coding tools (shell,
-files, web) are switched off in this app.
+files, web) are switched off in this app; it reads files only as described
+below, when you allow it.
+
+**New chat** starts over: Copilot forgets the conversation (you stay
+signed in), and the next question starts fresh.
+
+**Reading your files.** Copilot can list and read text files (scripts,
+notes, logs) in the working folder, never elsewhere, and only when you
+allow it. Each time it asks, choose **Allow once**, **Allow for this
+chat** or **Deny**.
+
+**The Debug tab** shows everything sent to Copilot and back, in order:
+the full first message (with the list of every command), your questions,
+each tool Copilot used with its input, its answer and how long it took,
+permissions, errors and replies. If Copilot goes wrong, look there to see
+where, and tell it. **Copy** and **Save…** give you the whole log, for
+example to attach to a bug report.
 
 The first time, the app downloads the Copilot runtime (about 190 MB) to
 your cache folder, so you need internet then.

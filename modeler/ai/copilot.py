@@ -28,6 +28,7 @@ import asyncio
 import json
 import os
 import sys
+import re
 import tempfile
 import threading
 import time
@@ -395,7 +396,7 @@ class CopilotAssistant:
                     else:
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self.toolbox.call(name, args))
                 except Exception as exc:  # noqa: BLE001 - the model hears about it, and so does the Debug tab
-                    answer = {"error": f"{type(exc).__name__}: {exc}"}
+                    answer = {"error": f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__}
                 text = json.dumps(answer, separators=(",", ":"), default=str)
                 self._log("tool_result", name=name, ok="error" not in answer, ms=(time.perf_counter() - t0) * 1000,
                           result=text)
@@ -636,6 +637,13 @@ _READ_FILE = {
 }
 
 
+def _pretty(value: Any) -> str:
+    """Indented JSON, but lists of plain numbers or words stay on one line ([20.0, 15.0, 0.0])."""
+    text = json.dumps(value, indent=2, ensure_ascii=False, default=str)
+    return re.sub(r"\[\s*((?:[-\w.\"]+,\s*)*[-\w.\"]+)\s*\]",
+                  lambda m: "[" + re.sub(r",\s+", ", ", m.group(1)) + "]", text)
+
+
 def format_log(log: list[dict[str, Any]]) -> str:
     """The Debug tab's text: every entry of a conversation log, in order, easy to read."""
     out = []
@@ -653,7 +661,7 @@ def format_log(log: list[dict[str, Any]]) -> str:
         elif k == "tool_result":
             res = str(e.get("result", ""))
             try:
-                res = json.dumps(json.loads(res), indent=2, ensure_ascii=False)
+                res = _pretty(json.loads(res))
             except ValueError:
                 pass
             if len(res) > 20000:

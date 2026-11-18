@@ -62,7 +62,7 @@ Sources: <https://github.com/github/copilot-sdk>,
   allows only custom tools (`available_tools = custom:*`), and our system
   prompt replaces the coding-agent prompt. The runtime's shell, file, web
   and git tools are not there; a test against the real runtime checks that
-  exactly our 22 tools are registered.
+  exactly our tools are registered.
 * **Tools.** Every tool of `modeler.ai.tools.Toolbox` (read the model,
   probe, sandbox, lint, check) plus `propose_commands`. They read the model
   or work in the sandbox only, so they skip permission prompts. In the app
@@ -90,14 +90,52 @@ allowance left), the conversation, the proposal box and the input line.
 Copilot runs on a background thread with its own asyncio loop
 (`AssistantThread`) and starts only when the user signs in or asks.
 
-## Testing
+## Debug tab, first prompt, files (asked for after 0.2.0)
+
+* **The first prompt carries every command.** `first_prompt(home)` is the
+  system message of every new chat: how to work, the working folder,
+  `tools.LANGUAGE_BASICS` (lines, parameters, IDs and names, selection,
+  blocks, sketches, history) and `tools.command_catalogue()`, one line per
+  registered command: `NAME, arg, [optional], v1... - first sentence of
+  its help`, with `(not kept)` for commands that are not stored. About
+  19 KB in all, so Copilot rarely needs `find_commands` first;
+  `command_help` stays for the details and examples.
+* **A conversation log.** `CopilotAssistant.log` keeps, in order: the
+  system message (with the model and the tool names), every prompt, every
+  tool call with its arguments, every result (ok or error, time in ms, the
+  JSON text), replies, permission answers, errors and new chats. Each
+  entry also goes to the panel as a `debug` event. A tool that raises
+  answers `{"error": ...}` instead of failing the turn, and the log shows
+  it. `format_log` turns entries into the Debug tab's text (JSON indented,
+  number lists on one line, results over 20 000 characters cut).
+* **The Debug tab.** The panel has **Chat** and **Debug** tabs. Debug is
+  the formatted log, with the number of prompts and tool calls, and
+  **Copy**, **Save…** (a text file, the working folder by default) and
+  **Clear**.
+* **New chat.** The button disconnects the session (the sign-in stays);
+  the next question opens a new one with the full first prompt again.
+  It also clears the chat, the proposal and any "allow for this chat".
+* **Reading files, only with permission.** `list_files` and `read_file`
+  read the working folder (the project's folder when that is chosen).
+  Paths are resolved (symbolic links too) and must stay inside the
+  folder; anything outside, missing or binary is refused before asking.
+  Otherwise the user is asked on the GUI thread: **Allow once**, **Allow
+  for this chat** or **Deny** (the default, and the answer when nobody is
+  there to ask). Text only, at most 200 KB per read; listings show up to
+  500 entries.
+
 
 * `tests/test_copilot.py` tests the tool mapping, proposals, the sign-in
   steps and asking with a fake session, without the network.
   `MODELER_TEST_COPILOT_RUNTIME=1` also starts the real runtime and checks
   the registered tools.
-* `tests/test_assistant_gui.py` tests the panel: Run and Dismiss, and tool
-  calls running on the GUI thread.
+  It also tests the first prompt (every registered command is in it), the
+  log of tool calls and results, New chat, and `read_file`/`list_files`:
+  asking first, "for this chat" until a new chat, and staying inside the
+  working folder.
+* `tests/test_assistant_gui.py` tests the panel: Run and Dismiss, tool
+  calls running on the GUI thread, the Debug tab (Copy, Save, Clear), New
+  chat and the three answers of the permission dialog.
 * **With a real account** (needs a person): `python -m modeler copilot check`
   signs in if needed, then prints PASS or FAIL for: signed in, allowance,
   models, an answer from Copilot, Copilot calling the modeler's tools, and

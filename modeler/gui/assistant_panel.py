@@ -19,7 +19,7 @@ from concurrent.futures import Future
 from typing import TYPE_CHECKING, Any, Callable
 
 from PySide6.QtCore import QObject, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QActionGroup, QDesktopServices
+from PySide6.QtGui import QActionGroup, QDesktopServices, QFontDatabase, QGuiApplication
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QTabWidget,
     QTextBrowser,
     QToolButton,
     QVBoxLayout,
@@ -85,6 +86,10 @@ class AssistantPanel(QWidget):
         self.status_label = QLabel("Assistant: GitHub Copilot")
         self.status_label.setWordWrap(True)
         top.addWidget(self.status_label, 1)
+        self.new_chat_button = QPushButton("New chat")
+        self.new_chat_button.setToolTip("Start over: Copilot forgets this conversation (the sign-in stays)")
+        self.new_chat_button.clicked.connect(self.new_chat)
+        top.addWidget(self.new_chat_button)
         self.sign_in_button = QPushButton("Sign in with GitHub")
         self.sign_in_button.setToolTip("Sign in with your own GitHub account; Copilot Free works too")
         self.sign_in_button.clicked.connect(self.sign_in)
@@ -119,7 +124,11 @@ class AssistantPanel(QWidget):
 
         self.transcript = QTextBrowser()
         self.transcript.setOpenExternalLinks(True)
-        lay.addWidget(self.transcript, 1)
+        self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.addTab(self.transcript, "Chat")
+        self.tabs.addTab(self._debug_tab(), "Debug")
+        lay.addWidget(self.tabs, 1)
 
         self.proposal_box = QWidget()
         pl = QVBoxLayout(self.proposal_box)
@@ -161,7 +170,7 @@ class AssistantPanel(QWidget):
         if not cp.sdk_available():
             self.status_label.setText("The assistant is not installed.")
             self._say("system", html.escape(cp.SDK_HINT))
-            for w in (self.sign_in_button, self.send_button, self.input):
+            for w in (self.sign_in_button, self.send_button, self.input, self.new_chat_button):
                 w.setEnabled(False)
         else:
             self._say("system", "Ask about commands, errors or your model. Copilot tries its scripts in a "
@@ -223,6 +232,93 @@ class AssistantPanel(QWidget):
             self._say("system", f"Working folder: {html.escape(self.working_folder()[0])}. "
                                 "Copilot starts again in it with your next question.")
 
+    def _debug_tab(self) -> QWidget:
+        """Everything sent to Copilot and back: the system message, prompts, tool calls with
+        their arguments, results and times, replies, permissions and errors."""
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 4, 0, 0)
+        self.debug_text = QPlainTextEdit()
+        self.debug_text.setReadOnly(True)
+        self.debug_text.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
+        self.debug_text.setPlaceholderText("Nothing sent yet. The first question shows the full system message here, "
+                                           "then every prompt, tool call (with its arguments, result and time) and "
+                                           "reply.")
+        lay.addWidget(self.debug_text, 1)
+        row = QHBoxLayout()
+        self.debug_count = QLabel()
+        row.addWidget(self.debug_count, 1)
+        for text, tip, fn in (("Copy", "Copy the whole log", self.copy_debug),
+                              ("Save…", "Save the log to a text file", self.save_debug),
+                              ("Clear", "Clear the log (the conversation goes on)", self.clear_debug)):
+            b = QPushButton(text)
+            b.setToolTip(tip)
+            b.clicked.connect(fn)
+            row.addWidget(b)
+        lay.addLayout(row)
+        self._debug_entries: list[dict] = []
+        self._show_debug_count()
+        return box
+
+    def _show_debug_count(self) -> None:
+        calls = sum(1 for e in self._debug_entries if e.get("kind") == "tool_call")
+        prompts = sum(1 for e in self._debug_entries if e.get("kind") == "prompt")
+        self.debug_count.setText(f"{prompts} prompt(s), {calls} tool call(s)")
+
+    def debug_log(self) -> str:
+        return cp.format_log(self._debug_entries)
+
+    def add_debug(self, entry: dict) -> None:
+        self._debug_entries.append(entry)
+        self.debug_text.appendPlainText(cp.format_log([entry]))
+        self._show_debug_count()
+
+    def copy_debug(self) -> None:
+        QGuiApplication.clipboard().setText(self.debug_log())
+
+    def save_debug(self, path: str | None = None) -> None:
+        if not path:
+            path, _ = QFileDialog.getSaveFileName(self, "Save the assistant log",
+                                                  os.path.join(self.working_folder()[0], "assistant-log.txt"),
+                                                  "Text (*.txt)")
+        if path:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(self.debug_log())
+
+    def clear_debug(self) -> None:
+        self._debug_entries.clear()
+        self.debug_text.clear()
+        self._show_debug_count()
+
+    def new_chat(self) -> None:
+        """Forget the conversation; the next question sends the full first prompt again."""
+        if self._busy:
+            return
+        self.clear_proposal()
+        self.transcript.clear()
+        self._say("system", "New chat. Copilot has forgotten the earlier conversation.")
+        if self.thread is not None:
+            self.thread.new_chat()
+
+    def ask_read(self, what: str, path: str) -> str:
+        """May Copilot read this? Asked on the GUI thread; "once", "chat" or "deny"."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle("Copilot wants to read a file")
+        box.setText(f"Copilot asks to {what}:\n\n{path}")
+        box.setInformativeText("It can only read inside the working folder, and only text.")
+        once = box.addButton("Allow once", QMessageBox.AcceptRole)
+        chat = box.addButton("Allow for this chat", QMessageBox.AcceptRole)
+        deny = box.addButton("Deny", QMessageBox.RejectRole)
+        box.setDefaultButton(deny)
+        box.exec()
+        clicked = box.clickedButton()
+        answer = "once" if clicked is once else "chat" if clicked is chat else "deny"
+        self._say("system", f"{'Allowed' if answer != 'deny' else 'Declined'}: {html.escape(what)} "
+                            f"<code>{html.escape(os.path.basename(path) or path)}</code>"
+                            + (" (for this chat)" if answer == "chat" else ""))
+        return answer
+
     # ---- the assistant's thread ----------------------------------------------------------
     def _assistant(self) -> cp.AssistantThread:
         home, _ = self.working_folder()
@@ -232,6 +328,7 @@ class AssistantPanel(QWidget):
         if self.thread is None:
             asst = cp.CopilotAssistant(self.win.processor, run_on_model=self.calls.run,
                                        on_event=lambda kind, data: self.event.emit(kind, data), home=home)
+            asst.ask_read = self.ask_read  # runs on the GUI thread (run_on_model)
             self.thread = cp.AssistantThread(asst)
         return self.thread
 
@@ -365,6 +462,8 @@ class AssistantPanel(QWidget):
             self._say("copilot", _markdownish(str(data)))
         elif kind == "proposal":
             self.show_proposal(data)
+        elif kind == "debug":
+            self.add_debug(data)
 
     def show_proposal(self, prop: cp.Proposal) -> None:
         self.proposal = prop
