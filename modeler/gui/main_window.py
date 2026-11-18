@@ -782,6 +782,16 @@ class MainWindow(QMainWindow):
         act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
                                       "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
 
+        tb = tbs.group(self, "Make", "printer", "Inspect")
+        tbs.action(self, tb, "Print check…", "printer", "Ready to 3D print? What sits on the bed, what overhangs "
+                                                        "and needs support, thin walls and closed hollows\n"
+                                                        "Runs: PRINTCHECK, body, up, angle, wall",
+                   lambda: self.open_form("PRINTCHECK"))
+        tbs.action(self, tb, "Mill…", "mill", "2.5D milling paths from flat faces (facing, pockets, outlines), "
+                                             "shown in the view and written as G-code\n"
+                                             "Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down",
+                   lambda: self.open_form("MILL"))
+
     def build_view_menu(self) -> None:
         """View > Toolbar buttons (icons and names, icons only ...), Collapse ribbon and Ribbon tab."""
         from . import toolbars as tbs

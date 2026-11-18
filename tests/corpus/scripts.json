@@ -104,6 +104,11 @@
   "faces": 3,
   "volume": 52362.475
  },
+ "milled_plate.cmd": {
+  "bodies": 1,
+  "faces": 15,
+  "volume": 60154.602
+ },
  "mouse.cmd": {
   "bodies": 2,
   "faces": 161,
@@ -118,6 +123,11 @@
   "bodies": 1,
   "faces": 10,
   "volume": 5434.513
+ },
+ "print_check.cmd": {
+  "bodies": 1,
+  "faces": 13,
+  "volume": 32011.681
  },
  "scan_machined.cmd": {
   "bodies": 2,

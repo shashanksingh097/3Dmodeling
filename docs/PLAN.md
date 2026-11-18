@@ -920,7 +920,7 @@ three to a pull request:
     answers for the assistant. It stays a quick check while designing:
     proper meshing and full solvers (contacts, nonlinear, vibration modes)
     belong in a separate application.
-27. **Manufacturing output**: 3D printing checks (`PRINTCHECK`: overhangs
+27. **Manufacturing output** (done: `PRINTCHECK`, `MILL`): 3D printing checks (`PRINTCHECK`: overhangs
     past an angle, thin walls, trapped volumes, the base face), and
     2.5D milling paths (`MILL`: facing, pockets and outlines from faces with
     a tool size and step-down) written as G-code with a path preview.
@@ -930,6 +930,13 @@ three to a pull request:
 29. **Pictures**: a nicer render (`RENDER`: soft shadows, ambient
     occlusion, an environment light, material looks from `MATERIAL`) to a
     PNG at any size, and turntable pictures.
+30. **Gravity and connection check on a whole assembly** (asked for by the
+    user, built right after item 27): with a down direction, parts not
+    connected to the ground part through touching faces or mates (they
+    would fall), parts only resting or touching at an edge or point with
+    nothing holding them, small gaps where parts should touch, overlaps,
+    and whether the centre of mass (from the materials) sits over the
+    footprint and how far it can lean before tipping. Words plus colours.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

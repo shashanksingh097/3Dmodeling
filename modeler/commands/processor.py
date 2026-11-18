@@ -250,6 +250,7 @@ class Processor:
         self.section = None  # SECTION view: (datum plane, "ABOVE"/"BELOW") or None; a view setting only
         self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
         self.analysis = None  # ANALYZE: what the view colours (analysis_handlers.Analysis), a view setting only
+        self.toolpath = None  # MILL: the milling path the view shows (a compound of polylines), a view setting only
 
         self.history: list[Entry] = []
         self._uid = 0  # the last entry uid handed out
