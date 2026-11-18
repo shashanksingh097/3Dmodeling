@@ -33,3 +33,4 @@ from . import rib_handlers  # noqa: F401  (RIB, LIP, WRAP: ribs, enclosure lips,
 from . import motion_handlers  # noqa: F401  (DRIVE, MOTION: assemblies that move)
 from . import scan_handlers  # noqa: F401  (SEGMENT, RECONSTRUCT: scan to CAD for machined parts)
 from . import xview_handlers  # noqa: F401  (XSTEP, XSHOW: exploded views)
+from . import frame_handlers  # noqa: F401  (MEMBER, CUTLIST: frames and weldments)

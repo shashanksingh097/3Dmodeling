@@ -909,10 +909,10 @@ three to a pull request:
     (`EXPLODE` steps saved as a view, lines from each part back to its
     place), `WRAP` onto cones, and sheet metal bends along a sketched line
     (`SBEND`) with holes in flange walls shown in the flat pattern.
-25. **Frames and weldments**: structural members (`MEMBER`: square and
-    round tube, angle, channel, I-beam from a size table) laid along the
-    lines of a 3D sketch, mitred or butted where they meet, trimmed to each
-    other, and a cut list (lengths and angles) in the `BOM`.
+25. **Frames and weldments** (done: `MEMBER`, `CUTLIST`): structural
+    members (square, rectangular and round tube, flat bar, angle, channel,
+    I-beam) laid along the lines of a polyline or sketch, mitred or butted
+    where they meet, and a cut list (lengths and angles).
 26. **A first strength check**: linear static stress on a solid (`STRESS`:
     fixed faces, a force or pressure on faces, a material), a tetrahedral
     mesh and solver in numpy and scipy, results as a colour map with the

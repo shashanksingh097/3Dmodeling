@@ -164,6 +164,11 @@
   "faces": 1526,
   "volume": 121094.962
  },
+ "welded_frame.cmd": {
+  "bodies": 15,
+  "faces": 88,
+  "volume": 913900.0
+ },
  "wing_rails.cmd": {
   "bodies": 5,
   "faces": 4,

@@ -114,6 +114,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE", "RIB",
                   "LIP", "WRAP")),
     ("Sheet metal", ("SHEET", "FLANGE", "SBEND", "UNFOLD", "SHEETINFO")),
+    ("Frames", ("MEMBER", "CUTLIST")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "IMPLICIT", "LATTICE")),

@@ -6,6 +6,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Frames and weldments**: `MEMBER` lays square, rectangular or round
+  tube, flat bar, angle, channel or I-beam along a polyline or sketch, with
+  mitred or butted (coped for round tube) corners. `CUTLIST` lists what to
+  cut, with lengths, end angles and quantities, also as CSV.
 - **Exploded views**: `XSTEP` records how an assembly comes apart (named
   views, saved with the project) and `XSHOW` shows it, with trail lines from
   each part back to its place. The parts go back before the next change.

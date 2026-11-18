@@ -314,6 +314,13 @@ write a DXF of the blank, with the bend lines and their angles, for a
 laser or punch. Details: LANGUAGE.md section 31; an example is
 `scripts/sheet_bracket.cmd`.
 
+**Frames.** Draw the frame's lines with `POLYLINE` (or in a sketch) and
+press **Member** on the Features tab: pick the profile (square, rectangular
+or round tube, flat bar, angle, channel, I-beam), its size like `40x3`,
+and mitred or butted corners. Each straight piece becomes one member.
+**Cut list** lists what to cut: lengths, end angles and how many of each.
+Details: LANGUAGE.md section 36; an example is `scripts/welded_frame.cmd`.
+
 **Ribs, lips and wrapping.** **Rib** (command `RIB`) turns an open sketch
 line into a thin wall that runs down to the part: draw the line where the
 rib's top edge goes, in a sketch square to the walls. **Lip** keys the two

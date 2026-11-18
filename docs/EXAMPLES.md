@@ -55,6 +55,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
 | [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 | [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
+| [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) |
 
 ---
 
@@ -2361,6 +2362,50 @@ XSTEP, apart, knob, 0, 0, 30
 XSTEP, apart, "screw_1 screw_2 screw_3 screw_4", 0, 0, 45
 XSTEP, apart, "lid knob", 0, 0, 25
 ! show it with: XSHOW, apart  (and XSHOW alone to put the parts back)
+FIT
+```
+
+</details>
+
+---
+
+## Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts
+
+![Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](examples/welded_frame.png)
+
+Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+
+**Script:** [scripts/welded_frame.cmd](../scripts/welded_frame.cmd) (25 lines) · **Run:** `python -m modeler scripts/welded_frame.cmd`
+
+**You should get:** 15 bodies, volume 913,900.0 mm³, 88 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with
+! mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between
+! two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+W = 600
+D = 400
+H = 450
+T = 30
+POLYLINE, (0,0,H), (W,0,H), (W,D,H), (0,D,H), CLOSE
+NAME, LAST, top_path
+MEMBER, top_path, SQUARE, 30x2, MITRE, rail
+HIDE, top_path
+*DO, i, 0, 1
+  *DO, j, 0, 1
+    POLYLINE, (T/2 + i*(W - T), T/2 + j*(D - T), 0), (T/2 + i*(W - T), T/2 + j*(D - T), H - T/2)
+    HIDE, LAST
+    MEMBER, LAST, SQUARE, 30x2, BUTT, leg
+  *ENDDO
+*ENDDO
+POLYLINE, (T, T/2, 120), (W - T, T/2, 120)
+NAME, LAST, brace_path
+MEMBER, brace_path, ANGLE, 25x25x3, BUTT, brace, 180
+HIDE, brace_path
+COLOR, brace_1, ORANGE
+CUTLIST
 FIT
 ```
 

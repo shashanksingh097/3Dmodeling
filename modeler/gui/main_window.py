@@ -735,6 +735,15 @@ class MainWindow(QMainWindow):
         tbs.action(self, tb, "Unfold…", "sm_unfold", "Lay the part flat: the blank as a body, and a DXF to cut it from\n"
                                                     "Runs: UNFOLD, body [, file.dxf]", lambda: self.open_form("UNFOLD"))
 
+        tb = tbs.group(self, "Frames", "frames", "Features")
+        tbs.action(self, tb, "Member…", "member", "Structural members (tube, angle, channel, I-beam ...) along a "
+                                                  "polyline or sketch, with mitred or butted corners\n"
+                                                  "Runs: MEMBER, path, profile, size [, MITRE/BUTT]",
+                   lambda: self.open_form("MEMBER"))
+        tbs.action(self, tb, "Cut list", "cutlist", "The frame's cut list: each member's profile, length and end "
+                                                    "cuts, with how many\nRuns: CUTLIST",
+                   lambda: self.execute("CUTLIST"))
+
         tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
                                              "move it (press again to hide them)\nRuns: CPOINTS, body; each drag runs MOVEPT",

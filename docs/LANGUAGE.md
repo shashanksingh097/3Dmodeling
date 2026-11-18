@@ -284,6 +284,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2692,3 +2693,47 @@ For a picture: `python -m modeler render part.cmd` with `XSHOW, apart` in
 the shots file.
 
 An example is `scripts/exploded_view.cmd`.
+
+## 36. Frames and weldments
+
+A frame is structural members (tube, bar, angle, channel, I-beam) laid
+along straight lines. Draw the lines as a `POLYLINE` (in 3D) or in a
+sketch, then give the profile and its sizes:
+
+```
+POLYLINE, (0,0,450), (600,0,450), (600,400,450), (0,400,450), CLOSE
+MEMBER, LAST, SQUARE, 30x2                   ! square tube 30 wide, 2 wall, mitred corners: member_1 ... member_4
+MEMBER, legs, SQUARE, 30x2, BUTT, leg        ! butted, named leg_1 ...
+MEMBER, s2, IBEAM, 100x200x8, BUTT, beam, 90 ! turned 90 degrees about each member
+CUTLIST                                      ! what to cut, with how many of each
+CUTLIST, cuts.csv
+```
+
+| profile | size | |
+|---|---|---|
+| `SQUARE` | `w x t` | square tube, wall t (t 0: a solid bar) |
+| `RECT` | `w x h x t` | rectangular tube |
+| `ROUND` | `d x t` | round tube, outside diameter d (t 0: a solid bar) |
+| `FLAT` | `w x t` | flat bar |
+| `ANGLE` | `w x h x t` | angle (L) |
+| `CHANNEL` | `w x h x t` | channel (U) |
+| `IBEAM` | `w x h x t` | I-beam, flanges w wide, web and flanges t thick |
+
+Each straight piece of the path becomes one body. The profile is centred
+on the line. Its width (`w`) runs across, and its height (`h`) follows the
+normal of the path's plane (Z for a path that is not flat); `turn`
+rotates it about the member.
+
+**Corners.** `MITRE` cuts both members on the plane halfway between them.
+`BUTT` runs the first member on to the far side of the next one, and the
+next one stops at its side. A round tube stopping at another is coped (cut
+to the other's round). Where two members meet in a straight line they are
+cut square.
+
+**`CUTLIST`** groups the members by profile, size, length (end to end, the
+longest points) and end cut angles (from square: 45 for a mitre of a right
+angle), with how many of each and which bodies, plus the total length of
+each profile. Members keep their place on the list after holes or other
+cuts.
+
+An example is `scripts/welded_frame.cmd`.
