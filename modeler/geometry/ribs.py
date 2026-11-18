@@ -278,25 +278,39 @@ def lip_solid(face, h: float, w: float):
 
 # ---- wrapping onto a cylinder -----------------------------------------------------------
 def cylinder_of(face):
+    """The cylinder or cone a face lies on: a gp_Cylinder or a gp_Cone."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_SurfaceType
 
     s = BRepAdaptor_Surface(face)
-    if s.GetType() != GeomAbs_SurfaceType.GeomAbs_Cylinder:
-        raise RibError("the face is not part of a cylinder")
-    return s.Cylinder()
+    if s.GetType() == GeomAbs_SurfaceType.GeomAbs_Cylinder:
+        return s.Cylinder()
+    if s.GetType() == GeomAbs_SurfaceType.GeomAbs_Cone:
+        return s.Cone()
+    raise RibError("the face is not part of a cylinder or a cone")
+
+
+def radius_at(surf, t: float) -> float:
+    """The radius of a gp_Cylinder or gp_Cone at axial distance ``t`` from its location."""
+    if hasattr(surf, "SemiAngle"):
+        return surf.RefRadius() + t * math.tan(surf.SemiAngle())
+    return surf.Radius()
 
 
 def wrap_faces(faces: list, frame, cyl, samples: int = 40) -> list:
-    """Each planar sketch face laid on cylinder ``cyl`` (gp_Cylinder): the sketch plane must be
-    parallel to the axis. Its direction across the axis becomes arc length round the cylinder,
-    measured from the line of the sketch plane nearest the axis, which lands on the cylinder
-    where the plane faces it."""
+    """Each planar sketch face laid on ``cyl``, a gp_Cylinder or a gp_Cone: the sketch plane must be
+    parallel to the axis. Its direction across the axis becomes arc length round the surface,
+    measured from the line of the sketch plane nearest the axis, which lands on the surface
+    where the plane faces it.
+
+    On a cone the sketch is laid on the cone's flat development (the sector it unrolls to), so
+    shapes keep their sizes and angles: the sketch's direction along the axis becomes distance
+    down the cone's slope, and lines become curves on the cone."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
     from OCP.BRepLib import BRepLib
     from OCP.BRepTools import BRepTools, BRepTools_WireExplorer
-    from OCP.Geom import Geom_CylindricalSurface
+    from OCP.Geom import Geom_ConicalSurface, Geom_CylindricalSurface
     from OCP.Geom2d import Geom2d_Line
     from OCP.Geom2dAPI import Geom2dAPI_Interpolate
     from OCP.GeomAbs import GeomAbs_CurveType
@@ -315,7 +329,8 @@ def wrap_faces(faces: list, frame, cyl, samples: int = 40) -> list:
     a = _arr(ax.Direction())
     xd = _arr(ax.XDirection())
     yd = _arr(ax.YDirection())
-    R = cyl.Radius()
+    cone = hasattr(cyl, "SemiAngle")
+    R = cyl.RefRadius() if cone else cyl.Radius()
     nz = np.asarray(frame.z, float)
     if abs(nz @ a) > 1e-6:
         raise RibError("the sketch plane must be parallel to the cylinder's axis")
@@ -325,10 +340,25 @@ def wrap_faces(faces: list, frame, cyl, samples: int = 40) -> list:
     th0 = math.atan2(radial @ yd, radial @ xd)
     e = np.cross(a, radial)  # round the cylinder, in the sketch plane's direction
 
-    def uv(p):
-        return th0 + ((p - o) @ e) / R, (p - o) @ a
+    if cone:
+        k = math.sin(cyl.SemiAngle())
+        if abs(k) < 1e-9:
+            raise RibError("the cone is a cylinder")
 
-    surf = Geom_CylindricalSurface(ax, R)
+        def uv(p):
+            sv, vz = (p - o) @ e, (p - o) @ a
+            d0 = (R + vz * k) / abs(k)  # distance from the apex down the slope, where the plane faces it
+            if d0 <= 0:
+                raise RibError("the sketch reaches past the cone's tip")
+            d = math.hypot(sv, d0)
+            return th0 + math.atan2(sv, d0) / abs(k), (d * abs(k) - R) / k
+
+        surf = Geom_ConicalSurface(ax, cyl.SemiAngle(), R)
+    else:
+        def uv(p):
+            return th0 + ((p - o) @ e) / R, (p - o) @ a
+
+        surf = Geom_CylindricalSurface(ax, R)
     out = []
     for f in faces:
         outer = _api(BRepTools, "OuterWire")(f)
@@ -347,7 +377,7 @@ def wrap_faces(faces: list, frame, cyl, samples: int = 40) -> list:
                 c = BRepAdaptor_Curve(we.Current())
                 u0, u1 = c.FirstParameter(), c.LastParameter()
                 rev = we.Current().Orientation() == 1  # TopAbs_REVERSED
-                if c.GetType() == GeomAbs_CurveType.GeomAbs_Line:
+                if c.GetType() == GeomAbs_CurveType.GeomAbs_Line and not cone:
                     p0, p1 = _arr(c.Value(u0)), _arr(c.Value(u1))
                     if rev:
                         p0, p1 = p1, p0

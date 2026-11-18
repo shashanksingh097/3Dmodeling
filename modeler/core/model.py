@@ -268,6 +268,8 @@ class Model:
         self.masks: dict = {}
         # body ID -> sheet metal record (geometry/sheetmetal.py Sheet); follows the body through changes
         self.sheets: dict = {}
+        # exploded views by upper-case name: a list of (body IDs, (dx, dy, dz)) steps (XSTEP, XSHOW)
+        self.xviews: dict = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -331,6 +333,7 @@ class Model:
             "fields": dict(self.fields),
             "masks": dict(self.masks),
             "sheets": dict(self.sheets),
+            "xviews": {k: list(v) for k, v in self.xviews.items()},
         }
 
     def restore(self, snap: dict) -> None:
@@ -357,6 +360,7 @@ class Model:
         self.fields = dict(snap.get("fields", {}))
         self.masks = dict(snap.get("masks", {}))
         self.sheets = dict(snap.get("sheets", {}))
+        self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.sketch_selection = []
         self._emit(Event("restored"))
 

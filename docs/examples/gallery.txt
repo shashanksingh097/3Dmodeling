@@ -35,3 +35,4 @@ enclosure_halves.cmd | Ribs, lips and wrapping: an enclosure's two halves with a
 scan_machined.cmd | Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid | ISO
 hinged_lid.cmd | Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post | ISO
 scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face | FRONT
+exploded_view.cmd | Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone | ISO | XSHOW, apart

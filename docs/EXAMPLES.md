@@ -54,6 +54,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/scan_machined.png" width="160">](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) | [Scan to CAD for machined parts: a mesh of a block split into planes, cylinders and a sphere, fitted exactly and joined into a solid](#scan-to-cad-for-machined-parts-a-mesh-of-a-block-split-into-planes-cylinders-and-a-sphere-fitted-exactly-and-joined-into-a-solid) |
 | [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
 | [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
+| [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
 
 ---
 
@@ -2201,6 +2202,8 @@ Scan to CAD for machined parts (SEGMENT, RECONSTRUCT): a mesh of a block with a 
 
 **Script:** [scripts/scan_machined.cmd](../scripts/scan_machined.cmd) (20 lines) · **Run:** `python -m modeler scripts/scan_machined.cmd`
 
+**You should get:** 2 bodies, volume 95,640.0 mm³, 12 faces
+
 <details><summary>The whole script</summary>
 
 ```text
@@ -2301,6 +2304,64 @@ MOVE, front, 100, 0, 0
 ! the fitted solid is ordinary CAD: it takes booleans, fillets and shells
 CYL, 50, 0, -30, 4, 60
 SUBTRACT, fitted, LAST
+```
+
+</details>
+
+---
+
+## Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone
+
+![Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](examples/exploded_view.png)
+
+Exploded views (XSTEP, XSHOW) and a label wrapped onto a cone (WRAP): a box with a lid, four screws and a conical knob. XSTEP records how the parts come apart; XSHOW shows it with trail lines, and the parts go back before the next command (or XSHOW alone).
+
+**Script:** [scripts/exploded_view.cmd](../scripts/exploded_view.cmd) (39 lines) · **Run:** `python -m modeler scripts/exploded_view.cmd`
+
+**You should get:** 7 bodies, volume 60,789.1 mm³, 42 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Exploded views (XSTEP, XSHOW) and a label wrapped onto a cone (WRAP): a box with a lid, four screws
+! and a conical knob. XSTEP records how the parts come apart; XSHOW shows it with trail lines, and
+! the parts go back before the next command (or XSHOW alone).
+BLOCK, -30, -20, 0, 60, 40, 20
+NAME, LAST, box
+BLOCK, -30, -20, 20, 60, 40, 4
+NAME, LAST, lid
+COLOR, lid, ORANGE
+CYL, -25, -15, 14, 2, 14
+NAME, LAST, screw_1
+COLOR, LAST, GREY
+CYL, 25, -15, 14, 2, 14
+NAME, LAST, screw_2
+COLOR, LAST, GREY
+CYL, -25, 15, 14, 2, 14
+NAME, LAST, screw_3
+COLOR, LAST, GREY
+CYL, 25, 15, 14, 2, 14
+NAME, LAST, screw_4
+COLOR, LAST, GREY
+CONE, 0, 0, 24, 10, 6, 12
+NAME, LAST, knob
+COLOR, knob, BLUE
+! a band of text-like marks round the knob: the sketch is laid on the cone's development
+PLANE, w, XZ, -20
+SKETCH, marks, w
+SRECT, -1, 27, 1, 33
+SRECT, 4, 27, 6, 33
+SRECT, -6, 27, -4, 33
+ENDSKETCH
+SEL, S, FACE, TYPE, CONE
+WRAP, marks, , 0.6
+DATUM, DELETE, w
+! the exploded view: the knob and screws first, then the lid
+XSTEP, apart, knob, 0, 0, 30
+XSTEP, apart, "screw_1 screw_2 screw_3 screw_4", 0, 0, 45
+XSTEP, apart, "lid knob", 0, 0, 25
+! show it with: XSHOW, apart  (and XSHOW alone to put the parts back)
+FIT
 ```
 
 </details>

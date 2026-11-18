@@ -125,7 +125,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT", "MOTION")),
-    ("Parts", ("INST", "MATE", "EXPLODE", "LIB", "LIBSAVE")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING")),
 ]
 

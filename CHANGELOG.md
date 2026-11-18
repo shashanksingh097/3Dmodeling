@@ -6,6 +6,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Exploded views**: `XSTEP` records how an assembly comes apart (named
+  views, saved with the project) and `XSHOW` shows it, with trail lines from
+  each part back to its place. The parts go back before the next change.
+- **WRAP onto cones**: a sketch is laid on the cone's development, so sizes
+  and angles are kept.
 - **Scan to CAD for machined parts**: `SEGMENT` splits a mesh at its sharp
   edges and says what each region is (a plane, a cylinder or bore, a sphere,
   or freeform). `RECONSTRUCT` fits those exactly and joins them into one

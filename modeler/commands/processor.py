@@ -84,6 +84,9 @@ class Raw:
     """Argument type: the argument text as written; the handler evaluates it."""
 
 
+# commands that keep an exploded view (XSHOW) shown; any other command puts the model back first
+SHOWN_EXPLODED = {"XSHOW", "FIT", "VIEW", "RENDER", "LIST", "DESCRIBE", "MSG", "*MSG"}
+
 class BodyRef:
     """Argument type: a body, given by ID, by name, or by a parameter holding either."""
 
@@ -216,6 +219,7 @@ class Processor:
         self.config_values: dict[str, Any] = {}
         # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
         self.drive: dict[str, Any] = {}
+        self.exploded: dict | None = None  # XSHOW: the model as it was, put back before the next command
         self.parts: dict[str, PartDef] = {}  # *PART definitions, by upper-case name
         # built part shapes by (definition text, parameter values); not undo state,
         # because a key never changes meaning
@@ -298,6 +302,14 @@ class Processor:
             return self._finish(self.run_unit(text))
         return self._finish(self.run_unit(line))
 
+    def unexplode(self) -> bool:
+        """Put the model back as it was before XSHOW (True if it was exploded)."""
+        if self.exploded is None:
+            return False
+        snap, self.exploded = self.exploded, None
+        self.model.restore(snap)
+        return True
+
     def cancel_pending(self) -> None:
         self._buffer = []
 
@@ -355,6 +367,9 @@ class Processor:
             return Result(label, False, str(exc))
         if not stmts:
             return Result("", True)
+        if self.exploded is not None and not (len(stmts) == 1 and isinstance(stmts[0], Cmd)
+                                              and stmts[0].name in SHOWN_EXPLODED):
+            self.unexplode()
         if len(stmts) == 1 and isinstance(stmts[0], Cmd):
             cmd = REGISTRY.get(stmts[0].name)
             if cmd is not None and not cmd.logged:
@@ -392,6 +407,7 @@ class Processor:
         self.config = ""
         self.config_values = {}
         self.drive = {}
+        self.exploded = None
         self.parts = {}
         self.part_files = {}
         self.file_map = {}
@@ -446,6 +462,7 @@ class Processor:
 
     def undo(self, n: int = 1) -> str:
         """Take back the last n actions: new entries, roll backs and history edits."""
+        self.unexplode()
         if not self.can_undo:
             raise CommandError("nothing to undo")
         done: list[str] = []
@@ -470,6 +487,7 @@ class Processor:
         return "undid " + self._undo_words(done) + f"; {self.cursor} in history"
 
     def redo(self, n: int = 1) -> str:
+        self.unexplode()
         if not self._redo:
             raise CommandError("nothing to redo")
         done: list[str] = []
@@ -652,6 +670,7 @@ class Processor:
         again: what it did last time is copied over (``skip``; see
         core/track.py). Entries that read files or older states always run.
         """
+        self.unexplode()
         self._drop_redo_tail()
         m = self.model
         # the view's own changes are not history: keep them through the re-run

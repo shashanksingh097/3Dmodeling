@@ -44,6 +44,11 @@
   "faces": 108,
   "volume": 38000.697
  },
+ "exploded_view.cmd": {
+  "bodies": 7,
+  "faces": 42,
+  "volume": 60789.078
+ },
  "flange.cmd": {
   "bodies": 1,
   "faces": 15,
