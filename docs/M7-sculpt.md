@@ -152,8 +152,44 @@ graphics card draws much faster):
   model event, `mask`, so the view also updates for a typed `MASK` and on
   undo.
 
+## Part 3: finer triangles where you brush
+
+`SCULPT ..., detail` (and the **Detail** box) splits the triangles near the
+stroke before the brush runs (`sculpt.refine_near`):
+
+- **Longest-edge splitting.** A triangle within 1.25 radii of the stroke
+  whose longest edge is longer than `detail` has that edge split at its
+  middle; any triangle with a split edge has its own longest edge split too
+  (repeated until nothing changes), so every triangle is cut across its
+  longest edge. Triangles with one, two or three split edges become two,
+  three or four. This repeats until no edge near the stroke is too long.
+  The first version split every long edge, whichever it was, and made
+  slivers where fine and coarse triangles met; a crease folded them over
+  and the view showed dark streaks.
+- **Kept indices.** Old points keep their indices and new points are added
+  at the end, so the mask grows with the mesh (a new point takes the mean
+  of its edge's two ends). `REMESH` uses the same splitting, everywhere,
+  when the body has a mask, so the mask is kept; without a mask it uses
+  manifold3d as before.
+- **Evening out.** Five rounds move the points near the stroke halfway
+  towards the middle of their neighbours, along the surface only (the part
+  along the normal is taken off), so the shape stays and the triangles even
+  out.
+- **A window.** The work is done on the triangles round the stroke. The
+  window is big enough when every split edge has an end whose triangles
+  are all in it; otherwise it doubles.
+
+| Mesh | Detail stroke |
+|------|---------------|
+| 35,000 to 70,000 triangles (crease, detail 0.15) | 0.5 s |
+| 820,000 to 1,220,000 triangles (detail 0.06) | 7 s (split 1.6 s, building the shape for OCCT about 2 s) |
+
+The live preview runs on the triangles as they were; the command on
+release adds the detail.
+
 ## What is left
 
-- **Dynamic topology**: split long edges under the brush so detail can be
-  added where it is needed, and `REMESH` that keeps a mask.
+- Joining short edges where a brush has squeezed triangles together (the
+  other half of dynamic topology), and splitting during the drag rather than
+  only on release.
 - The 1M-triangle goal of PLAN.md at interactive speed during a drag.

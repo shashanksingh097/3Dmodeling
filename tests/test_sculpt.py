@@ -217,3 +217,57 @@ def test_report_names_moved_points_and_triangles_of_finds_their_triangles():
     # the result is the same whichever way the brush finds its triangles
     alone, _ = sc.stroke(pts, t, "DRAW", 3, 0.5, [(0, -20, 0), (4, -20, 0)])
     assert np.abs(alone - new).max() < 1e-12
+
+
+def _closed_and_oriented(t, n):
+    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]).astype(np.int64)
+    k, kr = e[:, 0] * n + e[:, 1], e[:, 1] * n + e[:, 0]
+    return len(np.unique(k)) == len(k) and len(np.setdiff1d(k, kr)) == 0
+
+
+def test_refine_near_splits_only_near_the_stroke():
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 2"):
+        assert p.run(c).ok
+    pts, t = mb.arrays(p.model.bodies[1].shape)
+    centres = np.array([(0, -20, 0), (5, -19, 0)])
+    mask = np.zeros(len(pts))
+    mask[pts[:, 1] < -18] = 1
+    q, tt, m, added = sc.refine_near(pts, t, 0.4, centres, 3, mask)
+    assert added > 100 and len(q) == len(pts) + added and len(m) == len(q)
+    # old points keep their indices; near the stroke they slide a little along the surface (to even
+    # out the triangles), far away they stay exactly where they were
+    far = ~sc._region(pts, centres, 3.5)
+    assert (q[: len(pts)][far] == pts[far]).all()
+    assert np.abs(np.linalg.norm(q[: len(pts)], axis=1) - 20).max() < 0.05  # still on the ball
+    assert _closed_and_oriented(tt, len(q))
+    inside = sc._region(q, centres, 3)
+    a, b = tt.reshape(-1), tt[:, [1, 2, 0]].reshape(-1)
+    lengths = np.linalg.norm(q[a] - q[b], axis=1)
+    assert lengths[inside[a] & inside[b]].max() <= 0.4 * 1.6
+    unrelaxed = sc.refine_near(pts, t, 0.4, centres, 3, relax=0)[0]
+    assert (unrelaxed[: len(pts)] == pts).all()
+    assert lengths[~inside[a] & ~inside[b]].max() > 1  # far away nothing changed
+    assert m[len(pts):].max() == 1 and m[len(pts):].min() >= 0
+    with pytest.raises(sc.SculptError):
+        sc.refine_near(pts, t, 0, centres, 3)
+
+
+def test_sculpt_detail_and_remesh_keep_the_mask():
+    p = Processor()
+    for c in ("SPHERE, 0,0,0, 20", "TOMESH, 1", "REMESH, 1, 2", "MASK, 1, PAINT, 0,-20,0, 2",
+              'STROKE, S1, "-6,-19,3  6,-19,3"'):
+        assert p.run(c).ok
+    n = len(mb.arrays(p.model.bodies[1].shape)[0])
+    r = p.run("SCULPT, 1, CREASE, 2, 0.6, S1, , 0.3")
+    assert r.ok and "points added for detail" in r.message, r.message
+    pts, t = mb.arrays(p.model.bodies[1].shape)
+    assert len(pts) > n and len(p.model.masks[1]) == len(pts) and _closed_and_oriented(t, len(pts))
+    assert not p.run("SCULPT, 1, DRAW, 2, 0.6, S1, X, 0.001").ok  # too fine
+    assert not p.run("SCULPT, 1, DRAW, 2, 0.6, S1, X, -1").ok
+    frozen = int((p.model.masks[1] > 0.5).sum())
+    r = p.run("REMESH, 1, 0.8")
+    assert r.ok and "mask is kept" in r.message
+    pts, _ = mb.arrays(p.model.bodies[1].shape)
+    assert len(p.model.masks[1]) == len(pts) and int((p.model.masks[1] > 0.5).sum()) >= frozen
+    assert p.run("UNDO").ok and len(p.model.masks[1]) < len(pts)

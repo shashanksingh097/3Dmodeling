@@ -208,3 +208,18 @@ def test_frozen_areas_are_shown(win, app):
     win.execute("MASK, 1, ALL")
     win.sculpt_action.setChecked(False)
     assert vp._mask_ais is None  # only while sculpting
+
+
+def test_detail_box_adds_detail_to_the_command(win, app):
+    _ball(win)
+    p = win.processor
+    before = len(mb.arrays(p.model.bodies[1].shape)[1])
+    win.sculpt_action.setChecked(True)
+    win.detail_box.setValue(0.5)
+    _drag(win, app, (-10, -30, 5), (10, -30, 5))
+    last = p.history[-1].text
+    assert last.endswith(", , 0.5"), last
+    win.sym_actions["X"].setChecked(True)
+    _drag(win, app, (-10, -30, -5), (10, -30, -5))
+    assert p.history[-1].text.endswith(", X, 0.5")
+    assert len(mb.arrays(p.model.bodies[1].shape)[1]) > before  # finer triangles where it went
