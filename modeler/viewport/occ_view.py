@@ -792,7 +792,7 @@ class OccViewport(QWidget):
                 asp.SetColor(orange)
                 asp.SetWidth(4.0)
             dr.SetPointAspect(Prs3d_PointAspect(Aspect_TOM_BALL, orange, 3.0))
-            ais.SetTransparency(0.35)
+            ais.SetTransparency(0.5)
             ctx.Display(ais, 1, -1, False)  # shaded, not pickable
             ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
             self._mark_ais.append(ais)
