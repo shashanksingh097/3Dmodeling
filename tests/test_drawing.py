@@ -100,7 +100,7 @@ def test_one_body_a_mesh_body_and_errors(p, tmp_path):
     assert p.run("TOMESH, 4").ok
     r = p.run(f'DRAWING, "{tmp_path / "m.dxf"}", FRONT, 4')
     assert r.ok, r.message
-    assert "must end in .svg or .dxf" in p.run(f'DRAWING, "{tmp_path / "a.pdf"}"').message
+    assert "must end in .pdf, .svg or .dxf" in p.run(f'DRAWING, "{tmp_path / "a.png"}"').message
     assert "unknown view SIDE" in p.run(f'DRAWING, "{tmp_path / "a.svg"}", SIDE').message
 
 

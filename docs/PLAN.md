@@ -924,7 +924,7 @@ three to a pull request:
     past an angle, thin walls, trapped volumes, the base face), and
     2.5D milling paths (`MILL`: facing, pockets and outlines from faces with
     a tool size and step-down) written as G-code with a path preview.
-28. **Drawing sheets**: several views on one sheet (front, top, side, iso,
+28. **Drawing sheets** (done: PDF and SVG sheets, `section`, `detail`, `PROPERTY`): several views on one sheet (front, top, side, iso,
     a section along a line, a detail circle), a title block from the
     project's properties, and PDF output beside SVG and DXF.
 29. **Pictures**: a nicer render (`RENDER`: soft shadows, ambient

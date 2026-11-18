@@ -6,6 +6,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Drawing sheets**: `DRAWING` writes PDF too. It puts the views on A4 to
+  A0 paper at a usual scale, with a frame and a title block filled from the
+  new `PROPERTY` command. It also adds hatched section views (`"X 20"`) and
+  enlarged detail views (`"FRONT 30 0 12 6 3"`). **File > Export drawing**
+  now offers PDF first.
 - **Will it stand up?** `GRAVITY` checks a whole assembly: parts that
   float (not connected to the ground), tip off what they rest on, or hang
   only at their sides; small gaps and overlaps; and how far the whole can

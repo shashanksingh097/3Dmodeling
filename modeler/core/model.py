@@ -272,6 +272,7 @@ class Model:
         self.members: dict = {}
         # exploded views by upper-case name: a list of (body IDs, (dx, dy, dz)) steps (XSTEP, XSHOW)
         self.xviews: dict = {}
+        self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -337,6 +338,7 @@ class Model:
             "sheets": dict(self.sheets),
             "members": dict(self.members),
             "xviews": {k: list(v) for k, v in self.xviews.items()},
+            "properties": dict(self.properties),
         }
 
     def restore(self, snap: dict) -> None:
@@ -365,6 +367,7 @@ class Model:
         self.sheets = dict(snap.get("sheets", {}))
         self.members = dict(snap.get("members", {}))
         self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
+        self.properties = dict(snap.get("properties", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 

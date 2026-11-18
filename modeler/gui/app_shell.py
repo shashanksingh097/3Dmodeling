@@ -273,12 +273,13 @@ class AppShell:
             return
         if path is None:
             base = os.path.splitext(self.p.project_path or os.path.join(self._start_dir(), "model"))[0]
-            path, chosen = QFileDialog.getSaveFileName(self.win, "Export a 2D drawing", base + ".dxf",
-                                                       "DXF drawing (*.dxf);;SVG drawing (*.svg)")
+            path, chosen = QFileDialog.getSaveFileName(self.win, "Export a 2D drawing", base + ".pdf",
+                                                       "PDF sheet with title block (*.pdf);;DXF drawing (*.dxf);;"
+                                                       "SVG drawing (*.svg)")
             if not path:
                 return
             if not os.path.splitext(path)[1]:
-                path += ".svg" if "SVG" in chosen else ".dxf"
+                path += ".svg" if "SVG" in chosen else ".dxf" if "DXF" in chosen else ".pdf"
         self.win.execute(f"DRAWING, {_quote(path)}, {views}")
 
     def run_script(self, path: str | None = None) -> None:
@@ -389,8 +390,9 @@ class AppShell:
                                "Write all bodies as STEP, IGES, STL, OBJ, 3MF, glTF or BREP. "
                                "Runs: EXPORT, format, file")
         self.drawing_action = a(m, "Export &drawing…", self.export_drawing, "Ctrl+Shift+E",
-                                "A 2D drawing of the bodies (front, top, right and iso views, hidden edges dashed) "
-                                "as SVG or DXF, at true size. Runs: DRAWING, file, views")
+                                "A 2D drawing of the bodies (front, top, right and iso views, hidden edges dashed): "
+                                "a PDF sheet with a title block, or SVG or DXF at true size. "
+                                "Runs: DRAWING, file, views")
         self.link_part_action = a(m, "&Link part file…", self.link_part, None,
                                   "Use the parts of a part file here, following the file: when it changes, every "
                                   "copy updates. Runs: LIB, LINK, file")
