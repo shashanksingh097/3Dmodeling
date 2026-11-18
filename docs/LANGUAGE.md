@@ -2456,3 +2456,44 @@ FITSURF, 1, MASK, 0.1                  ! just the painted region, one face
 ```
 
 See `scripts/scan_to_cad.cmd` and docs/mesh-fit.md.
+
+## 30. Configurations and the parts list
+
+**Configurations** are named sets of parameter values for one model: the
+sizes of a family of parts.
+
+```
+W = 40
+H = 10
+BLOCK, 0, 0, 0, W, 30, H
+CONFIG, big, "W = 80, H = 20"         ! a history entry: defines (or redefines) BIG
+CONFIG, small, "W = 20"
+USECONFIG, big                        ! W and H keep BIG's values; the model rebuilds
+USECONFIG, DEFAULT                    ! back to the values the history gives
+USECONFIG                             ! lists them; * marks the one in use
+```
+
+While a configuration is in use, its parameters keep its values whatever
+their own assignments say (the way `-D` fixes a parameter in the batch
+runner); the others keep theirs. `USECONFIG` is not a history step: undo
+does not switch back, and the configuration in use is saved with the
+project. The Parameters panel shows a **Configuration** list once there is
+one, and its values in italics; **New…** (or the panel's right-click menu)
+opens the `CONFIG` form filled with every parameter's value now. The batch
+runner takes `-C name`:
+
+```
+python -m modeler run plate.cmd -C big
+```
+
+**`BOM`** lists the parts of the model: one row per part placed with
+`INST` (instances of the same part with the same values are counted
+together, with every parameter value shown) and one row per other solid
+body, with quantity, material, volume and mass (for bodies with a
+material). `BOM, parts.csv` also writes it as a CSV file. Bodies used up or
+kept hidden by the history are not counted.
+
+**Names.** A parameter and a body cannot have the same name, because in a
+command the name would mean the parameter's value: `NAME, b, W` is refused
+while `W` is a parameter, and `plate = 3` is refused while a body is called
+`plate`.

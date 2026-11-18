@@ -253,6 +253,8 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.config:  # the configuration in use (CONFIG/USECONFIG), with its values for the replay
+            meta["config"] = {"name": p.config, "values": dict(p.config_values)}
         if p.chat:  # the assistant conversation, kept with the project
             meta["chat"] = [{"who": e.get("who", ""), "text": e.get("text", "")} for e in p.chat[-CHAT_KEEP:]]
         if p.strokes:  # sculpt strokes: their points, by name
@@ -305,6 +307,10 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
+    cfg = meta.get("config")
+    if isinstance(cfg, dict) and cfg.get("name"):
+        p.config = str(cfg["name"]).upper()
+        p.config_values = {str(k).upper(): v for k, v in dict(cfg.get("values", {})).items()}
     results = p.run_script(script, meta.get("history"))
     p.model.set_view_state(meta.get("view"))
     errors = [f"'{first_code_line(r.line)}': {r.message}" for r in results if not r.ok]

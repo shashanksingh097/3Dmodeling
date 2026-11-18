@@ -37,6 +37,8 @@ _REBUILDS = {"EDIT", "INSERT", "INS", "DELETE", "DEL", "SUPPRESS", "SUP", "RESUM
 
 def expected_seconds(p, text: str) -> float:
     """How long re-running for this line should take (0 when it is no rebuild)."""
+    if re.match(r"\s*USECONFIG\s*,\s*\w", text, re.IGNORECASE) and "\n" not in text:
+        return sum(e.seconds for e in p.history[: p.cursor])  # a configuration re-runs everything
     m = _HIST.match(text)
     if not m or m.group(1).upper() not in _REBUILDS or "\n" in text:
         return 0.0
@@ -131,9 +133,9 @@ class Offload:
         p = self.win.processor
         kind = answer[0] if answer else "gone"
         if kind == "cancelled":
-            word = text.split(",")[1].strip().upper() if "," in text else "EDIT"
+            what = ", ".join(x.strip().upper() for x in text.split(",")[:2])
             return p._finish(Result(text.strip(), False,
-                                    f"HIST, {word}: cancelled; the model and the history are as they were"))
+                                    f"{what}: cancelled; the model and the history are as they were"))
         if kind != "done":
             self.helper.cancel()
             return None  # the helper broke: the window runs it itself

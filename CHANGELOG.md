@@ -32,12 +32,24 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   body. A closed rounded mesh becomes a solid; an open scan or a region
   painted with `MASK` becomes one trimmed face. It reports how far the
   surface is from the mesh. **Fit surface** on the Sculpt tab opens it.
+- **Configurations**: `CONFIG, big, "W = 80, H = 20"` names a set of
+  parameter values; `USECONFIG, big` (or the new list above the
+  parameters) rebuilds the model with them. Saved with the project; the
+  batch runner takes `-C big`.
+- **`BOM`**: the parts list, with instances of the same part counted
+  together, material and mass; `BOM, parts.csv` writes it as CSV.
+
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three
   times faster and a finished stroke twice as fast.
 - **Long rebuilds no longer freeze the window.** A history edit whose steps
   took a second or more runs in a helper process; the view can be turned
   while it works, and Cancel stops it at once, even in the middle of a step.
+
+### Fixed
+
+- A body named like a parameter could not be reached in commands (the name
+  gave the parameter's value). Such names are now refused with a note.
 
 ## [0.3.0] - 2026-11-18
 

@@ -626,6 +626,9 @@ def name_(p: Processor, b, name):
         raise CommandError(f"NAME: {name!r} is not a valid name (letters, digits, _)")
     if name.upper() in ("LAST", "SEL", "ALL"):
         raise CommandError(f"NAME: {name} is reserved")
+    if name.upper() in p.params:
+        raise CommandError(f"NAME: {name} is a parameter; a body with that name could not be reached in "
+                           f"commands ({name} would mean the parameter's value). Pick another name")
     p.model.rename(b, name)
     return f"body {b} is '{name}'"
 

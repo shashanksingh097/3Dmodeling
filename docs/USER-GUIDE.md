@@ -270,6 +270,13 @@ which joins are smooth (G2), tangent (G1) or creased. Details:
 [M5-nurbs.md](M5-nurbs.md); a worked example is the computer mouse,
 `scripts/mouse.cmd`.
 
+**Families of sizes.** A configuration is a named set of parameter values
+(`CONFIG, big, "W = 80, H = 20"`). Pick it from the **Configuration** list
+above the parameters and the model rebuilds with those values; **Default**
+goes back. **New…** starts one from the values you have now. `BOM` lists
+the parts with their quantities, material and mass, and `BOM, parts.csv`
+writes the list for a spreadsheet. Details: LANGUAGE.md section 30.
+
 **Sculpting.** The **Sculpt** tab shapes a mesh body like clay. Pick a
 body and press **Make sculptable** (it becomes a mesh body with fine, even
 triangles), choose a brush (Draw, Clay, Inflate, Smooth, Flatten, Pinch,

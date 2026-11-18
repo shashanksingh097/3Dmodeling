@@ -209,6 +209,11 @@ class Processor:
         self.history_listeners: list[Callable[[], None]] = []
         self.params: dict[str, Any] = {}
         self.macros: dict[str, MacroDef] = {}
+        # configurations: named sets of parameter values (CONFIG), by upper-case name; the one in use
+        # (USECONFIG) fixes those parameters the way -D does, until another is chosen
+        self.configs: dict[str, dict[str, Any]] = {}
+        self.config = ""
+        self.config_values: dict[str, Any] = {}
         self.parts: dict[str, PartDef] = {}  # *PART definitions, by upper-case name
         # built part shapes by (definition text, parameter values); not undo state,
         # because a key never changes meaning
@@ -381,6 +386,9 @@ class Processor:
         self._scopes = []
         self.params = {}
         self.macros = {}
+        self.configs = {}
+        self.config = ""
+        self.config_values = {}
         self.parts = {}
         self.part_files = {}
         self.file_map = {}
@@ -754,13 +762,15 @@ class Processor:
 
     def _state(self) -> dict:
         return {"model": self.model.snapshot(), "params": dict(self.params), "macros": dict(self.macros),
-                "parts": dict(self.parts), "part_files": dict(self.part_files)}
+                "parts": dict(self.parts), "part_files": dict(self.part_files),
+                "configs": {k: dict(v) for k, v in self.configs.items()}}
 
     def _restore(self, state: dict, emit: bool = True) -> None:
         self.params = dict(state["params"])
         self.macros = dict(state["macros"])
         self.parts = dict(state.get("parts", {}))
         self.part_files = dict(state.get("part_files", {}))
+        self.configs = {k: dict(v) for k, v in state.get("configs", {}).items()}
         if emit:
             self.model.restore(state["model"])
         else:
@@ -1019,6 +1029,11 @@ class Processor:
             self._set(name, value)
             self._say(f"{name} = {format_value(value)} (fixed from outside)")
             return
+        if not self._scopes and name in self.config_values:
+            value = self.config_values[name]
+            self._set(name, value)
+            self._say(f"{name} = {format_value(value)} (configuration {self.config})")
+            return
         value = self.evaluator.eval(st.expr)
         self._set(name, value)
         self._say(f"{name} = {format_value(value)}")
@@ -1196,6 +1211,9 @@ class Processor:
     def _check_param_name(self, key: str) -> None:
         if key in RESERVED or self.evaluator.is_name(key):
             raise CommandError(f"{key} is a built-in name and cannot be a parameter")
+        if not self._scopes and key not in self.params and self.model.body_by_name(key) is not None:
+            raise CommandError(f"{key} is the name of a body; a parameter with the same name would hide it "
+                               f"in commands (pick another name, or rename the body with NAME)")
 
     def _number(self, expr: str, what: str) -> float:
         v = self.evaluator.eval(expr)
