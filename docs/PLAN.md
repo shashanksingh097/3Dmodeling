@@ -900,5 +900,32 @@ More features not yet in the app (added 2026-11-18, after item 16):
     automatically, recognise planes, cylinders and spheres exactly, and
     join the fitted pieces into one solid.
 
+More features not yet in the app (added 2026-11-18, after item 23), about
+three to a pull request:
+
+24. **Leftovers from items 19 to 21**: exploded views with trails
+    (`EXPLODE` steps saved as a view, lines from each part back to its
+    place), `WRAP` onto cones, and sheet metal bends along a sketched line
+    (`SBEND`) with holes in flange walls shown in the flat pattern.
+25. **Frames and weldments**: structural members (`MEMBER`: square and
+    round tube, angle, channel, I-beam from a size table) laid along the
+    lines of a 3D sketch, mitred or butted where they meet, trimmed to each
+    other, and a cut list (lengths and angles) in the `BOM`.
+26. **A first strength check**: linear static stress on a solid (`STRESS`:
+    fixed faces, a force or pressure on faces, a material), a tetrahedral
+    mesh and solver in numpy and scipy, results as a colour map with the
+    largest stress, deflection and safety factor, and text answers for
+    the assistant.
+27. **Manufacturing output**: 3D printing checks (`PRINTCHECK`: overhangs
+    past an angle, thin walls, trapped volumes, the base face), and
+    2.5D milling paths (`MILL`: facing, pockets and outlines from faces with
+    a tool size and step-down) written as G-code with a path preview.
+28. **Drawing sheets**: several views on one sheet (front, top, side, iso,
+    a section along a line, a detail circle), a title block from the
+    project's properties, and PDF output beside SVG and DXF.
+29. **Pictures**: a nicer render (`RENDER`: soft shadows, ambient
+    occlusion, an environment light, material looks from `MATERIAL`) to a
+    PNG at any size, and turntable pictures.
+
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
