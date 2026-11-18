@@ -113,7 +113,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE", "RIB",
                   "LIP", "WRAP")),
-    ("Sheet metal", ("SHEET", "FLANGE", "UNFOLD", "SHEETINFO")),
+    ("Sheet metal", ("SHEET", "FLANGE", "SBEND", "UNFOLD", "SHEETINFO")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "IMPLICIT", "LATTICE")),
@@ -125,7 +125,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT", "MOTION")),
-    ("Parts", ("INST", "MATE", "EXPLODE", "LIB", "LIBSAVE")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING")),
 ]
 
@@ -227,6 +227,7 @@ _COMMAND_LABELS = {
     ("SHEET", "r"): "Bend radius (-1 = the thickness)",
     ("SHEET", "k"): "K-factor",
     ("FLANGE", "r"): "Bend radius (-1 = the sheet's)",
+    ("SBEND", "r"): "Bend radius (-1 = the sheet's)",
     ("UNFOLD", "body"): "Also make the flat blank body",
     ("LIP", "clear"): "Gap (GROOVE only)",
     ("LAYER", "name"): "Layer",

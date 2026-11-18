@@ -269,7 +269,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -2516,6 +2516,8 @@ FLANGE, , 25                          ! bends up 90 degrees, a 25 long wall
 FLANGE, 12, 15, 45                    ! edge 12, 45 degrees; an edge of the bottom face bends down
 FLANGE, 14, 10, 120, 1                ! bend radius 1 for this one
 SHEETINFO, 1                          ! thickness, radius, K and each flange with its flat length
+SBEND, 1, s2                          ! bend along the line in sketch s2: the smaller side turns up 90
+SBEND, 1, s2, 45, 1, DOWN, FLIP       ! 45 down, radius 1, and the bigger side turns
 UNFOLD, 1                             ! the flat blank as a body beside the part
 UNFOLD, 1, blank.dxf                  ! and a DXF to cut it from
 UNFOLD, 1, blank.dxf, NO              ! only the DXF
@@ -2528,8 +2530,17 @@ grows past the edge by the radius plus the thickness before the wall
 starts. `FLANGE, , length` flanges every selected edge. Flanges on
 neighbouring edges leave an open corner.
 
+**`SBEND`** bends the plate itself along a line drawn in a sketch (one
+straight line, in any sketch seen square to the plate; it may run past the
+plate). The bend starts at the line, the smaller side turns (FLIP: the
+bigger one), UP towards the top side or DOWN, and it keeps its holes. The
+turning side loses the bend allowance from its flat width, so `UNFOLD`
+gives the plate back exactly as it was. Bend before adding flanges on the
+side that turns. The plate must cross the line in one piece.
+
 **`UNFOLD`** lays the plate's bottom face (with every hole through it) flat
-and adds a strip for each flange. A bend takes `angle × (r + K × t)` of
+and adds each flange: a strip for the bend and the wall laid flat, with
+any holes cut in the wall after bending. A bend takes `angle × (r + K × t)` of
 flat length (in radians): the length of the line inside the bend that
 neither stretches nor squeezes, which sits `K × t` from the inside face. K
 is 0.44 unless `SHEET` says otherwise; use the value your shop or
@@ -2575,6 +2586,12 @@ sketch's direction across the axis becomes length round the cylinder (so a
 5 wide rectangle stays 5 wide on the surface) and the wrap starts where
 the sketch plane faces the cylinder. Keep a band shorter than the
 cylinder's circumference.
+
+A conical face works the same way: the sketch is laid on the cone's flat
+development (the sector the cone unrolls to), so sizes and angles are
+kept. Across the axis becomes length round the cone, and along the axis
+becomes length down its slope. Straight lines come out slightly curved on
+the cone, as a label on a cone does. The sketch must stay clear of the tip.
 
 ## 33. Assemblies that move
 
@@ -2642,3 +2659,36 @@ mesh's. The mesh must be closed. If a region is freeform, RECONSTRUCT
 names it and stops: fit it with FITSURF, or raise `tol`.
 
 An example is `scripts/scan_machined.cmd`.
+
+## 35. Exploded views
+
+An exploded view is a named list of steps, each moving some parts by a
+vector. It shows how an assembly goes together, without moving anything in
+the model.
+
+```
+XSTEP, apart, knob, 0, 0, 30                            ! step 1: the knob comes up
+XSTEP, apart, "screw_1 screw_2 screw_3 screw_4", 0, 0, 45
+XSTEP, apart, "lid knob", 0, 0, 25                      ! then the lid, taking the knob with it
+XSHOW, apart                                            ! show it, with trail lines
+XSHOW, apart, 0.5                                       ! half way
+XSHOW                                                   ! back together
+XSHOW, LIST                                             ! the views
+XSTEP, apart, CLEAR                                     ! forget a view
+```
+
+**`XSTEP`** is a history step and the views are saved with the project,
+but it moves nothing. Name the bodies by ID or name with spaces between,
+or SEL for the selected bodies. A body in several steps moves by their sum,
+so later steps can carry parts that moved before.
+
+**`XSHOW`** is not a history step. It moves the parts by the view's steps
+(times `factor`) and draws a thin grey trail from each part's centre back
+to its place, with a corner at each step (`trails` NO leaves them out).
+Looking around (`FIT`, `VIEW`, `LIST`, `DESCRIBE`) keeps the view shown.
+Any other command, `UNDO`, a rebuild or `SAVE` first puts the parts back,
+so an exploded view can never end up in the history or the saved model.
+For a picture: `python -m modeler render part.cmd` with `XSHOW, apart` in
+the shots file.
+
+An example is `scripts/exploded_view.cmd`.

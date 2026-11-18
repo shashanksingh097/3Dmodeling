@@ -163,6 +163,59 @@ def flange(p: Processor, edge, length, angle, r):
                                    f"bend radius {fmt_num(rr)}"))
     return "\n".join(msgs)
 
+@command(
+    "SBEND",
+    Arg("b", BodyRef, help="a flat sheet metal plate"),
+    Arg("sketch", Text, help="a sketch with one straight line: the bend line, seen square to the plate"),
+    Arg("angle", float, 90.0, "the bend angle in degrees, 1 to 180"),
+    Arg("r", float, -1.0, "the inside bend radius (default: the sheet's)"),
+    Arg("dir", str, "UP", "UP bends towards the sheet's top side, DOWN away from it"),
+    Arg("side", str, "SMALL", "SMALL: the smaller side of the line turns; FLIP: the bigger one"),
+    help="Bend a sheet metal plate along a sketched line: SBEND, 1, s2 (the smaller side turns up 90 degrees) "
+         "· SBEND, 1, s2, 45, 1, DOWN · SBEND, 1, s2, 90, , UP, FLIP. The bend starts at the line; UNFOLD lays "
+         "it flat again with the bend allowance",
+)
+def sbend(p: Processor, b, sketch, angle, r, dir, side):  # noqa: A002 - the argument's name in the language
+    from ..sketch import profile as prof
+    from .handlers import _added
+    from .sketch_handlers import _mark_used
+
+    if dir not in ("UP", "DOWN"):
+        raise CommandError("SBEND: dir is UP or DOWN")
+    if side not in ("SMALL", "FLIP"):
+        raise CommandError("SBEND: side is SMALL or FLIP")
+    m = p.model
+    sh = _sheet(p, b, "SBEND")
+    try:
+        sk = m.sketch(sketch)
+    except Exception as exc:  # noqa: BLE001 - no such sketch, said plainly
+        raise CommandError(f"SBEND: {exc}") from None
+    if m.active_sketch == sk.name.upper():
+        m.set_active_sketch(None)
+    lines = [g for g in sk.geos.values() if g.kind == "LINE" and not g.construction]
+    if len(lines) != 1 or any(g.kind not in ("LINE", "POINT") and not g.construction for g in sk.geos.values()):
+        raise CommandError(f"SBEND: sketch {sk.name} must hold one straight line (the bend line)")
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    c = BRepAdaptor_Curve(prof.edge(sk, lines[0]))
+    p0, p1 = c.Value(c.FirstParameter()), c.Value(c.LastParameter())
+    rr = sh.r if r < 0 else r
+    try:
+        shape, rec = smt.sketched_bend(sh, m.body(b).shape, (p0.X(), p0.Y(), p0.Z()), (p1.X(), p1.Y(), p1.Z()),
+                                       angle, rr, dir == "UP", side == "FLIP")
+    except smt.SheetError as exc:
+        raise CommandError(f"SBEND: body {b}: {exc}") from None
+    for fl in sh.flanges:  # flanges already made must stay on the side that does not move
+        mid = (np.asarray(fl.a) + np.asarray(fl.b)) / 2 - np.asarray(rec.a)
+        if mid @ np.asarray(rec.out) > 1e-6:
+            raise CommandError("SBEND: a flange is on the side that would turn; bend first, then add flanges")
+    new = m.replace([b], shape, None, same_id=True)
+    m.sheets[new.id] = dataclasses.replace(sh, flanges=sh.flanges + (rec,))
+    _mark_used(p, sk, f"SBEND on body {b}")
+    return _added(p, new, f"SBEND body {b} along {sk.name}: {angle:g} degrees {dir.lower()}, bend radius "
+                          f"{fmt_num(rr)}, {fmt_num(float(np.linalg.norm(np.subtract(rec.b, rec.a))))} long")
+
+
 
 @command(
     "UNFOLD",

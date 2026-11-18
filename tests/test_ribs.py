@@ -128,3 +128,41 @@ def test_wrap_on_a_cylinder_away_from_the_sketch_origin():
     b = Bnd_Box()
     (getattr(BRepBndLib, "Add_s", None) or BRepBndLib.Add)(p.model.body(1).shape, b, True)
     assert b.CornerMin().Y() == pytest.approx(-21, abs=1e-2)  # right in front, facing the sketch plane
+
+
+def _fine_volume(shape):
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    g = GProp_GProps()
+    (getattr(BRepGProp, "VolumeProperties_s", None) or BRepGProp.VolumeProperties)(shape, g, 1e-7, False)
+    return g.Mass()
+
+
+@pytest.mark.parametrize("mode, sign", [("ADD", 1), ("CUT", -1)])
+def test_wrap_onto_a_cone_keeps_areas(mode, sign):
+    from modeler.commands.rib_handlers import _face
+    from modeler.commands.sketch_handlers import _profile
+    from modeler.geometry import ribs
+
+    p = Processor()
+    run(p, "CONE, 0,0,0, 25, 15, 40", "PLANE, w, XZ, -30", "SKETCH, s, w", "SRECT, -3, 18, 3, 22",
+        "SCIRCLE, 8, 10, 2", "ENDSKETCH", "SEL, S, FACE, TYPE, CONE")
+    _bid, f = _face(p, p.model.selection[0], "WRAP")
+    sk, faces, _ = _profile(p, "s", "WRAP")
+    wrapped, _r = ribs.wrap_faces(faces, sk.frame, ribs.cylinder_of(f))
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    areas = []
+    for w in wrapped:
+        g = GProp_GProps()
+        (getattr(BRepGProp, "SurfaceProperties_s", None) or BRepGProp.SurfaceProperties)(w, g)
+        areas.append(g.Mass())
+    assert sorted(areas) == pytest.approx([4 * math.pi, 24], rel=3e-3)  # laid on the development: sizes kept
+    v0 = _fine_volume(p.model.body(1).shape)
+    r = p.run(f"WRAP, s, , 0.5, {mode}")
+    assert r.ok and "cone" in r.message, r.message
+    assert "OK" in p.run("CHECK, 1").message
+    dv = _fine_volume(p.model.body(1).shape) - v0
+    assert sign * dv == pytest.approx((24 + 4 * math.pi) * 0.5, rel=0.03)

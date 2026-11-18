@@ -32,3 +32,4 @@ from . import sheet_handlers  # noqa: F401  (SHEET, FLANGE, UNFOLD, SHEETINFO: s
 from . import rib_handlers  # noqa: F401  (RIB, LIP, WRAP: ribs, enclosure lips, wrapped sketches)
 from . import motion_handlers  # noqa: F401  (DRIVE, MOTION: assemblies that move)
 from . import scan_handlers  # noqa: F401  (SEGMENT, RECONSTRUCT: scan to CAD for machined parts)
+from . import xview_handlers  # noqa: F401  (XSTEP, XSHOW: exploded views)

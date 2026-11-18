@@ -308,7 +308,8 @@ regions and their fits. Details: LANGUAGE.md section 34; an example is
 thickness from a closed sketch. Pick an edge of its top face and press
 **Flange** to bend a wall up along it (an edge of the bottom face bends
 down); give the wall's length, the angle and, if it differs from the
-sheet's, the bend radius. **Unfold** lays the part flat beside it and can
+sheet's, the bend radius. **Bend** folds the plate itself along a line
+you drew in a sketch (the smaller side turns). **Unfold** lays the part flat beside it and can
 write a DXF of the blank, with the bend lines and their angles, for a
 laser or punch. Details: LANGUAGE.md section 31; an example is
 `scripts/sheet_bracket.cmd`.
@@ -318,9 +319,15 @@ line into a thin wall that runs down to the part: draw the line where the
 rib's top edge goes, in a sketch square to the walls. **Lip** keys the two
 halves of an enclosure together: pick the rim face of one half for a
 raised band, and the rim of the other half with GROOVE for the matching
-cut. **Wrap** lays a sketch round a cylindrical face, raised or cut, for
-grips, labels and bands. Details: LANGUAGE.md section 32; an example is
+cut. **Wrap** lays a sketch round a cylindrical or conical face, raised or
+cut, for grips, labels and bands. Details: LANGUAGE.md section 32; an example is
 `scripts/enclosure_halves.cmd`.
+
+**Exploded views.** Record how an assembly comes apart with `XSTEP` (the
+command menu, under Parts): each step moves some parts by a distance.
+`XSHOW, name` then shows the parts apart with thin trail lines back to
+their places, and `XSHOW` alone puts them back (so does the next change).
+Details: LANGUAGE.md section 35; an example is `scripts/exploded_view.cmd`.
 
 **Moving an assembly.** Write the moving part's position with a parameter
 (`A = 30` and then `MATE, ANGLE, ..., A`, or `ROTATE, lid, -A, ...`).

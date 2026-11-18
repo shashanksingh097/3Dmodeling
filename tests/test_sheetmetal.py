@@ -147,3 +147,75 @@ def test_an_edge_on_the_side_is_refused():
     run(p, "SEL, S, EDGE, AT, 0, 0, 1")
     r = p.run("FLANGE, , 10")
     assert not r.ok and "top or bottom" in r.message
+
+
+def test_holes_in_flange_walls_show_in_the_flat_pattern():
+    p = plate()
+    run(p, "SEL, S, EDGE, AT, 30, 0, 2", "FLANGE, , 20",  # up
+        "SEL, S, EDGE, AT, 60, 20, 0", "FLANGE, , 15",  # down
+        "NAME, 1, part",
+        "CYL, 30, -20, 14, 3, 30, 0, 1, 0", "SUBTRACT, part, LAST",  # through the up wall
+        "CYL, 50, 20, -10, 2.5, 30, 1, 0, 0", "SUBTRACT, part, LAST")  # through the down wall
+    bid = p.model.body_by_name("part").id
+    part = p.model.body(bid).shape
+    run(p, f"UNFOLD, {bid}")
+    blank = p.model.body(max(p.model.bodies)).shape
+    # with K = 0.5 bending keeps the volume, so the blank has both holes when the volumes match
+    assert robust.volume(blank) == pytest.approx(robust.volume(part), rel=1e-6)
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    from modeler.geometry import sheetmetal as smt
+
+    flat = smt.flat_pattern(p.model.sheets[bid], part)
+    ex = TopExp_Explorer(flat.face, TopAbs_FACE)
+    faces = 0
+    while ex.More():
+        faces += 1
+        ex.Next()
+    assert faces == 1  # one piece: the walls join the bends
+
+
+SBEND_PLATE = ["SKETCH, s1, XY", "SRECT, 0, 0, 60, 40", "SCIRCLE, 15, 20, 5", "SCIRCLE, 50, 20, 4", "ENDSKETCH",
+               "SHEET, s1, 2, 2, 0.5", "SKETCH, s2, XY", "SLINE, 40, -5, 40, 45", "ENDSKETCH"]
+
+
+@pytest.mark.parametrize("args, zmax, zmin", [("", 2 + 2 + 15.288, 0), (", 90, 1, DOWN", 2, -(1 + 20 - math.pi))])
+def test_sbend_turns_the_smaller_side_and_unfolds_back(args, zmax, zmin):
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    p = Processor()
+    run(p, *SBEND_PLATE, f"SBEND, 1, s2{args}")
+    part = p.model.body(1).shape
+    assert robust.checked_ok(part, True)
+    v0 = (60 * 40 - math.pi * 25 - math.pi * 16) * 2
+    assert robust.volume(part) == pytest.approx(v0, rel=1e-6)  # K = 0.5 keeps the volume
+    b = Bnd_Box()
+    (getattr(BRepBndLib, "Add_s", None) or BRepBndLib.Add)(part, b, True)
+    assert b.CornerMax().X() < 45  # the 20 wide side past x = 40 turned
+    assert b.CornerMax().Z() == pytest.approx(zmax, abs=0.05)
+    assert b.CornerMin().Z() == pytest.approx(zmin, abs=0.05)
+    msg = run(p, "UNFOLD, 1").message
+    assert "60.00 × 40.00" in msg  # flat again: the same blank, with the hole on the side that turned
+    assert robust.volume(p.model.body(2).shape) == pytest.approx(v0, rel=1e-6)
+
+
+def test_sbend_flip_turns_the_bigger_side():
+    p = Processor()
+    run(p, *SBEND_PLATE, "SBEND, 1, s2, 90, , UP, FLIP")
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    b = Bnd_Box()
+    (getattr(BRepBndLib, "Add_s", None) or BRepBndLib.Add)(p.model.body(1).shape, b, True)
+    assert b.CornerMin().X() > 35 and b.CornerMax().Z() > 30
+
+
+def test_sbend_errors():
+    p = Processor()
+    run(p, *SBEND_PLATE, "SKETCH, s3, XY", "SLINE, 100, 0, 100, 10", "ENDSKETCH")
+    r = p.run("SBEND, 1, s3")
+    assert not r.ok and "does not cross" in r.message
+    r = p.run("SBEND, 1, s1")
+    assert not r.ok and "one straight line" in r.message

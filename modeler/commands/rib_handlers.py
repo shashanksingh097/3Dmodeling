@@ -6,8 +6,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..core.model import ModelError
-from ..geometry import ribs
-from ..geometry import robust
+from ..geometry import ribs, robust
 from ..lang.expr import fmt_num
 from .processor import Arg, BodyRef, CommandError, Processor, Text, command
 
@@ -118,10 +117,10 @@ def lip(p: Processor, face, h, w, mode, clear):
 @command(
     "WRAP",
     Arg("sketch", Text, help="a sketch on a plane parallel to the cylinder's axis"),
-    Arg("face", int, 0, "a cylindrical face to wrap it onto; 0: the selected face"),
+    Arg("face", int, 0, "a cylindrical or conical face to wrap it onto; 0: the selected face"),
     Arg("h", help="how far it stands out (ADD) or sinks in (CUT)"),
     Arg("mode", str, "ADD", "ADD (embossed) or CUT (engraved)"),
-    help="Wrap a sketch's profiles round a cylinder, raised or cut: WRAP, s3, 7, 1 (stands 1 out of face 7) · "
+    help="Wrap a sketch's profiles round a cylinder or a cone, raised or cut: WRAP, s3, 7, 1 (stands 1 out of face 7) · "
          "WRAP, s3, 7, 0.5, CUT. The sketch's direction across the axis becomes length round the cylinder, so "
          "shapes keep their size; it starts where the sketch plane faces the cylinder",
 )
@@ -144,7 +143,7 @@ def wrap(p: Processor, sketch, face, h, mode):
     tool = tools[0] if len(tools) == 1 else ribs._compound(tools)
     how = "raised" if mode == "ADD" else "cut"
     msg = _combine(p, bid, tool, mode == "ADD", "WRAP",
-                   f"WRAP {sk.name} round face {face} (radius {fmt_num(R)}), {how} {fmt_num(h)}{note}")
+                   f"WRAP {sk.name} round face {face} ({'cone, radius ' if hasattr(cyl, 'SemiAngle') else 'radius '}{fmt_num(R)}), {how} {fmt_num(h)}{note}")
     _mark_used(p, sk, f"WRAP on body {bid}")
     return msg
 
@@ -163,6 +162,6 @@ def _thick(face, h: float, cyl):
     a = np.array([ax.Direction().X(), ax.Direction().Y(), ax.Direction().Z()])
     d = np.array([c.X(), c.Y(), c.Z()]) - o
     r = float(np.linalg.norm(d - (d @ a) * a))
-    if (r - cyl.Radius()) * h < 0:
+    if (r - ribs.radius_at(cyl, float(d @ a))) * h < 0:
         s = ribs.wrap_solid(face, -h)
     return s
