@@ -213,6 +213,9 @@ class Processor:
         # because a key never changes meaning
         self.part_cache: dict = {}
         self.lib_files: dict[str, str] = {}  # LIB, LOAD names as written -> the file read
+        # sculpt strokes by name (S1, S2 ...): points the brush went through, kept with the project
+        # (strokes.npz) because a stroke is too long to write into a history line
+        self.strokes: dict = {}
         # LIB, LINK names as written -> what the last run read (part_handlers.Link);
         # not undo state: it says what the file held, which RELOAD compares
         self.links: dict = {}
@@ -378,6 +381,7 @@ class Processor:
         self.parts = {}
         self.part_files = {}
         self.file_map = {}
+        self.strokes = {}
         self.links = {}
         self.link_paths = {}
         self.project_dir = ""
@@ -395,9 +399,16 @@ class Processor:
         """The applied history as text, one entry per item."""
         return [e.text for e in self.history[: self.cursor] if not e.suppressed]
 
-    def script(self) -> str:
-        """The applied history as a script that rebuilds the model."""
+    def script(self, standalone: bool = False) -> str:
+        """The applied history as a script that rebuilds the model. ``standalone``
+        also writes the points of the sculpt strokes first (STROKE lines), which a
+        project keeps in its own file, so the script works on its own."""
         out = []
+        if standalone and self.strokes:
+            from .sculpt_handlers import format_points
+
+            out.append("! the sculpt strokes the SCULPT steps use")
+            out += [f'STROKE, {k}, "{format_points(v)}"' for k, v in self.strokes.items()]
         for e in self.history[: self.cursor]:
             if e.suppressed:
                 out.extend("! [suppressed] " + line for line in e.text.splitlines())

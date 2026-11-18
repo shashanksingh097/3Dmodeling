@@ -909,7 +909,7 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Save command log", "session.cmd", "Command scripts (*.cmd)")
         if path:
             with open(path, "w", encoding="utf-8") as f:
-                f.write(self.processor.script())
+                f.write(self.processor.script(standalone=True))
             self.statusBar().showMessage(f"Saved {self.processor.cursor} history entries to {path}", 5000)
 
     def _open_project(self) -> None:

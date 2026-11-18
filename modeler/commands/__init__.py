@@ -26,3 +26,4 @@ from . import implicit_handlers  # noqa: F401  (IMPLICIT, LATTICE: shapes from e
 from . import knife_handlers  # noqa: F401  (KNIFE: cut along a drawn stroke)
 from . import mate_handlers  # noqa: F401  (MATE: place copies by faces, edges and axes)
 from . import drawing_handlers  # noqa: F401  (DRAWING: 2D drawings to SVG and DXF)
+from . import sculpt_handlers  # noqa: F401  (SCULPT, MASK, STROKE: sculpting mesh bodies)

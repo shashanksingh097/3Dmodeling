@@ -250,6 +250,15 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.strokes:  # sculpt strokes: their points, by name
+            import io
+
+            import numpy as np
+
+            buf = io.BytesIO()
+            np.savez_compressed(buf, **{k: np.asarray(v, dtype=np.float32) for k, v in p.strokes.items()})
+            z.writestr("strokes.npz", buf.getvalue())
+            meta["strokes"] = "strokes.npz"
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
     return p.cursor
@@ -269,6 +278,17 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
             raise CommandError(f"OPEN: {path} is missing {exc}") from None
         if meta.get("version", 0) > PROJECT_VERSION:
             raise CommandError("OPEN: this project was saved by a newer version")
+        strokes = {}
+        if meta.get("strokes"):
+            import io
+
+            import numpy as np
+
+            try:
+                with np.load(io.BytesIO(z.read(meta["strokes"]))) as data:
+                    strokes = {k: data[k].astype(float) for k in data.files}
+            except (KeyError, ValueError, OSError) as exc:
+                raise CommandError(f"OPEN: the sculpt strokes in {path} cannot be read ({exc})") from None
         tmpdir = tempfile.mkdtemp(prefix="m3d_")
         mapping = {}
         for name, stored in meta.get("files", {}).items():
@@ -276,6 +296,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
             mapping[name] = os.path.join(tmpdir, stored)
     p.reset()
     p.file_map = mapping
+    p.strokes = strokes
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
     results = p.run_script(script, meta.get("history"))
