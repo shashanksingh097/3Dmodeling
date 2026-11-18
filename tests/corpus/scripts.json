@@ -19,6 +19,11 @@
   "faces": 16,
   "volume": 25060.741
  },
+ "bracket_strength.cmd": {
+  "bodies": 1,
+  "faces": 10,
+  "volume": 24735.664
+ },
  "cam_plate.cmd": {
   "bodies": 1,
   "faces": 9,

@@ -56,6 +56,7 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 | [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
 | [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) |
+| [<img src="examples/bracket_strength.png" width="160">](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) | [A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) |
 
 ---
 
@@ -2406,6 +2407,46 @@ MEMBER, brace_path, ANGLE, 25x25x3, BUTT, brace, 180
 HIDE, brace_path
 COLOR, brace_1, ORANGE
 CUTLIST
+FIT
+```
+
+</details>
+
+---
+
+## A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)
+
+![A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)](examples/bracket_strength.png)
+
+A first strength check (STRESS): an aluminium L-bracket bolted to a wall by its back plate, with 400 N hanging from the end of its arm. CM names the faces so the check reads plainly; STRESS colours the part (red: the 99.5% stress) and gives the largest stress, deflection and safety factor.
+
+**Script:** [scripts/bracket_strength.cmd](../scripts/bracket_strength.cmd) (21 lines) · **Run:** `python -m modeler scripts/bracket_strength.cmd`
+
+**You should get:** 1 body, volume 24,735.7 mm³, 10 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! A first strength check (STRESS): an aluminium L-bracket bolted to a wall by its back plate, with
+! 400 N hanging from the end of its arm. CM names the faces so the check reads plainly; STRESS colours
+! the part (red: the 99.5% stress) and gives the largest stress, deflection and safety factor.
+BLOCK, 0, 0, 0, 60, 40, 6
+NAME, LAST, bracket
+BLOCK, 0, 0, 0, 6, 40, 50
+UNION, bracket, LAST
+SEL, S, EDGE, LOC, X, 6
+SEL, R, EDGE, LOC, Z, 6
+FILLET, 3                             ! round the inside corner
+CYL, 45, 20, -1, 4, 10
+SUBTRACT, bracket, LAST
+MATERIAL, bracket, ALUMINIUM
+SEL, S, FACE, NORMAL, -1, 0, 0
+CM, wall, FACE
+SEL, S, FACE, NORMAL, 1, 0, 0
+SEL, R, FACE, LOC, X, 60
+CM, tip, FACE
+SEL, NONE
+STRESS, bracket, wall, tip, FORCE, 0, 0, -400
 FIT
 ```
 

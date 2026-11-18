@@ -409,8 +409,12 @@ def _diverging(x: np.ndarray) -> np.ndarray:
     return np.stack([r * 0.95 + 0.05, g * 0.85 + 0.1, b * 0.95 + 0.05], axis=1)
 
 
-def colours(m: Mesh, mode: str, d=(0.0, 0.0, 1.0), min_deg: float = 1.0, stripes: int = 24) -> np.ndarray:
+def colours(m: Mesh, mode: str, d=(0.0, 0.0, 1.0), min_deg: float = 1.0, stripes: int = 24,
+            field=None, scale: float = 0.0) -> np.ndarray:
     """(n, 3) RGB in [0, 1] for each node."""
+    if mode == "STRESS":  # a strength check's von Mises: blue (none) to red (scale); magenta past it
+        v = np.asarray(field.at(m.nodes), float) / max(scale, 1e-30)
+        return rainbow(v)
     if mode == "ZEBRA":
         e = np.asarray(d, float)
         e = e / np.linalg.norm(e)
@@ -439,3 +443,14 @@ def colours(m: Mesh, mode: str, d=(0.0, 0.0, 1.0), min_deg: float = 1.0, stripes
 def face_ids(model, bid: int, m: Mesh) -> list[int | None]:
     ids = ids_of(model, bid, "FACE")
     return [_lookup(ids, f) for f in m.faces]
+
+
+def rainbow(v: np.ndarray) -> np.ndarray:
+    """0 blue, then cyan, green, yellow, 1 red; past 1 magenta."""
+    stops = np.array([(0.15, 0.25, 0.95), (0.1, 0.8, 0.95), (0.2, 0.8, 0.25), (0.95, 0.85, 0.1), (0.9, 0.15, 0.1)])
+    x = np.clip(np.asarray(v, float), 0.0, 1.0) * (len(stops) - 1)
+    i = np.minimum(x.astype(int), len(stops) - 2)
+    f = (x - i)[:, None]
+    out = stops[i] * (1 - f) + stops[i + 1] * f
+    out[np.asarray(v) > 1.0 + 1e-9] = (0.85, 0.2, 0.85)
+    return out

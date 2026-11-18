@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=1.24",
     "meshio>=5.3",  # mesh files: VTK, PLY, OBJ, OFF, Gmsh and other simulation formats
     "manifold3d>=3.0",  # mesh bodies: fast, always-closed booleans on triangles
+    "scipy>=1.12",  # STRESS: the sparse solver and nearest-point search of the strength check
 ]
 
 [project.optional-dependencies]

@@ -321,6 +321,14 @@ and mitred or butted corners. Each straight piece becomes one member.
 **Cut list** lists what to cut: lengths, end angles and how many of each.
 Details: LANGUAGE.md section 36; an example is `scripts/welded_frame.cmd`.
 
+**Strength.** Press **Strength** on the Inspect tab, pick the faces held
+still and the faces the load acts on, and give the force (N) or pressure
+(MPa). The part is coloured by stress (blue none, red high), and the
+message says the largest stress, the deflection and the safety factor
+from the part's material. It is a quick check while you design, not a full
+analysis. Details: LANGUAGE.md section 37; an example is
+`scripts/bracket_strength.cmd`.
+
 **Ribs, lips and wrapping.** **Rib** (command `RIB`) turns an open sketch
 line into a thin wall that runs down to the part: draw the line where the
 rib's top edge goes, in a sketch square to the walls. **Lip** keys the two

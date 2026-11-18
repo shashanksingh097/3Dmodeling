@@ -34,3 +34,4 @@ from . import motion_handlers  # noqa: F401  (DRIVE, MOTION: assemblies that mov
 from . import scan_handlers  # noqa: F401  (SEGMENT, RECONSTRUCT: scan to CAD for machined parts)
 from . import xview_handlers  # noqa: F401  (XSTEP, XSHOW: exploded views)
 from . import frame_handlers  # noqa: F401  (MEMBER, CUTLIST: frames and weldments)
+from . import stress_handlers  # noqa: F401  (STRESS: a first strength check)

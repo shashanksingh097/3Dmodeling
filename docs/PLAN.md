@@ -913,11 +913,13 @@ three to a pull request:
     members (square, rectangular and round tube, flat bar, angle, channel,
     I-beam) laid along the lines of a polyline or sketch, mitred or butted
     where they meet, and a cut list (lengths and angles).
-26. **A first strength check**: linear static stress on a solid (`STRESS`:
-    fixed faces, a force or pressure on faces, a material), a tetrahedral
-    mesh and solver in numpy and scipy, results as a colour map with the
-    largest stress, deflection and safety factor, and text answers for
-    the assistant.
+26. **A first strength check** (done: `STRESS`): linear static stress on
+    a solid (fixed faces, a force or pressure on faces, a material), a
+    grid of brick cells and a solver in numpy and scipy, results as a colour
+    map with the largest stress, deflection and safety factor, and text
+    answers for the assistant. It stays a quick check while designing:
+    proper meshing and full solvers (contacts, nonlinear, vibration modes)
+    belong in a separate application.
 27. **Manufacturing output**: 3D printing checks (`PRINTCHECK`: overhangs
     past an angle, thin walls, trapped volumes, the base face), and
     2.5D milling paths (`MILL`: facing, pockets and outlines from faces with

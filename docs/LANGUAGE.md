@@ -285,6 +285,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
+| Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2737,3 +2738,52 @@ each profile. Members keep their place on the list after holes or other
 cuts.
 
 An example is `scripts/welded_frame.cmd`.
+
+## 37. A first strength check
+
+`STRESS` answers "will this part bend or break under this load?" while
+you design. It is a quick, linear check of one solid. It is not a
+replacement for a proper analysis program: there are no contacts, no
+large deflections, no plasticity and no vibration modes, and you do not
+make or tune a mesh.
+
+```
+SEL, S, FACE, NORMAL, -1, 0, 0
+CM, wall, FACE                           ! the face bolted to the wall
+SEL, S, FACE, NORMAL, 1, 0, 0
+SEL, R, FACE, LOC, X, 60
+CM, tip, FACE                            ! the face the load hangs on
+MATERIAL, bracket, ALUMINIUM
+STRESS, bracket, wall, tip, FORCE, 0, 0, -400   ! 400 N down, shared over the tip faces
+STRESS, bracket, "12", "7", PRESSURE, 2          ! 2 MPa (N/mm2) pushing into face 7
+STRESS, bracket, wall, tip, FORCE, 0, 0, -400, 1 ! finer: 1 mm cells
+ANALYZE, OFF                             ! ends the colours
+```
+
+Faces are given by number with spaces between (`"3 7"`), as a set saved
+with `CM`, or as `SEL` for the selected faces. Units are mm, N and MPa.
+The stiffness and yield stress come from the body's `MATERIAL` (steel when
+it has none): steel, stainless, cast iron, aluminium, titanium, copper,
+brass, ABS, nylon, PLA, wood and glass. Rubber is refused, because it is
+not linear enough.
+
+**How it works.** The part is filled with box cells, about 8000 of them
+unless you give the cell size `h`. Each cell is an 8-node brick that also
+bends well, so thin plates a few cells thick still bend about right. The
+nodes near the fixed faces are held still, and the load is shared over the
+nodes near the loaded faces. The answer usually comes in about a second.
+
+**What you get.** The body is coloured from blue (no stress) to red (the
+value that 99.5% of the part stays under), with magenta above it. The
+message gives the largest stress and where, the 99.5% value, the largest
+deflection and where, and the safety factor (yield stress over stress)
+for both. The verdict uses the 99.5% value: "holds" at 1.5 or more, "is
+close to yielding" from 1 to 1.5, "yields" below 1.
+
+**Reading it.** The largest stress sits at sharp inside corners and at the
+edge of a fixed face. There it depends on the cell size, so run again with
+a smaller `h` and see whether it settles. Deflection settles much sooner
+than peak stress. Curved faces become steps of cells, so treat stress right
+at a curved surface as rough.
+
+An example is `scripts/bracket_strength.cmd`.
