@@ -879,9 +879,11 @@ More features not yet in the app (added 2026-11-18, after item 16):
     `-C` in the batch runner), `BOM` (parts list with quantities, material,
     mass, CSV), and a clear error when a body and a parameter share a name
     (branch `configs-bom`).
-19. **Sheet metal**: a base flange from a sketch with a thickness and bend
-    radius, edge flanges, bends along a line, and the flat pattern
-    (`UNFOLD`) written to DXF with bend lines, plus a K-factor setting.
+19. **Sheet metal** (done, except bends along a sketched line and holes in
+    flange walls showing flat: later): a base flange from a sketch with a
+    thickness and bend radius (`SHEET`), edge flanges (`FLANGE`), and the
+    flat pattern (`UNFOLD`) written to DXF with bend lines, plus a K-factor
+    setting. See docs/sheet-metal.md.
 20. **Ribs and lips**: `RIB` (a thin wall from an open sketch line up to
     the nearest faces), `LIP` and groove for enclosure halves, and `WRAP`
     (a sketch wrapped onto a cylinder or cone, embossed or cut).

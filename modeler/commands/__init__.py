@@ -28,3 +28,4 @@ from . import mate_handlers  # noqa: F401  (MATE: place copies by faces, edges a
 from . import drawing_handlers  # noqa: F401  (DRAWING: 2D drawings to SVG and DXF)
 from . import sculpt_handlers  # noqa: F401  (SCULPT, MASK, STROKE: sculpting mesh bodies)
 from . import config_handlers  # noqa: F401  (CONFIG, USECONFIG: configurations; BOM: the parts list)
+from . import sheet_handlers  # noqa: F401  (SHEET, FLANGE, UNFOLD, SHEETINFO: sheet metal)

@@ -109,6 +109,11 @@
   "faces": 1,
   "volume": 33651.827
  },
+ "sheet_bracket.cmd": {
+  "bodies": 2,
+  "faces": 42,
+  "volume": 21922.026
+ },
  "sketch_bracket.cmd": {
   "bodies": 2,
   "faces": 24,

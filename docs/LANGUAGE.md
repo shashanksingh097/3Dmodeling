@@ -2497,3 +2497,48 @@ kept hidden by the history are not counted.
 command the name would mean the parameter's value: `NAME, b, W` is refused
 while `W` is a parameter, and `plate = 3` is refused while a body is called
 `plate`.
+
+## 31. Sheet metal
+
+A sheet metal part is a plate of one thickness with walls bent along its
+edges. It remembers its thickness, bend radius and K-factor, so it can be
+laid flat again for cutting.
+
+```
+SKETCH, base, XY
+SRECT, 0, 0, 60, 40
+SCIRCLE, 30, 20, 6                    ! holes in the sketch are holes in the plate
+ENDSKETCH
+SHEET, base, 2                        ! 2 thick; bend radius 2 (the thickness), K-factor 0.44
+SHEET, base, 2, 3, 0.4                ! or: bend radius 3, K-factor 0.4
+SEL, S, EDGE, AT, 30, 0, 2            ! the front edge of the top face
+FLANGE, , 25                          ! bends up 90 degrees, a 25 long wall
+FLANGE, 12, 15, 45                    ! edge 12, 45 degrees; an edge of the bottom face bends down
+FLANGE, 14, 10, 120, 1                ! bend radius 1 for this one
+SHEETINFO, 1                          ! thickness, radius, K and each flange with its flat length
+UNFOLD, 1                             ! the flat blank as a body beside the part
+UNFOLD, 1, blank.dxf                  ! and a DXF to cut it from
+UNFOLD, 1, blank.dxf, NO              ! only the DXF
+```
+
+**`FLANGE`** bends along a straight edge of the plate's top face (the
+wall goes up) or bottom face (it goes down). The bend starts at the edge
+and its inside radius is the sheet's (or the one given), so the part
+grows past the edge by the radius plus the thickness before the wall
+starts. `FLANGE, , length` flanges every selected edge. Flanges on
+neighbouring edges leave an open corner.
+
+**`UNFOLD`** lays the plate's bottom face (with every hole through it) flat
+and adds a strip for each flange. A bend takes `angle × (r + K × t)` of
+flat length (in radians): the length of the line inside the bend that
+neither stretches nor squeezes, which sits `K × t` from the inside face. K
+is 0.44 unless `SHEET` says otherwise; use the value your shop or
+material supplier gives. With K = 0.5 the blank has exactly the part's
+volume. The DXF has the cut outline on layer OUTLINE, a centre line for
+each bend on layer BEND, and its direction, angle and radius
+(`UP 90° R2`) on layer TEXT.
+
+`HOLE`, `SUBTRACT` and other changes keep a body sheet metal; holes through
+the plate show in the flat pattern. Holes cut into a flange's wall do not
+(yet), and a flange cannot start from another flange's wall.
+

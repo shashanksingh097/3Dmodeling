@@ -38,6 +38,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   batch runner takes `-C big`.
 - **`BOM`**: the parts list, with instances of the same part counted
   together, material and mass; `BOM, parts.csv` writes it as CSV.
+- **Sheet metal**: `SHEET` makes a plate of one thickness from a sketch,
+  `FLANGE` bends a wall up or down along an edge (angle, length, bend
+  radius) and `UNFOLD` lays the part flat, as a body and as a DXF to cut
+  with bend lines and their angles. The flat length of each bend follows
+  the sheet's K-factor. `SHEETINFO` lists the flanges. On the Features tab.
 
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three
