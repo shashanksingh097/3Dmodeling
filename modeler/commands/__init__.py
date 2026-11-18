@@ -31,3 +31,4 @@ from . import config_handlers  # noqa: F401  (CONFIG, USECONFIG: configurations;
 from . import sheet_handlers  # noqa: F401  (SHEET, FLANGE, UNFOLD, SHEETINFO: sheet metal)
 from . import rib_handlers  # noqa: F401  (RIB, LIP, WRAP: ribs, enclosure lips, wrapped sketches)
 from . import motion_handlers  # noqa: F401  (DRIVE, MOTION: assemblies that move)
+from . import scan_handlers  # noqa: F401  (SEGMENT, RECONSTRUCT: scan to CAD for machined parts)

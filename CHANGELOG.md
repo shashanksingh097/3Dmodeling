@@ -6,6 +6,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Scan to CAD for machined parts**: `SEGMENT` splits a mesh at its sharp
+  edges and says what each region is (a plane, a cylinder or bore, a sphere,
+  or freeform). `RECONSTRUCT` fits those exactly and joins them into one
+  solid. A scanned block with a bore, a boss and a dome comes back within
+  0.01% of its volume.
 - **Help browser**: Help > Command reference (Ctrl+F1) lists every command
   under the command menu's headings, searchable by name, help or argument.
   Each command's page has its arguments with their defaults, lines from the
@@ -55,6 +60,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   180, 18`) finds where parts run into each other and the exact value
   where they first meet. **Save pictures…** and `python -m modeler render
   part.cmd --motion A 0 180 18 frames` save a picture per step.
+- **The modelling tools for any MCP client**: `python -m modeler mcp`
+  serves the assistant's tools (run, describe, probe, check, the working
+  copy, undo) plus `apply`, `save_project` and `export`, over the Model
+  Context Protocol on stdin/stdout, headless. See docs/mcp.md.
 
 - **Sculpting a million triangles is smooth.** The brush circle follows
   the mouse 50 times faster on a 1M-triangle mesh, drag steps are three

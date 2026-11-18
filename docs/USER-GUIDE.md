@@ -297,6 +297,13 @@ brush, becomes one smooth face. Give the largest distance from the mesh
 you accept; the message says how close it got. Details: LANGUAGE.md
 section 29; an example is `scripts/scan_to_cad.cmd`.
 
+A scan of a machined part (flat faces, holes, bosses) is better as exact
+faces: type `RECONSTRUCT, scan` (on the command menu under Mesh bodies).
+It splits the mesh at its sharp edges, fits each region as a plane,
+cylinder or sphere, and makes one solid; `SEGMENT, scan` first lists the
+regions and their fits. Details: LANGUAGE.md section 34; an example is
+`scripts/scan_machined.cmd`.
+
 **Sheet metal.** On the **Features** tab, **Sheet** makes a plate of one
 thickness from a closed sketch. Pick an edge of its top face and press
 **Flange** to bend a wall up along it (an edge of the bottom face bends
@@ -448,6 +455,13 @@ macOS: `3Dmodeling.app/Contents/MacOS/3Dmodeling-cli`) for these.
 
 A script that ends with `EXPORT` makes files in batch: run it with
 different `-D` values to make a family of parts.
+
+**Other AI tools can model with the app.** `modeler mcp` (in the
+downloaded app: `3Dmodeling-cli mcp`) starts a Model Context Protocol
+server. Any MCP client, such as a chat app or a coding agent, can then use
+the same modelling tools as the built-in assistant, with no window. It can
+build a part, check it, and save or export it. How to add it to a client:
+[mcp.md](mcp.md).
 
 ---
 

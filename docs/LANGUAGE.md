@@ -283,7 +283,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
-| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
+| Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Knife | `KNIFE, b, stroke [, width [, dx,dy,dz]]`: cut along a curve seen from a direction (section 27) |
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
@@ -2611,3 +2611,34 @@ python -m modeler render part.cmd --motion A 0 180 18 frames
 saves `frames/a_000.png` … `a_018.png`, with the camera fitted once to
 the position that needs the most room.
 
+## 34. Scan to CAD for machined parts
+
+`FITSURF` (section 29) fits smooth freeform surfaces. A scan of a machined
+part is mostly flat faces, bores and bosses, and those are better as exact
+planes, cylinders and spheres, so that a hole is a true hole you can
+measure and edit.
+
+```
+SEGMENT, scan                 ! the regions and what each is
+SEGMENT, scan, 15, 0.05       ! split at bends over 15 degrees, fit within 0.05
+RECONSTRUCT, scan             ! a new exact solid from the fitted faces; the mesh stays
+RECONSTRUCT, scan, 25, 0.2
+```
+
+**`SEGMENT`** splits the mesh at its sharp edges (a bend between
+neighbouring triangles sharper than `angle`, 25 degrees by default) and
+fits each region. It lists every region with its triangles, its share of
+the area and its fit: a plane (a point and its normal), a cylinder or a
+bore (radius, axis), a sphere (radius, centre), or freeform when nothing
+fits within `tol` (0.2% of the body's size by default). It is not a
+history step.
+
+**`RECONSTRUCT`** makes the solid: each fitted surface is made large,
+space is cut into pieces by all of them, and the pieces inside the mesh
+are joined. Directions within 0.3 degrees of a world axis or of a bigger
+plane's normal are made exact first, so a bore comes out exactly square to
+its face. It reports the faces it fitted and the solid's volume against the
+mesh's. The mesh must be closed. If a region is freeform, RECONSTRUCT
+names it and stops: fit it with FITSURF, or raise `tol`.
+
+An example is `scripts/scan_machined.cmd`.
