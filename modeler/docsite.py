@@ -525,6 +525,14 @@ def _q(s: str) -> str:
     return '"' + s.replace('"', '\\"') + '"'
 
 
+def _shown_path(path: str) -> str:
+    """path from the repository when it is inside it (on Windows it may be on another drive)."""
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return path
+
+
 def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
     """Write the site's source (Markdown pages and mkdocs.yml) to out. Returns the failing examples."""
     examples = read_examples()
@@ -578,7 +586,7 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
         base = f.read()
     with open(os.path.join(out, "mkdocs.yml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(base.rstrip() + "\n\nnav:\n" + nav_yaml(nav) + "\n")
-    log(f"wrote {len(pages)} pages to {os.path.relpath(out, ROOT)}"
+    log(f"wrote {len(pages)} pages to {_shown_path(out)}"
         + (f"; {len(bad)} examples failed" if bad else ""))
     return bad
 
