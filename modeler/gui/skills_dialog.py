@@ -13,6 +13,7 @@ import os
 from PySide6.QtCore import QSettings, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -31,6 +32,7 @@ from ..ai import skills as sk
 
 DIRS = "assistant/skill_dirs"
 OFF = "assistant/skills_off"
+SMALL = "assistant/small_prompt"  # read by gui/assistant_panel.py
 
 
 def _list(settings: QSettings, key: str) -> list[str]:
@@ -81,6 +83,12 @@ class SkillsDialog(QDialog):
             row.addWidget(b)
         row.addStretch(1)
         lay.addLayout(row)
+        self.small = QCheckBox("Short first message: command names only (about 12 KB instead of 30 KB; the "
+                               "assistant looks up arguments as it needs them). For new chats.")
+        self.small.setToolTip("Saves tokens on small plans and helps small local models. "
+                              "'copilot bench --modes full,small' compares the two.")
+        self.small.setChecked(str(settings.value(SMALL, "false")).lower() == "true")
+        lay.addWidget(self.small)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -152,5 +160,6 @@ class SkillsDialog(QDialog):
     def accept(self) -> None:
         self.settings.setValue(DIRS, self.folders())
         self.settings.setValue(OFF, self.switched_off())
+        self.settings.setValue(SMALL, "true" if self.small.isChecked() else "false")
         apply_settings(self.settings)
         super().accept()

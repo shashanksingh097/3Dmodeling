@@ -350,6 +350,8 @@ not in step with the bolt's thread. The script now turns each nut by the
 angle that lines its thread up with the bolt's, and `CONTACT` finds them
 touching on the thread flanks.
 
-Not yet: `search_docs`, `around`, `parameters` with readers, `sketch_state`,
-`user_context`, `since` on every tool, `outline`, the rest of
-feature recognition (fillets, pockets, bosses), and M9c.
+Not yet: `since` on every tool. (`search_docs`, `around`, `parameters` with
+readers, `sketch_state`, `outline`, feature recognition of fillets, chamfers,
+bosses, pockets and slots, `diagnose`, `render_detail` and `render_compare`
+came with M12: docs/M12-assistant-skills.md; `user_context` and the rest of
+M9c are in docs/M9-copilot.md.)

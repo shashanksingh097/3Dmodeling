@@ -199,6 +199,22 @@ off in Help > Assistant skills… are left out. The SDK's own
 the SDK's skill tool would be blocked, and `load_skill` works the same with
 every provider. Details: [M12-assistant-skills.md](M12-assistant-skills.md).
 
+## Smaller first prompt and benchmark modes (PLAN items 46, 47)
+
+`first_prompt(home, small, skills)`: with `small` the command catalogue
+(one line per command, about 18 KB) is replaced by the command names by
+family (`tools.command_families()`, the command menu's headings), about
+12 KB in all instead of 30 KB; the assistant then reads a command's
+arguments with `command_help` before using it. The app's setting is
+`assistant/small_prompt` (Help > Assistant skills…, "Short first
+message"), read when the assistant starts; the CLI has `--small-prompt`
+and `--no-skills`. `copilot bench --modes full,small,noskills,small-noskills`
+runs the 24 tasks once per mode and prints a table; the default changes
+only if the numbers say so. The picture tools are `render`,
+`render_detail` (a close-up framed on entities, `snapshot(focus=...)`) and
+`render_compare` (the sandbox's changed bodies in orange over the model);
+all three are offered only to models that take pictures.
+
 ## Next
 
 1. Benchmark numbers for a few models, published with a release. This needs a

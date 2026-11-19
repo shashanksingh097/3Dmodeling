@@ -125,3 +125,46 @@ def test_skills_dialog_folders_and_switching_off(win, app, tmp_path):
     dlg.remove_folder()
     assert dlg.tree.topLevelItemCount() == n
     dlg.close()
+
+
+def test_why_on_a_failed_step_runs_a_fix(win, app, monkeypatch):
+    lines = ["R = 0.3 ! edge radius", "BLOCK, 0,0,0, 20,20,10", "NAME, LAST, box", "SEL, S, FACE, NORMAL, 0, 0, 1",
+             "SHELL, 1", "SEL, S, EDGE, BODY, box", "FILLET, R"]
+    for line in lines:
+        assert win.execute(line).ok
+    win.execute('HIST, EDIT, 1, "R = 3 ! edge radius"')
+    pump(app)
+    p = win.processor
+    assert not p.history[6].ok
+    dlg = win.history_panel.why(6)
+    pump(app)
+    assert dlg.windowTitle() == "Why did step 7 fail?"
+    assert "largest radius" in dlg.text.toPlainText() and dlg.fix_buttons and dlg.guide_buttons
+    dlg.fix_buttons[0].click()
+    pump(app)
+    assert all(e.ok for e in p.history[:p.cursor]) and not dlg.isVisible()
+    # Help > Why did it fail? when nothing failed says so, without a window
+    from PySide6.QtWidgets import QMessageBox
+
+    told = []
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(a[2])))
+    assert win.shell.show_why() is None and "no step has failed" in told[0].lower()
+    # ... and on a failed typed line it opens
+    assert not win.execute("FILET, 2").ok
+    dlg = win.shell.show_why()
+    assert dlg is not None and "FILLET instead of FILET" in dlg.text.toPlainText()
+    g = dlg.guide_buttons[0]
+    g.click()
+    pump(app)
+    dlg.close()
+
+
+def test_short_first_message_setting(win, app):
+    from modeler.gui.skills_dialog import SMALL
+
+    dlg = win.shell.show_skills()
+    assert not dlg.small.isChecked()
+    dlg.small.setChecked(True)
+    dlg.accept()
+    assert win.shell.settings.value(SMALL) == "true"
+    assert win.shell.show_skills().small.isChecked()

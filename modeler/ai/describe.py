@@ -300,7 +300,58 @@ def _body_overview(p: "Processor", b) -> dict[str, Any]:
     found = rc.holes(b.shape, p.model.tolerance)
     if found:
         out["holes"] = hole_groups(p, b, found)
+    feats = feature_groups(p, b)
+    if feats:
+        out["features"] = feats
     return out
+
+
+def feature_groups(p: "Processor", b, limit: int = 30) -> list[dict[str, Any]]:
+    """Fillets and rounds by radius, chamfers by size, bosses by size, and each pocket and slot
+    (geometry/feature_finder.py), with the faces of each."""
+    from ..geometry import feature_finder as ff
+
+    if representation(b.shape) != "exact":
+        return []
+    try:
+        found = ff.find(b.shape)
+    except Exception:  # noqa: BLE001 - naming features must never break describe
+        return []
+    ids = b.entity_ids["FACE"]
+    groups: dict[tuple, dict[str, Any]] = {}
+    rows: list[dict[str, Any]] = []
+    for f in found:
+        faces = [ids[i - 1] for i in f.faces]
+        if f.kind in ("fillet", "round"):
+            key = (f.kind, num(f.size))
+            g = groups.setdefault(key, {"kind": f.kind, "r": num(f.size), "n": 0, "faces": []})
+            g["n"] += 1
+            g["faces"] += faces
+        elif f.kind == "chamfer":
+            d2 = f.extra.get("d2", f.size)
+            key = ("chamfer", num(f.size), num(d2))
+            g = groups.setdefault(key, {"kind": "chamfer", "d": num(f.size), "n": 0, "faces": []})
+            if num(d2) != num(f.size):
+                g["d2"] = num(d2)
+            g["n"] += 1
+            g["faces"] += faces
+        elif f.kind == "boss":
+            key = ("boss", num(f.size), num(f.extra["height"]), tuple(_axis_key(f.axis)))
+            g = groups.setdefault(key, {"kind": "boss", "d": num(f.size), "height": num(f.extra["height"]),
+                                        "axis": direction_name(f.axis), "n": 0, "at": [], "faces": []})
+            g["n"] += 1
+            g["at"].append(vec(f.at))
+            g["faces"] += faces
+        else:
+            rows.append({"kind": f.kind, "depth": num(f.size), "size": [num(v) for v in f.extra["size"]],
+                         "open_to": direction_name(f.axis), "floor": ids[f.extra["floor"] - 1],
+                         "at": vec(f.at), "faces": sorted(faces)})
+    out = list(groups.values()) + rows
+    for g in out:
+        g["faces"] = sorted(g["faces"])
+        if len(g["faces"]) > 12:
+            g["faces"] = g["faces"][:12] + [f"... {len(g['faces']) - 12} more"]
+    return out[:limit]
 
 
 def hole_groups(p: "Processor", b, found: list[rc.Hole]) -> list[dict[str, Any]]:
@@ -521,4 +572,217 @@ def describe_entities(p: "Processor", kind: str, ids: list[int], limit: int = LI
         out[kind.lower() + "s"] = [rows(p, i) for i in ids[:limit]]
     if len(ids) > limit:
         out["more"] = len(ids) - limit
+    return out
+
+
+# ---- around: what touches an entity -----------------------------------------------------
+def _face_labels(p: "Processor", b) -> dict[int, str]:
+    """Face ID -> the feature it belongs to ("hole d6 through", "round r2", "pocket floor" ...)."""
+    out: dict[int, str] = {}
+    try:
+        for h in hole_groups(p, b, rc.holes(b.shape, p.model.tolerance)):
+            label = f"hole d{h['d']:g} " + ("through" if h["through"] else f"depth {h['depth']:g}")
+            for f in h["faces"]:
+                out[f] = label
+    except Exception:  # noqa: BLE001
+        pass
+    for g in feature_groups(p, b, limit=1000):
+        if g["kind"] in ("fillet", "round"):
+            label = f"{g['kind']} r{g['r']:g}"
+        elif g["kind"] == "chamfer":
+            label = f"chamfer {g['d']:g}"
+        elif g["kind"] == "boss":
+            label = f"boss d{g['d']:g}"
+        else:
+            label = f"{g['kind']} depth {g['depth']:g}"
+        for f in g["faces"]:
+            if isinstance(f, int):
+                out.setdefault(f, label + (" (floor)" if g.get("floor") == f else ""))
+    return out
+
+
+def _short_face(p: "Processor", gid: int, labels: dict[int, str]) -> dict[str, Any]:
+    r = face_row(p, gid)
+    row: dict[str, Any] = {"id": gid, "type": r["type"], "area": r["area"]}
+    if "normal" in r:
+        row["facing"] = direction_name(r["normal"])
+    for k in ("r", "R", "inner", "half_angle"):
+        if k in r:
+            row[k] = r[k]
+    if gid in labels:
+        row["part_of"] = labels[gid]
+    if "made_by" in r:
+        row["made_by"] = r["made_by"]
+    return row
+
+
+def around(p: "Processor", kind: str, gid: int, depth: int = 1, limit: int = 60) -> dict[str, Any]:
+    """The faces touching a face, edge or vertex, ring by ring out to ``depth`` (1 to 3),
+    each with its type, size, direction and the feature it belongs to."""
+    kind = kind.upper()
+    m = p.model
+    depth = max(1, min(3, int(depth)))
+    try:
+        bid, idx = m.entity_owner(kind, gid)
+    except ModelError as exc:
+        raise DescribeError(str(exc)) from None
+    body = m.bodies[bid]
+    labels = _face_labels(p, body)
+    if kind == "FACE":
+        start = {gid}
+        centre_row = _short_face(p, gid, labels)
+    elif kind == "EDGE":
+        start = set(edge_row(p, gid).get("faces", []))
+        centre_row = {k: v for k, v in edge_row(p, gid).items() if k not in ("body", "made_by")}
+    elif kind == "VERTEX":
+        from OCP.TopAbs import TopAbs_VERTEX
+        from OCP.TopExp import TopExp
+
+        amap = robust._EdgeFaceMap()
+        TopExp.MapShapesAndAncestors_s(body.shape, TopAbs_VERTEX, TopAbs_FACE, amap)
+        v = m.entity_shape("VERTEX", gid)
+        k = amap.FindIndex(v)
+        start = set()
+        if k:
+            for f in rc._iter_list(amap.FindFromIndex(k)):
+                j = body.maps["FACE"].FindIndex(f)
+                if j:
+                    start.add(body.entity_ids["FACE"][j - 1])
+        centre_row = vertex_row(p, gid)
+    else:
+        raise DescribeError("kind is FACE, EDGE or VERTEX")
+    out: dict[str, Any] = {"rev": m.revision, "unit": m.units.lower(), "body": bid, "of": {"kind": kind, **centre_row}}
+    seen = set(start) if kind == "FACE" else set()
+    ring = set(start)
+    rings = []
+    count = 0
+    if kind != "FACE":
+        rows = [_short_face(p, f, labels) for f in sorted(ring)]
+        rings.append({"depth": 1, "faces": rows})
+        count += len(rows)
+        seen |= ring
+        depth -= 1
+    for d in range(depth):
+        nxt: set[int] = set()
+        for f in ring:
+            nxt |= set(_neighbours_of(body, body.entity_ids["FACE"].index(f) + 1))
+        nxt -= seen
+        seen |= nxt
+        rows = [_short_face(p, f, labels) for f in sorted(nxt)[: max(0, limit - count)]]
+        count += len(rows)
+        rings.append({"depth": len(rings) + 1, "faces": rows})
+        if len(nxt) > len(rows):
+            rings[-1]["more"] = len(nxt) - len(rows)
+        ring = nxt
+    out["rings"] = rings
+    feats = sorted({r["part_of"] for rg in rings for r in rg["faces"] if "part_of" in r})
+    if feats:
+        out["features_nearby"] = feats
+    return out
+
+
+# ---- outline: a picture in a few hundred numbers ------------------------------------------
+def _rdp(pts: list[tuple[float, float]], eps: float) -> list[tuple[float, float]]:
+    """Ramer-Douglas-Peucker: drop points closer than eps to the line through their neighbours."""
+    if len(pts) < 3:
+        return pts
+    (x0, y0), (x1, y1) = pts[0], pts[-1]
+    dx, dy = x1 - x0, y1 - y0
+    ln = math.hypot(dx, dy)
+    far, at = -1.0, 0
+    for i in range(1, len(pts) - 1):
+        x, y = pts[i]
+        d = abs(dy * (x - x0) - dx * (y - y0)) / ln if ln > 1e-12 else math.hypot(x - x0, y - y0)
+        if d > far:
+            far, at = d, i
+    if far <= eps:
+        return [pts[0], pts[-1]]
+    return _rdp(pts[: at + 1], eps)[:-1] + _rdp(pts[at:], eps)
+
+
+def _chain(polys: list[list[tuple[float, float]]], tol: float) -> list[list[tuple[float, float]]]:
+    """Join polylines that meet end to end."""
+    polys = [list(pl) for pl in polys]
+    out = []
+    while polys:
+        cur = polys.pop()
+        grown = True
+        while grown:
+            grown = False
+            for i, pl in enumerate(polys):
+                if math.dist(cur[-1], pl[0]) < tol:
+                    cur += pl[1:]
+                elif math.dist(cur[-1], pl[-1]) < tol:
+                    cur += pl[-2::-1]
+                elif math.dist(cur[0], pl[-1]) < tol:
+                    cur = pl[:-1] + cur
+                elif math.dist(cur[0], pl[0]) < tol:
+                    cur = pl[::-1][:-1] + cur
+                else:
+                    continue
+                polys.pop(i)
+                grown = True
+                break
+        out.append(cur)
+    return out
+
+
+def outline(p: "Processor", ref, view: str = "FRONT", hidden: bool = False, most: int = 400) -> dict[str, Any]:
+    """The body's visible edges seen from a view, flattened, joined and simplified to at most
+    ``most`` points, with whole circles listed apart: what a picture shows, as numbers.
+    ``hidden`` adds the hidden edges."""
+    from ..geometry import drawing as dw
+
+    m = p.model
+    bid = find_body(p, ref)
+    b = m.bodies[bid]
+    name = view.strip().upper()
+    if name not in dw.VIEWS:
+        raise DescribeError(f"view is one of {', '.join(dw.VIEWS)}")
+    box = bbox(b.shape)
+    size = max(box[3] - box[0], box[4] - box[1], box[5] - box[2], 1e-9)
+    v = dw.project(b.shape, name, size / 400, mesh=representation(b.shape) != "exact")
+    circles = []
+    for cx, cy, r, span in v.circles:
+        if span >= 2 * math.pi - 1e-6:
+            c = [num(cx), num(cy), num(r)]
+            if c not in circles:
+                circles.append(c)
+
+    def is_circle(pl) -> bool:
+        if len(pl) < 4 or math.dist(pl[0], pl[-1]) > 1e-6 * size:
+            return False
+        for cx, cy, r in circles:
+            if all(abs(math.hypot(x - cx, y - cy) - r) < 1e-3 * max(r, 1e-9) + 1e-6 for x, y in pl[:: max(1, len(pl) // 6)]):
+                return True
+        return False
+
+    def lines(polys):
+        polys = [pl for pl in polys if not is_circle(pl)]
+        joined = _chain(polys, 1e-6 * size)
+        eps = size * 1e-3
+        while True:
+            simple = [_rdp(pl, eps) for pl in joined]
+            n = sum(len(pl) for pl in simple)
+            if n <= most or eps > size * 0.05:
+                break
+            eps *= 2
+        return simple, eps, n
+
+    vis, eps, n = lines(v.visible)
+    x0, y0, x1, y1 = v.bounds()
+    axes = dw.AXES.get(name)
+    out: dict[str, Any] = {"rev": m.revision, "unit": m.units.lower(), "body": bid, "view": name,
+                           "x_is": axes[0] if axes else "screen right", "y_is": axes[1] if axes else "screen up",
+                           "box": [num(x0), num(y0), num(x1), num(y1)], "width": num(x1 - x0), "height": num(y1 - y0)}
+    out["lines"] = [[[num(x), num(y)] for x, y in pl] for pl in vis]
+    if circles:
+        out["circles"] = [{"centre": c[:2], "r": c[2]} for c in circles]
+    if hidden:
+        hid, _e, nh = lines(v.hidden)
+        out["hidden_lines"] = [[[num(x), num(y)] for x, y in pl] for pl in hid]
+    out["points"] = n
+    out["simplified_within"] = num(eps)
+    path = " ".join("M " + " L ".join(f"{num(x):g} {num(-y):g}" for x, y in pl) for pl in vis)
+    out["svg_path"] = path  # y flipped, for an SVG with y down
     return out

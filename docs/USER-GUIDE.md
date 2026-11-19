@@ -586,6 +586,14 @@ On macOS, Ctrl is Cmd.
 * **A command fails.** The Output panel says why in plain words, and the
   model is unchanged. Fix the numbers, or double-click the red step in
   History to edit it.
+* **Why did it fail?** Right-click a red (failed) or amber (warning) step
+  in History and choose **Why did it fail?**, or use **Help > Why did it
+  fail?** for the first failed step (or the last line you typed that
+  failed). The app tries the usual fixes on a copy of your model, such as
+  a fillet radius just under the largest that works, the fillet moved
+  before the shell, or the right spelling of a name. It lists the ones
+  that work, and one button runs a fix (Undo takes it back). It also opens
+  the guide for that command. No assistant or internet is needed.
 * **The app shows "Something went wrong".** Your model is still there.
   The details are in the log; **Help > Report a problem** opens an issue
   with your versions filled in, so please paste the details there.
@@ -697,7 +705,10 @@ a question that names it. **Help > Assistant skills…** switches guides off
 and adds folders with your own: a folder per guide holding a `SKILL.md`
 (see any built-in one: `python -m modeler skills show sheet-metal`). A
 project's own `skills` folder next to its file counts too. **Check skills**
-finds mistakes in your files.
+finds mistakes in your files. **Short first message** sends only the
+command names at the start of a chat (about 12 KB instead of 30 KB); the
+assistant then looks up each command as it needs it, which saves part of
+a small monthly allowance.
 
 **Pictures.** For looks, freeform and sculpted shapes, a model that can see
 pictures may look at a small picture of the 3D view. GitHub Copilot models
@@ -713,6 +724,7 @@ account: sign-in, allowance, models, and one question that Copilot must
 answer with the modeler's tools. It prints PASS or FAIL per step. Add
 `--folder DIR` to use another working folder, and `--provider openai
 --model NAME` (or `anthropic`, `azure`, `ollama`, `custom` with
-`--base-url`) to test your own key. `copilot bench` runs ten modelling
-requests and checks each result exactly, to compare models.
+`--base-url`) to test your own key. `copilot bench` runs 24 modelling
+requests and checks each result exactly, to compare models; add `--modes
+full,small` to compare the full and the short first message.
 

@@ -14,6 +14,25 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   stale. `python -m modeler docs --serve` shows it locally; it is
   published to GitHub Pages from main. **Help > Every command with an
   example (web)** opens it.
+- **Why did it fail?** Right-click a failed step in History (or use
+  **Help > Why did it fail?**). The app tries the usual fixes on a copy of
+  the model: a size just under the largest that works, a fillet moved
+  before the shell, HEAL before a boolean, the right spelling of a name.
+  It lists the ones that work, and one button runs a fix. The assistant
+  has the same as its `diagnose` tool.
+- **The assistant reads more of the model as text**:
+  - `describe_body` now names fillets, rounds, chamfers, bosses, pockets
+    and slots with their sizes.
+  - `around` lists what touches a face or edge.
+  - `outline` gives a body seen from a view as a few hundred numbers.
+  - For models that take pictures, `render_detail` gives a close-up and
+    `render_compare` shows a change in orange over the model.
+- **Short first message**: a setting under **Help > Assistant skills…**
+  sends only the command names at the start of a chat, about 12 KB
+  instead of 30 KB.
+- **A bigger assistant benchmark**: 24 tasks, at least one per skill area.
+  `copilot bench --modes full,small,noskills` compares the full and the
+  short first message, with and without skills.
 - **Assistant skills and Guides**: 17 step-by-step guides to whole jobs
   (sheet metal, enclosures, fasteners, gears and cams, assemblies and
   motion, frames, surfaces, scan to CAD, sculpting, strength,

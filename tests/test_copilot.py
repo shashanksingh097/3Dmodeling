@@ -39,7 +39,7 @@ def plate():
 def test_every_modeler_tool_is_offered(plate):
     a = cp.CopilotAssistant(plate)
     names = [t.name for t in a.sdk_tools()]
-    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "list_files", "read_file"]
+    assert names == [d["name"] for d in a.toolbox.definitions()] + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "render_detail", "render_compare", "list_files", "read_file"]
     assert all(t.skip_permission for t in a.sdk_tools())  # read-only or sandboxed: no prompts
 
 
@@ -229,7 +229,7 @@ def test_runtime_registers_only_our_tools(plate, tmp_path):
 
     names = run(go())
     assert names == sorted([d["name"] for d in cp.CopilotAssistant(plate).toolbox.definitions()]
-                           + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "list_files", "read_file"])
+                           + ["propose_commands", "propose_edits", "ask_pick", "highlight", "render", "render_detail", "render_compare", "list_files", "read_file"])
 
 
 # ---- changing what is there ---------------------------------------------------------------
