@@ -3,7 +3,7 @@ menu, with the model rolled back to just before it; clicks then select without a
 
 import pytest
 
-QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+QtWidgets = pytest.importorskip("PySide6.QtWidgets", exc_type=ImportError)  # no libEGL: skip too
 
 from PySide6.QtCore import QSettings  # noqa: E402
 
