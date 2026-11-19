@@ -295,7 +295,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name; `SEL` in place of the tools means every selected body) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
 | Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original, or `CUT, target` to cut them all from another body in one step · `PATTERN, LINEAR/POLAR, b, steps, n, ...` repeats a feature (section 21) |
 | Blends | `FILLET, r [, r2]` · `CHAMFER, d [, d2]` (on the selected edges, or all edges of the selected bodies; `r2`: the radius grows from r to r2 along each edge; `d2`: d on one face and d2 on the other) |
-| Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) · `REFS [, PROBLEMS]` (section 6) · `SCHECK [, sketch]` (section 16) |
+| Check and repair | `CHECK [, b [, SELF / FLAWS [, tolerance [, JSON]]]]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) · `REFS [, PROBLEMS]` (section 6) · `SCHECK [, sketch]` (section 16) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
@@ -507,7 +507,12 @@ empty session. These commands act on the session, so they are not history
 entries and `UNDO` does not undo them.
 
 `IMPORT, STEP, "housing.step", housing` adds each solid in the file as a
-body; the first one gets the name.
+body; the first one gets the name. A STEP file's part names and colours come
+along: each part keeps its name (made into one commands can use, so
+"Pin 4 (M3)" becomes `Pin_4_M3`, with a number added when the name is taken)
+and its colour. Parts placed several times in an assembly come in once per
+place. `EXPORT, STEP` writes each body's name and colour the same way.
+Faces left loose in the file, with no name, come in together as one body.
 
 **Exact files and mesh files.** STEP, IGES and BREP hold exact shapes:
 an imported body works like one made here (fillets, holes, `SHELL`,
@@ -677,6 +682,35 @@ cut through each other, which no repair can fix. It can take seconds on a
 long sweep, so it runs only when asked, and faces that only touch along a
 seam can also show up there.
 
+### Imported models: flaws and repairs
+
+Files from other programs often bring small faults that a valid-or-not test
+does not name. `CHECK, b, FLAWS [, tolerance]` lists them, face and edge by
+face and edge (by the IDs `PICK` and `SEL` take), against a tolerance: flaws
+smaller than it count as accidents of the file. Without one, a thousandth of
+the body's size is used.
+
+| Flaw | What it is | What `HEAL` does |
+|------|------------|------------------|
+| Open edges with a neighbour within the tolerance | faces that do not quite meet (a gap), or meet without being joined | sews them into one skin; a closed skin becomes a solid |
+| Open edges with nothing near | a hole: a face is missing | nothing (a face cannot be invented); a larger tolerance or a patch (`SURFACE`) closes it |
+| Loose faces | faces not joined into any skin | sews them in |
+| Flipped faces | a face turned against its neighbours, or a solid inside out | turns them the right way |
+| Duplicate faces | the same face twice | removes the copy |
+| Tiny edges | edges shorter than the tolerance | merges them into their neighbours |
+| Slivers | faces narrower than the tolerance (twice the area over the perimeter) | lists them; `DELFACE` removes one and lets its neighbours grow over it |
+
+```text
+CHECK, housing, FLAWS, 0.01        ! what is wrong, at a tolerance of 0.01
+CHECK, housing, FLAWS, 0.01, JSON  ! the same as data
+HEAL, housing, 0.01                ! repair, in turn, and say what was fixed and what is left
+```
+
+`HEAL` runs the repairs in the order of the table and keeps each one only
+when it leaves fewer flaws than before. Its message lists what it fixed and,
+under "left:", what is still there. `IMPORT` warns when an exact file gives a
+body that is not a clean solid.
+
 ### Shapes made from curves
 
 `LOFT`, `SPINELOFT`, `SWEEP`, `MORPH`, `RAILSWEEP` and `PIPE` get their own
@@ -712,8 +746,8 @@ records new numbers after a deliberate change).
 
 `CHECK` is a query and not part of the history. `HEAL` and `CLEAN` are
 history entries; the body keeps its ID and name, and its faces keep their
-IDs where they survive. `HEAL` refuses, and changes nothing, when the repair
-does not give a valid body (a missing face cannot be invented).
+IDs where they survive. `HEAL` refuses, and changes nothing, when no repair
+helps; when some help, it keeps them and lists the rest.
 
 ## 13. Datums: planes, axes and points to build on
 

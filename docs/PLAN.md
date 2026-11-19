@@ -1049,7 +1049,7 @@ three per pull request.
     that remove their own loops, constraints kept through `STRANSFORM`,
     `SCHECK` naming the redundant, conflicting and free parts, a 500-entity
     sketch test.
-53. **Healing imported models** (P1): tolerance checks for gaps, slivers,
+53. **Healing imported models** (P1, done: `CHECK, b, FLAWS`, `HEAL` lists fixed and left, STEP names and colours both ways, tests/flawed_files.py): tolerance checks for gaps, slivers,
     tiny edges and duplicate faces; `HEAL` says what it fixed and what is
     left; STEP names and colours kept; a set of imperfect test files.
 54. **Sculpting that stays clean** (P1): smooth density changes, symmetry,

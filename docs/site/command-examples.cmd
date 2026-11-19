@@ -939,6 +939,7 @@ SHOW
 ! Check that every body is a valid, closed solid.
 BLOCK, 0,0,0, 40, 20, 5
 CHECK
+CHECK, 1, FLAWS, 0.01
 
 @ HEAL
 ! Repair a body (here an exported and re-imported triangle mesh).

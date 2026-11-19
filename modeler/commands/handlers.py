@@ -29,8 +29,6 @@ from OCP.BRepPrimAPI import (
 from OCP.BRepTools import BRepTools
 from OCP.GeomAbs import GeomAbs_CurveType, GeomAbs_SurfaceType
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
-from OCP.Interface import Interface_Static
-from OCP.STEPControl import STEPControl_AsIs, STEPControl_Writer
 from OCP.StlAPI import StlAPI_Writer
 from OCP.TopAbs import TopAbs_REVERSED
 from OCP.TopoDS import TopoDS, TopoDS_Compound
@@ -517,16 +515,28 @@ def _check_line(p: Processor, body, deep: bool = False) -> tuple[bool, str]:
 
 
 @command("CHECK", Arg("b", BodyRef, 0, "body to check (default: all bodies)"),
-         Arg("what", str, "", "SELF: also look for faces that cut through each other (slower)"), logged=False,
-         help="Check that bodies are valid, closed solids: CHECK [, body [, SELF]]. Reports what is wrong and what to "
-              "try. SELF adds the kernel's self-intersection test (can take seconds on a long sweep).")
-def check(p: Processor, b, what):
+         Arg("what", str, "", "SELF: also look for faces that cut through each other (slower); FLAWS: list "
+                              "gaps, loose and flipped faces, slivers, tiny edges and duplicate faces"),
+         Arg("tol", float, 0.0, "for FLAWS: flaws smaller than this are listed (default: a thousandth of the "
+                                "body's size)"),
+         Arg("fmt", str, "TEXT", "for FLAWS: TEXT or JSON"), logged=False,
+         help="Check that bodies are valid, closed solids: CHECK [, body [, SELF | FLAWS [, tolerance [, JSON]]]]. "
+              "Reports what is wrong and what to try. SELF adds the kernel's self-intersection test (can take "
+              "seconds on a long sweep). FLAWS lists the faults imported models often have, face and edge by "
+              "face and edge, against a tolerance; HEAL repairs what it can.")
+def check(p: Processor, b, what, tol, fmt):
     m = p.model
-    if what not in ("", "SELF"):
-        raise CommandError("CHECK: the third argument is SELF, or nothing")
+    if what not in ("", "SELF", "FLAWS"):
+        raise CommandError("CHECK: the third argument is SELF, FLAWS, or nothing")
+    if tol < 0:
+        raise CommandError("CHECK: the tolerance cannot be negative")
+    if fmt not in ("TEXT", "JSON"):
+        raise CommandError("CHECK: the format is TEXT or JSON")
     bodies = [m.body(b)] if b else list(m.bodies.values())
     if not bodies:
         return "there are no bodies"
+    if what == "FLAWS":
+        return _flaws(p, bodies, tol, fmt)
     results = [_check_line(p, body, what == "SELF") for body in bodies]
     bad = sum(1 for ok, _ in results if not ok)
     lines = [text for _, text in results]
@@ -535,24 +545,71 @@ def check(p: Processor, b, what):
     return "\n".join(lines)
 
 
-@command("HEAL", Arg("b", BodyRef), Arg("tol", float, 0.0, "close gaps up to this size (default: the kernel's own)"),
-         help="Repair a body that CHECK reports as broken (after an import, say): HEAL, body [, tolerance].")
+def _flaws(p: Processor, bodies, tol: float, fmt: str) -> str:
+    import json
+
+    from ..geometry import healing, meshbody
+
+    rows, lines = [], []
+    for body in bodies:
+        name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
+        if meshbody.is_mesh(body.shape) or not robust.count(body.shape, robust.TopAbs_FACE):
+            lines.append(f"body {body.id}{name}: no faces to look at (a mesh body or curves)")
+            continue
+        f = healing.inspect(body.shape, tol)
+        ids = (body.entity_ids.get("FACE"), body.entity_ids.get("EDGE"))
+        row = {"body": body.id, **f.as_dict(*ids)}
+        rows.append(row)
+        left = healing.left_text(f, *ids)
+        if not left:
+            lines.append(f"body {body.id}{name}: no flaws larger than {f.tol:.3g}")
+        else:
+            lines.append(f"body {body.id}{name}: {f.count} flaw{'s' if f.count != 1 else ''} at tolerance {f.tol:.3g}")
+            lines += [f"  {t}" for t in left]
+            lines.append(f"  HEAL, {body.id}, {f.tol:.3g} repairs what it can and lists what is left")
+    if fmt == "JSON":
+        return json.dumps(rows if len(rows) != 1 else rows[0], indent=1)
+    return "\n".join(lines)
+
+
+@command("HEAL", Arg("b", BodyRef), Arg("tol", float, 0.0, "join gaps and merge flaws up to this size (default: "
+                                                           "a thousandth of the body's size)"),
+         help="Repair a body that CHECK reports as broken (after an import, say): HEAL, body [, tolerance]. In "
+              "turn: removes duplicate faces, sews loose faces and gaps into a skin (and a closed skin into a "
+              "solid), turns flipped faces, merges tiny edges and fixes faces the kernel finds invalid. Says "
+              "what it fixed and what is left.")
 def heal(p: Processor, b, tol):
+    from ..geometry import healing, meshbody
+
     m = p.model
     body = m.body(b)
     if tol < 0:
         raise CommandError("HEAL: the tolerance cannot be negative")
-    before = robust.report(body.shape)
-    fixed = robust.unwrap(robust.heal(body.shape, tol))
-    if robust.is_empty(fixed):
-        raise CommandError(f"HEAL: the repair left nothing of body {b}")
-    after = robust.report(fixed)
-    if before["ok"] and after["ok"]:
-        return f"body {b} is already OK; nothing to repair"
-    if not after["ok"]:
-        raise CommandError(f"HEAL: body {b} could not be repaired" + ("" if tol else "; try a tolerance: HEAL, body, 0.01"))
-    m.replace([b], fixed, _NoHistory(), same_id=True)
-    return f"repaired body {b}: now a valid shape ({after['solids']} solids, {after['faces']} faces)"
+    if meshbody.is_mesh(body.shape):
+        raise CommandError(f"HEAL: body {b} is a mesh body; REMESH or TOSOLID work on meshes")
+    r = healing.repair(body.shape, tol)
+    if not r.changed:
+        if r.before.count == 0 and robust.report(body.shape)["ok"]:
+            return f"body {b} is already OK; nothing to repair"
+        # nothing in the list helped: the kernel's general repair is the last resort
+        fixed = robust.unwrap(robust.heal(body.shape, r.after.tol))
+        if not robust.is_empty(fixed) and robust.report(fixed)["ok"] and not robust.report(body.shape)["ok"]:
+            m.replace([b], fixed, _NoHistory(), same_id=True)
+            return f"repaired body {b}: now a valid shape"
+        left = healing.left_text(r.after, body.entity_ids.get("FACE"), body.entity_ids.get("EDGE"))
+        raise CommandError(f"HEAL: nothing could be repaired on body {b} at tolerance {r.after.tol:.3g}"
+                           + (": " + "; ".join(left) if left else "")
+                           + ("" if tol else "; try a larger tolerance: HEAL, body, 0.01"))
+    new = m.replace([b], r.shape, _NoHistory(), same_id=True)
+    rep = robust.report(r.shape)
+    state = (f"now {rep['solids']} solid{'s' if rep['solids'] != 1 else ''}" if rep["solids"]
+             else "still a surface, not a solid") + f", {rep['faces']} faces"
+    lines = [f"repaired body {b} ({state}):"] + [f"  {t}" for t in r.done]
+    left = healing.left_text(r.after, new.entity_ids.get("FACE"), new.entity_ids.get("EDGE"))
+    if left:
+        lines.append("left:")
+        lines += [f"  {t}" for t in left]
+    return "\n".join(lines)
 
 
 @command("CLEAN", Arg("b", BodyRef),
@@ -1246,10 +1303,11 @@ def export(p: Processor, format, file, b):
     # triangle size for mesh formats: 0.1 mm, in the model's units
     deflection = 0.05 * UNITS["MM"] / UNITS[m.units] * 2
     if format == "STEP":
-        _static(Interface_Static, "SetCVal")("write.step.unit", m.units)
-        w = STEPControl_Writer()
-        w.Transfer(shape, STEPControl_AsIs)
-        if int(w.Write(path)) != 1:  # IFSelect_RetDone
+        from ..geometry import stepdoc
+
+        # each body a named part in its own colour
+        parts = [stepdoc.Part(x.shape, "" if x.name == f"body{x.id}" else x.name, m.display_color(x.id)) for x in bodies]
+        if not stepdoc.write(path, parts, m.units):
             raise CommandError(f"EXPORT: could not write {file}")
     elif format == "IGES":
         from OCP.IGESControl import IGESControl_Controller, IGESControl_Writer

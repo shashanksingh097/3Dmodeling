@@ -92,6 +92,61 @@ def read_shape(fmt: str, path: str) -> TopoDS_Shape:
     raise CommandError(f"IMPORT: {fmt} is not an exact format")
 
 
+def _exact_pieces(fmt: str, path: str) -> list[tuple[TopoDS_Shape, str, tuple | None]]:
+    """(shape, name, colour) for each body an exact file gives. STEP keeps part names and colours."""
+    if fmt == "STEP":
+        from ..geometry import robust, stepdoc
+
+        try:
+            parts = stepdoc.read(path)
+        except OSError:
+            raise CommandError(f"IMPORT: could not read STEP file {path}") from None
+        if not parts:
+            raise CommandError(f"IMPORT: {path} holds no shapes")
+        out, loose = [], []
+        for part in parts:
+            pieces = _solids(part.shape)
+            if not part.name and not robust.solids(part.shape):
+                loose += pieces  # unnamed faces and skins: kept together, as the plain reader gives them
+                continue
+            for i, s in enumerate(pieces):
+                own = part.name if i == 0 or not part.name else f"{part.name}_{i + 1}"
+                out.append((s, own, part.color))
+        if loose:
+            out.append((loose[0] if len(loose) == 1 else _compound_of(loose), "", None))
+        return out
+    return [(s, "", None) for s in _solids(read_shape(fmt, path))]
+
+
+def _compound_of(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
+    from OCP.TopoDS import TopoDS_Compound
+
+    b, c = BRep_Builder(), TopoDS_Compound()
+    b.MakeCompound(c)
+    for s in shapes:
+        b.Add(c, s)
+    return c
+
+
+def _free_name(model, wanted: str) -> str:
+    """``wanted`` made into a name commands can use (letters, digits, _) and not yet taken; "" for none."""
+    import re
+
+    base = re.sub(r"\W+", "_", wanted.strip()).strip("_")
+    if not base:
+        return ""
+    if not (base[0].isalpha() or base[0] == "_"):
+        base = "P_" + base
+    name, n = base, 1
+    while True:
+        try:
+            model._check_name_free(name)
+            return name
+        except Exception:  # noqa: BLE001 - taken: try the next number
+            n += 1
+            name = f"{base}_{n}"
+
+
 def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
     """Each solid, then each shell that is not part of a solid (an open mesh piece)."""
     out = []
@@ -165,9 +220,21 @@ def import_(p: Processor, format, file, name, kind):
             note = "" if pc.closed else ", open surface, not a solid"
             msgs.append(f"{_added(p, body, 'IMPORT')} [{pc.triangles} triangles{note}]")
     else:
-        for k, s in enumerate(_solids(read_shape(format, path))):
-            body = p.model.add_body(s, name if (name and k == 0) else "")
+        from ..geometry import robust
+
+        unclean = []
+        for k, (s, own, colour) in enumerate(_exact_pieces(format, path)):
+            body = p.model.add_body(s, name if (name and k == 0) else _free_name(p.model, own))
+            if colour is not None:
+                p.model.set_style(body.id, color=colour)
             msgs.append(_added(p, body, "IMPORT"))
+            if robust.count(s, robust.TopAbs_FACE) and not robust.report(s)["ok"]:
+                unclean.append(body.id)
+        if unclean:
+            b0 = unclean[0]
+            which = f"body {b0} is" if len(unclean) == 1 else f"bodies {', '.join(map(str, unclean))} are"
+            p.warn(f"IMPORT: {which} not a clean solid (open edges, loose faces or invalid faces); "
+                   f"CHECK, {b0}, FLAWS lists the flaws and HEAL, {b0} repairs what it can")
     if len(msgs) == 1:
         return msgs[0]
     return f"IMPORT {file}: {len(msgs)} bodies\n  " + "\n  ".join(msgs)
