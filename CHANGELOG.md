@@ -14,6 +14,7 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   duplicate faces of an imported body, by face and edge ID, against a tolerance (also as JSON).
 - STEP part names and colours are kept by `IMPORT` (assemblies placed part by part) and written
   by `EXPORT`.
+- `CHECK, b, FLAWS` on a mesh body: cracks, three-way edges, inside-out triangles, folds and slivers.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
@@ -29,6 +30,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `HEAL` repairs in turn (duplicates, sewing gaps and loose faces into a solid, flipped faces,
   tiny edges, invalid faces), keeps each repair that helps, and lists what it fixed and what is
   left. `IMPORT` warns when an exact file gives a body that is not a clean solid.
+- Sculpting stays clean: with a detail size the triangles grow back gently away from the stroke,
+  sharp edges and frozen points stay put while the triangles are evened out and joined, and every
+  stroke is checked where it went (folds it made are smoothed flat, anything else is a warning).
+  A test runs 2,000 strokes on a growing mesh and finds it clean at the end.
 
 ## [0.5.0] - 2026-11-19
 

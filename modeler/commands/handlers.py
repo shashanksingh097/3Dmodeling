@@ -553,8 +553,20 @@ def _flaws(p: Processor, bodies, tol: float, fmt: str) -> str:
     rows, lines = [], []
     for body in bodies:
         name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
-        if meshbody.is_mesh(body.shape) or not robust.count(body.shape, robust.TopAbs_FACE):
-            lines.append(f"body {body.id}{name}: no faces to look at (a mesh body or curves)")
+        if meshbody.is_mesh(body.shape):
+            from ..geometry import meshcheck as mc
+
+            pts, tris = meshbody.arrays(body.shape)
+            mf = mc.check(pts, tris)
+            rows.append({"body": body.id, "mesh": True, **mf.as_dict()})
+            found = [mc.words(k, getattr(mf, k)) for k in mc.WORDS if getattr(mf, k)]
+            lines.append(f"body {body.id}{name}: mesh, {len(tris):,} triangles: "
+                         + (", ".join(found) if found else "no cracks, folds or slivers"))
+            if mf.folded or mf.thin:
+                lines.append(f"  SMOOTH, {body.id} or a SMOOTH stroke there clears folds and slivers")
+            continue
+        if not robust.count(body.shape, robust.TopAbs_FACE):
+            lines.append(f"body {body.id}{name}: no faces to look at (curves only)")
             continue
         f = healing.inspect(body.shape, tol)
         ids = (body.entity_ids.get("FACE"), body.entity_ids.get("EDGE"))

@@ -1052,7 +1052,7 @@ three per pull request.
 53. **Healing imported models** (P1, done: `CHECK, b, FLAWS`, `HEAL` lists fixed and left, STEP names and colours both ways, tests/flawed_files.py): tolerance checks for gaps, slivers,
     tiny edges and duplicate faces; `HEAL` says what it fixed and what is
     left; STEP names and colours kept; a set of imperfect test files.
-54. **Sculpting that stays clean** (P1): smooth density changes, symmetry,
+54. **Sculpting that stays clean** (P1, done: graded detail, sharp edges and masks kept, a check after every stroke with folds smoothed, `CHECK, b, FLAWS` on meshes, a 2,000-stroke test at about 45 ms a stroke): smooth density changes, symmetry,
     masks and sharp edges kept while remeshing, mesh checks after every
     stroke, a long-session test.
 55. **Scan to CAD with numbers** (P1): `DEVIATION` (colours with tolerance

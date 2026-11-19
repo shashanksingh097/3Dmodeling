@@ -2528,6 +2528,21 @@ the triangles keep about the same size and no slivers build up; frozen
 points are never joined. Leave `sym` empty to skip it:
 `SCULPT, head, CREASE, 2.5, 0.6, S3, , 0.25`.
 
+Beyond the stroke the triangles grow back to the body's own size over a
+band, not in one step: at a distance d outside the brush an edge may be up
+to `detail + 0.5 × d` long. Sharp edges (where the surface turns by more
+than 40 degrees, as on a box made into a mesh) stay sharp: their points do
+not slide while the triangles are evened out, and a join never pulls a
+point off one. Frozen points neither slide nor join.
+
+**Every stroke is checked.** After the brush, the mesh near the stroke is
+compared with how it was before: cracks (an edge with one triangle), edges
+shared by three triangles, triangles turned inside out, folds (neighbours
+facing opposite ways) and slivers (an angle under 1 degree). Folds the
+stroke made are smoothed flat on the spot (the message says how many);
+anything else new is a warning that says where. `CHECK, b, FLAWS` lists the
+same for the whole mesh body.
+
 **MASK** freezes part of a mesh body; sculpting leaves frozen points alone
 (a half-frozen point moves half as far):
 
