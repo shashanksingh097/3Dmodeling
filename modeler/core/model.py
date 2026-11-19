@@ -172,6 +172,7 @@ class Note:
     anchor: tuple[float, float, float] | None = None
     span: tuple | None = None  # a size: the two points it measures between (drawn as a line with ends)
     frame: object | None = None  # a geometric tolerance or datum (geometry/tolerances.Frame), drawn as boxes
+    ends: tuple | None = None  # a size: what each end was on when it was made (VERTEX, EDGE, FACE or "")
 
 
 @dataclass(frozen=True)
@@ -306,6 +307,7 @@ class Model:
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
         self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
         self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
+        self.drawsheets: dict[str, dict] = {}  # DRAWSHEET: drawing sheets kept with the model, in order
         self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
         self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
@@ -379,6 +381,7 @@ class Model:
             "notes": list(self.notes),
             "mates": list(self.mates),
             "frames": dict(self.frames),
+            "drawsheets": dict(self.drawsheets),
             "welds": dict(self.welds),
             "routes": dict(self.routes),
             "pictures": list(self.pictures),
@@ -415,6 +418,7 @@ class Model:
         self.notes = list(snap.get("notes", []))
         self.mates = list(snap.get("mates", []))
         self.frames = dict(snap.get("frames", {}))
+        self.drawsheets = dict(snap.get("drawsheets", {}))
         self.welds = dict(snap.get("welds", {}))
         self.routes = dict(snap.get("routes", {}))
         self.pictures = list(snap.get("pictures", []))

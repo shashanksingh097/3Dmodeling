@@ -49,3 +49,4 @@ from . import image_handlers  # noqa: F401  (SDXF, STRACE, IMAGE: sketching from
 from . import take_handlers  # noqa: F401  (TAKE, DEPENDS: geometry from other parts, what uses what)
 from . import variant_handlers  # noqa: F401  (DESIGNTABLE, CONFIGOFF, VARIANTS: design tables)
 from . import mate_check  # noqa: F401  (MATES, CSYS: assembly checks, coordinate systems on bodies)
+from . import drawsheet_handlers  # noqa: F401  (DRAWSHEET, DRAWINGS: drawings that follow the model)

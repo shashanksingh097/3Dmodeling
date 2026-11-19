@@ -244,7 +244,18 @@ def note(p: Processor, text, a1, a2, a3, a4, a5, a6):
             raise CommandError("NOTE: the two points are the same")
         mid = (a + b) / 2
         txt = _num(dist)
-        k = m.add_note(Note(txt, tuple(map(float, mid)), None, (tuple(map(float, a)), tuple(map(float, b)))))
+        from .drawsheet_handlers import touches
+
+        # what the ends were on when the size was first made, kept by step (a rebuild makes the note
+        # again, from the model as it is then, so it must not measure itself)
+        key = (p.entry_uid, len(m.notes))
+        ends = p.note_ends.get(key) if p.entry_uid else None
+        if ends is None:
+            ends = (touches(p, a), touches(p, b))
+            if p.entry_uid:
+                p.note_ends[key] = ends
+        k = m.add_note(Note(txt, tuple(map(float, mid)), None, (tuple(map(float, a)), tuple(map(float, b))),
+                            ends=ends))
         return f"note {k}: size {txt}"
     if up in ("HOLE", "FIT"):
         if len(picks) != 1:

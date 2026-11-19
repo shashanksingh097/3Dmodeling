@@ -319,7 +319,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
@@ -615,6 +615,55 @@ letter mark the place on that view, and the detail is named `DETAIL B (3:1)`.
 
 `PROPERTY` with no values lists the properties. With a key and no value it
 removes that one. Properties are kept in the project and follow undo.
+
+### Drawings that follow the model: DRAWSHEET and DRAWINGS
+
+`DRAWING` writes a file once. A **sheet** is kept with the model instead:
+`DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail,
+template]` is a history step that says what the sheet shows (the same
+choices as `DRAWING`), and its views are made from the model every time the
+drawings are written, so they always show the model as it is:
+
+```
+DRAWSHEET, views, STANDARD                      ! sheet 1: the four views
+DRAWSHEET, plan, TOP, 0, OVERALL, A3, 1:1       ! sheet 2: the top view on A3
+DRAWSHEET, cut, FRONT, 0, NONE, A4, , "Y 10"    ! sheet 3: a section
+DRAWINGS, "plate.pdf"                           ! one PDF, a page per sheet
+DRAWINGS, "plate.pdf", AUTO                     ! ... and again after every rebuild and save
+DRAWINGS                                        ! the sheets, and the sizes checked
+```
+
+`DRAWINGS, "plate.svg"` writes one SVG per sheet (`plate_views.svg`,
+`plate_plan.svg` ...). The title block says which sheet it is ("SHEET 2 of
+3"). With `AUTO` the file is written again after every rebuild and every
+save, so it never shows an old model; `DRAWINGS, , OFF` stops that. The
+setting is saved with the project. `DRAWSHEET, DELETE, name` removes a
+sheet.
+
+**Templates.** A title block of your own is a small text file:
+
+```
+! our title block
+paper = A3                  ! the paper, when the sheet does not say
+row = TITLE                 ! one field: shown big, without its label
+row = NUMBER, REVISION      ! fields side by side, each with its label
+row = MATERIAL, SCALE, SHEET
+row = AUTHOR, COMPANY, DATE
+COMPANY = Example Ltd       ! a value used when PROPERTY does not set it
+```
+
+Fields are `PROPERTY` names, and `SCALE`, `PAPER`, `UNITS`, `SHEET` and
+`DATE` (today unless set). Give the file as the sheet's last value:
+`DRAWSHEET, plan, TOP, 0, ALL, , , , , "company.tpl"`.
+
+**Sizes checked against the model.** `DRAWINGS` also checks the sizes
+pinned to the model with `NOTE`. A size between two points (`NOTE, SIZE`)
+remembers what each end was on when it was made (a corner, an edge, a face);
+when that changes (the part got longer, so the corner moved away from the
+end) the size is out of date and is named. A diameter typed into a note
+(`NOTE, "ø6", ...`) is checked against the hole next to it. Sizes made from
+picks (`NOTE, SIZE` on picked vertices, `NOTE, HOLE`) are made again from
+the model on every rebuild, so they always fit.
 
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;

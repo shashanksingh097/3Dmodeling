@@ -25,55 +25,32 @@ def _exact_extent(bodies) -> dict[str, float] | None:
     return {"X": hi.X() - lo.X(), "Y": hi.Y() - lo.Y(), "Z": hi.Z() - lo.Z()}
 
 
-@command(
-    "DRAWING",
-    Arg("file", Path, help="the file to write: .pdf, .svg or .dxf"),
-    Arg("views", str, "STANDARD", "STANDARD (front, top, right and iso), or views joined with +: "
-                                  "TOP+FRONT, ISO ..."),
-    Arg("b", BodyRef, 0, "body to draw (default: all shown bodies)"),
-    Arg("sizes", str, "ALL", "sizes to write: ALL (overall sizes and hole diameters), OVERALL, HOLES or NONE"),
-    Arg("sheet", str, "", "the paper: A4, A3, A2, A1, A0, AUTO (the smallest that fits at 1:1, else A3) or NONE "
-                          "(true size, no frame); default AUTO for .pdf, NONE for .svg and .dxf"),
-    Arg("scale", Text, "", "on paper: 1:2, 2:1 ... (default: the largest usual scale that fits)"),
-    Arg("section", Text, "", "section views: an axis and a place, like \"X 30\" (several with ; between)"),
-    Arg("detail", Text, "", "detail views: a flat view, a model point, a radius and how much bigger, like "
-                            "\"FRONT 20 0 5 8 3\" (several with ;)"),
-    logged=False,
-    help="Write a 2D drawing of the bodies, at true size: DRAWING, \"part.svg\" [, views] [, body] [, sizes]. "
-         "STANDARD views are front, top above it, right beside it and an isometric view; or give "
-         "TOP, FRONT, RIGHT, LEFT, BACK, BOTTOM, ISO joined with +. Hidden edges are dashed. Sizes: the "
-         "overall width, depth and height, each once, and the diameter of every whole circle seen "
-         "face-on, equal ones counted (4x D8); sizes NONE leaves them off. .dxf files open in any CAD "
-         "program (layers VISIBLE, HIDDEN, TEXT, DIMS). On paper (.pdf, or sheet A4 ...): a frame and a title "
-         "block from PROPERTY values, at a usual scale. Sections are cut and hatched (\"X 30\"); details "
-         "show part of a view bigger (\"FRONT 20 0 5 8 3\"). Runs when given; not kept in the history.",
-)
-def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
+def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale, section, detail,
+               extra: dict | None = None, template=None):
+    """The views of one sheet, laid out (and on paper when there is one): (views, bounds, page or None,
+    bodies, sizes written, notes placed)."""
     from ..geometry import drawing as dr
     from ..geometry import meshbody
     from ..geometry import sheets as sh
     from .handlers import _compound
 
-    ext = os.path.splitext(file)[1].lower()
-    if ext not in (".svg", ".dxf", ".pdf"):
-        raise CommandError("DRAWING: the file must end in .pdf, .svg or .dxf")
     paper = (sheet or ("AUTO" if ext == ".pdf" else "NONE")).upper()
     if paper not in ("NONE", "AUTO", *sh.PAPER):
-        raise CommandError(f"DRAWING: the sheet is one of {', '.join(sh.PAPER)}, AUTO or NONE")
+        raise CommandError(f"{what}: the sheet is one of {', '.join(sh.PAPER)}, AUTO or NONE")
     if ext == ".pdf" and paper == "NONE":
-        raise CommandError("DRAWING: a PDF is always on paper: give A4 ... A0 or AUTO")
+        raise CommandError(f"{what}: a PDF is always on paper: give A4 ... A0 or AUTO")
     if ext == ".dxf" and paper != "NONE":
-        raise CommandError("DRAWING: a DXF is drawn at true size, with no paper; use .pdf or .svg for a sheet")
+        raise CommandError(f"{what}: a DXF is drawn at true size, with no paper; use .pdf or .svg for a sheet")
     try:
         factor = sh.parse_scale(scale)
         cuts = [sh.parse_cut(c) for c in section.strip().strip('"').split(";") if c.strip()]
         details = [sh.parse_detail(c) for c in detail.strip().strip('"').split(";") if c.strip()]
     except sh.SheetError as exc:
-        raise CommandError(f"DRAWING: {exc}") from None
+        raise CommandError(f"{what}: {exc}") from None
     try:
         names = dr.parse_views(views)
     except ValueError as exc:
-        raise CommandError(f"DRAWING: {exc}") from None
+        raise CommandError(f"{what}: {exc}") from None
     m = p.model
     if b:
         bodies = [m.body(b)]
@@ -81,7 +58,7 @@ def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
         hidden = getattr(m, "hidden", set()) or set()
         bodies = [x for x in m.bodies.values() if x.id not in hidden] or list(m.bodies.values())
     if not bodies:
-        raise CommandError("DRAWING: there are no bodies")
+        raise CommandError(f"{what}: there are no bodies")
     meshes = [x for x in bodies if meshbody.is_mesh(x.shape)]
     solids = [x for x in bodies if not meshbody.is_mesh(x.shape)]
     size = 1.0
@@ -129,24 +106,24 @@ def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
                                     f"drawing: add it to the views")
             out.append(sh.detail_view(parent, point, r, k, next(letters)))
     except sh.SheetError as exc:
-        raise CommandError(f"DRAWING: {exc}") from None
+        raise CommandError(f"{what}: {exc}") from None
     except StopIteration:
-        raise CommandError("DRAWING: too many sections and details") from None
+        raise CommandError(f"{what}: too many sections and details") from None
     try:
         nsizes = dr.dimension(out, sizes, exact)
     except ValueError as exc:
-        raise CommandError(f"DRAWING: {exc}") from None
+        raise CommandError(f"{what}: {exc}") from None
     nnotes = dr.add_notes(out, m.notes, size) if getattr(m, "notes", None) else 0
     bounds = dr.layout(out)
     page = None
     if paper != "NONE":
         if m.units.upper() != "MM" and not factor:
-            p.warn(f"DRAWING: the model is in {m.units.lower()}; the sheet takes 1 {m.units.lower()} as 1 mm "
+            p.warn(f"{what}: the model is in {m.units.lower()}; the sheet takes 1 {m.units.lower()} as 1 mm "
                    f"before scaling")
         try:
             paper, factor = sh.fit(bounds, paper, factor)
         except sh.SheetError as exc:
-            raise CommandError(f"DRAWING: {exc}") from None
+            raise CommandError(f"{what}: {exc}") from None
         props = dict(m.properties)
         if "MATERIAL" not in {k.upper() for k in props}:
             mats = sorted({x.material.lower() for x in bodies if x.material})
@@ -154,7 +131,45 @@ def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
                 props["MATERIAL"] = ", ".join(mats)
         if "TITLE" not in {k.upper() for k in props} and len(bodies) == 1 and bodies[0].name:
             props["TITLE"] = bodies[0].name
-        page = sh.compose(out, bounds, paper, factor, props, m.units)
+        if extra:
+            props.update(extra)
+        page = sh.compose(out, bounds, paper, factor, props, m.units, template)
+    return out, bounds, page, bodies, nsizes, nnotes
+
+
+@command(
+    "DRAWING",
+    Arg("file", Path, help="the file to write: .pdf, .svg or .dxf"),
+    Arg("views", str, "STANDARD", "STANDARD (front, top, right and iso), or views joined with +: "
+                                  "TOP+FRONT, ISO ..."),
+    Arg("b", BodyRef, 0, "body to draw (default: all shown bodies)"),
+    Arg("sizes", str, "ALL", "sizes to write: ALL (overall sizes and hole diameters), OVERALL, HOLES or NONE"),
+    Arg("sheet", str, "", "the paper: A4, A3, A2, A1, A0, AUTO (the smallest that fits at 1:1, else A3) or NONE "
+                          "(true size, no frame); default AUTO for .pdf, NONE for .svg and .dxf"),
+    Arg("scale", Text, "", "on paper: 1:2, 2:1 ... (default: the largest usual scale that fits)"),
+    Arg("section", Text, "", "section views: an axis and a place, like \"X 30\" (several with ; between)"),
+    Arg("detail", Text, "", "detail views: a flat view, a model point, a radius and how much bigger, like "
+                            "\"FRONT 20 0 5 8 3\" (several with ;)"),
+    logged=False,
+    help="Write a 2D drawing of the bodies, at true size: DRAWING, \"part.svg\" [, views] [, body] [, sizes]. "
+         "STANDARD views are front, top above it, right beside it and an isometric view; or give "
+         "TOP, FRONT, RIGHT, LEFT, BACK, BOTTOM, ISO joined with +. Hidden edges are dashed. Sizes: the "
+         "overall width, depth and height, each once, and the diameter of every whole circle seen "
+         "face-on, equal ones counted (4x D8); sizes NONE leaves them off. .dxf files open in any CAD "
+         "program (layers VISIBLE, HIDDEN, TEXT, DIMS). On paper (.pdf, or sheet A4 ...): a frame and a title "
+         "block from PROPERTY values, at a usual scale. Sections are cut and hatched (\"X 30\"); details "
+         "show part of a view bigger (\"FRONT 20 0 5 8 3\"). Runs when given; not kept in the history.",
+)
+def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
+    from ..geometry import drawing as dr
+    from ..geometry import sheets as sh
+
+    ext = os.path.splitext(file)[1].lower()
+    if ext not in (".svg", ".dxf", ".pdf"):
+        raise CommandError("DRAWING: the file must end in .pdf, .svg or .dxf")
+    out, bounds, page, bodies, nsizes, nnotes = make_sheet(p, "DRAWING", ext, views, b, sizes, sheet, scale,
+                                                           section, detail)
+    m = p.model
     if ext == ".pdf":
         data: bytes | str = sh.pdf(page)
     elif ext == ".svg":

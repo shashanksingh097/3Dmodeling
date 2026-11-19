@@ -326,6 +326,10 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.drawings_auto:  # the drawings written again after every rebuild and save
+            meta["drawings_auto"] = p.drawings_auto
+        if p.note_ends:  # what the ends of each size were on when it was made
+            meta["note_ends"] = [[u, n, list(e)] for (u, n), e in p.note_ends.items()]
         if p.config_off:  # steps turned off per configuration, by entry uid
             meta["config_off"] = {k: sorted(v) for k, v in p.config_off.items() if v}
         if p.config:  # the configuration in use (CONFIG/USECONFIG), with its values for the replay
@@ -345,6 +349,10 @@ def save_project(p: Processor, path: str) -> int:
             meta["taken"] = p.taken
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
+    if p.drawings_auto:
+        from .drawsheet_handlers import refresh
+
+        refresh(p)
     return p.cursor
 
 
@@ -385,6 +393,8 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
+    p.drawings_auto = str(meta.get("drawings_auto", "") or "")
+    p.note_ends = {(int(u), int(n)): tuple(e) for u, n, e in meta.get("note_ends", []) if len(e) == 2}
     p.config_off = {str(k).upper(): {int(u) for u in v} for k, v in dict(meta.get("config_off", {})).items()}
     cfg = meta.get("config")
     if isinstance(cfg, dict) and cfg.get("name"):

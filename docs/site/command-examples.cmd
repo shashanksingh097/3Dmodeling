@@ -1536,6 +1536,22 @@ BLOCK, 0,0,0, 60, 40, 10
 HOLE, 1, 30, 20, 10, 8
 DRAWING, "plate.svg", STANDARD, , ALL
 
+@ DRAWSHEET
+! Drawing sheets kept with the model: the views are made again whenever the drawings are written.
+BLOCK, 0,0,0, 60, 40, 10
+HOLE, 1, 30, 20, 10, 8
+DRAWSHEET, views, STANDARD
+DRAWSHEET, plan, TOP, 0, OVERALL, A3
+DRAWINGS
+
+@ DRAWINGS
+! Write every sheet as one PDF, a page each, and keep it up to date after every rebuild and save.
+BLOCK, 0,0,0, 60, 40, 10
+HOLE, 1, 30, 20, 10, 8
+DRAWSHEET, views, STANDARD
+DRAWSHEET, plan, TOP, 0, OVERALL, A3
+DRAWINGS, "plate_sheets.pdf", AUTO
+
 @ PROPERTY
 ! The project's properties, shown in a drawing sheet's title block.
 PROPERTY, TITLE, Mounting bracket

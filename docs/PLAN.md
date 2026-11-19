@@ -1076,6 +1076,9 @@ three per pull request.
     coordinate systems that move with their body, `MATE, FRAME`.*
 61. **Drawings that follow the model** (P2): views made again after a
     rebuild, templates, several sheets, sizes checked against the model.
+    *Done: `DRAWSHEET` sheets in the history, `DRAWINGS` (a PDF page per
+    sheet, AUTO after every rebuild and save), title block templates, size
+    notes checked against the model.*
 62. **Project safety** (P1): backups, crash recovery tested, old projects
     opened in tests, relinking missing files, a check before sharing.
 63. **Speed and long sessions** (P1): a CI benchmark for import, rebuild,

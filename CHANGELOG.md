@@ -34,6 +34,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `MATES`: every mate measured again (holds or not, which later step undid it, which mates repeat
   others) and the ways each mated copy can still move. `MATE` warns when it undoes or repeats one.
 - `CSYS`: coordinate systems that move with their body; `MATE, FRAME, a, b` puts one on another.
+- Drawings that follow the model: `DRAWSHEET` keeps sheets in the history, `DRAWINGS` writes them as one
+  PDF with a page per sheet (or an SVG each), again after every rebuild and save with `AUTO`; title
+  block templates; sizes pinned with `NOTE` are checked against the model.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
