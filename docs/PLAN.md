@@ -1058,7 +1058,7 @@ three per pull request.
 55. **Scan to CAD with numbers** (P1, done: `DEVIATION` with bands, per-face rows, outliers, holes, low confidence; `RECONSTRUCT` reports it; FITSURF already refines to its tolerance; continuity between fitted freeform regions is left for later): `DEVIATION` (colours with tolerance
     bands, max, RMS and per-region error, outliers and holes); fitting to a
     tolerance; continuity between fitted regions.
-56. **Comparing revisions** (P2): two saved projects or history points,
+56. **Comparing revisions** (P2, done: `COMPARE, STEP, n` and `COMPARE, PROJECT, file` face by face, with distances and colours): two saved projects or history points,
     changed faces in colour, a deviation map and a report.
 57. **Surface inspection** (P1): `CONTINUITY` (G0/G1/G2), curvature combs,
     Gaussian and mean curvature, smallest radius, wall thickness, a report.

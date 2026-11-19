@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from .processor import Arg, CommandError, Processor, Raw, command
+from .processor import REGISTRY, Arg, CommandError, Processor, Raw, command
 
 
 def _n(v) -> str:
@@ -209,18 +209,27 @@ def designcheck_cmd(p: Processor, b, minwall, minedge, fmt):
 
 @command(
     "COMPARE",
-    Arg("a", Raw, help="a body"),
-    Arg("b", Raw, help="the other body"),
-    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    Arg("a", Raw, help="a body; or STEP or PROJECT to compare revisions"),
+    Arg("b", Raw, help="the other body; or the history position (STEP) or project file (PROJECT)"),
+    Arg("fmt", Raw, "TEXT", help="TEXT or JSON; for revisions: the body to compare (default: all)"),
+    Arg("c", Raw, "", help="for revisions: the tolerance (default: a thousandth of the size)"),
+    Arg("d", Raw, "", help="for revisions: TEXT or JSON"),
     logged=False,
     help=(
         "Are two bodies the same shape? COMPARE, left, right compares volume, area, faces and inertia and "
-        "says whether b is a moved copy or a mirror image of a, or what differs. SAMESHAPE(a, b) is 1 or 0"
+        "says whether b is a moved copy or a mirror image of a, or what differs. SAMESHAPE(a, b) is 1 or 0 · "
+        "Revisions: COMPARE, STEP, 5 [, body [, tol [, JSON]]] compares the model as it was after step 5 with "
+        "now, COMPARE, PROJECT, \"old.m3d\" a saved project with now: faces added, removed, moved and changed, "
+        "how far the surface moved, and the changed body coloured by distance"
     ),
 )
-def compare_cmd(p: Processor, a, b, fmt):
+def compare_cmd(p: Processor, a, b, fmt, c, d):
     from ..ai import describe as ds
     from ..ai import relate as rl
+
+    if a.strip().upper() in ("STEP", "PROJECT"):
+        return _compare_revisions(p, a.strip().upper(), b.strip(), fmt.strip(), c.strip(), d.strip())
+    fmt = fmt.strip().upper() or "TEXT"
 
     try:
         out = rl.compare(p, a.strip(), b.strip())
@@ -244,4 +253,129 @@ def compare_cmd(p: Processor, a, b, fmt):
             lines.append(f"  inertia: {d['a']} against {d['b']}")
         else:
             lines.append(f"  {k}: {_n(d['a'])} against {_n(d['b'])} (b - a = {_n(d['b_minus_a'])})")
+    return "\n".join(lines)
+
+
+# ---- COMPARE, STEP / PROJECT: two revisions of the model --------------------------------------------
+def _old_bodies(p: Processor, how: str, ref: str) -> tuple[dict, str]:
+    """The bodies of the other revision, and how to name it."""
+    if how == "STEP":
+        try:
+            n = int(p.evaluate(ref))
+        except Exception:  # noqa: BLE001
+            raise CommandError("COMPARE, STEP: give a history position (0 is the empty start)") from None
+        if not 0 <= n <= p.cursor:
+            raise CommandError(f"COMPARE, STEP: positions go from 0 (the empty start) to {p.cursor} (now)")
+        return dict(p._snaps[n]["model"]["bodies"]), f"step {n}"
+    path = ref[1:-1] if len(ref) >= 2 and ref[0] in "\"'" and ref[-1] == ref[0] else ref
+    path = p.file_map.get(path, path)
+    import os
+
+    if not os.path.isfile(path):
+        raise CommandError(f"COMPARE, PROJECT: no such file: {path}")
+    other = Processor()
+    res = other.run(f'OPEN, "{path}"')
+    if not res.ok:
+        raise CommandError(f"COMPARE, PROJECT: {res.message}")
+    return dict(other.model.bodies), os.path.basename(path)
+
+
+def _compare_revisions(p: Processor, how: str, ref: str, body: str, tol: str, fmt: str) -> str:
+    from ..geometry import meshbody as mb
+    from ..geometry import revdiff as rd
+    from ..geometry import robust
+    from .analysis_handlers import Analysis
+
+    if body.upper() in ("TEXT", "JSON"):  # COMPARE, STEP, 5, JSON: the format, no body
+        body, fmt = "", fmt or body
+    fmt = (fmt or "TEXT").upper()
+    if fmt not in ("TEXT", "JSON"):
+        raise CommandError("COMPARE: the format is TEXT or JSON")
+    old, label = _old_bodies(p, how, ref)
+    new = dict(p.model.bodies)
+    if body:
+        bid = p._body_arg(REGISTRY["COMPARE"], body)
+        nb = new[bid]
+        match = old.get(bid) if bid in old and old[bid].name == nb.name else next(
+            (x for x in old.values() if x.name == nb.name), old.get(bid))
+        pairs = [(match, nb)]
+    else:
+        pairs = []
+        used = set()
+        for nb in new.values():
+            ob = next((x for x in old.values() if x.name == nb.name and x.id not in used), None)
+            if ob is None and nb.id in old and nb.id not in used and old[nb.id].name.startswith("body"):
+                ob = old[nb.id]
+            if ob is not None:
+                used.add(ob.id)
+            pairs.append((ob, nb))
+        pairs += [(ob, None) for ob in old.values() if ob.id not in used]
+    try:
+        tol_v = float(p.evaluate(tol)) if tol else 0.0
+    except Exception:  # noqa: BLE001
+        raise CommandError("COMPARE: the tolerance is a number") from None
+    if tol_v < 0:
+        raise CommandError("COMPARE: the tolerance cannot be negative")
+    rows, lines, colour = [], [], None
+    for ob, nb in pairs:
+        if nb is None:
+            rows.append({"old": ob.id, "new": None, "name": ob.name, "removed_body": True})
+            lines.append(f"- body {ob.id} '{ob.name}': only in {label}")
+            continue
+        if ob is None:
+            rows.append({"old": None, "new": nb.id, "name": nb.name, "added_body": True})
+            lines.append(f"+ body {nb.id} '{nb.name}': new since {label}")
+            continue
+        if ob.shape is nb.shape:
+            rows.append({"old": ob.id, "new": nb.id, "name": nb.name, "same": True})
+            continue
+        if mb.is_mesh(ob.shape) or mb.is_mesh(nb.shape):
+            rows.append({"old": ob.id, "new": nb.id, "name": nb.name, "mesh": True})
+            lines.append(f"~ body {nb.id} '{nb.name}': a mesh body; DEVIATION measures meshes")
+            continue
+        t = tol_v or 1e-3 * max(robust.diagonal(nb.shape), 1e-9)
+        dd = rd.compare_body(ob.shape, nb.shape, ob.entity_ids.get("FACE"), nb.entity_ids.get("FACE"), t)
+        dd.old_id, dd.new_id, dd.name = ob.id, nb.id, nb.name
+        rows.append(dd.as_dict())
+        if dd.same:
+            continue
+        head = f"~ body {nb.id} '{nb.name}'"
+        if dd.volume:
+            v0, v1 = dd.volume
+            head += f": volume {v0:.6g} -> {v1:.6g} ({v1 - v0:+.4g})"
+        lines.append(head)
+        lines.append(f"    {dd.unchanged} faces the same; {len(dd.changed)} changed, {len(dd.moved)} moved, "
+                     f"{len(dd.added)} added, {len(dd.removed)} removed")
+        for r in dd.changed[:8]:
+            extra = (f", radius {r['radius_was']:.4g} -> {r['radius']:.4g}" if "radius" in r else "")
+            lines.append(f"    changed: face {r['face']} ({r['type']}, was {r['was']}): area {r['area_was']:.4g} -> "
+                         f"{r['area']:.4g}{extra}")
+        for r in dd.moved[:8]:
+            lines.append(f"    moved: face {r['face']} ({r['type']}, was {r['was']}) by {_p3(r['by'])}")
+        for r in dd.added[:8]:
+            lines.append(f"    added: face {r['face']} ({r['type']}, area {r['area']:.4g}) at {_p3(r['at'])}")
+        for r in dd.removed[:8]:
+            lines.append(f"    removed: face {r['face']} of {label} ({r['type']}, area {r['area']:.4g}) at {_p3(r['at'])}")
+        if dd.regions:
+            lines.append(f"    the surface moved by up to {dd.largest_out:+.4g} / {dd.largest_in:+.4g}; "
+                         f"{100 * dd.off:.1f}% of it by more than {t:.3g}")
+        if colour is None:
+            colour = (nb.id, ob.shape, t)
+    if not lines:
+        lines.append(f"no differences from {label}")
+    else:
+        lines.insert(0, f"COMPARE {label} with now:")
+    if colour is not None:
+        from ..geometry import deviation as dv
+
+        bid, old_shape, t = colour
+        tg = dv.target(old_shape, min(t / 4, robust.diagonal(old_shape) / 1000))
+        p.analysis = Analysis(bid, "DEVIATION", (0.0, 0.0, 1.0), 0.0, field=dv.Field(tg), scale=t)
+        hook = getattr(p.view, "show_analysis", None) if p.view else None
+        if hook:
+            hook(p.analysis)
+        lines.append(f"  body {bid} is coloured by how far it moved: green the same, red outward, blue inward "
+                     "(ANALYZE, OFF ends it)")
+    if fmt == "JSON":
+        return json.dumps({"against": label, "bodies": rows}, separators=(",", ":"))
     return "\n".join(lines)

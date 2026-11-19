@@ -1209,6 +1209,9 @@ NAME, LAST, left
 COPY, left, 50, 0, 0
 NAME, LAST, right
 COMPARE, left, right
+CYL, 15,10,-1, 3, 12
+SUBTRACT, right, LAST
+COMPARE, STEP, 5
 
 @ DESIGNCHECK
 ! Rule checks on a body: broken faces, tiny edges, thin walls under 2.

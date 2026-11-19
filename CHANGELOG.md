@@ -19,6 +19,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   largest out and in, mean and RMS, the same per face, outliers, holes in the scan and faces it hardly
   covers; the scan is coloured by tolerance band. `RECONSTRUCT` reports the same numbers for the solid
   it made.
+- `COMPARE, STEP, n` and `COMPARE, PROJECT, "old.m3d"`: two revisions face by face (added, removed,
+  moved, changed with old and new sizes), volume before and after, how far the surface moved, and
+  the changed body coloured by distance.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

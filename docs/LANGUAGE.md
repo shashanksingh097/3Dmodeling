@@ -2011,6 +2011,28 @@ When they match it says whether the second body is a moved copy of the
 first (and by how much) or its mirror image (and in which plane), otherwise
 what differs. `SAMESHAPE(a, b)` is 1 or 0.
 
+**Revisions.** `COMPARE, STEP, n` compares the model as it was after
+history step `n` with now; `COMPARE, PROJECT, "old.m3d"` compares a saved
+project with now. Bodies are paired by name. For each body that changed it
+says, face by face, what is the same, what changed (the same surface with
+another size: a plane cut by a new pocket, a hole made bigger, with the old
+and new radius), what moved (the same face somewhere else, and by how
+much), what was added and what was removed, the volume before and after,
+and how far the surface moved (the largest distance out and in, and the
+share of the surface that moved by more than the tolerance). The changed
+body is coloured by how far it moved: green the same, red outward, blue
+inward. `ANALYZE, OFF` ends the colours.
+
+```
+COMPARE, STEP, 12                    ! since step 12
+COMPARE, STEP, 12, part, 0.01, JSON  ! one body, tolerance 0.01, as data
+COMPARE, PROJECT, "bracket_v1.m3d"   ! against a saved revision
+```
+
+Faces are matched by what they are, not by their IDs, so a project that was
+opened again or rebuilt compares correctly. `DIFF` (above) lists what each
+step made; `COMPARE, STEP` shows how the shape itself changed.
+
 `DESIGNCHECK, housing` runs rule checks and gives the IDs of what breaks
 them: not valid, open edges, not a solid, loose pieces in one body, inside
 out, edges shorter than a thousandth of the size (or `minedge`), narrow
