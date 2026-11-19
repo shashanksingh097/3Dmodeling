@@ -224,6 +224,8 @@ class Processor:
         self.configs: dict[str, dict[str, Any]] = {}
         self.config = ""
         self.config_values: dict[str, Any] = {}
+        # steps turned off in a configuration (CONFIGOFF, DESIGNTABLE): name -> entry uids
+        self.config_off: dict[str, set[int]] = {}
         # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
         self.drive: dict[str, Any] = {}
         self.exploded: dict | None = None  # XSHOW: the model as it was, put back before the next command
@@ -397,7 +399,10 @@ class Processor:
                 entry.uid = uid
                 self._uid = max(self._uid, uid)
         self.entry_index = self.cursor
-        ok, message = self._run_entry(entry, stmts)
+        if self.is_off(entry):
+            ok, message = True, f"off in configuration {self.config}"
+        else:
+            ok, message = self._run_entry(entry, stmts)
         entry.ok, entry.message = ok, message
         if not ok:
             self.last_failure = {"line": label, "message": message}  # for diagnose (ai/diagnose.py)
@@ -421,6 +426,7 @@ class Processor:
         self.configs = {}
         self.config = ""
         self.config_values = {}
+        self.config_off = {}
         self.drive = {}
         self.exploded = None
         self.parts = {}
@@ -440,6 +446,10 @@ class Processor:
         self._snaps = [self._state()]
         self._undo, self._redo = [], []
         self._history_changed()
+
+    def is_off(self, e: Entry) -> bool:
+        """Is the entry turned off in the configuration in use?"""
+        return bool(self.config and e.uid and e.uid in self.config_off.get(self.config, ()))
 
     @property
     def log(self) -> list[str]:
@@ -709,6 +719,8 @@ class Processor:
                     raise RebuildCancelled()
                 if e.suppressed:
                     e.ok, e.message, e.warning = True, "suppressed", ""
+                elif self.is_off(e):
+                    e.ok, e.message, e.warning = True, f"off in configuration {self.config}", ""
                 elif skip and j > start and self._can_skip(e, now := self._state()):
                     # nothing it reads changed: take over what it did last time
                     after = self._skipped_state(e, now)

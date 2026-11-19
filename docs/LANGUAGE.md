@@ -2742,6 +2742,38 @@ runner takes `-C name`:
 python -m modeler run plate.cmd -C big
 ```
 
+**Design tables.** A CSV file with one row per configuration: its name,
+then a column per parameter, and an optional `off` column with the steps
+this configuration leaves out (by history number):
+
+```
+config, W,  H,  off
+small,  30, 5,  5 6
+big,    60, 20,
+```
+
+`DESIGNTABLE, "sizes.csv"` makes one `CONFIG` step per row (or changes the
+one already there, so reading the table again after editing it updates the
+configurations). `DESIGNTABLE, "sizes.csv", EXPORT` writes the
+configurations out as such a table. Both are run when given, not kept in
+the history; the values are kept by the `CONFIG` steps.
+
+**Steps off per configuration.** `CONFIGOFF, small, "5 6"` leaves steps 5
+and 6 out while `small` is in use (a hole the small size does not have);
+`CONFIGOFF, small, "5", ON` puts one back and `CONFIGOFF, small` lists them.
+The steps are remembered as steps, not numbers, so the right ones stay off
+when steps are added or removed before them; they are saved with the
+project. In the History panel such a step says "off in configuration SMALL".
+
+**Comparing variants.** `VARIANTS` builds every configuration on its own,
+and `DEFAULT`, without touching the model in use. For each one it says
+whether it builds (or the step where it stops, with the reason), the
+pieces, volume, mass and overall size, and the change in volume from
+`DEFAULT`. `VARIANTS, JSON` gives the same as data; `VARIANTS, TEXT,
+folder` also writes each configuration's parts list (`small_bom.csv`) and
+drawing (`small.svg`) to the folder. `BOM, , small` shows the parts list of
+one configuration without switching to it.
+
 **`BOM`** lists the parts of the model: one row per part placed with
 `INST` (instances of the same part with the same values are counted
 together, with every parameter value shown) and one row per other solid

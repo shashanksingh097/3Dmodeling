@@ -326,6 +326,8 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.config_off:  # steps turned off per configuration, by entry uid
+            meta["config_off"] = {k: sorted(v) for k, v in p.config_off.items() if v}
         if p.config:  # the configuration in use (CONFIG/USECONFIG), with its values for the replay
             meta["config"] = {"name": p.config, "values": dict(p.config_values)}
         if p.chat:  # the assistant conversation, kept with the project
@@ -383,6 +385,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
+    p.config_off = {str(k).upper(): {int(u) for u in v} for k, v in dict(meta.get("config_off", {})).items()}
     cfg = meta.get("config")
     if isinstance(cfg, dict) and cfg.get("name"):
         p.config = str(cfg["name"]).upper()

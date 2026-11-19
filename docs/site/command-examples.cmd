@@ -1129,6 +1129,37 @@ ANGLE, FACE, 1, FACE, 3
 BLOCK, 0,0,0, 100, 50, 10
 MASSPROP, 1, 7.85e-6
 
+@ CONFIGOFF
+! Leave the hole out of the small size: steps 5 and 6 are off in configuration small.
+W = 40
+H = 10
+BLOCK, 0,0,0, W, 20, H
+NAME, LAST, plate
+CYL, 10,10,-1, 3, H+2
+SUBTRACT, plate, LAST
+CONFIG, small, "W = 30, H = 5"
+CONFIGOFF, small, "5 6"
+USECONFIG, small
+
+@ DESIGNTABLE
+! Configurations from a CSV design table. The first lines write the table (EXPORT), then read it back.
+W = 40
+H = 10
+BLOCK, 0,0,0, W, 20, H
+CONFIG, small, "W = 30, H = 5"
+CONFIG, big, "W = 60, H = 20"
+DESIGNTABLE, sizes.csv, EXPORT
+DESIGNTABLE, sizes.csv
+
+@ VARIANTS
+! Build every configuration on its own and compare size, volume and mass.
+W = 40
+H = 10
+BLOCK, 0,0,0, W, 20, H
+CONFIG, small, "W = 30, H = 5"
+CONFIG, big, "W = 60, H = 20"
+VARIANTS
+
 @ BOM
 ! The parts list: placed copies of a part are counted together.
 *PART, pin, D=4

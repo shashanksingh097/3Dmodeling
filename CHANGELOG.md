@@ -28,6 +28,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `TAKE, FACE/EDGE/PLANE/AXIS, part, n, name [, LINK/COPY]`: geometry from another part (by name
   or a placed copy), linked so it follows the part, or copied; a face that is gone is a broken link.
   `DEPENDS` lists linked files, parts, copies and taken geometry, with broken links and loops.
+- Design tables: `DESIGNTABLE, "sizes.csv"` makes configurations from a CSV file (and `EXPORT` writes
+  them out), `CONFIGOFF` leaves steps out of a configuration, `VARIANTS` builds every configuration
+  and compares them (and writes each one's parts list and drawing), `BOM, , config` lists one.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

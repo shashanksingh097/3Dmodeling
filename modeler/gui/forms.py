@@ -101,7 +101,7 @@ class FormError(Exception):
 PARAM = "="
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
-    ("Parameters", (PARAM, "CONFIG", "USECONFIG", "DRIVE")),
+    ("Parameters", (PARAM, "CONFIG", "USECONFIG", "CONFIGOFF", "DESIGNTABLE", "VARIANTS", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE", "SCHECK")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
