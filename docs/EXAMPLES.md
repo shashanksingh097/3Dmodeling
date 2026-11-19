@@ -60,6 +60,8 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/print_check.png" width="160">](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) | [Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) |
 | [<img src="examples/milled_plate.png" width="160">](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) | [2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) |
 | [<img src="examples/gravity_check.png" width="160">](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) | [Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) |
+| [<img src="examples/gear_train.png" width="160">](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) | [Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER)](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) |
+| [<img src="examples/plastic_case.png" width="160">](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) | [A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT)](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) |
 
 ---
 
@@ -2569,6 +2571,95 @@ NAME, LAST, shade
 BLOCK, 100, 10, 68, 15, 40, 4
 NAME, LAST, shelf
 GRAVITY
+```
+
+</details>
+
+---
+
+## Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER)
+
+![Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER)](examples/gear_train.png)
+
+Gears and fasteners (GEAR, FASTENER): a pinion driving a bigger gear on a plate, a planet inside a ring gear, and a rack. The 20-tooth pinion and the 30-tooth gear sit at the centre distance module x (20 + 30) / 2 = 50, the bigger one turned half a tooth (180/30 degrees) so the teeth fall into the gaps. The rack runs under the pinion, its pitch line on the pinion's pitch circle (0.02 lower, for a little play) and a gap (they come every 2 pi from its start) under the pinion's centre. Each gear has a bore and runs on a cap screw through the plate, with a washer under the head and a nut underneath.
+
+**Script:** [scripts/gear_train.cmd](../scripts/gear_train.cmd) (30 lines) · **Run:** `python -m modeler scripts/gear_train.cmd`
+
+**You should get:** 12 bodies, volume 206,989.4 mm³, 732 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Gears and fasteners (GEAR, FASTENER): a pinion driving a bigger gear on a plate, a planet
+! inside a ring gear, and a rack. The 20-tooth pinion and the 30-tooth gear sit at the centre
+! distance module x (20 + 30) / 2 = 50, the bigger one turned half a tooth (180/30 degrees) so
+! the teeth fall into the gaps. The rack runs under the pinion, its pitch line on the pinion's
+! pitch circle (0.02 lower, for a little play) and a gap (they come every 2 pi from its start) under the
+! pinion's centre. Each gear has a bore and runs on a cap screw through the plate,
+! with a washer under the head and a nut underneath.
+BLOCK, -50, -40, -8, 210, 90, 8
+NAME, LAST, plate
+MATERIAL, plate, ALUMINIUM
+GEAR, 0, 0, 0, 2, 20, 10, , , 8
+NAME, LAST, pinion
+GEAR, 50, 0, 0, 2, 30, 10, , , 8
+NAME, LAST, wheel
+ROTATE, wheel, 6, 50, 0, 0
+GEAR, 125, 0, 0, 1, 50, 6, INTERNAL, , 62
+NAME, LAST, ring
+GEAR, 140, 0, 0, 1, 20, 6, , , 6
+NAME, LAST, planet
+GEAR, -43.982297, -20.02, 0, 2, 8, 8, RACK
+NAME, LAST, rack
+FASTENER, WASHER, M8, 0, 0, 10
+FASTENER, CAP, M8, 0, 0, 11.6, 25
+FASTENER, NUT, M8, 0, 0, -8
+FASTENER, WASHER, M8, 50, 0, 10
+FASTENER, CAP, M8, 50, 0, 11.6, 25
+FASTENER, NUT, M8, 50, 0, -8
+CLASH, pinion, wheel
+CLASH, ring, planet
+CLASH, rack, pinion
+```
+
+</details>
+
+---
+
+## A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT)
+
+![A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT)](examples/plastic_case.png)
+
+A moulded case (BOSS, SNAP, VENT): a box hollowed to 2 mm walls and open at the bottom, with four screw bosses with ribs on the inside of the top, two snap hooks standing on the open rim, a vent of six slots in the top, and a second, turned vent in one end wall. The case is shown upside down (open side up) so the bosses and hooks can be seen; SNAP reports the bending strain each hook takes to snap in.
+
+**Script:** [scripts/plastic_case.cmd](../scripts/plastic_case.cmd) (21 lines) · **Run:** `python -m modeler scripts/plastic_case.cmd`
+
+**You should get:** 1 body, volume 30,022.6 mm³, 143 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! A moulded case (BOSS, SNAP, VENT): a box hollowed to 2 mm walls and open at the bottom, with
+! four screw bosses with ribs on the inside of the top, two snap hooks standing on the open rim, a vent of six
+! slots in the top, and a second, turned vent in one end wall. The case is shown upside down
+! (open side up) so the bosses and hooks can be seen; SNAP reports the bending strain each
+! hook takes to snap in.
+BLOCK, 0, 0, 0, 90, 60, 30
+NAME, LAST, case
+MATERIAL, case, ABS
+SEL, S, FACE, LOC, Z, 0
+SHELL, 2
+SEL, S, FACE, LOC, Z, 30
+VENT, 6, 30, 2.5, 6, 0, 0, 0, 0
+SEL, S, FACE, LOC, X, 90
+VENT, 4, 16, 2, 4.5, 90
+BOSS, case, 10, 10, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
+BOSS, case, 80, 10, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
+BOSS, case, 10, 50, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
+BOSS, case, 80, 50, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
+SNAP, case, 45, 0.4, 0, 10, 8, 1.2, 0.8, 0, 0, -1, 0, -1, 0
+SNAP, case, 45, 59.6, 0, 10, 8, 1.2, 0.8, 0, 0, -1, 0, 1, 0
+SEL, NONE
 ```
 
 </details>

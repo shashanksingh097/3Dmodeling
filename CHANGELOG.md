@@ -4,6 +4,20 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Added
+
+- **Gears**: `GEAR` makes involute spur, helical and internal gears and
+  racks from a module and a tooth count, with a bore, and says the centre
+  distance to a mating gear.
+- **Standard fasteners**: `FASTENER` makes ISO 4762 cap screws, ISO 4017
+  hex screws, ISO 4032 nuts and ISO 7089 washers from M3 to M24, plain or
+  with real threads, named and made of steel.
+- **Scaling and uneven blends**: `SCALE` (one factor, or one per axis),
+  fillets whose radius changes along the edge (`FILLET, r, r2`) and
+  chamfers with two distances (`CHAMFER, d, d2`).
+- **Plastic part features**: screw bosses with ribs (`BOSS`), snap hooks
+  with their snap-in strain (`SNAP`) and vents through a wall (`VENT`).
+
 ## [0.4.0] - 2026-11-19
 
 ### Added

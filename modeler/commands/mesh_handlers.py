@@ -19,7 +19,7 @@ from .processor import Arg, BodyRef, CommandError, Processor, command
 # Commands that take a mesh body. Every other command that names a mesh body
 # is refused with a pointer to TOSOLID, instead of a kernel error.
 MESH_OK = {
-    "MOVE", "ROTATE", "COPY", "MIRROR", "DELETE", "NAME", "HIDE", "SHOW", "UNION", "SUBTRACT", "INTERSECT",
+    "MOVE", "ROTATE", "COPY", "MIRROR", "SCALE", "DELETE", "NAME", "HIDE", "SHOW", "UNION", "SUBTRACT", "INTERSECT",
     "EXPORT", "COLOR", "LAYER", "MATERIAL", "FADE", "UNFADE", "DISPLAY", "ISOLATE", "DESCRIBE", "MASSPROP",
     "STEPS", "TOSOLID", "TOMESH", "SMOOTH", "REMESH", "SIMPLIFY", "BEND", "TWIST", "TAPER", "STRETCH", "FLOW",
     "LIST", "FIT", "ASSERT", "DIST", "CLASH", "PROBE", "ECHO", "PICK", "SEL", "CM", "CMSEL", "CMDEL", "PICKMODE",
