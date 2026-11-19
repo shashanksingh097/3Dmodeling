@@ -221,6 +221,7 @@ class OccViewport(QWidget):
         self._preview_ais: list = []  # what a sketch tool is drawing
         self._mark_ais: list = []  # what the assistant points at (set_marks)
         self._path_ais = None  # MILL's milling path (show_toolpath)
+        self._note_ais: list = []  # NOTE: notes pinned to the model
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
@@ -297,6 +298,7 @@ class OccViewport(QWidget):
             self._display_body(body.id, update=False)
         self._show_datums()
         self._show_sketches()
+        self._show_notes()
         self._sync_selection()
         self._draw_control_points()
         self._draw_analysis()
@@ -436,6 +438,7 @@ class OccViewport(QWidget):
             self._preview_ais.clear()
             self._mark_ais.clear()
             self._path_ais = None
+            self._note_ais = []
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._cp_ais.clear()
@@ -449,14 +452,18 @@ class OccViewport(QWidget):
             self._path_ais = None
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
+            self._note_ais = []
             self._show_datums()
             self._show_sketches()
+            self._show_notes()
             self._sync_selection()
             return
         elif ev.kind in ("sketch", "sketch_selection"):
             self._show_sketches()
         elif ev.kind == "datums":
             self._show_datums()
+        elif ev.kind == "notes":
+            self._show_notes()
         elif ev.kind == "selection":
             self._sync_selection()
             return
@@ -588,6 +595,59 @@ class OccViewport(QWidget):
             ctx.Display(label, False)
             ctx.Deactivate(label)
             self._datum_ais.append(label)
+
+    # ---- notes ----------------------------------------------------------
+    def _show_notes(self) -> None:
+        """Draw the model's notes (NOTE): the text, a leader line to what it is about, and for a size the
+        line between its two points with short end marks. Drawn on top, never pickable."""
+        from OCP.AIS import AIS_TextLabel
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCP.TCollection import TCollection_ExtendedString
+        from OCP.gp import gp_Pnt
+
+        ctx = self.context
+        for ais in self._note_ais:
+            ctx.Remove(ais, False)
+        self._note_ais = []
+        blue = _rgb(0.05, 0.25, 0.75)
+
+        def line(a, b):
+            if sum((x - y) ** 2 for x, y in zip(a, b)) < 1e-18:
+                return
+            ais = AIS_Shape(BRepBuilderAPI_MakeEdge(gp_Pnt(*a), gp_Pnt(*b)).Edge())
+            ais.SetColor(blue)
+            ais.SetWidth(1.5)
+            ctx.Display(ais, 0, -1, False)
+            ctx.Deactivate(ais)
+            ctx.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
+            self._note_ais.append(ais)
+
+        for n in self.model.notes:
+            if n.anchor is not None:
+                line(n.at, n.anchor)
+            if n.span is not None:
+                a, b = n.span
+                line(a, b)
+                d = [y - x for x, y in zip(a, b)]
+                ln = sum(q * q for q in d) ** 0.5 or 1.0
+                # end marks square to the size, in the plane with Z (or X for a vertical size)
+                ref = (0.0, 0.0, 1.0) if abs(d[2]) < 0.9 * ln else (1.0, 0.0, 0.0)
+                c = (d[1] * ref[2] - d[2] * ref[1], d[2] * ref[0] - d[0] * ref[2], d[0] * ref[1] - d[1] * ref[0])
+                cl = sum(q * q for q in c) ** 0.5 or 1.0
+                t = [q / cl * 0.04 * ln for q in c]
+                for e in (a, b):
+                    line(tuple(x - y for x, y in zip(e, t)), tuple(x + y for x, y in zip(e, t)))
+            label = AIS_TextLabel()
+            label.SetText(TCollection_ExtendedString(n.text, True))  # (UTF-8: the diameter sign)
+            label.SetPosition(gp_Pnt(*n.at))
+            label.SetColor(blue)
+            label.SetHeight(15)
+            ctx.Display(label, False)
+            ctx.Deactivate(label)
+            ctx.SetZLayer(label, Graphic3d_ZLayerId_Topmost)
+            self._note_ais.append(label)
+        ctx.UpdateCurrentViewer()
 
     # ---- sketches -------------------------------------------------------
     def _show_sketches(self) -> None:

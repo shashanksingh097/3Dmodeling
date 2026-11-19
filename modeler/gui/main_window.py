@@ -741,11 +741,14 @@ class MainWindow(QMainWindow):
                                                   "polyline or sketch, with mitred or butted corners\n"
                                                   "Runs: MEMBER, path, profile, size [, MITRE/BUTT]",
                    lambda: self.open_form("MEMBER"))
+        tbs.action(self, tb, "Weld…", "weld", "Weld beads along the joint where two parts meet, or every joint "
+                                             "of a frame (ALL)\nRuns: WELD, a, b [, size]",
+                   lambda: self.open_form("WELD"))
         tbs.action(self, tb, "Cut list", "cutlist", "The frame's cut list: each member's profile, length and end "
                                                     "cuts, with how many\nRuns: CUTLIST",
                    lambda: self.execute("CUTLIST"))
 
-        tb = tbs.group(self, "Standard parts", "standard", "Features")
+        tb = tbs.group(self, "Standard parts", "standard", "Model")
         tbs.action(self, tb, "Gear…", "gear", "An involute gear (spur, helical, internal) or a rack from a module and "
                                              "a tooth count\nRuns: GEAR, x,y,z, module, teeth, width [, kind, helix]",
                    lambda: self.open_form("GEAR"))
@@ -762,6 +765,7 @@ class MainWindow(QMainWindow):
         tbs.action(self, tb, "Vent…", "vent", "A grille of slots cut through the wall under the picked flat face\n"
                                              "Runs: VENT, count, length, width [, pitch, angle]",
                    lambda: self.open_form("VENT"))
+
 
         tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "
@@ -782,6 +786,14 @@ class MainWindow(QMainWindow):
         from . import sculpt_tool
 
         sculpt_tool.build(self)
+
+        tb = tbs.group(self, "Notes", "notes", "Inspect")
+        tbs.action(self, tb, "Note…", "note", "Pin a note, a size, a hole size or a fit to the model: shown in the "
+                                             "view and on drawings\nRuns: NOTE, \"text\", x,y,z · NOTE, SIZE, ... · "
+                                             "NOTE, FIT, H7", lambda: self.open_form("NOTE"))
+        tbs.action(self, tb, "Fits…", "fits", "ISO 286 limits and fits: the hole's and shaft's limits and the "
+                                             "clearance or interference\nRuns: FITS, H7/g6 [, size]",
+                   lambda: self.open_form("FITS"))
 
         tb = tbs.group(self, "Measure", "measure", "Inspect")
         act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
@@ -815,6 +827,11 @@ class MainWindow(QMainWindow):
                                              "shown in the view and written as G-code\n"
                                              "Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down",
                    lambda: self.open_form("MILL"))
+        tbs.action(self, tb, "Parting…", "parting", "Which faces come out of which mould half: draft, undercuts "
+                                                   "and the parting line, in colours\nRuns: PARTING, body [, pull "
+                                                   "direction, draft]", lambda: self.open_form("PARTING"))
+        tbs.action(self, tb, "Mould…", "mold", "The two halves of a mould for the part, with a shrink allowance\n"
+                                              "Runs: MOLD, body [, wall, shrink %]", lambda: self.open_form("MOLD"))
 
     def build_view_menu(self) -> None:
         """View > Toolbar buttons (icons and names, icons only ...), Collapse ribbon and Ribbon tab."""

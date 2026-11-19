@@ -160,9 +160,12 @@ def cut_rows(p: Processor) -> list[dict]:
          "the total length per profile: CUTLIST · CUTLIST, cuts.csv",
 )
 def cutlist(p: Processor, file):
+    from .weld_handlers import weld_lines
+
     rows = cut_rows(p)
+    welds = weld_lines(p)
     if not rows:
-        return "no frame members (make them with MEMBER)"
+        return "\n".join(welds) if welds else "no frame members (make them with MEMBER)"
     lines = [f"{'qty':>3}  {'profile':<8} {'size':<12} {'length':>9}  ends (from square)  bodies"]
     totals: dict[tuple, float] = {}
     for r in rows:
@@ -171,6 +174,7 @@ def cutlist(p: Processor, file):
         k = (r["profile"], r["size"])
         totals[k] = totals.get(k, 0.0) + r["qty"] * r["length"]
     lines.append("total: " + "; ".join(f"{pr} {sz}: {fmt_num(round(v, 1))}" for (pr, sz), v in totals.items()))
+    lines += welds
     text = "\n".join(lines)
     if file:
         path = file if os.path.splitext(file)[1] else file + ".csv"

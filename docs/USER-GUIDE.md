@@ -353,7 +353,7 @@ cut. **Wrap** lays a sketch round a cylindrical or conical face, raised or
 cut, for grips, labels and bands. Details: LANGUAGE.md section 32; an example is
 `scripts/enclosure_halves.cmd`.
 
-**Gears and fasteners.** **Gear…** (Features tab, Standard parts) makes
+**Gears and fasteners.** **Gear…** (Model tab, Standard parts) makes
 spur, helical and internal gears and racks from a module and a tooth
 count; the message says the centre distance to a mating gear. **Fastener…**
 makes ISO cap screws, hex bolts, nuts and washers from M3 to M24, plain or
@@ -367,6 +367,17 @@ ribs, **Snap hook…** a cantilever hook (with the strain it takes to snap
 in), and **Vent…** a grille of slots through the wall under the picked
 flat face. Details: LANGUAGE.md section 42; an example is
 `scripts/plastic_case.cmd`.
+
+**Moulds.** **Parting…** (Inspect tab, Make) shows which faces come out of
+which half of a mould, which need draft, any undercuts, and the parting
+line. **Mould…** makes the two halves with a shrink allowance. Details:
+LANGUAGE.md section 43; an example is `scripts/cap_mould.cmd`.
+
+**Notes and fits.** **Note…** (Inspect tab) pins text, a size, a hole's
+diameter or its ISO fit to the model. Notes show in the view and go onto
+drawing sheets. **Fits…** gives ISO 286 limits and the clearance or
+interference of a fit such as H7/g6. **Weld…** (Features tab, Frames) adds
+weld beads where parts meet; the cut list adds their length.
 
 **Exploded views.** Record how an assembly comes apart with `XSTEP` (the
 command menu, under Parts): each step moves some parts by a distance.

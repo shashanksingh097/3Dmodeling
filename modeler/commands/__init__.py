@@ -41,3 +41,6 @@ from . import gravity_handlers  # noqa: F401  (GRAVITY: does the assembly stand 
 from . import render_handlers  # noqa: F401  (RENDER: a nicer picture)
 from . import standard_handlers  # noqa: F401  (GEAR, FASTENER: standard parts)
 from . import plastic_handlers  # noqa: F401  (BOSS, SNAP, VENT: moulded plastic parts)
+from . import mold_handlers  # noqa: F401  (PARTING, MOLD: mould tools)
+from . import note_handlers  # noqa: F401  (NOTE, FITS: notes on the model, ISO 286 fits)
+from . import weld_handlers  # noqa: F401  (WELD: weld beads)

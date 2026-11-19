@@ -36,10 +36,11 @@ scan_machined.cmd | Scan to CAD for machined parts: a mesh of a block split into
 hinged_lid.cmd | Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post | ISO
 scan_to_cad.cmd | Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face | FRONT
 exploded_view.cmd | Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone | ISO | XSHOW, apart
-welded_frame.cmd | Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts | 1,-0.6,0.45
+welded_frame.cmd | Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace, a weld bead on every joint (WELD); CUTLIST lists the cuts and welds | 1,-0.6,0.45
 bracket_strength.cmd | A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS) | 1,-1,0.8
 print_check.cmd | Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK) | 1,-1,-0.5
 milled_plate.cmd | 2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL) | ISO
 gravity_check.cmd | Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY) | ISO
 gear_train.cmd | Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER) | 0.5,-1,1.1
 plastic_case.cmd | A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT) | 1,-0.8,-1
+cap_mould.cmd | Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS) | 1,-1,0.35

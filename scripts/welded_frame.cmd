@@ -1,6 +1,7 @@
 ! Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with
 ! mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between
-! two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+! two legs. WELD, ALL puts a 4 mm bead on every joint, and CUTLIST gives what to cut (lengths and end
+! angles, with how many of each) and the weld length.
 W = 600
 D = 400
 H = 450
@@ -21,5 +22,6 @@ NAME, LAST, brace_path
 MEMBER, brace_path, ANGLE, 25x25x3, BUTT, brace, 180
 HIDE, brace_path
 COLOR, brace_1, ORANGE
+WELD, ALL, 4
 CUTLIST
 FIT
