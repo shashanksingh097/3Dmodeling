@@ -182,8 +182,14 @@ def _imports_in(p: Processor) -> list[str]:
         for st in stmts:
             name = getattr(st, "name", None)
             args = getattr(st, "args", [])
-            if (name == "IMPORT" and len(args) >= 2) or (name == "LIB" and len(args) >= 2
-                                                          and args[0].strip().upper() in ("LOAD", "LINK")):
+            if name in ("SDXF", "STRACE", "IMAGE") and args and args[0].strip().strip('"').upper() != "CLEAR":
+                raw = st.args[0].strip()
+                if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
+                    raw = raw[1:-1]
+                if raw not in files:
+                    files.append(raw)
+            elif (name == "IMPORT" and len(args) >= 2) or (name == "LIB" and len(args) >= 2
+                                                            and args[0].strip().upper() in ("LOAD", "LINK")):
                 raw = st.args[1].strip()
                 if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
                     raw = raw[1:-1]

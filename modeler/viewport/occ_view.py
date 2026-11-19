@@ -222,6 +222,7 @@ class OccViewport(QWidget):
         self._mark_ais: list = []  # what the assistant points at (set_marks)
         self._path_ais = None  # MILL's milling path (show_toolpath)
         self._note_ais: list = []  # NOTE: notes pinned to the model
+        self._picture_ais: list = []  # IMAGE: pictures to sketch over
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
@@ -299,6 +300,7 @@ class OccViewport(QWidget):
         self._show_datums()
         self._show_sketches()
         self._show_notes()
+        self._show_pictures()
         self._sync_selection()
         self._draw_control_points()
         self._draw_analysis()
@@ -439,6 +441,7 @@ class OccViewport(QWidget):
             self._mark_ais.clear()
             self._path_ais = None
             self._note_ais = []
+            self._picture_ais = []
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
             self._cp_ais.clear()
@@ -453,9 +456,11 @@ class OccViewport(QWidget):
             for bid in self.model.bodies:
                 self._display_body(bid, update=False)
             self._note_ais = []
+            self._picture_ais = []
             self._show_datums()
             self._show_sketches()
             self._show_notes()
+            self._show_pictures()
             self._sync_selection()
             return
         elif ev.kind in ("sketch", "sketch_selection"):
@@ -464,6 +469,8 @@ class OccViewport(QWidget):
             self._show_datums()
         elif ev.kind == "notes":
             self._show_notes()
+        elif ev.kind == "pictures":
+            self._show_pictures()
         elif ev.kind == "selection":
             self._sync_selection()
             return
@@ -597,6 +604,37 @@ class OccViewport(QWidget):
             self._datum_ais.append(label)
 
     # ---- notes ----------------------------------------------------------
+    def _show_pictures(self) -> None:
+        """Draw the pictures (IMAGE) as see-through textured rectangles on their planes, never pickable."""
+        from OCP.AIS import AIS_TexturedShape
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
+        from OCP.TCollection import TCollection_AsciiString
+        from OCP.gp import gp_Pnt
+
+        from ..commands.image_handlers import corners
+
+        ctx = self.context
+        for ais in getattr(self, "_picture_ais", []):
+            ctx.Remove(ais, False)
+        self._picture_ais = []
+        for pic in self.model.pictures:
+            poly = BRepBuilderAPI_MakePolygon()
+            for q in corners(pic):
+                poly.Add(gp_Pnt(*q))
+            poly.Close()
+            face = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
+            ais = AIS_TexturedShape(face)
+            ais.SetTextureFileName(TCollection_AsciiString(pic.path))
+            ais.SetTextureMapOn()
+            ais.SetTextureRepeat(False, 1.0, 1.0)
+            ais.DisableTextureModulate()
+            ais.SetDisplayMode(3)  # shaded with the texture
+            ais.SetTransparency(1.0 - pic.opacity)
+            ctx.Display(ais, False)
+            ctx.Deactivate(ais)
+            self._picture_ais.append(ais)
+        self.view.Redraw()
+
     def _show_notes(self) -> None:
         """Draw the model's notes (NOTE): the text, a leader line to what it is about, and for a size the
         line between its two points with short end marks. Drawn on top, never pickable."""

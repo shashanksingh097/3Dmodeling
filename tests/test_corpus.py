@@ -98,7 +98,7 @@ def test_example_script(path):
     assert got["faces"] == want["faces"]
     # curved faces cut into triangles (TOMESH, mesh booleans) may be cut a little
     # differently by another kernel version
-    rel = 2e-3 if re.search(r"^\s*(TOMESH|IMPLICIT|LATTICE)\b", path.read_text(), re.M | re.I) else 1e-4
+    rel = 2e-3 if re.search(r"^\s*(TOMESH|IMPLICIT|LATTICE|TOPOPT)\b", path.read_text(), re.M | re.I) else 1e-4
     assert got["volume"] == pytest.approx(want["volume"], rel=rel, abs=1e-3)
 
 

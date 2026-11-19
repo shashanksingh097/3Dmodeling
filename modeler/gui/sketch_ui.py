@@ -144,6 +144,17 @@ class SketchUI:
                                                                "(a section)\nRuns: SINTERSECT, body, ...")):
             a = tbs.action(win, tb, label, icon, tip, lambda _=False, f=slot: f())
             self.edit_actions[label.rstrip("…")] = a
+        for label, icon, cmd, tip in (
+                ("From DXF…", "s_dxf", "SDXF", "Bring a 2D DXF drawing's lines, arcs, circles, polylines and splines "
+                                               "into this sketch, joined where they meet\nRuns: SDXF, file [, scale, "
+                                               "du, dv, layer]"),
+                ("Trace picture…", "s_trace", "STRACE", "Trace the outlines of the dark shapes in a picture into this "
+                                                        "sketch, as smooth curves or straight pieces\n"
+                                                        "Runs: STRACE, file, width [, threshold, du, dv]"),
+                ("Picture…", "image", "IMAGE", "Show a picture on a plane behind the model, to draw over (it is "
+                                              "not part of the model)\nRuns: IMAGE, file, plane, width")):
+            a = tbs.action(win, tb, label, icon, tip, lambda _=False, c=cmd: self.win.open_form(c))
+            self.edit_actions[label.rstrip("…")] = a
 
         tb = bar("Constraints", "sketch_constraints", "Constrain")
         for label, kind, tip in _CONSTRAINTS:

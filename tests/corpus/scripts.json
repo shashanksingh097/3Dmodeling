@@ -24,6 +24,11 @@
   "faces": 10,
   "volume": 24735.664
  },
+ "cam_follower.cmd": {
+  "bodies": 8,
+  "faces": 584,
+  "volume": 338040.774
+ },
  "cam_plate.cmd": {
   "bodies": 1,
   "faces": 9,
@@ -208,6 +213,11 @@
   "bodies": 1,
   "faces": 7,
   "volume": 177862.833
+ },
+ "topo_bracket.cmd": {
+  "bodies": 2,
+  "faces": 7,
+  "volume": 63167.917
  },
  "welded_frame.cmd": {
   "bodies": 29,

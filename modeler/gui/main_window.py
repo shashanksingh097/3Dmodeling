@@ -755,6 +755,10 @@ class MainWindow(QMainWindow):
         tbs.action(self, tb, "Fastener…", "fastener", "An ISO cap screw, hex bolt, nut or washer, M3 to M24, plain or "
                                                      "with real threads\nRuns: FASTENER, kind, size, x,y,z [, length]",
                    lambda: self.open_form("FASTENER"))
+        tbs.action(self, tb, "Cam…", "cam", "A disc or barrel cam and its roller follower from a lift law (rises, dwells, "
+                                           "falls), with the pressure angle checked\n"
+                                           "Runs: CAM, x,y,z, \"R10/120 D60 F10/120 D60\", base, roller, width",
+                   lambda: self.open_form("CAM"))
 
         tb = tbs.group(self, "Pipes", "route", "Model")
         tbs.action(self, tb, "Route…", "route", "A pipe, tube or cable along the lines of a polyline or sketch, bent "
@@ -819,10 +823,17 @@ class MainWindow(QMainWindow):
                                                  "the range for parts running into each other, save pictures\n"
                                                  "Runs: DRIVE, name, value · MOTION, name, from, to, steps",
                    self.open_motion)
+        tbs.action(self, tb, "Trace path…", "trace", "The path a point on a moving part follows as a parameter runs, "
+                                                    "kept as a curve\nRuns: TRACE, name, from, to, steps, body, x,y,z",
+                   lambda: self.open_form("TRACE"))
         tbs.action(self, tb, "Strength…", "stress", "A first strength check: hold some faces, load others, and see "
                                                    "the stress as colours with the largest stress, deflection and "
                                                    "safety factor\nRuns: STRESS, body, fixed faces, loaded faces, "
                                                    "FORCE, fx, fy, fz", lambda: self.open_form("STRESS"))
+        tbs.action(self, tb, "Topology…", "topopt", "Where does the material carry the load? Keeps the share of a "
+                                                   "part that makes it stiffest, as a mesh to model a part after\n"
+                                                   "Runs: TOPOPT, body, fixed faces, loaded faces, FORCE, fx, fy, fz, "
+                                                   "share", lambda: self.open_form("TOPOPT"))
         tbs.action(self, tb, "Gravity…", "gravity", "Will the assembly stand up? Floating parts, parts that tip off "
                                                   "what they rest on or hang only at their sides, small gaps, "
                                                   "overlaps, and the whole on the floor\n"

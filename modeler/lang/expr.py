@@ -214,7 +214,20 @@ FUNCTIONS: dict[str, Callable] = {
     "NORM": _length,
     "DISTANCE": _dist,
     "TABLE": lambda *a: _table().function(*a),
+    "CAMLIFT": lambda *a: _camlift(*a),
 }
+
+
+def _camlift(law=None, angle=None, *rest):
+    """CAMLIFT("R10/120 D60 F10/120 D60", A): a cam's lift when it has turned A degrees (CAM)."""
+    from ..geometry import cams
+
+    if not isinstance(law, str) or angle is None or rest:
+        raise ExprError('CAMLIFT needs the lift law in quotes and an angle: CAMLIFT("R10/120 D60 F10/120 D60", A)')
+    try:
+        return cams.lift(cams.parse(law), float(angle))[0]
+    except cams.CamError as exc:
+        raise ExprError(f"CAMLIFT: {exc}") from None
 
 
 def _table():

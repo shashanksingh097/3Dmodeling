@@ -981,15 +981,15 @@ about three to a pull request:
     a polyline or sketch, bends of a set radius at the corners, elbows and
     tees where routes meet, a list of pipe lengths and bends; cables as
     round bundles with a diameter from the wires in them).
-40. **Cams, traced paths and more gears**: `CAM` (a disc or barrel cam from
+40. **Cams, traced paths and more gears** (done: `CAM`, `CAMLIFT`, `TRACE`, `GEAR` BEVEL/WORM/WORMWHEEL and helical racks; the worm wheel is helical, not throated): `CAM` (a disc or barrel cam from
     a lift table or law, with its follower), `TRACE` (the path of a point
     through a `MOTION` run, kept as a curve), and bevel and worm gears and
     helical racks for `GEAR`.
-41. **Sketching from pictures and DXF**: a picture placed on a plane at a
+41. **Sketching from pictures and DXF** (done: `IMAGE`, `STRACE`, `SDXF`; DXF blocks are not opened): a picture placed on a plane at a
     known scale to sketch over (`IMAGE`), outlines traced from a picture
     into a sketch, and DXF files read into a sketch (lines, arcs, circles,
     polylines and splines).
-42. **Lighter parts**: `TOPOPT` (a quick topology optimisation on the
+42. **Lighter parts** (done: `TOPOPT`, one load case, up to 60,000 cells): `TOPOPT` (a quick topology optimisation on the
     `STRESS` grid: keep a share of the material where it carries the load,
     shown as a mesh body to remodel from). Like `STRESS`, it stays a quick
     design check, not a full solver.
