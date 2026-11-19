@@ -449,6 +449,8 @@ class AppShell:
         a(m, "&Find a command…", self.win.form_for_typed, None, "Search commands by name or purpose (Ctrl+K)")
         a(m, "Ask the &assistant", self.show_assistant, "Ctrl+Shift+A",
           "Chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works too)")
+        a(m, "&Why did it fail?…", self.show_why, None,
+          "The first failed step in the history (or the last line that failed): the usual fixes, tried on a copy")
         a(m, "Assistant s&kills…", self.show_skills, None,
           "Which skill files the assistant may use, and folders with your own")
         m.addSeparator()
@@ -498,6 +500,20 @@ class AppShell:
         first = name or next(iter(guides()), "")
         if first:
             dlg.show_guide(first)
+        return dlg
+
+    def show_why(self):
+        from ..ai.diagnose import DiagnoseError
+        from .why_dialog import WhyDialog, diagnose_with_wait
+
+        try:
+            result = diagnose_with_wait(self.p)
+        except DiagnoseError as exc:
+            QMessageBox.information(self.win, "Why did it fail?", str(exc)[0].upper() + str(exc)[1:] + ".")
+            return None
+        dlg = WhyDialog(self.win, result)
+        dlg.setModal(False)
+        dlg.show()
         return dlg
 
     def show_skills(self):

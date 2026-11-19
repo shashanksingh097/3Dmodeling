@@ -133,17 +133,30 @@ FOLDER_PROMPT = """- The user's working folder is {0}. Put files from EXPORT and
 """
 
 
-def first_prompt(home: str) -> str:
-    """The system message of every new chat: how to work, the folder, the
-    language in short and every command in one line."""
-    from . import skills as sk
+SKILL_LINE = """- For a whole workflow (sheet metal, an enclosure, gears, an assembly that moves, fixing a failed step
+  ...) load the matching skill first (the list is below; list_skills also shows the project's own).
+"""
 
-    index = sk.index_text()
-    skills = ("\nSkills (load_skill gives the steps, checks and an example; load the one that fits a request "
-              "before you write a script for it):\n" + index + "\n") if index else ""
-    return (SYSTEM_PROMPT + FOLDER_PROMPT.format(home) + skills + "\n" + LANGUAGE_BASICS
-            + "\nEvery command (arguments in [brackets] are optional; command_help gives the details and "
-              "examples):\n" + command_catalogue() + "\n")
+
+def first_prompt(home: str, small: bool = False, skills: bool = True) -> str:
+    """The system message of every new chat: how to work, the folder, the skill index, the
+    language in short and every command in one line. ``small`` sends only the command names by
+    family instead of the one-line catalogue (command_help has the rest); ``skills`` False leaves
+    the skill index out (the benchmark's runs without skills)."""
+    from . import skills as sk
+    from .tools import command_families
+
+    index = sk.index_text() if skills else ""
+    part = ("\nSkills (load_skill gives the steps, checks and an example; load the one that fits a request "
+            "before you write a script for it):\n" + index + "\n") if index else ""
+    head = SYSTEM_PROMPT if skills else SYSTEM_PROMPT.replace(SKILL_LINE, "")
+    if small:
+        cmds = ("\nEvery command by family (names only: call command_help for a command's arguments before you "
+                "use it, and find_commands to search by purpose):\n" + command_families() + "\n")
+    else:
+        cmds = ("\nEvery command (arguments in [brackets] are optional; command_help gives the details and "
+                "examples):\n" + command_catalogue() + "\n")
+    return head + FOLDER_PROMPT.format(home) + part + "\n" + LANGUAGE_BASICS + cmds
 
 
 READ_LIMIT = 200_000  # bytes read_file returns at most
@@ -263,6 +276,8 @@ class CopilotAssistant:
             self.model = provider.model
         self.client = None
         self.session = None
+        self.small_prompt = False  # command names by family instead of the one-line catalogue
+        self.use_skills = True  # the skill index and list_skills / load_skill (the benchmark turns them off)
         self._reply: Reply | None = None
         self._stop: Callable[[], None] | None = None  # ends the answer being waited for
         # the conversation so far in this project, given once to a fresh chat (see earlier_text)
@@ -278,8 +293,10 @@ class CopilotAssistant:
             lambda kind, prompt, done: done(None) if done else None)
         # show_marks(kind, ids, note): mark these entities in the view (kind "" clears). GUI thread.
         self.show_marks: Callable[[str, list[int], str], bool] = lambda kind, ids, note: False
-        # render_view(view, width, height, kind, ids) -> PNG bytes of the 3D view, or None. GUI thread.
-        self.render_view: Callable[[str, int, int, str, list[int]], bytes | None] = lambda *a: None
+        # render_view(view, width, height, kind, ids, focus=False, shapes=None) -> PNG bytes of the 3D
+        # view, or None. focus: frame the camera on the marked entities; shapes: mark these shapes
+        # instead (render_compare). GUI thread.
+        self.render_view: Callable[..., bytes | None] = lambda *a, **k: None
 
     def _log(self, kind: str, **data: Any) -> dict[str, Any]:
         entry = {"kind": kind, "time": time.time(), **data}
@@ -472,6 +489,10 @@ class CopilotAssistant:
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self._highlight(args))
                     elif name == "render":
                         answer = await asyncio.to_thread(self.run_on_model, lambda: self._render(args))
+                    elif name == "render_detail":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._render_detail(args))
+                    elif name == "render_compare":
+                        answer = await asyncio.to_thread(self.run_on_model, lambda: self._render_compare(args))
                     elif name in ("read_file", "list_files"):
                         answer = await asyncio.to_thread(self._files, name, args)
                     else:
@@ -496,9 +517,12 @@ class CopilotAssistant:
             return handler
 
         tools = []
-        pictures = [_RENDER] if self.provider is None or self.provider.sees_pictures() else []
-        for d in self.toolbox.definitions() + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT, *pictures,
-                                                  _LIST_FILES, _READ_FILE]:
+        pictures = ([_RENDER, _RENDER_DETAIL, _RENDER_COMPARE] if self.provider is None or self.provider.sees_pictures()
+                    else [])
+        defs = self.toolbox.definitions()
+        if not self.use_skills:
+            defs = [d for d in defs if d["name"] not in ("list_skills", "load_skill")]
+        for d in defs + [_PROPOSE, _PROPOSE_EDITS, _ASK_PICK, _HIGHLIGHT, *pictures, _LIST_FILES, _READ_FILE]:
             tools.append(SdkTool(name=d["name"], description=d["description"], parameters=d["input_schema"],
                                  handler=handler_for(d["name"]), skip_permission=True))
         del cp
@@ -654,6 +678,56 @@ class CopilotAssistant:
             shows += f", {kind.lower()} {', '.join(map(str, ids))} marked in orange"
         return {"image": "png", "width": width, "height": height, "shows": shows, "_png": png}
 
+    def _render_detail(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..core.model import ModelError, check_kind
+
+        width = max(128, min(int(args.get("width", 512) or 512), 1024))
+        height = max(96, min(int(args.get("height", 0) or round(width * 0.75)), 1024))
+        try:
+            kind = check_kind(str(args.get("kind", "FACE")))
+            ids = [int(i) for i in (args.get("ids") or [])]
+            if not ids:
+                return {"error": "render_detail needs ids"}
+            for gid in ids:
+                self.toolbox.real.model.entity_shape(kind, gid)
+        except (ModelError, ValueError) as exc:
+            return {"error": str(exc)}
+        view = str(args.get("view", "") or "").strip()
+        png = self.render_view(view, width, height, kind, ids, focus=True)
+        if not png:
+            return {"error": "there is no 3D view to take a picture of here; use around and outline"}
+        return {"image": "png", "width": width, "height": height,
+                "shows": f"a close-up of {kind.lower()} {', '.join(map(str, ids))} (orange) and what is round it",
+                "_png": png}
+
+    def _render_compare(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The model as it is, with the bodies the sandbox changed or added drawn in orange over it."""
+        box = self.toolbox.box
+        if box is None:
+            return {"error": "no sandbox: run a change first, then compare"}
+        real, new = self.toolbox.real.model, box.p.model
+        changed, shapes = [], []
+        for bid, b in new.bodies.items():
+            old = real.bodies.get(bid)
+            if old is None or old.shape is not b.shape:
+                changed.append(bid)
+                shapes.append(b.shape)
+        gone = [bid for bid in real.bodies if bid not in new.bodies]
+        if not shapes and not gone:
+            return {"error": "the sandbox changes no body"}
+        width = max(128, min(int(args.get("width", 512) or 512), 1024))
+        height = max(96, min(int(args.get("height", 0) or round(width * 0.75)), 1024))
+        view = str(args.get("view", "") or "").strip()
+        png = self.render_view(view, width, height, "", [], shapes=shapes)
+        if not png:
+            return {"error": "there is no 3D view to take a picture of here; use diff and outline"}
+        out = {"image": "png", "width": width, "height": height,
+               "shows": "the model now (grey) with the sandbox's changed or new bodies over it in orange",
+               "changed": changed, "_png": png}
+        if gone:
+            out["removed"] = gone  # still grey in the picture: the model still has them
+        return out
+
     # ---- files in the working folder, only with the user's say-so ---------------------------
     def _inside(self, rel: str) -> str:
         base = os.path.realpath(self.home or default_home())
@@ -705,7 +779,7 @@ class CopilotAssistant:
         cp = _need_sdk()
         from copilot.session import PermissionHandler
 
-        system = first_prompt(self.home)
+        system = first_prompt(self.home, self.small_prompt, self.use_skills)
         tools = self.sdk_tools()
         model = self.provider.model.strip() if self.provider is not None else self.model
         self._log("system", text=system, tools=[t.name for t in tools],
@@ -874,6 +948,29 @@ _RENDER = {
 }
 
 
+_RENDER_DETAIL = {
+    "name": "render_detail",
+    "description": "A close-up picture (PNG) framed on entities, marked in orange, with what is round them: for "
+                   "small features the whole-model picture shows too small. Only when around and describe_entities "
+                   "are not enough. view as for render (empty keeps the user's direction).",
+    "input_schema": {"type": "object", "properties": {
+        "kind": {"type": "string", "enum": ["BODY", "FACE", "EDGE", "VERTEX"]},
+        "ids": {"type": "array", "items": {"type": "integer"}},
+        "view": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}},
+        "required": ["kind", "ids"]},
+}
+
+
+_RENDER_COMPARE = {
+    "name": "render_compare",
+    "description": "One picture (PNG) of the model as it is with the bodies your sandbox changed or added drawn "
+                   "over it in orange: before and after together, to judge a change by its looks. Use diff first; "
+                   "this is for looks only.",
+    "input_schema": {"type": "object", "properties": {
+        "view": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}}},
+}
+
+
 _LIST_FILES = {
     "name": "list_files",
     "description": "List the files in the user's working folder (or a folder inside it: path). The user is asked "
@@ -1007,11 +1104,16 @@ python -m modeler copilot ask [--script file.cmd] "question"
 python -m modeler copilot check           the whole test for one account (Copilot Free too):
                                           sign-in, allowance, models, and a question that must
                                           use the modeler's tools; prints PASS or FAIL per step
-python -m modeler copilot bench [--only a,b] [--out results.json]
-                                          the benchmark: ten modelling requests checked exactly
-                                          (tasks: flange, bracket, shelled_box, pipe_tee, spring,
-                                          vase, bolt_and_nut, edit_width, selected_face_holes,
-                                          impossible_fillet); prints PASS or FAIL per task
+python -m modeler copilot tasks           list the benchmark's tasks
+python -m modeler copilot bench [--only a,b] [--modes m,...] [--out results.json]
+                                          the benchmark: modelling requests checked exactly, one
+                                          per skill area (python -m modeler copilot tasks lists
+                                          them); prints PASS or FAIL per task. --modes runs it
+                                          several times: full, small (short first prompt),
+                                          noskills, small-noskills; then compares them
+--small-prompt                            command names by family in the first prompt, not the
+                                          one-line catalogue (about 12 KB instead of 30 KB)
+--no-skills                               leave the skill files out
 --folder DIR                              the assistant's working folder (default: a temporary
                                           folder)
 --model NAME                              the model (GitHub Copilot: one your plan offers)
@@ -1024,6 +1126,12 @@ python -m modeler copilot bench [--only a,b] [--out results.json]
 def main(args: list[str]) -> int:
     if not args or args[0] in ("-h", "--help", "help"):
         print(USAGE)
+        return 0
+    if args[0] == "tasks":  # no sign-in needed
+        from . import bench
+
+        for t in bench.TASKS:
+            print(f"{t.name:24} [{t.area}] {t.request}")
         return 0
     if not sdk_available():
         print(SDK_HINT)
@@ -1052,6 +1160,13 @@ def main(args: list[str]) -> int:
 
     from . import providers
 
+    def flag(name: str) -> bool:
+        if name in args:
+            args.remove(name)
+            return True
+        return False
+
+    small, no_skills = flag("--small-prompt"), flag("--no-skills")
     kind, model, url = option("--provider"), option("--model"), option("--base-url")
     setting = None
     if kind:
@@ -1073,6 +1188,7 @@ def main(args: list[str]) -> int:
 
     asst = CopilotAssistant(p, on_event=on_event, model=model or os.environ.get("MODELER_COPILOT_MODEL") or None,
                             home=home, provider=setting)
+    asst.small_prompt, asst.use_skills = small, not no_skills
     return asyncio.run(_cli(asst, args))
 
 
@@ -1121,7 +1237,7 @@ async def _cli(asst: CopilotAssistant, args: list[str]) -> int:
         if cmd == "bench":
             from . import bench
 
-            only, out = None, ""
+            only, out, modes_opt = None, "", ""
             rest = args[1:]
             while rest:
                 opt = rest.pop(0)
@@ -1129,19 +1245,42 @@ async def _cli(asst: CopilotAssistant, args: list[str]) -> int:
                     only = [x.strip() for x in rest.pop(0).split(",") if x.strip()]
                 elif opt == "--out" and rest:
                     out = rest.pop(0)
+                elif opt == "--modes" and rest:
+                    modes_opt = rest.pop(0)
             st = await asst.status()
             if not st["signed_in"]:
                 print(f"ERROR: not ready: {st['message'] or 'sign in first (copilot login)'}")
                 return 1
-            results = await bench.run(bench.assistant_ask(asst), only)
-            s = bench.summary(results)
-            print(f"{s['passed']} of {s['tasks']} passed ({s['without_pictures']} without a picture), "
-                  f"{s['tool_calls']} tool calls, {s['tokens']} tokens, {s['seconds']} s. "
-                  + ("Goal met." if s["goal_met"] else "Goal (9 of 10) not met."))
+            modes = [m.strip() for m in (modes_opt or "").split(",") if m.strip()] or [None]
+            bad = [m for m in modes if m is not None and m not in bench.MODES]
+            if bad:
+                print(f"unknown mode {bad[0]}: one of {', '.join(bench.MODES)}")
+                return 2
+            runs, met = {}, True
+            for mode in modes:
+                if mode is not None:
+                    asst.small_prompt, asst.use_skills = bench.MODES[mode]
+                    print(f"== {mode}: {'small' if asst.small_prompt else 'full'} first prompt, skills "
+                          f"{'on' if asst.use_skills else 'off'}", flush=True)
+                results = await bench.run(bench.assistant_ask(asst), only)
+                s = bench.summary(results)
+                met = met and s["goal_met"]
+                print(f"{s['passed']} of {s['tasks']} passed ({s['without_pictures']} without a picture), "
+                      f"{s['tool_calls']} tool calls, {s['tokens']} tokens, {s['seconds']} s. "
+                      + ("Goal met." if s["goal_met"] else f"Goal ({round(0.9 * s['tasks'])} of {s['tasks']}) "
+                                                            "not met."))
+                runs[mode or "current"] = results
+            if len(runs) > 1:
+                print(bench.compare_text(runs))
             if out:
-                bench.save(results, out, {"answers_from": st["login"], "model": asst.model or ""})
+                about = {"answers_from": st["login"], "model": asst.model or ""}
+                if len(runs) > 1:
+                    bench.save_modes(runs, out, about)
+                else:
+                    about.update({"small_prompt": asst.small_prompt, "skills": asst.use_skills})
+                    bench.save(next(iter(runs.values())), out, about)
                 print(f"saved {out}")
-            return 0 if s["goal_met"] else 1
+            return 0 if met else 1
         print(USAGE)
         return 2
     except AssistantError as exc:

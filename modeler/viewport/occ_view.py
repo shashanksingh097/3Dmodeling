@@ -889,10 +889,11 @@ class OccViewport(QWidget):
         self.view.FitAll(0.1, False)
         self.view.Redraw()
 
-    def snapshot(self, width: int, height: int, view: str = "", marks=None) -> bytes | None:
+    def snapshot(self, width: int, height: int, view: str = "", marks=None, focus=None) -> bytes | None:
         """A PNG of the 3D view as the user sees it (or from a named view or a direction
         "dx,dy,dz", fitted), optionally with orange marks; the user's camera and marks are
-        put back afterwards. None when there is no view."""
+        put back afterwards. ``focus`` (a shape) frames the camera on it, with some room
+        round it (a close-up). None when there is no view."""
         if not self._initialized:
             return None
         import tempfile
@@ -919,6 +920,17 @@ class OccViewport(QWidget):
                 self.view.FitAll(0.08, False)
             elif name == "FIT":
                 self.view.FitAll(0.08, False)
+            if focus is not None:
+                from OCP.Bnd import Bnd_Box
+                from OCP.BRepBndLib import BRepBndLib
+
+                box = Bnd_Box()
+                BRepBndLib.Add_s(focus, box)
+                if not box.IsVoid():
+                    lo, hi = box.CornerMin(), box.CornerMax()
+                    size = max(hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z(), 1e-6)
+                    box.Enlarge(size * 1.0)  # the entity and what is round it
+                    self.view.FitAll(box, 0.05, False)
             if marks is not None:
                 self.set_marks(marks)
             self.view.Redraw()

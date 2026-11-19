@@ -1,7 +1,6 @@
 # M12: better assistant tools, skill files and help
 
-Items 43 to 45 are built (see "What was built" at the end); 46 and 47
-are still a plan. It follows on from
+Items 43 to 47 are built (see "What was built" at the end). It follows on from
 [M9-ai-tools.md](M9-ai-tools.md) (the tools), [M9-copilot.md](M9-copilot.md)
 (the in-app assistant) and [mcp.md](mcp.md) (the same tools for outside
 agents). The short version is PLAN.md items 43 to 47.
@@ -266,6 +265,57 @@ shows it does no harm.
   pages), Open example and Ask the assistant. Help > Assistant skills… lists
   the skills with an on/off box, the user's own folders and Check skills.
 
-Not done yet: the smaller first prompt (4.4) waits for the benchmark in
-item 47, and Copilot's own `skill_directories` stays unused because our
-sessions only allow our own tools; `load_skill` does the same job.
+## 10. What was built (items 46 and 47, 2026-11-19)
+
+- **`diagnose`** (`modeler/ai/diagnose.py`, a tool, and **Why?** in the
+  History panel's menu on a failed or warned step, and **Help > Why did it
+  fail?** for the first failed step or the last line typed that failed).
+  It tries, on a sandbox copy of the whole model, the fixes that usually
+  work, and keeps the ones after which no step fails:
+  - a size a little under "the largest that works here is about X"
+    (FILLET, CHAMFER, SHELL), as an edit of the parameter's own step when
+    the size is a parameter, and as an edit of the failing step;
+  - smaller numbers when the message says "try a smaller ..." or the
+    command is SHELL, OFFSET, THICKEN or DRAFT;
+  - a fillet moved before the shell, or a shell moved before the fillets
+    (with the SEL step in front of it), as `HIST, MOVE` lines;
+  - `HEAL` on the bodies before a failing boolean;
+  - the nearest command or name for a misspelt one (shown even when the
+    step then needs something else, with what it then says).
+  The window runs a fix with one button (Undo takes it back), opens the
+  guides for the command and can hand the failure to the assistant.
+- **`describe_body` names features** (`modeler/geometry/feature_finder.py`):
+  fillets (concave) and rounds (convex) by radius, chamfers by distance,
+  bosses and pins by diameter and height, pockets and slots by depth and
+  size, with their faces. The rules: a blend is a part of a cylinder or
+  torus, at most a fifth of the body's size, that meets its neighbours
+  smoothly; a chamfer is a narrow flat strip tilted 15 to 75 degrees to
+  both big faces beside it; a boss is a convex full cylinder standing on a
+  bigger flat face; a pocket floor is a flat face whose every neighbour
+  rises above it.
+- **`around(kind, id, depth)`**: the faces touching a face, edge or vertex,
+  ring by ring, each with type, size, the way it faces and the feature it
+  belongs to.
+- **`outline(body, view)`**: the visible edges from a view, joined and
+  simplified to at most 400 points, whole circles listed apart, the size
+  and an SVG path.
+- **`render_detail`** (a close-up framed on entities) and
+  **`render_compare`** (the sandbox's changed bodies in orange over the
+  model), for models that take pictures.
+- **Small first prompt**: command names by family instead of the one-line
+  catalogue, 12 KB instead of 30 KB. It is a setting (Help > Assistant
+  skills…, "Short first message", off by default) and a CLI flag
+  (`--small-prompt`); `--no-skills` leaves the skills out.
+- **Benchmark**: 24 tasks, at least one per skill area that can be checked
+  exactly (all but sculpting and drawings), two of them impossible on
+  purpose. `copilot tasks` lists them; `copilot bench --modes
+  full,small,noskills,small-noskills` runs each mode and prints them side
+  by side, and `--out` saves every mode with results per skill area.
+  Every task's reference script passes its checks in the tests.
+
+Still open: the numbers. Running the benchmark needs a signed-in account,
+so the owner runs `copilot bench --modes full,small,noskills --out
+bench.json`; the small first prompt becomes the default only if it does
+no worse. Copilot's own `skill_directories` stays unused because our
+sessions only allow our own tools; `load_skill` does the same job with
+every provider, so there is nothing of Copilot's to test.

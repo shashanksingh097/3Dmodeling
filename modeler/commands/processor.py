@@ -247,6 +247,7 @@ class Processor:
         self.file_map: dict[str, str] = {}
         self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
         self.project_path: str | None = None  # the last SAVE/OPEN file
+        self.last_failure: dict | None = None  # the last typed step that failed
         self.last_report: dict | None = None  # give_report: the data of the line being run
         self.reports: dict[str, dict] = {}  # the newest report of each check (STRESS, GRAVITY ...)
         self.part_doc = None  # a part document (commands/partdoc_handlers.py PartDoc), or None for a project
@@ -390,6 +391,7 @@ class Processor:
         ok, message = self._run_entry(entry, stmts)
         entry.ok, entry.message = ok, message
         if not ok:
+            self.last_failure = {"line": label, "message": message}  # for diagnose (ai/diagnose.py)
             return Result(label, False, message)
         del self.history[self.cursor :]
         del self._snaps[self.cursor + 1 :]
