@@ -26,8 +26,9 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from ..core.model import ID_KINDS, IdPins, Lineage, Model, ModelError
 from ..core.refs import RefLog
@@ -107,6 +108,11 @@ class Command:
     help: str
     logged: bool = True  # False: queries/view commands, never in the history
     session: bool = False  # acts on the history itself (UNDO, HIST ...): top level only
+    # first words that make the command a query, run but not kept (TAKE, LIST, part)
+    queries: tuple[str, ...] = ()
+
+    def is_query(self, args: list[str]) -> bool:
+        return not self.logged or bool(self.queries and args and args[0].strip().upper() in self.queries)
 
 
 REGISTRY: dict[str, Command] = {}
@@ -229,6 +235,9 @@ class Processor:
         # sculpt strokes by name (S1, S2 ...): points the brush went through, kept with the project
         # (strokes.npz) because a stroke is too long to write into a history line
         self.strokes: dict = {}
+        # geometry taken from other parts (TAKE), by name: what was asked, a fingerprint to find it
+        # again, and for COPY the geometry itself (BREP text); kept with the project
+        self.taken: dict = {}
         # the assistant conversation: [{"who": "you"/"assistant", "text": ...}], saved with the project
         self.chat: list[dict] = []
         # LIB, LINK names as written -> what the last run read (part_handlers.Link);
@@ -377,7 +386,7 @@ class Processor:
             self.unexplode()
         if len(stmts) == 1 and isinstance(stmts[0], Cmd):
             cmd = REGISTRY.get(stmts[0].name)
-            if cmd is not None and not cmd.logged:
+            if cmd is not None and cmd.is_query(stmts[0].args):
                 return self._run_unlogged(cmd, stmts[0], label)
         entry = Entry(text)
         if seed:
@@ -418,6 +427,7 @@ class Processor:
         self.part_files = {}
         self.file_map = {}
         self.strokes = {}
+        self.taken = {}
         self.chat = []
         self.links = {}
         self.link_paths = {}
@@ -831,7 +841,7 @@ class Processor:
             raise CommandError("an entry must be exactly one statement or one block")
         if len(stmts) == 1 and isinstance(stmts[0], Cmd):
             cmd = REGISTRY.get(stmts[0].name)
-            if cmd is not None and not cmd.logged:
+            if cmd is not None and cmd.is_query(stmts[0].args):
                 raise CommandError(f"{cmd.name} does not belong in the history")
         return text
 
@@ -968,7 +978,7 @@ class Processor:
         r.origin = {k: Reads.of(v) for k, v in t["origin"].items()}
         return r
 
-    def _note_volatile(self, cmd: "Command") -> None:
+    def _note_volatile(self, cmd: Command) -> None:
         """Commands that read files or older states are always run again."""
         if cmd.name in VOLATILE or any(a.type is Path for a in cmd.args):
             self._volatile = True

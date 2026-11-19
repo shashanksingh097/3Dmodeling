@@ -133,7 +133,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
-    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "PROPERTY", "RENDER")),
 ]
 

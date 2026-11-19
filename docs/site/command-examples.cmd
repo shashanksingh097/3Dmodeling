@@ -1426,6 +1426,27 @@ LIB, LINK, peg.cmd
 INST, peg, 0, 0, 0
 INST, peg, 10, 0, 0, D=6
 
+@ TAKE
+! Use geometry of another part: its top face, its end as a plane, and the hole's axis. Linked, so they follow the part.
+*PART, plate, W=40
+  BLOCK, 0,0,0, W, 20, 5
+  CYL, 10,10,-1, 3, 7
+  SUBTRACT, 1, 2
+*ENDPART
+INST, plate, 0, 0, 0
+TAKE, FACE, plate, 3, lid
+TAKE, PLANE, plate, 6, end_plane
+TAKE, AXIS, plate, FACE 7, hole_axis
+
+@ DEPENDS
+! What uses what: parts, the copies placed, and the geometry taken from them.
+*PART, plate, W=40
+  BLOCK, 0,0,0, W, 20, 5
+*ENDPART
+INST, plate, 0, 0, 0
+TAKE, PLANE, plate, 6, end_plane
+DEPENDS
+
 @ LIBSAVE
 ! Save a part's definition to the part library, for other projects.
 *PART, washer, D=8

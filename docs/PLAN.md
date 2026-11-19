@@ -1064,6 +1064,8 @@ three per pull request.
     Gaussian and mean curvature, smallest radius, wall thickness, a report.
 58. **Geometry from other parts** (P2): faces, edges, planes and curves from
     a linked part, linked or copied; a dependency view; loops refused.
+    *Done: `TAKE` (LINK follows the part, COPY kept with the project, broken
+    links named), `DEPENDS`.*
 59. **Design tables** (P2): configurations from CSV, steps off per
     configuration, variants compared, drawing and BOM per configuration.
 60. **Assembly checks** (P2): mates that repeat or fight found and named,

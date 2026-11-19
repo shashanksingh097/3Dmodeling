@@ -339,6 +339,8 @@ def save_project(p: Processor, path: str) -> int:
             np.savez_compressed(buf, **{k: np.asarray(v, dtype=np.float32) for k, v in p.strokes.items()})
             z.writestr("strokes.npz", buf.getvalue())
             meta["strokes"] = "strokes.npz"
+        if p.taken:  # geometry taken from other parts (TAKE): fingerprints, and copies as BREP text
+            meta["taken"] = p.taken
         z.writestr("project.json", json.dumps(meta, indent=2))
     os.replace(tmp, path)
     return p.cursor
@@ -377,6 +379,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.reset()
     p.file_map = mapping
     p.strokes = strokes
+    p.taken = {str(k).upper(): v for k, v in dict(meta.get("taken", {})).items() if isinstance(v, dict)}
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))

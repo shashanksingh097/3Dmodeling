@@ -25,6 +25,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `CONTINUITY`: every join between faces judged open, sharp, kink (nearly tangent), G1 or G2, with the
   largest gap and angle. `COMB` draws curvature combs on edges. `INSPECT` lists kinks, gaps, open
   edges, slivers, tiny faces, the tightest bend and the thinnest wall.
+- `TAKE, FACE/EDGE/PLANE/AXIS, part, n, name [, LINK/COPY]`: geometry from another part (by name
+  or a placed copy), linked so it follows the part, or copied; a face that is gone is a broken link.
+  `DEPENDS` lists linked files, parts, copies and taken geometry, with broken links and loops.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
