@@ -11,7 +11,7 @@ from modeler.ai.tools import Toolbox
 from modeler.commands import Processor
 from modeler.commands.feature_handlers import plane_ref
 
-FLANGE = (Path(__file__).resolve().parent.parent / "scripts" / "flange.cmd").read_text()
+FLANGE = (Path(__file__).resolve().parent.parent / "scripts" / "flange.cmd").read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")

@@ -234,12 +234,12 @@ def test_history_edit_reshapes_the_sweep(p):
 
 
 def test_smooth_blade_script(p):
-    rs = p.run_script((ROOT / "scripts" / "blade_smooth.cmd").read_text())
+    rs = p.run_script((ROOT / "scripts" / "blade_smooth.cmd").read_text(encoding="utf-8"))
     assert all(r.ok for r in rs), [r.message for r in rs if not r.ok]
     assert p.evaluate("BBOX(rotor).xmax") == pytest.approx(134, abs=0.5)
     assert valid(p, "rotor")
 
 
 def test_gallery_script(p):
-    rs = p.run_script((ROOT / "scripts" / "sweep_gallery.cmd").read_text())
+    rs = p.run_script((ROOT / "scripts" / "sweep_gallery.cmd").read_text(encoding="utf-8"))
     assert all(r.ok for r in rs), [r.message for r in rs if not r.ok]

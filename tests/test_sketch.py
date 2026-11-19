@@ -293,6 +293,6 @@ def test_a_parameter_named_like_a_flag(p):
 def test_example_script_runs(p):
     from pathlib import Path
 
-    text = (Path(__file__).parent.parent / "scripts" / "sketch_bracket.cmd").read_text()
+    text = (Path(__file__).parent.parent / "scripts" / "sketch_bracket.cmd").read_text(encoding="utf-8")
     ok(p, text)
     assert len(p.model.bodies) == 2
