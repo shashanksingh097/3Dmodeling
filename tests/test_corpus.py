@@ -44,7 +44,7 @@ def _processor():
 def test_hard_case(path):
     from modeler.geometry import robust
 
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     m = re.search(r"^! expect: (refused \"(.*)\"|ok(?: volume=([\d.]+))?)\s*$", text, re.M)
     assert m, f"{path.name}: no '! expect:' line"
     p = _processor()
@@ -66,7 +66,7 @@ def measure(path: Path) -> dict:
     from modeler.geometry import robust
 
     p = _processor()
-    results = p.run_script(path.read_text())
+    results = p.run_script(path.read_text(encoding="utf-8"))
     errors = [f"{r.line.splitlines()[0]}: {r.message}" for r in results if not r.ok]
     bodies = list(p.model.bodies.values())
     reports = {b.id: robust.report(b.shape) for b in bodies if b.entity_ids["FACE"]}
@@ -90,15 +90,15 @@ def test_example_script(path):
     got = measure(path)
     assert got["errors"] == [], got["errors"]
     assert got["bad_bodies"] == [], f"bodies that fail CHECK: {got['bad_bodies']}"
-    want = json.loads(NUMBERS.read_text()).get(path.name)
+    want = json.loads(NUMBERS.read_text(encoding="utf-8")).get(path.name)
     assert want is not None, f"{path.name} is not in {NUMBERS.name}: run python tests/test_corpus.py --update"
     assert got["bodies"] == want["bodies"]
-    if re.search(r"^\s*TEXT\b", path.read_text(), re.M | re.I):
+    if re.search(r"^\s*TEXT\b", path.read_text(encoding="utf-8"), re.M | re.I):
         return  # system fonts differ by platform (see above)
     assert got["faces"] == want["faces"]
     # curved faces cut into triangles (TOMESH, mesh booleans) may be cut a little
     # differently by another kernel version
-    rel = 2e-3 if re.search(r"^\s*(TOMESH|IMPLICIT|LATTICE|TOPOPT)\b", path.read_text(), re.M | re.I) else 1e-4
+    rel = 2e-3 if re.search(r"^\s*(TOMESH|IMPLICIT|LATTICE|TOPOPT)\b", path.read_text(encoding="utf-8"), re.M | re.I) else 1e-4
     assert got["volume"] == pytest.approx(want["volume"], rel=rel, abs=1e-3)
 
 
