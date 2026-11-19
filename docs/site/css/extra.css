@@ -1,0 +1,25 @@
+/* 3Dmodeling user guide: small additions to the Material theme */
+:root {
+  --m3d-hero-from: #3f51b5;
+  --m3d-hero-to: #1a237e;
+}
+.m3d-hero {
+  background: linear-gradient(135deg, var(--m3d-hero-from), var(--m3d-hero-to));
+  color: #fff;
+  border-radius: 0.6rem;
+  padding: 1.6rem 1.8rem 1.2rem;
+  margin: 0 0 1.6rem;
+}
+.m3d-hero h1 { color: #fff; margin: 0 0 0.4rem; font-weight: 700; }
+.m3d-hero p { font-size: 0.9rem; max-width: 46rem; }
+.m3d-hero .md-button { color: #fff; border-color: rgba(255, 255, 255, 0.7); margin: 0.3rem 0.4rem 0.3rem 0; }
+.m3d-hero .md-button--primary { background: #ff7043; border-color: #ff7043; }
+.md-typeset img.m3d-shot {
+  border-radius: 0.4rem;
+  box-shadow: 0 0.2rem 1rem rgba(0, 0, 0, 0.25);
+}
+/* command reference: signatures stand out, tables stay compact */
+.md-typeset h2[id] code, .md-typeset h2 { word-break: break-word; }
+.md-typeset table:not([class]) { font-size: 0.68rem; }
+.md-typeset table:not([class]) td:first-child { white-space: nowrap; }
+.md-typeset table:not([class]) td, .md-typeset table:not([class]) th { padding: 0.35em 0.9em; }

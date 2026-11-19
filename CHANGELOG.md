@@ -6,6 +6,14 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **User guide website** (https://shashanksingh097.github.io/3Dmodeling/):
+  a quick start, the app guide and the command language split into pages,
+  the examples gallery, and a command reference with every command's
+  arguments and one small example for each of the 244 commands, most with a
+  picture of what it makes. Every example runs in the tests, so none can go
+  stale. `python -m modeler docs --serve` shows it locally; it is
+  published to GitHub Pages from main. **Help > Every command with an
+  example (web)** opens it.
 - **Assistant skills and Guides**: 17 step-by-step guides to whole jobs
   (sheet metal, enclosures, fasteners, gears and cams, assemblies and
   motion, frames, surfaces, scan to CAD, sculpting, strength,
