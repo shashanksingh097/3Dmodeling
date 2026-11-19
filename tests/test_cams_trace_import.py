@@ -218,7 +218,10 @@ def test_sdxf_makes_a_plate_with_a_hole(tmp_path):
 
 
 def _picture(path, h=200, w=300):
-    from PySide6.QtGui import QImage
+    try:  # reading and writing pictures needs Qt's GUI library, which needs libEGL; CI's plain runners lack it
+        from PySide6.QtGui import QImage
+    except ImportError as exc:
+        pytest.skip(f"Qt pictures cannot load here ({exc})")
 
     a = np.full((h, w), 255, np.uint8)
     yy, xx = np.mgrid[:h, :w]

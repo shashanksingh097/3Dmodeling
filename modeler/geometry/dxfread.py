@@ -171,7 +171,10 @@ def bulge_arc(a, b, bulge: float):
 
 def grey(path: str) -> np.ndarray:
     """A picture as grey levels 0 (black) to 255, rows from the top."""
-    from PySide6.QtGui import QImage
+    try:
+        from PySide6.QtGui import QImage
+    except ImportError as exc:  # Qt's GUI library needs the system's OpenGL libraries (libEGL)
+        raise DxfError(f"pictures cannot be read here: Qt's picture support did not load ({exc})") from None
 
     img = QImage(path)
     if img.isNull():
