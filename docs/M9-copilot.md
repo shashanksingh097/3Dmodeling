@@ -189,6 +189,16 @@ Copilot runs on a background thread with its own asyncio loop
   state folder, which a project file does not carry.
 - **New chat** also clears the kept conversation.
 
+## Skills (PLAN items 43 to 45)
+
+The first prompt ends with a one-line index of the skill files
+(`skills.index_text()`), and the system prompt says to `load_skill` the one
+that matches a request before writing commands. Skills the user switched
+off in Help > Assistant skills… are left out. The SDK's own
+`skill_directories` is not used: our sessions allow only our own tools, so
+the SDK's skill tool would be blocked, and `load_skill` works the same with
+every provider. Details: [M12-assistant-skills.md](M12-assistant-skills.md).
+
 ## Next
 
 1. Benchmark numbers for a few models, published with a release. This needs a

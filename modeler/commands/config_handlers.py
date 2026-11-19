@@ -261,6 +261,10 @@ def write_bom_csv(p: Processor, rows: list[dict], path: str) -> None:
 def bom(p: Processor, file):
     rows = bom_rows(p)
     text = bom_text(p, rows)
+    p.give_report("BOM", {"rows": [{**r, "volume": round(float(r["volume"]), 4),
+                                    "mass": None if r["mass"] is None else round(float(r["mass"]), 6)}
+                                   for r in rows],
+                          "kinds": len(rows), "pieces": sum(r["qty"] for r in rows)})
     if file:
         path = file if os.path.splitext(file)[1] else file + ".csv"
         try:

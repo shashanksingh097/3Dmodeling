@@ -120,6 +120,25 @@ class Toolbox:
                  {"query": {"type": "string"}, "limit": {"type": "integer"}}, ("query",), self.find_commands),
             Tool("command_help", "One command's arguments (type, default, help) and examples.",
                  {"name": {"type": "string"}}, ("name",), self.command_help),
+            Tool("list_skills", "The skills: one short guide per workflow (sheet metal, enclosures, assemblies, "
+                 "fixing failed steps ...), name and when to use it. Load the one that matches before writing a "
+                 "script for it.", {}, (), self.list_skills),
+            Tool("load_skill", "One skill's text: the steps in order, the commands, the checks that prove the "
+                 "result, the usual mistakes, and an example script that passes its own checks.",
+                 {"name": {"type": "string"}}, ("name",), self.load_skill),
+            Tool("search_docs", "The parts of the language guide, the user guide, the skills and the example "
+                 "scripts that match some words, trimmed to the matching part. For how something works that "
+                 "command_help does not say (blocks, history editing, sketches, imports ...).",
+                 {"query": {"type": "string"}, "limit": {"type": "integer"},
+                  "sources": {"type": "array", "items": {"type": "string",
+                                                         "enum": ["docs", "skill", "example"]}}},
+                 ("query",), self.search_docs),
+            Tool("parameters", "Every parameter: its value, the history step that sets it (with the HIST, EDIT "
+                 "line to change it) and the steps that read it. Use it to turn 'make it wider' into one edit.",
+                 {"where": _WHERE}, (), self.parameters),
+            Tool("sketch_state", "A sketch: each curve (free or held), the constraints and sizes, degrees of "
+                 "freedom left, repeated constraints and the closed profiles found. No name: every sketch's status.",
+                 {"name": {"type": "string"}, "where": _WHERE}, (), self.sketch_state),
             Tool("model_summary", "Units, every body (id, name, kind, volume, bounding box), parameters, datums, "
                  "sketches, named sets, the selection and the history length.",
                  {"where": _WHERE}, (), self.model_summary),
@@ -266,6 +285,38 @@ class Toolbox:
         parts = c.help.split(" · ")
         return {"name": c.name, "help": parts[0], "examples": parts[1:], "args": args,
                 "in_history": c.logged}
+
+    # skills
+    def list_skills(self) -> dict[str, Any]:
+        from . import skills as sk
+
+        return sk.list_rows(self.real.project_dir)
+
+    def load_skill(self, name: str) -> dict[str, Any]:
+        from . import skills as sk
+
+        try:
+            return sk.load(name, self.real.project_dir)
+        except sk.SkillError as exc:
+            raise ToolError(str(exc), "list_skills gives the names") from None
+
+    def search_docs(self, query: str, limit: int = 4, sources: list[str] | None = None):
+        from . import knowledge as kn
+
+        if sources:
+            sources = ["LANGUAGE.md", "USER-GUIDE.md"] + [s for s in sources if s != "docs"] \
+                if "docs" in sources else sources
+        return kn.search_docs(query, int(limit), sources, self.real.project_dir)
+
+    def parameters(self, where: str = "model"):
+        from . import knowledge as kn
+
+        return kn.parameters(self._p(where))
+
+    def sketch_state(self, name: str = "", where: str = "model"):
+        from . import knowledge as kn
+
+        return kn.sketch_state(self._p(where), name)
 
     # read the model
     def model_summary(self, where: str = "model") -> dict[str, Any]:

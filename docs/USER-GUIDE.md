@@ -684,6 +684,19 @@ panel says what (a face, an edge, a body) and you click it in the 3D view
 (**Cancel** in the panel says no). It can also mark what it is talking about in orange, and it
 reads what you have picked, so "put two holes on this face" works.
 
+**Skills and guides.** The assistant comes with short guides to whole
+jobs (sheet metal, enclosures, gears and cams, assemblies that move,
+frames, scan to CAD, sculpting, strength, fixing a failed step ...). It
+sees their names and reads the one that fits your request, so it follows
+the right order of commands and checks the result. You can read the same
+guides in **Help > Guides**: each links to the commands it uses, **Open
+example** runs its example in a new model and **Ask the assistant** starts
+a question that names it. **Help > Assistant skills…** switches guides off
+and adds folders with your own: a folder per guide holding a `SKILL.md`
+(see any built-in one: `python -m modeler skills show sheet-metal`). A
+project's own `skills` folder next to its file counts too. **Check skills**
+finds mistakes in your files.
+
 **Pictures.** For looks, freeform and sculpted shapes, a model that can see
 pictures may look at a small picture of the 3D view. GitHub Copilot models
 decide this themselves; for your own key, **Model…** has a tick box for

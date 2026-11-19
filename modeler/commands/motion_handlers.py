@@ -231,6 +231,17 @@ def motion(p: Processor, name, start, end, steps):
             first = firsts.get((x, y, lo))
             exact = f"; they first meet at {key} = {first:.4g}" if first is not None else ""
             summary.append(f"bodies {x} and {y} run into each other {at} (up to {worst[(x, y)]:.4g} {u}3{exact})")
+    clashes = []
+    for (x, y), flags in pair_flags.items():
+        for lo, hi in _ranges(values, flags):
+            row = {"a": x, "b": y, "from": lo, "to": hi, "worst_volume": round(worst[(x, y)], 4)}
+            if firsts.get((x, y, lo)) is not None:
+                row["first_meet"] = round(float(firsts[(x, y, lo)]), 6)
+            clashes.append(row)
+    p.give_report("MOTION", {"param": key, "start": start, "end": end, "positions": len(values),
+                             "clashes": clashes,
+                             "smallest_gap": None if smallest is None else
+                             {"gap": round(float(smallest[0]), 4), "at": smallest[1]}})
     if not summary:
         summary.append("no parts run into each other in this range"
                        + (f"; the smallest gap is {smallest[0]:.4g} at {key} = {format_value(smallest[1])}"

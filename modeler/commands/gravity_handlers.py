@@ -119,6 +119,25 @@ def gravity(p: Processor, ground, fastened, dx, dy, dz, gap):
     lines.append("everything is held" if not keys and (res.whole_margin is None or res.whole_margin > tol)
                  else f"{len(keys)} part{'s' if len(keys) != 1 else ''} to look at"
                  + (" (marked in the view; GRAVITY, OFF clears the marks)" if marks else ""))
+    rows = []
+    for v in res.verdicts:
+        pt = parts[v.part]
+        if pt.ground:
+            continue
+        row = {"part": pt.key, "name": names[v.part], "state": v.state, "on": [parts[k].key for k in v.on]}
+        if v.state in ("sits", "tips"):
+            row["margin"] = round(float(v.margin), 4)
+        rows.append(row)
+    p.give_report("GRAVITY", {
+        "down": [round(float(v), 6) for v in down], "ground": "floor" if ground_id is None else ground_id,
+        "parts": rows, "floating": [r["part"] for r in rows if r["state"] == "floats"],
+        "problems": keys,
+        "gaps": [{"a": parts[ln.a].key, "b": parts[ln.b].key, "distance": round(float(ln.distance), 4)}
+                 for ln in res.links if ln.state == "gap"],
+        "overlaps": [[parts[ln.a].key, parts[ln.b].key] for ln in res.links if ln.state == "overlap"],
+        "stands": None if res.whole_margin is None else bool(res.whole_margin > tol),
+        "tip_angle": None if res.whole_angle is None or res.whole_margin is None or res.whole_margin <= tol
+        else round(float(res.whole_angle), 3)})
     if marks:
         marks([m.bodies[k].shape for k in keys])
     return "\n".join(lines)

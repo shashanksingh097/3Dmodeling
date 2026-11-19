@@ -122,6 +122,13 @@ def stress(p: Processor, b, fixed, loaded, kind, fx, fy, fz, h):
         return "(" + ", ".join(fmt_num(round(float(v), 2)) for v in q) + ")"
 
     word = "holds" if sf_bulk >= 1.5 else ("is close to yielding" if sf_bulk >= 1 else "yields")
+    p.give_report("STRESS", {
+        "body": b, "material": mat.lower(), "E_MPa": el.E, "yield_MPa": el.yield_, "cells": len(grid.cells),
+        "max_stress_MPa": round(float(peak), 4), "max_stress_at": [round(float(v), 3) for v in where],
+        "stress_995_MPa": round(p995, 4), "max_deflection_mm": round(float(defl), 6),
+        "max_deflection_at": [round(float(v), 3) for v in dwhere],
+        "safety_factor": round(sf, 4) if sf != float("inf") else None,
+        "safety_factor_995": round(sf_bulk, 4) if sf_bulk != float("inf") else None, "verdict": word})
     lines = [
         f"STRESS body {b} ({mat.lower()}, E {el.E:g} MPa, yield {el.yield_:g} MPa): {len(grid.cells):,} cells of "
         f"{' × '.join(fmt_num(round(float(v), 3)) for v in grid.h)}, {res.fixed} nodes held, {res.loaded} loaded, total load "

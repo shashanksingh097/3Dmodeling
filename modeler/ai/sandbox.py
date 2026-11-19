@@ -85,6 +85,12 @@ class Sandbox:
                     row["msg"] = msg if len(msg) < 2000 else msg[:600] + "\n...\n" + msg[-1200:]
                 if r.warning:
                     row["warning"] = r.warning
+                if r.report:
+                    row["report"] = r.report
+                    if "msg" in row and not detail:
+                        row["msg"] = row["msg"].split("\n")[0]  # the data says the rest
+                elif msg and r.ok and "msg" not in row:
+                    row["msg"] = msg.split("\n")[0] + " ..."  # long answers: the first line
                 if r.ok:
                     changes = df.diff_states(before, p._state())
                     if not detail:

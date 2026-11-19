@@ -207,6 +207,12 @@ def massprop(p: Processor, b, density):
     k = 1.0
     lines.append("  principal moments of inertia about the centre: " + ", ".join(_n(v * k) for v in (i1, i2, i3)) + f" {unit}")
     lines.append("  along " + ", ".join(_fmt((a.X(), a.Y(), a.Z())) for a in axes))
+    p.give_report("MASSPROP", {
+        "bodies": ids, "unit": u, "volume": round(vol, 6), "area": round(area, 6),
+        "mass_kg": round(g.Mass(), 9) if weighted else None,
+        "centre": [round(v, 6) for v in (c.X(), c.Y(), c.Z())],
+        "inertia": [round(v, 6) for v in (i1, i2, i3)], "inertia_unit": unit.split(" ")[0],
+        "no_material": missing})
     return "\n".join(lines)
 
 

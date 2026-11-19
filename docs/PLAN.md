@@ -996,21 +996,22 @@ about three to a pull request:
     design check, not a full solver.
 
 Better assistant tools, skill files and help (added 2026-11-19, a plan for
-now: docs/M12-assistant-skills.md), about three to a pull request:
+now: docs/M12-assistant-skills.md), about three to a pull request; 43 to 45 built
+2026-11-19:
 
-43. **Skill files** (`modeler/skills/<name>/SKILL.md`, the open Agent Skills
+43. **Skill files** (done) (`modeler/skills/<name>/SKILL.md`, the open Agent Skills
     layout): one short file per workflow with steps, checks and mistakes to
     avoid, and an `example.cmd` that CI runs with its `ASSERT` lines. The
     assistant gets a skill index in its first prompt and `list_skills` /
     `load_skill`; the MCP server serves them as prompts and resources;
     `skills export` writes them for outside agents. The first six skills.
-44. **More skills and guides for people**: the rest of the skill list
+44. **More skills and guides for people** (done: 17 skills): the rest of the skill list
     (sheet metal, enclosures, fasteners, gears and cams, assemblies and
     motion, frames, surfaces, scan to CAD, sculpting, strength, manufacturing,
     drawings), the same files as Guides in the help browser (open the
     example, ask the assistant), and the user's own skill folders with an
     on/off switch in Settings.
-45. **Answers as data**: the analysis commands (`STRESS`, `GRAVITY`,
+45. **Answers as data** (done): the analysis commands (`STRESS`, `GRAVITY`,
     `PRINTCHECK`, `MILL`, `BOM`, `CUTLIST`, `STACKUP`, `MOTION`, `MASSPROP`
     ...) return a report the tools pass on as JSON, plus queries for
     `ASSERT` (`MASS()`, `SAFETY()`, `MAXSTRESS()`, `OVERHANGS()` ...);

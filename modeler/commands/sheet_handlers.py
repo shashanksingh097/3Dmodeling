@@ -295,4 +295,8 @@ def sheetinfo(p: Processor, b):
         lines.append(f"  {i}: {'up' if f.up else 'down'} {f.angle:g} degrees, wall {fmt_num(f.length)}, radius "
                      f"{fmt_num(f.radius)}, along {fmt_num(ln)}; flat length {fmt_num(sh.allowance(f.angle, f.radius))}"
                      f" + {fmt_num(f.length)}")
+    p.give_report("SHEETINFO", {"body": b, "t": sh.t, "r": sh.r, "k": sh.k, "flanges": [
+        {"up": bool(f.up), "angle": f.angle, "wall": f.length, "radius": f.radius,
+         "along": round(float(np.linalg.norm(np.asarray(f.b) - np.asarray(f.a))), 4),
+         "bend_allowance": round(float(sh.allowance(f.angle, f.radius)), 6)} for f in sh.flanges]})
     return "\n".join(lines)

@@ -97,12 +97,14 @@ def printcheck(p: Processor, b, up, angle, wall):
         problems += 1
     else:
         lines.append(f"overhangs: none past {angle:g}°")
+    thin_rows: list[dict] = []
     if wall > 0:
         thin = [s for s in pr.wall_thickness(body.shape) if s.thickness < wall]
         if thin:
             ids = sorted({body.entity_ids["FACE"][body.maps["FACE"].FindIndex(s.face) - 1]
                           for s in thin if body.maps["FACE"].FindIndex(s.face)})
             lines.append(f"walls: thinnest {thin[0].thickness:.4g}, under {wall:g} on faces {an._ids_list(ids)}")
+            thin_rows = [{"thinnest": round(float(thin[0].thickness), 4), "faces": ids}]
             problems += 1
         else:
             lines.append(f"walls: none thinner than {wall:g}")
@@ -119,6 +121,12 @@ def printcheck(p: Processor, b, up, angle, wall):
     lines.append("ready to print" if not problems else
                  f"{problems} thing{'s' if problems > 1 else ''} to look at; colours: blue on the bed, red needs "
                  f"support (ANALYZE, OFF ends them)")
+    p.give_report("PRINTCHECK", {
+        "body": b, "up": [round(float(x), 6) for x in prt.unit(want)], "angle": angle,
+        "footprint": [round(float(v), 4) for v in rep.footprint], "height": round(float(rep.height), 4),
+        "bed_area": round(float(rep.base_area), 4), "overhang_area": round(float(rep.overhang_area), 4),
+        "overhang_faces": faces, "thin_walls": thin_rows, "hollows": [round(float(v), 4) for v in holes],
+        "pieces": nsol, "problems": problems, "ready": not problems})
     p.analysis = Analysis(b, "PRINT", tuple(float(x) for x in prt.unit(want)), angle)
     hook = getattr(p.view, "show_analysis", None) if p.view else None
     if hook:

@@ -114,6 +114,9 @@ class AppShell:
             self._ask_unsaved_dialog if self.keep_layout else (lambda *_: "discard"))
         self.p.listeners.append(self._on_result)
         self.p.history_listeners.append(self.update_title)
+        from .skills_dialog import apply_settings
+
+        apply_settings(self.settings)  # the user's own skill folders and the skills switched off
         if guard is not None:
             guard.on_error = self.show_error
 
@@ -440,9 +443,14 @@ class AppShell:
           "The basics: mouse, command line, forms, saving")
         a(m, "&Command reference", self.help_for_typed, "Ctrl+F1",
           "Every command with its arguments and examples; opens at the command you are typing")
+        a(m, "&Guides", self.show_guides, None,
+          "Step-by-step guides to whole jobs (sheet metal, enclosures, gears, fixing a failed step ...), "
+          "the same ones the assistant uses")
         a(m, "&Find a command…", self.win.form_for_typed, None, "Search commands by name or purpose (Ctrl+K)")
         a(m, "Ask the &assistant", self.show_assistant, "Ctrl+Shift+A",
           "Chat with GitHub Copilot, signed in with your own GitHub account (Copilot Free works too)")
+        a(m, "Assistant s&kills…", self.show_skills, None,
+          "Which skill files the assistant may use, and folders with your own")
         m.addSeparator()
         a(m, "&User guide (web)", lambda: QDesktopServices.openUrl(QUrl(USER_GUIDE_URL)), None, USER_GUIDE_URL)
         a(m, "&Examples with pictures (web)", lambda: QDesktopServices.openUrl(QUrl(EXAMPLES_URL)), None,
@@ -481,6 +489,24 @@ class AppShell:
     def help_for_typed(self, *_):
         text = self.win.cmdline.text().strip()
         return self.show_command_reference(text.split(",")[0].strip().upper() if text else "")
+
+    def show_guides(self, name: str = ""):
+        """The help browser at its guides (the skill files, ai/skills.py)."""
+        from .help_browser import guides
+
+        dlg = self.show_command_reference()
+        first = name or next(iter(guides()), "")
+        if first:
+            dlg.show_guide(first)
+        return dlg
+
+    def show_skills(self):
+        from .skills_dialog import SkillsDialog
+
+        dlg = SkillsDialog(self.win, self.settings, self.p.project_dir)
+        dlg.setModal(False)
+        dlg.show()
+        return dlg
 
     def show_command_reference(self, name: str = ""):
         """The help browser (gui/help_browser.py); with a name, open at that command."""

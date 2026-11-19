@@ -1,0 +1,58 @@
+---
+name: assembly-and-motion
+description: Assemblies - reusable parts placed as copies, parts mated against each other, a mechanism moved by a parameter (DRIVE, MOTION), clash, contact and gravity checks, and the parts list. Use for anything with more than one part, hinges, linkages, mechanisms.
+commands: *PART, INST, MATE, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL
+---
+# Assemblies and motion
+
+## Steps
+
+1. **Parts used more than once** go in a part block, with their sizes as
+   part parameters:
+   `*PART, pin, D=6, L=8` ... `*ENDPART`, then `INST, pin, x, y, z [, angle
+   [, dx,dy,dz]] [, D=8]` for each copy. Editing the block updates every
+   copy. Name each copy right after: `NAME, LAST, pin_a`. Parts kept in a
+   file: `LIB, LINK, bolt` (follows the file) or `LIB, LOAD, bolt` (a copy).
+2. **Materials** on every part (`MATERIAL, base, ALUMINIUM`) so masses,
+   GRAVITY and the parts list are right.
+3. **Place parts** by coordinates from the same parameters, or with
+   `MATE, kind, fixed item, moving item [, value] [, FLIP]` (COINCIDENT,
+   CONCENTRIC, DISTANCE, ANGLE between FACE, EDGE, VERTEX or DATUM items).
+4. **Motion**: one parameter per joint (`A = 30`), used by the step that
+   places the moving part: `ROTATE, lid, -A, x,y,z, dx,dy,dz` about the
+   hinge line (or a `MATE, ANGLE` with A). `DRIVE, A, 75` holds a value
+   without touching the history; `MOTION, A, 0, 120, 12` checks every pair
+   of parts at each position and puts A back.
+5. **Will it stand up**: `GRAVITY, ground [, "fastened parts"]`: floating
+   parts, parts that tip off, parts only held at their sides, gaps and
+   overlaps. List bolted or hinged parts as fastened.
+6. **Parts list**: `BOM` (or `BOM, parts.csv`); copies of a part with the
+   same values are counted together.
+
+```cmd
+BLOCK, 0, 0, 0, 40, 30, 5
+NAME, LAST, base
+BLOCK, 0, 0, 5, 40, 30, 2
+NAME, LAST, lid
+ASSERT, TOUCH(lid, base)
+ASSERT, OVERLAP(lid, base), EQ, 0
+```
+
+## Check the result
+
+* No clashes: `OVERLAP(a, b), EQ, 0` for each pair that must not touch,
+  or `assembly_check` for all pairs at once.
+* Seated: `TOUCH(a, b)`; held together: `GROUPS(), EQ, 1`.
+* Through the motion: `MOTION` says "no parts run into each other" and
+  the smallest gap; a clash gives the range of the parameter.
+* Pins in holes: `CLEARANCE(pin, base), GE, 0.01` (or the fit you want).
+
+## Mistakes to avoid
+
+* Rotating about the origin instead of the hinge line: give the point
+  and direction of the axis in ROTATE.
+* Parts that stick through each other at some angles only: a check at one
+  position is not enough; run MOTION over the whole range.
+* Using body numbers for copies (`4`, `5`): name them.
+* GRAVITY reports a hinged or bolted part as tipping: list it as fastened
+  once the hinge or bolts are really there.
