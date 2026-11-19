@@ -869,8 +869,7 @@ pull request, in this order (the user can reorder or drop any):
     part 5).
     Rebuilds: done as a helper process, since the kernel keeps Python's lock
     and a thread cannot help (branch `worker-rebuilds`, docs/rebuild-helper.md).
-17. Release 0.4.0 (whenever the owner wants one; it does not hold up the
-    items below).
+17. Release 0.4.0 (done: prepared 2026-11-19 with items 13 to 30).
 
 More features not yet in the app (added 2026-11-18, after item 16):
 
