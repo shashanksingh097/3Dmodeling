@@ -282,7 +282,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.svg/.dxf [, views] [, body]` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
@@ -502,7 +503,7 @@ its name and colour; 3MF records the model's units; glTF is written in
 metres with Y up, as viewers expect, as a binary `.glb` or a single
 `.gltf` file.
 
-### DRAWING: 2D drawings as SVG or DXF
+### DRAWING: 2D drawings as PDF, SVG or DXF
 
 ```
 DRAWING, "flange.dxf"                  ! front, top, right and iso views
@@ -534,6 +535,45 @@ view are counted, as `6x Ø8`, and each diameter is written once on the
 sheet. In SVG the sizes are blue, in groups `front-dims`, `top-dims` and so
 on; in DXF they are lines, filled arrows and text on layer `DIMS`. The
 isometric view gets no sizes.
+
+**Sheets, sections and details.**
+
+```
+PROPERTY, TITLE, Mounting bracket          ! the title block's fields
+PROPERTY, NUMBER, MB-001
+PROPERTY, AUTHOR, S. Singh
+DRAWING, "bracket.pdf"                     ! on paper: A4 or A3, the scale that fits
+DRAWING, "bracket.pdf", , , ALL, A3, 1:2   ! A3 at 1:2
+DRAWING, "bracket.pdf", , , ALL, , , "X 20"            ! and a section through x = 20
+DRAWING, "bracket.pdf", , , ALL, , , , "FRONT 30 0 12 6 3"  ! and a detail, 3 times bigger
+DRAWING, "bracket.svg", , , ALL, A3        ! an SVG on paper too
+```
+
+A `.pdf` is always a sheet of paper. An `.svg` is one when `sheet` is given.
+The paper is A4, A3, A2, A1 or A0 (landscape), or `AUTO`: A4 when the
+drawing fits on it at full size or bigger, else A3. The scale is the largest
+usual one that fits (10:1, 5:1, 2:1, 1:1, 1:2, 1:5, 1:10 ... 1:1000), unless
+you give one. The sheet has a frame and a title block. The block holds the
+title, number, revision, material, scale, units, paper, author, date, company
+and the projection (third-angle). These come from `PROPERTY` values: the
+title defaults to the body's name when there is one body, the material to
+the bodies' materials, and the date to today. A DXF stays at true size,
+without paper.
+
+`section` cuts the part with a plane square to an axis, like `"X 20"` or
+`"Y=25"` (several with `;` between). It shows what is left on the far side,
+seen square-on, with the cut faces hatched at 45 degrees. X cuts are seen
+from +X (as the right view), Y cuts from -Y (as the front view), and Z cuts
+from +Z (as the top view). Each section is named `SECTION A-A`, `B-B` ...,
+and a chain line with its letters marks where it was taken, on the first
+view that shows the plane edge-on.
+
+`detail` shows part of a flat view bigger. Give the view, a model point,
+a radius and how many times bigger: `"FRONT 30 0 12 6 3"`. A circle and a
+letter mark the place on that view, and the detail is named `DETAIL B (3:1)`.
+
+`PROPERTY` with no values lists the properties. With a key and no value it
+removes that one. Properties are kept in the project and follow undo.
 
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
@@ -2889,3 +2929,34 @@ Masses come from each body's `MATERIAL` (water's density for a body with
 none). Parts with problems are marked in the view.
 
 An example is `scripts/gravity_check.cmd`.
+
+## 40. Pictures
+
+```
+RENDER, part.png                         ! as the view shows it, 1600 x 1000
+RENDER, poster.png, 3840, 2160, ISO      ! any size, from a named view
+RENDER, side.png, 1200, 800, "1,-1,0.6"  ! from a direction
+RENDER, spin.png, 800, 600, ISO, 36      ! a turntable: spin_000.png ... spin_035.png (and spin.gif)
+RENDER, part.png, 1600, 1000, , 0, OFF   ! no floor
+```
+
+`RENDER` draws a nicer picture than the working view, using the 3D view's
+ray tracing:
+
+- **Light:** sharp shadows from a sun high over the left shoulder, a soft
+  fill light and some ambient light.
+- **Floor:** a floor just under the model catches the shadows (`OFF`
+  leaves it out).
+- **Looks:** reflections, smoothed edges, and no edge lines. Each body's
+  look comes from its `MATERIAL`: steel, stainless, aluminium, brass and
+  copper shine, glass is clear, and plastics, rubber and wood are matte.
+  The body keeps its own colour.
+
+Without `view`, the picture uses the view's own camera. A turntable turns
+the camera round the model's upright axis in `frames` steps and saves one
+picture per step. When Pillow is installed it also saves an animated GIF.
+The working view, its lights and its looks are put back afterwards.
+**File > Render picture…** saves one picture of the view.
+
+`RENDER` needs the app's 3D view: in a plain script run without the app it
+says so.

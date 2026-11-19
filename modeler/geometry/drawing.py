@@ -72,15 +72,22 @@ class View:
     dy: float = 0.0
     circles: list[tuple[float, float, float, float]] = field(default_factory=list)  # visible: cx, cy, r, span
     dims: Dims = field(default_factory=Dims)
+    thin: list[Poly] = field(default_factory=list)  # hatching, detail circles: thin solid lines
+    notes: list[tuple[float, float, float, str]] = field(default_factory=list)  # x, y, text height, text
+    label: str = ""  # the name written under it (default: the view's name)
+
+    @property
+    def title(self) -> str:
+        return self.label or self.name
 
     def bounds(self):
-        pts = [q for pl in self.visible + self.hidden for q in pl]
+        pts = [q for pl in self.visible + self.hidden + self.thin for q in pl]
         if not pts:
             return 0.0, 0.0, 0.0, 0.0
         xs, ys = [q[0] for q in pts], [q[1] for q in pts]
         return min(xs), min(ys), max(xs), max(ys)
 
-    def placed(self, which: str) -> list[Poly]:
+    def placed(self, which: str) -> list[Poly]:  # "visible", "hidden" or "thin"
         return [[(x + self.dx, y + self.dy) for x, y in pl] for pl in getattr(self, which)]
 
 
@@ -334,14 +341,19 @@ def layout(views: list[View]) -> tuple[float, float, float, float]:
             i = by["ISO"]
             put(i, by["RIGHT"].bounds()[0] + by["RIGHT"].dx, by["TOP"].bounds()[1] + by["TOP"].dy)
             placed.add("ISO")
-    # the rest in a row to the right
-    right = max([v.bounds()[2] + v.dx for v in views if v.name in placed] + [-gap])
+    # the rest in a row to the right, along the bottom: past the views that reach down into that row
+    band = max([h(v) for v in views if v.name not in placed] + [0.0])
+
+    def low_enough(v):
+        b = v.bounds()
+        return b[1] + v.dy < band + gap / 2
+
+    right = max([v.bounds()[2] + v.dx for v in views if v.name in placed and low_enough(v)] + [-gap])
     for v in views:
         if v.name not in placed:
             put(v, right + gap, 0.0)
             right += gap + w(v)
             placed.add(v.name)
-    del h
     pts = [(v.bounds()[0] + v.dx, v.bounds()[1] + v.dy, v.bounds()[2] + v.dx, v.bounds()[3] + v.dy) for v in views]
     pts += [(e[0] + v.dx, e[1] + v.dy, e[2] + v.dx, e[3] + v.dy) for v in views
             for e in [v.dims.extent()] if e is not None]
@@ -386,13 +398,19 @@ def svg(views: list[View], sheet, units: str = "mm") -> str:
         if v.visible:
             out.append(f'<path d="{" ".join(path(pl) for pl in v.placed("visible"))}" fill="none" stroke="black" '
                        f'stroke-width="{_f(stroke)}" stroke-linecap="round" stroke-linejoin="round"/>')
+        if v.thin:
+            out.append(f'<path d="{" ".join(path(pl) for pl in v.placed("thin"))}" fill="none" stroke="black" '
+                       f'stroke-width="{_f(stroke * 0.4)}"/>')
+        for nx, ny, nh, nt in v.notes:
+            out.append(f'<text x="{_f(nx + v.dx - x0)}" y="{_f(y1 - (ny + v.dy))}" font-family="sans-serif" '
+                       f'font-size="{_f(nh)}" text-anchor="middle" dominant-baseline="middle">{escape(nt)}</text>')
         bx0, by0, bx1, _ = v.bounds()
         label_y = by0 + v.dy - stroke * 14
         e = v.dims.extent()
         if e is not None and e[1] + v.dy < by0 + v.dy:  # below the sizes, not on them
             label_y = e[1] + v.dy - stroke * 10
         out.append(f'<text x="{_f((bx0 + bx1) / 2 + v.dx - x0)}" y="{_f(y1 - label_y)}" '
-                   f'font-family="sans-serif" font-size="{_f(stroke * 10)}" text-anchor="middle">{v.name}</text>')
+                   f'font-family="sans-serif" font-size="{_f(stroke * 10)}" text-anchor="middle">{escape(v.title)}</text>')
         out.append("</g>")
         d = v.dims
         if d.lines:
@@ -440,6 +458,8 @@ def dxf(views: list[View], sheet, units: str = "mm") -> str:
     g(0, "ENDTAB")
     has_dims = any(v.dims.lines for v in views)
     layers = [("VISIBLE", 7, "CONTINUOUS"), ("HIDDEN", 8, "HIDDEN"), ("TEXT", 7, "CONTINUOUS")]
+    if any(v.thin for v in views):
+        layers.append(("THIN", 7, "CONTINUOUS"))
     if has_dims:
         layers.append(("DIMS", 5, "CONTINUOUS"))
     g(0, "TABLE"); g(2, "LAYER"); g(70, len(layers))
@@ -449,7 +469,7 @@ def dxf(views: list[View], sheet, units: str = "mm") -> str:
     g(0, "ENDSEC")
     g(0, "SECTION"); g(2, "ENTITIES")
     for v in views:
-        for layer in ("visible", "hidden"):
+        for layer in ("visible", "hidden", "thin"):
             name = layer.upper()
             for pl in v.placed(layer):
                 if len(pl) == 2:
@@ -467,8 +487,11 @@ def dxf(views: list[View], sheet, units: str = "mm") -> str:
         if e is not None and e[1] + v.dy < by0 + v.dy:
             ly = e[1] + v.dy - 1.5 * hgt
         g(0, "TEXT"); g(8, "TEXT"); g(10, _f((bx0 + bx1) / 2 + v.dx)); g(20, _f(ly)); g(30, 0)
-        g(40, _f(hgt)); g(1, v.name); g(72, 1); g(11, _f((bx0 + bx1) / 2 + v.dx)); g(21, _f(ly))
+        g(40, _f(hgt)); g(1, v.title); g(72, 1); g(11, _f((bx0 + bx1) / 2 + v.dx)); g(21, _f(ly))
         g(31, 0)
+        for nx, ny, nh, nt in v.notes:
+            g(0, "TEXT"); g(8, "TEXT"); g(10, _f(nx + v.dx)); g(20, _f(ny + v.dy)); g(30, 0)
+            g(40, _f(nh)); g(1, nt); g(72, 1); g(73, 2); g(11, _f(nx + v.dx)); g(21, _f(ny + v.dy)); g(31, 0)
         d = v.dims
         for (a, b), (c, e2) in d.lines:
             g(0, "LINE"); g(8, "DIMS"); g(10, _f(a + v.dx)); g(20, _f(b + v.dy)); g(30, 0)
