@@ -22,6 +22,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `COMPARE, STEP, n` and `COMPARE, PROJECT, "old.m3d"`: two revisions face by face (added, removed,
   moved, changed with old and new sizes), volume before and after, how far the surface moved, and
   the changed body coloured by distance.
+- `CONTINUITY`: every join between faces judged open, sharp, kink (nearly tangent), G1 or G2, with the
+  largest gap and angle. `COMB` draws curvature combs on edges. `INSPECT` lists kinks, gaps, open
+  edges, slivers, tiny faces, the tightest bend and the thinnest wall.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

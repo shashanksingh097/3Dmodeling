@@ -416,6 +416,27 @@ SEL, S, EDGE, LOC, Z, 20
 FILLET, 6
 ANALYZE, b, ZEBRA
 
+@ CONTINUITY
+! How well the faces join: a rounded edge is tangent (G1), the rest are sharp.
+BLOCK, 0,0,0, 40, 30, 20
+SEL, S, EDGE, LOC, Z, 20
+FILLET, 6
+CONTINUITY, LAST
+
+@ COMB
+! A curvature comb on every curved edge of a body.
+BLOCK, 0,0,0, 40, 30, 20
+SEL, S, EDGE, LOC, Z, 20
+FILLET, 6
+COMB, LAST
+
+@ INSPECT
+! Places worth a second look: here a thin wall round a big hole.
+BLOCK, 0,0,0, 40, 20, 10
+CYL, 20,10,-1, 9.5, 12
+SUBTRACT, 1, 2
+INSPECT, LAST
+
 ! ===================================================================== Combine
 
 @ UNION pic

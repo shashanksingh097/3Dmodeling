@@ -2215,6 +2215,42 @@ picture. `ANALYZE` only looks: it is not a history step.
 The **Zebra** button (Features toolbar) shows stripes on the picked body and
 ends them when pressed again; the form (Freeform category) has the others.
 
+### Continuity, curvature combs and inspection
+
+```
+CONTINUITY, b                      ! every join judged, with the largest gap and angle
+CONTINUITY, b, 0.001, JSON         ! faces further apart than 0.001 do not meet; as data
+COMB, EDGE, 12                     ! a curvature comb on edge 12
+COMB, b                            ! combs on every curved edge of a body
+COMB, OFF                          ! hide the combs
+INSPECT, b                         ! the places worth a second look
+```
+
+`CONTINUITY` looks along every edge between two faces and measures the gap
+between their surfaces (do they meet: G0), the angle between their normals
+(are they tangent: G1) and the curvature straight across the edge on each
+side (does it carry on: G2). Each join is *open* (a gap over the tolerance,
+a ten-thousandth of the size by default), *sharp* (over 5 degrees: a real
+edge), a *kink* (between 0.25 and 5 degrees: nearly tangent, almost always
+a mistake), *G1* or *G2*. The answer counts each kind, gives the largest gap
+and the largest angle of the smooth joins, and names the open joins, kinks
+and G1 joins by edge and face.
+
+`COMB` draws a curvature comb: at points along an edge, a tooth as long as
+the curvature there, standing outside the bend, with a line through the
+tips. A comb shows at a glance where a curve tightens, flattens or changes
+the side it bends to. The answer gives each edge's tightest bend radius and,
+for a flat curve, how many times it changes side. Straight edges get no
+comb. All teeth in one `COMB` use one scale (the longest is a tenth of the
+body's size), or give one: `COMB, b, , 50`.
+
+`INSPECT` lists the places on a body worth a second look, each with its
+IDs: kinks, gaps between faces, open edges, sliver and tiny faces, the
+tightest bend (radius and where, "very tight" under a thousandth of the
+size), the thinnest wall and how many G1 joins there are. `ANALYZE, b,
+CURVATURE` and `GAUSS` show the curvature as colours, and `THICK` lists
+thin walls.
+
 ### Deformers: bend, twist, taper, stretch, and flow along a curve
 
 ```

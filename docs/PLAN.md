@@ -1060,7 +1060,7 @@ three per pull request.
     tolerance; continuity between fitted regions.
 56. **Comparing revisions** (P2, done: `COMPARE, STEP, n` and `COMPARE, PROJECT, file` face by face, with distances and colours): two saved projects or history points,
     changed faces in colour, a deviation map and a report.
-57. **Surface inspection** (P1): `CONTINUITY` (G0/G1/G2), curvature combs,
+57. **Surface inspection** (P1, done: `CONTINUITY`, `COMB`, `INSPECT`; curvature maps were `ANALYZE` and wall thickness `THICK` already): `CONTINUITY` (G0/G1/G2), curvature combs,
     Gaussian and mean curvature, smallest radius, wall thickness, a report.
 58. **Geometry from other parts** (P2): faces, edges, planes and curves from
     a linked part, linked or copied; a dependency view; loops refused.
