@@ -43,6 +43,9 @@ if TYPE_CHECKING:
     from .main_window import MainWindow
 
 
+SMALL_PROMPT = "assistant/small_prompt"  # Help > Assistant skills…: names only in the first message
+
+
 class _ModelCalls(QObject):
     """Runs a function on the GUI thread for the assistant's thread, and waits for it."""
 
@@ -414,14 +417,26 @@ class AssistantPanel(QWidget):
                                 + (f" ({html.escape(note)})" if note else ""))
         return True
 
-    def render_view(self, view: str, width: int, height: int, kind: str, ids: list[int]) -> bytes | None:
-        """Copilot's render, on the GUI thread: a PNG of the 3D view (the user's camera is kept)."""
+    def render_view(self, view: str, width: int, height: int, kind: str, ids: list[int], focus: bool = False,
+                    shapes=None) -> bytes | None:
+        """Copilot's render tools, on the GUI thread: a PNG of the 3D view (the user's camera is kept);
+        focus frames it on the marked entities, shapes are marked instead of entities."""
         vp = getattr(self.win, "viewport", None)
         if vp is None or not hasattr(vp, "snapshot"):
             return None
         m = self.win.processor.model
-        marks = [m.entity_shape(kind, i) for i in ids] if kind and ids else None
-        return vp.snapshot(width, height, view, marks)
+        marks = list(shapes) if shapes else ([m.entity_shape(kind, i) for i in ids] if kind and ids else None)
+        target = None
+        if focus and marks:
+            from OCP.BRep import BRep_Builder
+            from OCP.TopoDS import TopoDS_Compound
+
+            target = TopoDS_Compound()
+            bld = BRep_Builder()
+            bld.MakeCompound(target)
+            for sh in marks:
+                bld.Add(target, sh)
+        return vp.snapshot(width, height, view, marks, focus=target)
 
     def show_picture(self, png: bytes) -> None:
         """Show the picture Copilot looked at, small, in the chat."""
@@ -508,6 +523,8 @@ class AssistantPanel(QWidget):
             asst.pick_request = self.pick_request
             asst.show_marks = self.show_marks
             asst.render_view = self.render_view
+            st = self._settings()
+            asst.small_prompt = bool(st is not None and str(st.value(SMALL_PROMPT, "false")).lower() == "true")
             self.thread = cp.AssistantThread(asst)
         return self.thread
 

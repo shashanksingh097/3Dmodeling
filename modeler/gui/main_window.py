@@ -238,6 +238,9 @@ class HistoryPanel(QTableWidget):
         if 0 <= row < p.cursor:
             n = row + 1
             e = p.history[row]
+            if not e.suppressed and (not e.ok or e.warning):
+                menu.addAction("Why did it fail?…" if not e.ok else "Why the warning?…", lambda: self.why(row))
+                menu.addSeparator()
             menu.addAction("Edit…", lambda: self.edit_row(row))
             if fd.F.has_form(e.text):
                 menu.addAction("Edit in form…", lambda: self.win.open_form("", e.text, row))
@@ -272,6 +275,15 @@ class HistoryPanel(QTableWidget):
         menu.addAction("Add at the end…", lambda: self._insert(p.cursor + 1))
         menu.addAction("Replay all", lambda: self.win.execute("HIST, REPLAY"))
         menu.exec(self.viewport().mapToGlobal(pos))
+
+    def why(self, row: int):
+        """The Why? window for a failed or warned step: the usual fixes, tried on a copy."""
+        from .why_dialog import WhyDialog, diagnose_with_wait
+
+        dlg = WhyDialog(self.win, diagnose_with_wait(self.win.processor, row + 1))
+        dlg.setModal(False)
+        dlg.show()
+        return dlg
 
     def select_entry(self, uid: int) -> bool:
         """Select and show the row of the history entry with this uid."""

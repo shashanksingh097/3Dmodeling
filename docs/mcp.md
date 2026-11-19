@@ -50,6 +50,8 @@ definitions), among them:
 | `lint`, `diff`, `selector_for`, `preview_selection` | scripts and stable references |
 | `list_skills`, `load_skill`, `search_docs` | step-by-step guides to whole jobs, and the manual |
 | `parameters`, `sketch_state` | who sets and reads each parameter; a sketch's constraints and freedom |
+| `diagnose` | why a step failed, and which usual fixes work (tried on a copy), with the line to run |
+| `around`, `outline` | what touches a face or edge; a body seen from a view, as a few hundred numbers |
 
 Three tools are only here, because the app's assistant hands its work to
 the person instead:

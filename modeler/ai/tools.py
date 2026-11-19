@@ -139,11 +139,19 @@ class Toolbox:
             Tool("sketch_state", "A sketch: each curve (free or held), the constraints and sizes, degrees of "
                  "freedom left, repeated constraints and the closed profiles found. No name: every sketch's status.",
                  {"name": {"type": "string"}, "where": _WHERE}, (), self.sketch_state),
+            Tool("diagnose", "Why a step failed and which usual fixes work: tries them on a copy of the model "
+                 "(a size under the limit the message gives, smaller numbers, a fillet moved before the shell, HEAL "
+                 "before a boolean, the nearest name) and gives the exact line to run for each one that passes. "
+                 "No step and no line: the first failed history step, else the last failed line typed.",
+                 {"step": {"type": "integer", "description": "history step number"},
+                  "line": {"type": "string", "description": "a command line to look at instead"},
+                  "where": _WHERE}, (), self.diagnose),
             Tool("model_summary", "Units, every body (id, name, kind, volume, bounding box), parameters, datums, "
                  "sketches, named sets, the selection and the history length.",
                  {"where": _WHERE}, (), self.model_summary),
             Tool("describe_body", "One body: valid, volume, area, bounding box, centre, counts, faces by type, "
-                 "flat faces by direction, holes (diameter, through or depth, axis, positions, patterns). "
+                 "flat faces by direction, holes (diameter, through or depth, axis, positions, patterns), "
+                 "features (fillets and rounds by radius, chamfers, bosses, pockets and slots with depth). "
                  "detail 'faces' or 'edges' lists every face or edge instead.",
                  {"body": {"type": ["string", "integer"], "description": "name or ID"},
                   "detail": {"type": "string", "enum": ["summary", "faces", "edges"]},
@@ -152,6 +160,15 @@ class Toolbox:
                  "radius, neighbours, the history entry that made it.",
                  {"kind": {"type": "string", "enum": KINDS}, "ids": {"type": "array", "items": {"type": "integer"}},
                   "where": _WHERE}, ("kind", "ids"), self.describe_entities),
+            Tool("around", "What touches a face, edge or vertex: the faces next to it ring by ring (depth 1 to 3), "
+                 "each with type, size, the way it faces and the feature it belongs to (hole, fillet, pocket ...).",
+                 {"kind": {"type": "string", "enum": ["FACE", "EDGE", "VERTEX"]}, "id": {"type": "integer"},
+                  "depth": {"type": "integer"}, "where": _WHERE}, ("kind", "id"), self.around),
+            Tool("outline", "A body seen from a view (FRONT, TOP, RIGHT, LEFT, BACK, BOTTOM, ISO) as numbers: its "
+                 "visible edges flattened, joined and simplified to a few hundred points, whole circles apart, "
+                 "the size, and an SVG path. A picture in text; hidden=true adds hidden edges.",
+                 {"body": {"type": ["string", "integer"]}, "view": {"type": "string"}, "hidden": {"type": "boolean"},
+                  "where": _WHERE}, ("body",), self.outline),
             Tool("history", "History entries with number, text and status (ok, warning, suppressed, undone).",
                  {"first": {"type": "integer"}, "last": {"type": "integer"}, "where": _WHERE}, (), self.history),
             Tool("user_context", "What the user is pointing at now: the selection (each entity described, and SEL "
@@ -318,6 +335,11 @@ class Toolbox:
 
         return kn.sketch_state(self._p(where), name)
 
+    def diagnose(self, step: int | None = None, line: str = "", where: str = "model"):
+        from . import diagnose as dg
+
+        return dg.diagnose(self._p(where), int(step) if step else None, line or None)
+
     # read the model
     def model_summary(self, where: str = "model") -> dict[str, Any]:
         return ds.model_summary(self._p(where))
@@ -328,14 +350,23 @@ class Toolbox:
     def describe_entities(self, kind: str, ids: list[int], where: str = "model"):
         return ds.describe_entities(self._p(where), kind, [int(i) for i in ids])
 
+    def around(self, kind: str, id: int, depth: int = 1, where: str = "model"):  # noqa: A002 - the tool's word
+        return ds.around(self._p(where), kind, int(id), int(depth or 1))
+
+    def outline(self, body, view: str = "FRONT", hidden: bool = False, where: str = "model"):
+        return ds.outline(self._p(where), body, view or "FRONT", bool(hidden))
+
     def history(self, first: int = 1, last: int = 0, where: str = "model") -> dict[str, Any]:
         p = self._p(where)
         last = last or len(p.history)
         rows = []
         for i in range(max(1, first), min(last, len(p.history)) + 1):
             e = p.history[i - 1]
-            status = "undone" if i > p.cursor else "suppressed" if e.suppressed else "warning" if e.warning else "ok"
+            status = ("undone" if i > p.cursor else "suppressed" if e.suppressed else "failed" if not e.ok
+                      else "warning" if e.warning else "ok")
             row: dict[str, Any] = {"n": i, "text": e.text, "status": status}
+            if not e.ok and i <= p.cursor:
+                row["error"] = (e.message or "").splitlines()[0]
             if e.warning:
                 row["warning"] = e.warning
             rows.append(row)
@@ -504,6 +535,31 @@ The language in short:
 - History: every top-level line is a step. HIST, EDIT/INSERT/DELETE changes old steps; the model rebuilds.
   Commands marked (not kept) run without being stored (queries, views, export).
 """
+
+
+def command_families() -> str:
+    """Every command name, grouped by family (the command menu's headings), for the small first prompt."""
+    try:
+        from ..gui.forms import CATEGORIES  # no Qt: plain data
+    except Exception:  # noqa: BLE001
+        CATEGORIES = []
+    seen: set[str] = set()
+    lines = []
+    for cat, names in CATEGORIES:
+        got = [n for n in names if n in REGISTRY and n not in seen]
+        seen.update(got)
+        if got:
+            lines.append(f"{cat}: {', '.join(got)}")
+    rest = sorted(n for n in REGISTRY if n not in seen)
+    files = {"NEW", "OPEN", "SAVE", "RUN", "NEWPART", "OPENPART", "SAVEPART", "RELOAD", "UNDO", "REDO", "HIST",
+             "STEPS", "VIEW", "FIT", "PICK", "PICKMODE", "CPOINTS", "HELP"}
+    sketch = [n for n in rest if n not in files and (n.startswith("S") or n == "ENDSKETCH")]
+    if sketch:
+        lines.append("Inside a sketch: " + ", ".join(sketch))
+    rest = [n for n in rest if n not in sketch]
+    if rest:
+        lines.append("Files, history, view: " + ", ".join(rest))
+    return "\n".join(lines)
 
 
 def command_catalogue() -> str:

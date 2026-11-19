@@ -996,8 +996,8 @@ about three to a pull request:
     design check, not a full solver.
 
 Better assistant tools, skill files and help (added 2026-11-19, a plan for
-now: docs/M12-assistant-skills.md), about three to a pull request; 43 to 45 built
-2026-11-19:
+now: docs/M12-assistant-skills.md), about three to a pull request; all five
+were built on 2026-11-19:
 
 43. **Skill files** (done) (`modeler/skills/<name>/SKILL.md`, the open Agent Skills
     layout): one short file per workflow with steps, checks and mistakes to
@@ -1017,12 +1017,12 @@ now: docs/M12-assistant-skills.md), about three to a pull request; 43 to 45 buil
     `ASSERT` (`MASS()`, `SAFETY()`, `MAXSTRESS()`, `OVERHANGS()` ...);
     and the M9 tools never built: `search_docs`, `parameters` (who sets and
     who reads each one), `sketch_state`.
-46. **Help when a step fails**: `diagnose` tries the usual fixes for a failed
+46. **Help when a step fails** (done): `diagnose` tries the usual fixes for a failed
     step in a sandbox and says which edit works, behind a Why? link on failed
     steps that also works without the assistant; plus `around`, `outline`,
     fillets, chamfers, pockets and bosses in `describe_body`, and
     `render_compare` / `render_detail`.
-47. **Measure it**: the benchmark grows to about 25 tasks across the skill
+47. **Measure it** (done: 24 tasks, run modes; the numbers wait for a signed-in run): the benchmark grows to about 25 tasks across the skill
     areas, run with skills on and off and with a full or small first prompt
     (about 8 KB instead of 25 KB); the small prompt becomes the default only
     if the numbers say so. Also a test of Copilot's own skill loading.
