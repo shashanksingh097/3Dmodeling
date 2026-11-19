@@ -86,3 +86,13 @@ def test_every_command_is_on_a_reference_page(tmp_path):
     text = "".join(p.read_text(encoding="utf-8") for p in (tmp_path / "docs" / "reference").glob("*.md"))
     missing = [n for n in REGISTRY if f"\n## {n}\n" not in text]
     assert not missing, missing
+
+
+def test_every_guide_page_has_pictures(tmp_path):
+    D.build(str(tmp_path), run=False, log=lambda *_: None)
+    docs = tmp_path / "docs"
+    bare = [str(p.relative_to(docs)) for p in docs.rglob("*.md")
+            if p.parent.name in ("app", "language", "reference") and "img/" not in p.read_text(encoding="utf-8")]
+    assert not bare, f"pages without a picture: {bare}"
+    examples = (docs / "examples.md").read_text(encoding="utf-8")
+    assert "<img src=" not in examples, "raw HTML pictures break under MkDocs' page folders"

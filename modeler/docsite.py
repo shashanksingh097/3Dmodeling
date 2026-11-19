@@ -236,6 +236,10 @@ def reference_pages(examples: dict[str, Example], outputs: dict[str, list[str]] 
         page = slug(cat)
         index.append(f"## [{cat}]({page}.md)\n")
         index.append(" · ".join(f"[`{n}`]({page}.md#{slug(n)})" for n in names) + "\n")
+        shown = [n for n in names if n not in _PLAIN and n in examples
+                 and examples[n].picture in pictures][:4]
+        if shown:
+            index.append(_strip_md(shown, "../", where, examples))
         out = [f"# {cat}", ""]
         if cat in GROUP_INTRO:
             out += [_link_commands(GROUP_INTRO[cat], where, page), ""]
@@ -471,8 +475,151 @@ def examples_page() -> str:
     CURRENT[0] = "EXAMPLES.md"
     md = _rewrite_links(md, "examples.md", {}, {"EXAMPLES.md": "examples.md"})
     CURRENT[0] = ""
-    # pictures: the gallery's are copied next to the page, in examples/
-    return md.replace("](examples/", "](examples/")
+    # the gallery's thumbnails are raw HTML <img>, which MkDocs does not adjust for its
+    # page folders (examples.md is served as examples/index.html): make them Markdown images
+    return re.sub(r'<img src="(examples/[^"]+)" width="(\d+)">', r'![](\1){ width=\2 loading=lazy }', md)
+
+
+# ----------------------------------------------------------------- pictures on the guide pages
+
+# app screenshots (docs/site/img/app) for a guide page: (file, what it shows)
+PAGE_SHOTS: dict[str, list[tuple[str, str]]] = {
+    "app/index.md": [("window.png", "The 3Dmodeling window"), ("guides.png", "Help > Guides: step by step guides inside the app")],
+    "app/install.md": [("window.png", "The window after the first start")],
+    "app/the-window.md": [("window.png", "The window: ribbon, model tree, 3D view, command line, History and Parameters"),
+                          ("command-line.png", "Typing in the command line: the argument hint above it")],
+    "app/your-first-part-with-the-mouse.md": [("form.png", "A command's form, filled in from the picked face")],
+    "app/the-same-part-as-a-script.md": [("command-line.png", "The command line, with the hint for the command being typed")],
+    "app/changing-a-part-later.md": [("parts.png", "Pick a body: the steps that made it are listed under the model tree")],
+    "app/sketches.md": [("sketch.png", "A sketch open on a datum plane, with the Sketch tab")],
+    "app/more-ways-to-make-shapes.md": [("freeform.png", "Freeform surfaces with their control points shown"),
+                                        ("sculpt.png", "Sculpting a mesh body on the Sculpt tab")],
+    "app/parts-you-can-reuse.md": [("parts.png", "An assembly of part instances in the model tree")],
+    "app/layers-colours-and-materials.md": [("layers.png", "The Layers panel")],
+    "app/measuring-and-checking.md": [("section.png", "A section cut through a part"),
+                                      ("stress.png", "A first strength check, coloured by stress")],
+    "app/saving-opening-import-and-export.md": [("drawing.png", "A 2D drawing written by DRAWING")],
+    "app/keyboard-shortcuts.md": [("help.png", "Ctrl+F1 opens the command reference at the command being typed")],
+    "app/when-something-goes-wrong.md": [("refused.png", "A refused step says why, and the model is left as it was")],
+    "app/the-assistant-github-copilot.md": [("assistant.png", "The Assistant panel on the right"),
+                                            ("guides.png", "Guides: ready-made steps the assistant can follow too")],
+    "language/index.md": [("command-line.png", "Every line typed in the command line is a command")],
+    "language/typing-help-in-the-command-line.md": [("command-line.png", "The hint above the command line"),
+                                                    ("help.png", "The command reference inside the app")],
+    "language/sketches-extrude-and-revolve.md": [("sketch.png", "A sketch with sizes, before EXTRUDE")],
+    "language/parts-and-instances.md": [("parts.png", "Part instances in the model tree")],
+    "language/layers-colours-and-materials.md": [("layers.png", "The Layers panel")],
+    "language/nurbs-freeform-control-points-networks-patches-and-sewing.md": [("freeform.png", "Control points shown with CPOINTS")],
+    "language/sculpting-mesh-bodies.md": [("sculpt.png", "The Sculpt tab")],
+    "language/a-first-strength-check.md": [("stress.png", "STRESS colours the part by stress")],
+    "language/sections-tolerances-and-pipes.md": [("section.png", "A SECTION cut")],
+    "language/pictures.md": [("drawing.png", "A drawing sheet")],
+}
+
+# commands to show on pages that explain buttons rather than commands
+PAGE_COMMANDS: dict[str, list[str]] = {
+    "app/your-first-part-with-the-mouse.md": ["BLOCK", "HOLE", "FILLET"],
+    "app/the-same-part-as-a-script.md": ["BLOCK", "HOLE", "FILLET"],
+    "app/changing-a-part-later.md": ["HIST", "CHECK"],
+    "app/sketches.md": ["SRECT", "SCIRCLE", "SDIM", "STRIM", "SFILLET", "EXTRUDE", "REVOLVE"],
+    "app/more-ways-to-make-shapes.md": ["LOFT", "SWEEP", "PIPE", "THREAD", "SHELL", "SCULPT"],
+    "app/parts-you-can-reuse.md": ["INST", "LIB"],
+    "app/layers-colours-and-materials.md": ["LAYER", "COLOR", "MATERIAL"],
+    "app/measuring-and-checking.md": ["DIST", "SECTION", "STRESS", "CHECK"],
+    "app/saving-opening-import-and-export.md": ["SAVE", "EXPORT", "IMPORT", "DRAWING"],
+    "app/running-scripts-without-the-window.md": ["RENDER", "EXPORT"],
+    "app/when-something-goes-wrong.md": ["CHECK", "HEAL", "CLEAN"],
+    "app/install.md": ["BLOCK", "HOLE", "FILLET"],
+    "app/keyboard-shortcuts.md": ["HELP"],
+    "language/blocks.md": ["ARRAY", "PATTERN"],
+    "language/running-scripts-without-the-gui.md": ["RENDER", "EXPORT"],
+}
+
+# commands whose pictures say little on their own: shown only when a section has nothing else
+_PLAIN = {"NEW", "FIT", "VIEW", "NAME", "SEL", "ECHO", "PICK", "HELP", "UNDO", "REDO", "CLEAR", "LIST", "STATUS"}
+_CMD_IN_TICKS = re.compile(r"`([A-Z/*][A-Z0-9_]*)\b[^`\n]*`")
+_CMD_IN_CODE = re.compile(r"^\s*([A-Z/*][A-Z0-9_]*)\s*(?:,|$)", re.M)
+
+
+def _commands_in(chunk: str) -> list[str]:
+    """Command names in a piece of Markdown, in order: the ones in the text first, then the code's."""
+    from .commands.processor import REGISTRY
+
+    parts = re.split(r"(```.*?```)", chunk, flags=re.S)
+    text = "".join(parts[0::2])
+    code = "".join(parts[1::2])
+    out: list[str] = []
+    for n in _CMD_IN_TICKS.findall(text) + _CMD_IN_CODE.findall(code):
+        if n in REGISTRY and n not in out:
+            out.append(n)
+    return out
+
+
+def _shot_md(name: str, alt: str, up: str) -> str:
+    return (f'<figure markdown="span">\n  ![{alt}]({up}img/app/{name}){{ .m3d-shot loading=lazy }}\n  <figcaption>{alt}</figcaption>\n</figure>\n')
+
+
+def _strip_md(names: list[str], up: str, where: dict[str, str], examples: dict[str, Example]) -> str:
+    items = []
+    for n in names:
+        cap = " ".join(examples[n].caption.split())
+        cap = re.split(r"(?<=[.:;])\s", cap, maxsplit=1)[0].rstrip(".:;")
+        if len(cap) > 70:
+            cap = cap[:67].rsplit(" ", 1)[0] + "…"
+        cap = cap.replace("<", "&lt;")
+        items.append(
+            f'<figure markdown="span">\n'
+            f'  [![{n} example]({up}img/commands/{examples[n].picture}){{ loading=lazy }}]'
+            f'({up}reference/{where[n]}.md#{slug(n)})\n'
+            f'  <figcaption><b>{n}</b>{": " + cap if cap else ""}</figcaption>\n</figure>')
+    return '\n<div class="m3d-strip" markdown>\n\n' + "\n\n".join(items) + "\n\n</div>\n"
+
+
+def add_pictures(pages: dict[str, str], examples: dict[str, Example]) -> None:
+    """Every guide page gets pictures: the app screenshots that fit it, and under each part of it
+    the pictures of the commands it explains (each linked to its reference entry)."""
+    have = _existing_pictures()
+    where = {n: slug(cat) for cat, names in _groups() for n in names}
+    for path in list(pages):
+        if not (path.startswith("app/") or path.startswith("language/")):
+            continue
+        up = "../" * path.count("/")
+        md = pages[path]
+        # split at the ## headings, outside code
+        chunks = re.split(r"(?m)^(?=## )", md)
+        shown: set[str] = set()
+        out = []
+        for i, chunk in enumerate(chunks):
+            names = [n for n in _commands_in(chunk) if n not in shown and n in where
+                     and examples.get(n) and examples[n].picture in have]
+            pick = [n for n in names if n not in _PLAIN][:3] or names[:1]
+            if path.endswith("index.md"):
+                pick = []
+            shown.update(pick)
+            if pick:
+                chunk = chunk.rstrip("\n") + "\n" + _strip_md(pick, up, where, examples) + "\n"
+            out.append(chunk)
+        extra = [n for n in PAGE_COMMANDS.get(path, []) if n not in shown and n in where
+                 and examples.get(n) and examples[n].picture in have]
+        if extra:
+            shown.update(extra)
+            out[0] = out[0].rstrip("\n") + "\n" + _strip_md(extra, up, where, examples) + "\n"
+        shots = PAGE_SHOTS.get(path, [])
+        if shots:
+            # the first screenshot under the page's opening paragraph, the next ones before later parts
+            first = out[0]
+            # (right under the title when the page opens with a table or a list)
+            m = re.match(r"(# [^\n]*\n\n(?:(?!```|\||\d+\. |[*-] )[^\n]+\n)*)", first)
+            cut = m.end() if m else len(first)
+            out[0] = first[:cut] + "\n" + _shot_md(shots[0][0], shots[0][1], up) + "\n" + first[cut:]
+            for k, (name, alt) in enumerate(shots[1:], start=1):
+                j = min(len(out) - 1, max(1, k * len(out) // len(shots)))
+                if j == 0:
+                    out[0] = out[0].rstrip("\n") + "\n\n" + _shot_md(name, alt, up) + "\n"
+                else:
+                    head, _, rest = out[j].partition("\n")
+                    out[j] = head + "\n\n" + _shot_md(name, alt, up) + rest
+        pages[path] = "".join(out)
 
 
 # ----------------------------------------------------------------- putting it together
@@ -525,6 +672,14 @@ def _q(s: str) -> str:
     return '"' + s.replace('"', '\\"') + '"'
 
 
+def _shown_path(path: str) -> str:
+    """path from the repository when it is inside it (on Windows it may be on another drive)."""
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return path
+
+
 def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
     """Write the site's source (Markdown pages and mkdocs.yml) to out. Returns the failing examples."""
     examples = read_examples()
@@ -533,6 +688,7 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
     gp, app_nav, lang_nav = guide_pages()
     pages.update(gp)
     pages["examples.md"] = examples_page()
+    add_pictures(pages, examples)
     link_commands_in_pages(pages)
     pages.update(reference_pages(examples, said))
     if os.path.isdir(out):
@@ -578,32 +734,174 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
         base = f.read()
     with open(os.path.join(out, "mkdocs.yml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(base.rstrip() + "\n\nnav:\n" + nav_yaml(nav) + "\n")
-    log(f"wrote {len(pages)} pages to {os.path.relpath(out, ROOT)}"
+    log(f"wrote {len(pages)} pages to {_shown_path(out)}"
         + (f"; {len(bad)} examples failed" if bad else ""))
     return bad
 
 
 # ----------------------------------------------------------------- pictures
 
-def render_pictures(names: list[str] | None = None, log=print) -> None:
-    """A picture of what each example marked "pic" makes (docs/site/img/commands)."""
-    from .render import Shot, render
+class _Window:
+    """One app window, kept open, to take many pictures (needs a screen; Xvfb on Linux)."""
 
+    def __init__(self, size=(1500, 940)):
+        from PySide6.QtCore import QSettings
+        from PySide6.QtWidgets import QApplication
+
+        from .gui.main_window import MainWindow
+
+        self.app = QApplication.instance() or QApplication([])
+        self.tmp = tempfile.mkdtemp(prefix="m3d-shots-")
+        settings = QSettings(os.path.join(self.tmp, "settings.ini"), QSettings.IniFormat)
+        self.win = MainWindow(settings=settings, autosave="off")
+        self.win.move(0, 0)
+        self.win.resize(*size)
+        self.win.show()
+        for _ in range(200):
+            self.pump(1)
+            if self.win.viewport._initialized:
+                break
+
+    def pump(self, n: int = 10) -> None:
+        for _ in range(n):
+            self.app.processEvents()
+            time.sleep(0.01)
+
+    def grab(self, path: str, widget=None, width: int = 0) -> None:
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QGuiApplication
+
+        self.pump(30)
+        w = widget or self.win
+        g = w.frameGeometry()
+        pic = QGuiApplication.primaryScreen().grabWindow(0, g.x(), g.y(), g.width(), g.height())
+        if width:
+            pic = pic.scaledToWidth(width, Qt.SmoothTransformation)
+        pic.save(path)
+
+    def view_picture(self, path: str, size=PIC_SIZE, fit: bool = True) -> None:
+        """The 3D view only, as the gallery takes it, seen from ISO and fitted."""
+        from OCP.Image import Image_AlienPixMap
+        from OCP.TCollection import TCollection_AsciiString
+
+        vp = self.win.viewport
+        vp.context.ClearSelected(False)
+        if fit:
+            vp.view.SetProj(1, -1, 1)
+            vp.view.SetUp(0, 0, 1)
+            vp.view.FitAll(0.06, False)
+        vp.view.Redraw()
+        self.pump(5)
+        pix = Image_AlienPixMap()
+        if not (vp.view.ToPixMap(pix, size[0], size[1]) and pix.Save(TCollection_AsciiString(path))):
+            raise RuntimeError(f"could not save {path}")
+
+    def run(self, text: str):
+        res = self.win.processor.run_script(text)
+        if res and not res[-1].ok:
+            raise RuntimeError(f"{res[-1].line.splitlines()[0]}: {res[-1].message}")
+        self.pump(10)
+        return res
+
+    def fine(self, on: bool = True) -> None:
+        import math
+
+        from OCP.Aspect import Aspect_TOD_RELATIVE
+
+        d = self.win.viewport.context.DefaultDrawer()
+        d.SetTypeOfDeflection(Aspect_TOD_RELATIVE)
+        d.SetDeviationCoefficient(0.0005 if on else 0.002)
+        d.SetDeviationAngle(math.radians(5 if on else 12))
+
+
+def _printed(ex: Example, res) -> list[str]:
+    """What the example's own lines printed, as the output panel shows it."""
+    mine = [r for r in res if r.line.split(",")[0].strip().upper() == ex.name] or res[-1:]
+    lines = []
+    for r in mine[-3:]:
+        lines.append("> " + r.line.splitlines()[0])
+        lines += r.message.splitlines()[:12]
+    return lines
+
+
+def text_card(path: str, lines: list[str], size=PIC_SIZE) -> None:
+    """A picture of output text, for commands that print rather than make shapes."""
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtGui import QColor, QFont, QImage, QPainter
+
+    img = QImage(size[0], size[1], QImage.Format_RGB32)
+    img.fill(QColor("#1e2330"))
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.fillRect(QRect(0, 0, size[0], 34), QColor("#2b3245"))
+    for i, c in enumerate(("#ff5f57", "#febc2e", "#28c840")):
+        p.setBrush(QColor(c))
+        p.setPen(Qt.NoPen)
+        p.drawEllipse(14 + 22 * i, 11, 12, 12)
+    p.setPen(QColor("#aab4cc"))
+    p.setFont(QFont("DejaVu Sans", 11))
+    p.drawText(QRect(0, 0, size[0], 34), Qt.AlignCenter, "Output")
+    font = QFont("DejaVu Sans Mono", 15)
+    p.setFont(font)
+    y = 64
+    for line in lines:
+        if y > size[1] - 16:
+            break
+        p.setPen(QColor("#ffb86c") if line.startswith("> ") else QColor("#e6e9f0"))
+        text = line if len(line) <= 62 else line[:59] + "..."
+        p.drawText(22, y, text)
+        y += 27
+    p.end()
+    img.save(path)
+
+
+def _shows_something(p) -> bool:
+    m = p.model
+    shown = [i for i in m.bodies if i not in m.hidden]
+    return bool(shown) or bool(m.sketches) or bool(getattr(m, "pictures", None))
+
+
+def render_pictures(names: list[str] | None = None, log=print) -> None:
+    """A picture for every example (docs/site/img/commands): the 3D view when the
+    example leaves something to see, else the window with what it printed."""
     os.makedirs(PICTURES, exist_ok=True)
+    w = _Window()
+    w.fine(False)
     here = os.getcwd()
+    bad = []
     for ex in read_examples().values():
-        if "pic" not in ex.flags or (names and ex.name not in names):
+        if names and ex.name not in names:
             continue
         t = time.time()
-        with tempfile.TemporaryDirectory(prefix="m3d-pic-") as tmp:
-            for n in os.listdir(EXAMPLE_FILES) if os.path.isdir(EXAMPLE_FILES) else []:
-                shutil.copy(os.path.join(EXAMPLE_FILES, n), tmp)
-            os.chdir(tmp)
-            try:
-                render(ex.code, [Shot(ex.picture, ["FIT"], "ISO")], PICTURES, PIC_SIZE, log=lambda *_: None)
-            finally:
-                os.chdir(here)
-        log(f"{ex.picture}: {time.time() - t:.1f} s")
+        tmp = tempfile.mkdtemp(prefix="m3d-pic-")
+        for n in os.listdir(EXAMPLE_FILES) if os.path.isdir(EXAMPLE_FILES) else []:
+            shutil.copy(os.path.join(EXAMPLE_FILES, n), tmp)
+        os.chdir(tmp)
+        out = os.path.join(PICTURES, ex.picture)
+        try:
+            w.win.execute("NEW")
+            w.win.execute("ANALYZE, OFF")  # colours of an earlier example
+            res = w.run(ex.code)
+            rendered = os.path.join(tmp, "part.png")
+            if ex.name == "RENDER" and os.path.exists(rendered):
+                from PySide6.QtCore import Qt
+                from PySide6.QtGui import QImage
+
+                QImage(rendered).scaled(PIC_SIZE[0], PIC_SIZE[1], Qt.KeepAspectRatio,
+                                        Qt.SmoothTransformation).save(out)
+            elif not _shows_something(w.win.processor):
+                text_card(out, _printed(ex, res))
+            else:
+                w.view_picture(out)
+            log(f"{ex.picture}: {time.time() - t:.1f} s")
+        except Exception as exc:  # noqa: BLE001  (say which, and go on)
+            bad.append(f"{ex.name}: {exc}")
+            log(f"{ex.name}: FAILED {exc}")
+        finally:
+            os.chdir(here)
+            shutil.rmtree(tmp, ignore_errors=True)
+    if bad:
+        print("\n".join(bad))
 
 
 def main(args: list[str]) -> int:
@@ -616,7 +914,8 @@ def main(args: list[str]) -> int:
             print("no screen: run under Xvfb, e.g. xvfb-run -a python -m modeler docs --pictures")
             return 2
         render_pictures([a.upper() for a in args if not a.startswith("--")] or None)
-        return 0
+        sys.stdout.flush()
+        os._exit(0)
     if "--check" in args:
         _, bad = run_all(read_examples())
         for n, why in bad.items():
@@ -646,54 +945,46 @@ SCREENS = os.path.join(SITE_SRC, "img", "app")
 
 def take_screens(log=print) -> None:
     """Full-window pictures for the guide's pages (docs/site/img/app). Needs a screen (Xvfb)."""
-    from PySide6.QtCore import QSettings
-    from PySide6.QtGui import QGuiApplication
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtGui import QImage, QPainter
 
-    from .gui.main_window import MainWindow
-
-    app = QApplication.instance() or QApplication([])
     os.makedirs(SCREENS, exist_ok=True)
-    tmp = tempfile.mkdtemp(prefix="m3d-shots-")
-    settings = QSettings(os.path.join(tmp, "settings.ini"), QSettings.IniFormat)
-    win = MainWindow(settings=settings, autosave="off")
-    win.move(0, 0)
-    win.resize(1500, 940)
-    win.show()
-
-    def pump(n: int = 10) -> None:
-        for _ in range(n):
-            app.processEvents()
-            time.sleep(0.02)
-
-    for _ in range(200):
-        pump(1)
-        if win.viewport._initialized:
-            break
+    w = _Window()
+    win = w.win
 
     def shot(name: str, widget=None) -> None:
-        pump(30)
-        w = widget or win
-        screen = QGuiApplication.primaryScreen()
-        g = w.frameGeometry()
-        pic = screen.grabWindow(0, g.x(), g.y(), g.width(), g.height())
-        pic.save(os.path.join(SCREENS, name))
-        log(f"{name}: {pic.width()} x {pic.height()}")
+        w.grab(os.path.join(SCREENS, name), widget)
+        log(name)
 
-    def run(text: str) -> None:
-        res = win.processor.run_script(text)
-        if res and not res[-1].ok:
-            raise RuntimeError(f"{res[-1].line}: {res[-1].message}")
-        pump(20)
+    def script(name: str) -> None:
+        win.execute("NEW")
+        with open(os.path.join(ROOT, "scripts", name), encoding="utf-8") as f:
+            w.run(f.read())
+        win.execute("VIEW, ISO")
+        win.execute("FIT")
 
-    with open(os.path.join(ROOT, "scripts", "flange.cmd"), encoding="utf-8") as f:
-        run(f.read())
-    win.execute("VIEW, ISO")
-    win.execute("FIT")
+    def tab(title: str) -> None:
+        rb = win.ribbon
+        for i in range(rb.count()):
+            if rb.tabText(i).replace("&", "") == title:
+                rb.setCurrentIndex(i)
+
+    script("flange.cmd")
     shot("window.png")
 
+    # typing in the command line: completion and the argument hint
+    win.cmdline.setFocus()
+    win.cmdline.setText("HOLE, flange, ")
+    win.cmdline.textEdited.emit(win.cmdline.text())
+    shot("command-line.png")
+    win.cmdline.clear()
+
+    win.execute("SECTION, ZX, ABOVE")
+    shot("section.png")
+    win.execute("SECTION, OFF")
+
     win.execute("NEW")
-    run("BLOCK, 0,0,0, 80, 50, 8\nNAME, LAST, plate\nPLANE, top, XY, 8")
+    w.run("BLOCK, 0,0,0, 80, 50, 8\nNAME, LAST, plate\nPLANE, top, XY, 8")
     for line in ("SKETCH, boss, top", "SRECT, 10, 10, 50, 40", "SCIRCLE, 65, 25, 8",
                  "SDIM, LENGTH, 1, 40", "SDIM, RADIUS, 5, 8"):
         win.execute(line)
@@ -711,9 +1002,79 @@ def take_screens(log=print) -> None:
     shot("form.png")
     dlg.close()
 
-    help_dlg = win.shell.show_command_reference("HOLE") if hasattr(win, "shell") else None
-    if help_dlg is not None:
-        help_dlg.move(260, 120)
-        shot("help.png", help_dlg)
-        help_dlg.close()
+    help_dlg = win.shell.show_command_reference("HOLE")
+    help_dlg.move(260, 120)
+    shot("help.png", help_dlg)
+    help_dlg.close()
+    guides = win.shell.show_guides()
+    guides.move(260, 120)
+    shot("guides.png", guides)
+    guides.close()
+
+    prefs = win.open_preferences()
+    prefs.move(500, 250)
+    shot("preferences.png")
+    prefs.close()
+
+    script("bolted_plate.cmd")
+    p = win.processor
+    bolt = next((b for b, body in p.model.bodies.items() if "bolt" in (body.name or "").lower()), None)
+    if bolt is not None:
+        win.execute(f"PICK, BODY, {bolt}")
+    shot("parts.png")
+    win.execute("SEL, NONE")
+
+    script("layers_demo.cmd")
+    win.layers_dock.show()
+    win.layers_dock.raise_()
+    shot("layers.png")
+
+    script("nurbs_freeform.cmd")
+    tab("Freeform")
+    win.execute("CPOINTS, tile")
+    shot("freeform.png")
+    win.execute("CPOINTS, OFF")
+
+    script("sculpt_head.cmd")
+    tab("Sculpt")
+    shot("sculpt.png")
+    tab("Home")
+
+    script("bracket_strength.cmd")
+    shot("stress.png")
+    win.execute("ANALYZE, OFF")
+
+    script("flange.cmd")
+    win.assistant_dock.show()
+    win.assistant_dock.raise_()
+    shot("assistant.png")
+
+    # a 2D drawing, as the PDF/SVG it writes
+    tmp = tempfile.mkdtemp(prefix="m3d-draw-")
+    svg = os.path.join(tmp, "flange.svg").replace("\\", "/")
+    r = win.execute(f'DRAWING, "{svg}", STANDARD, , ALL')
+    if r.ok and os.path.exists(svg):
+        from PySide6.QtSvg import QSvgRenderer
+
+        rend = QSvgRenderer(svg)
+        size = rend.defaultSize()
+        k = 1400 / max(1, size.width())
+        img = QImage(int(size.width() * k), int(size.height() * k), QImage.Format_RGB32)
+        img.fill(Qt.white)
+        painter = QPainter(img)
+        rend.render(painter)
+        painter.end()
+        img.save(os.path.join(SCREENS, "drawing.png"))
+        log("drawing.png")
     shutil.rmtree(tmp, ignore_errors=True)
+
+    # what a refused step says
+    win.execute("NEW")
+    w.run("BLOCK, 0,0,0, 40, 20, 5")
+    win.execute("SEL, S, EDGE, LOC, Z, 5")
+    r = win.execute("FILLET, 8")
+    text_card(os.path.join(SCREENS, "refused.png"),
+              ["> FILLET, 8"] + r.message.splitlines()[:12], size=(900, 300))
+    log("refused.png")
+    _ = QPoint
+    shutil.rmtree(w.tmp, ignore_errors=True)

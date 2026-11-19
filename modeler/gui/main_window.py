@@ -21,14 +21,15 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMenu,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -81,6 +82,9 @@ class CommandLine(QLineEdit):
         self.processor = processor
         self.hint = QLabel()
         self.hint.setTextFormat(Qt.RichText)
+        # a long help line must not widen the window past the screen: cut it at the window edge
+        self.hint.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.hint.setMinimumWidth(1)
         self._model = QStringListModel(self)
         self.completer = QCompleter(self._model, self)
         self.completer.setWidget(self)
