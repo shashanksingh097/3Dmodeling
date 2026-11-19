@@ -1072,6 +1072,8 @@ three per pull request.
     folder: parts list and drawing per configuration), `BOM, , config`.*
 60. **Assembly checks** (P2): mates that repeat or fight found and named,
     free directions listed, local coordinate systems.
+    *Done: `MATES` (holds, fights, repeats, free slides and turns), `CSYS`
+    coordinate systems that move with their body, `MATE, FRAME`.*
 61. **Drawings that follow the model** (P2): views made again after a
     rebuild, templates, several sheets, sizes checked against the model.
 62. **Project safety** (P1): backups, crash recovery tested, old projects

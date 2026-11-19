@@ -300,7 +300,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `TAKE, what, part, n, name [, LINK/COPY]` · `DEPENDS [, JSON]` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `MATE, FRAME, a, b [, FLIP]` · `MATES [, JSON]` · `CSYS, name, body, x,y,z [, nx,ny,nz [, angle]]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `TAKE, what, part, n, name [, LINK/COPY]` · `DEPENDS [, JSON]` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE, offset, NEW/ADD]` (sections 15, 44) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
@@ -1379,6 +1379,43 @@ both items, and nothing moves.
 In the window: pick the two items (click, then Ctrl+click), right-click and
 choose **Mate the two picked…**, or **Parts > Mate** in the command forms.
 The form opens with the two picks filled in.
+
+### Checking the mates: MATES
+
+`MATES` measures every mate again on the finished assembly:
+
+- **holds**, or **DOES NOT HOLD** with how far off it is and the later
+  step that moved the copy away (the two **fight**: that step is marked
+  `FIGHTS step n`). `MATE` itself warns when it undoes an earlier mate.
+- **REPEATS step n** when a mate fixes nothing the earlier mates on that
+  copy had not fixed already (two mates on the same faces, say), or
+  *partly repeats* when only some of what it fixes is new.
+- for each copy that was mated, the ways it can still move: **slides
+  along** a direction or **turns about** an axis through a point (a face
+  on a face leaves two slides and a turn; a pin in a hole that sits on its
+  head only turns). A copy with none is **fully placed**.
+
+`MATES, JSON` gives the same as data.
+
+### Coordinate systems on bodies: CSYS
+
+`CSYS, name, body, x,y,z [, nx,ny,nz [, angle]]` makes a coordinate
+system at (x,y,z) with its Z along (nx,ny,nz) (default up) and its X
+turned by angle about Z; `CSYS, name, FACE, id [, angle]` puts one on a
+flat face, Z out of the body. It moves with its body (`MOVE`, `ROTATE`,
+`MATE`), and it is a datum plane with an X axis, so `WORKPLANE, name`
+draws in it and `DIST` measures to it. Body `0` makes one fixed in space.
+`CSYS` alone lists them.
+
+`MATE, FRAME, a, b` moves the body of coordinate system `b` so that `b`
+lies on `a`, origin and axes: one step that places a copy fully. `FLIP`
+turns `b` over (Z the other way, X the same), for two faces that meet:
+
+```
+CSYS, top, base, 20, 20, 10           ! on the base's top face
+CSYS, foot, pin, 0, 0, 0, 0, 0, -1    ! at the pin's foot, Z out of it
+MATE, FRAME, top, foot, FLIP          ! the pin stands on the base
+```
 
 ## 18. Screw threads and springs
 

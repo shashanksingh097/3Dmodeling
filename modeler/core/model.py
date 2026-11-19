@@ -304,6 +304,8 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
+        self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
         self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
         self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
@@ -375,6 +377,8 @@ class Model:
             "xviews": {k: list(v) for k, v in self.xviews.items()},
             "properties": dict(self.properties),
             "notes": list(self.notes),
+            "mates": list(self.mates),
+            "frames": dict(self.frames),
             "welds": dict(self.welds),
             "routes": dict(self.routes),
             "pictures": list(self.pictures),
@@ -409,6 +413,8 @@ class Model:
         self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
+        self.mates = list(snap.get("mates", []))
+        self.frames = dict(snap.get("frames", {}))
         self.welds = dict(snap.get("welds", {}))
         self.routes = dict(snap.get("routes", {}))
         self.pictures = list(snap.get("pictures", []))

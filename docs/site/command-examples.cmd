@@ -1415,6 +1415,26 @@ INST, bolt, 200, 80, 40
 MATE, CONCENTRIC, FACE, 4, FACE, 8
 MATE, COINCIDENT, FACE, 2, FACE, 7
 
+@ MATES
+! Check the mates: here a pin sits on a plate, so it can still slide two ways and turn.
+BLOCK, 0,0,0, 40, 40, 10
+NAME, LAST, base
+CYL, 100,0,0, 5, 20
+NAME, LAST, pin
+MATE, COINCIDENT, FACE, 6, FACE, 9
+MATES
+
+@ CSYS
+! Coordinate systems on bodies; MATE, FRAME puts the pin's foot on the base's top in one step.
+BLOCK, 0,0,0, 40, 40, 10
+NAME, LAST, base
+CYL, 100,0,0, 5, 20
+NAME, LAST, pin
+CSYS, top, base, 20, 20, 10
+CSYS, foot, pin, 100, 0, 0, 0, 0, -1
+MATE, FRAME, top, foot, FLIP
+CSYS
+
 @ EXPLODE
 ! Split a body made of two separate solids into one body per solid.
 BLOCK, 0,0,0, 10, 10, 10

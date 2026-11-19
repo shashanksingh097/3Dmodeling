@@ -31,6 +31,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Design tables: `DESIGNTABLE, "sizes.csv"` makes configurations from a CSV file (and `EXPORT` writes
   them out), `CONFIGOFF` leaves steps out of a configuration, `VARIANTS` builds every configuration
   and compares them (and writes each one's parts list and drawing), `BOM, , config` lists one.
+- `MATES`: every mate measured again (holds or not, which later step undid it, which mates repeat
+  others) and the ways each mated copy can still move. `MATE` warns when it undoes or repeats one.
+- `CSYS`: coordinate systems that move with their body; `MATE, FRAME, a, b` puts one on another.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
