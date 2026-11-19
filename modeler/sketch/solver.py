@@ -133,6 +133,10 @@ def _solve_group(x: np.ndarray, cons: list[Constraint], ks: list[int], cols: lis
     """Move x[cols] until the constraints ks hold. Returns the iterations used."""
     if not cols or not ks:
         return 0
+    if weights is None:  # already solved (most groups, most of the time): no Jacobian needed
+        r0 = _residuals(x, cons, ks)
+        if math.sqrt(float(r0 @ r0)) < TOL * 0.1:
+            return 0
     r, J, _ = _system(x, cons, ks, cols)
     if weights is not None:
         r, J = r * weights, J * weights[:, None]
@@ -222,6 +226,34 @@ def _diagnose(x: np.ndarray, cons: list[Constraint], ks: list[int], cols: list[i
             rep.failed.append(cons[k].tag)
 
 
+# A sketch is solved after every command, but most of its groups (a hole, a rectangle) have not
+# changed since the last time: their diagnosis (rank, free numbers, repeats) is kept here, keyed
+# by everything it depends on: the numbers, which constraints read which numbers, and what each
+# constraint's error is now.
+_DIAGNOSED: dict[tuple, tuple] = {}
+_DIAGNOSED_MAX = 20000
+
+
+def _diagnose_cached(x: np.ndarray, cons: list[Constraint], ks: list[int], cols: list[int], rep: Report) -> None:
+    idx = sorted({i for k in ks for i in cons[k].idx} | set(cols))
+    key = (tuple(cols), tuple((cons[k].tag, cons[k].idx) for k in ks), x[idx].tobytes(),
+           _residuals(x, cons, ks).round(15).tobytes())
+    hit = _DIAGNOSED.get(key)
+    if hit is None:
+        part = Report(ok=True, dof=0)
+        _diagnose(x, cons, ks, cols, part)
+        hit = (part.dof, frozenset(part.free), tuple(part.redundant), tuple(part.conflicting), tuple(part.failed))
+        if len(_DIAGNOSED) >= _DIAGNOSED_MAX:
+            _DIAGNOSED.clear()
+        _DIAGNOSED[key] = hit
+    dof, free, redundant, conflicting, failed = hit
+    rep.dof += dof
+    rep.free.update(free)
+    rep.redundant.extend(redundant)
+    rep.conflicting.extend(conflicting)
+    rep.failed.extend(failed)
+
+
 def solve(x: np.ndarray, cons: list[Constraint], fixed: set[int] = frozenset(), diagnose: bool = True) -> Report:
     """Solve in place. ``fixed`` numbers never move (the sketch origin and axes)."""
     n = len(x)
@@ -231,7 +263,7 @@ def solve(x: np.ndarray, cons: list[Constraint], fixed: set[int] = frozenset(), 
         rep.iterations = max(rep.iterations, _solve_group(x, cons, ks, cols))
     if diagnose:
         for cols, ks in groups:
-            _diagnose(x, cons, ks, cols, rep)
+            _diagnose_cached(x, cons, ks, cols, rep)
     else:
         tol = 1e2 * TOL * max(1.0, float(np.abs(x).max()) if n else 1.0)
         for c in cons:

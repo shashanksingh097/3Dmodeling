@@ -38,6 +38,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..commands import Processor, Result
+from ..commands.handlers import is_pick_step
+from ..core.model import ModelError
 from ..lang.expr import format_value
 from ..viewport.occ_view import OccViewport
 from . import assist
@@ -239,9 +241,21 @@ class HistoryPanel(QTableWidget):
             a, b = rows[0] + 1, rows[-1] + 1
             menu.addAction(f"Make a part from steps {a} to {b}…", lambda: self.make_part(a, b))
             menu.addSeparator()
+        if self.win.repick_step is not None:
+            k = self.win.repick_step
+            sel = p.model.selection
+            use = menu.addAction(f"Use the picked {p.model.selection_kind.lower()}s for step {k}"
+                                 if sel else f"Pick in the view for step {k} first",
+                                 lambda: self.win.finish_repick(True))
+            use.setEnabled(bool(sel))
+            menu.addAction("Stop picking again", lambda: self.win.finish_repick(False))
+            menu.exec(self.viewport().mapToGlobal(pos))
+            return
         if 0 <= row < p.cursor:
             n = row + 1
             e = p.history[row]
+            if is_pick_step(e.text) and not e.suppressed:
+                menu.addAction("Pick again…", lambda: self.win.start_repick(n))
             if not e.suppressed and (not e.ok or e.warning):
                 menu.addAction("Why did it fail?…" if not e.ok else "Why the warning?…", lambda: self.why(row))
                 menu.addSeparator()
@@ -481,7 +495,8 @@ class MainWindow(QMainWindow):
         self.processor = processor or Processor()
 
         self.viewport = OccViewport(self.processor.model)
-        self.viewport.command.connect(self.execute)
+        self.repick_step: int | None = None  # set while a history pick step is being picked again
+        self.viewport.command.connect(self._view_command)
         self.viewport.body_menu.connect(self.show_body_menu)
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
@@ -1083,6 +1098,46 @@ class MainWindow(QMainWindow):
                 break
 
     # ---- running commands --------------------------------------------------
+    # ---- picking a history step again -------------------------------------------------
+    def _view_command(self, text: str) -> None:
+        """A click in the view. While a step is picked again, clicks only select (no new step)."""
+        if self.repick_step is not None and text.upper().startswith("PICK,"):
+            parts = [x.strip() for x in text.split(",")]
+            try:
+                self.processor.model.select(parts[1], [int(parts[2])], parts[3] if len(parts) > 3 else "S")
+            except (ModelError, ValueError, IndexError) as exc:
+                self.statusBar().showMessage(str(exc), 6000)
+                return
+            m = self.processor.model
+            self.statusBar().showMessage(
+                f"Step {self.repick_step} will pick {m.selection_kind} {', '.join(map(str, m.selection))}: "
+                f"right-click it in History > Use the picked {m.selection_kind.lower()}s (Ctrl+click adds)")
+            return
+        self.execute(text)
+
+    def start_repick(self, n: int) -> None:
+        """Roll the model back to just before pick step n, so the user can pick what it should pick."""
+        words = [w.strip().upper() for w in strip_comment_lines(self.processor.history[n - 1].text).split(",")]
+        kind = words[1] if words[0] == "PICK" else words[2] if len(words) > 2 else ""
+        self.execute(f"HIST, ROLLBACK, {n - 1}")
+        self.repick_step = n
+        self.processor.model.select_none()
+        if kind:
+            self.execute(f"PICKMODE, {kind}")
+        self.statusBar().showMessage(
+            f"Picking again for step {n}: the model is as just before it. Click what it should pick, then "
+            f"right-click step {n} in History > Use the picked items")
+
+    def finish_repick(self, use: bool = True) -> None:
+        n, self.repick_step = self.repick_step, None
+        if n is None:
+            return
+        if use and self.processor.model.selection:
+            self.execute(f"HIST, REPICK, {n}")
+        else:
+            self.execute(f"HIST, ROLLBACK, {len(self.processor.history)}")
+        self.statusBar().clearMessage()
+
     def execute(self, text: str) -> Result:
         """The single entry point for GUI actions, clicks and typed text."""
         if self.offload.busy:

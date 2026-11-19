@@ -384,3 +384,78 @@ def thick(p: Processor, b, below):
         lines.append(f"  {r['t']:g} from face {r['face']} at {_short(r['at'])} to face {r['to_face']} "
                      f"at {_short(r['to'])}")
     return "\n".join(lines)
+
+
+# ---- REFS: every reference the history holds, and whether it still holds -----------------
+
+def references(p: Processor) -> list[dict[str, Any]]:
+    """Each pick the applied history made (PICK, and SEL by IDs), with its state.
+
+    state is "ok" (the same entity, made by the same step), "repaired" (its ID changed and it
+    was found again by its shape, see core/refs.py) or "broken" (its step failed because it
+    could not be found)."""
+    step_of = {e.uid: i + 1 for i, e in enumerate(p.history)}
+    out: list[dict[str, Any]] = []
+    for i, e in enumerate(p.history[: p.cursor]):
+        if e.suppressed:
+            continue
+        broken = (not e.ok) and "could not be found again" in (e.message or "")
+        for rec in e.refs or []:
+            if not rec:
+                continue
+            fps = rec.get("fps") if "sel" in rec else [rec]
+            kind = rec.get("sel") or rec.get("kind")
+            if fps is None:  # a long ID range is not fingerprinted
+                out.append({"step": i + 1, "text": e.text, "kind": kind, "id": None, "state": "not kept",
+                            "why": "too many IDs in the range to keep track of"})
+                continue
+            for fp in fps:
+                row = {"step": i + 1, "text": e.text, "kind": kind, "id": fp.get("id"),
+                       "type": fp.get("type"), "body": fp.get("body"),
+                       "made_by": step_of.get(fp.get("origin") or 0)}
+                if broken:
+                    row["state"], row["why"] = "broken", e.message
+                elif fp.get("how"):
+                    row["state"], row["why"] = "repaired", f"found again ({fp['how']})"
+                else:
+                    row["state"] = "ok"
+                out.append(row)
+        if broken and not e.refs:
+            out.append({"step": i + 1, "text": e.text, "kind": None, "id": None, "state": "broken", "why": e.message})
+    return out
+
+
+@command(
+    "REFS",
+    Arg("which", str, "ALL", help="ALL, or PROBLEMS for only the repaired and broken ones"),
+    Arg("fmt", str, "TEXT", help="TEXT or JSON"),
+    logged=False,
+    help=(
+        "Every pick the history holds (PICK, and SEL by IDs) and whether it still points at what was "
+        "picked: ok, repaired (its ID changed and it was found again by its shape) or broken (not found; "
+        "its step failed). REFS · REFS, PROBLEMS · REFS, ALL, JSON"
+    ),
+)
+def refs_(p: Processor, which, fmt):
+    which = which.upper()
+    if which not in ("ALL", "PROBLEMS"):
+        raise CommandError("REFS: use ALL or PROBLEMS")
+    rows = references(p)
+    if which == "PROBLEMS":
+        rows = [r for r in rows if r["state"] != "ok"]
+    if fmt.upper() == "JSON":
+        return json.dumps(rows, separators=(",", ":"))
+    counts = {s: sum(r["state"] == s for r in references(p)) for s in ("ok", "repaired", "broken", "not kept")}
+    total = sum(counts.values())
+    head = (f"{total} reference{'s' if total != 1 else ''}: " + ", ".join(f"{n} {s}" for s, n in counts.items() if n)
+            if total else "no references: nothing in the history was picked by ID")
+    lines = [head]
+    for r in rows:
+        first = r["text"].splitlines()[0]
+        what = f"{r['kind']} {r['id']}" if r.get("id") is not None else (r.get("kind") or "")
+        if r.get("type"):
+            what += f" ({r['type'].lower()} on {r.get('body') or 'a body'}"
+            what += f", made by step {r['made_by']})" if r.get("made_by") else ")"
+        tail = f": {r['why'].splitlines()[0]}" if r.get("why") else ""
+        lines.append(f"  step {r['step']} {first}: {what} {r['state']}{tail}")
+    return "\n".join(lines)

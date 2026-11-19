@@ -103,7 +103,7 @@ PARAM = "="
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Parameters", (PARAM, "CONFIG", "USECONFIG", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
-    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE")),
+    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE", "SCHECK")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
@@ -130,7 +130,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
-    ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
+    ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "PROPERTY", "RENDER")),

@@ -1229,6 +1229,13 @@ PICK, FACE, 6
 SHELL, 2
 THICK, housing
 
+@ REFS
+! Every pick the history holds and whether it still points at what was picked.
+BLOCK, 0,0,0, 40, 20, 10
+SEL, S, FACE, ID, 5, 6
+PICK, EDGE, 1
+REFS
+
 @ SELFOR
 ! The SEL lines that pick face 6 by what it is, not by its ID.
 BLOCK, 0,0,0, 40, 20, 10
@@ -1708,6 +1715,15 @@ SLINE, 2.E, 42, 20
 SCON, HORIZONTAL, 2
 SCON, PERPENDICULAR, 2, 3
 ENDSKETCH
+
+@ SCHECK
+! What is wrong with a sketch, or still loose: repeated constraints, curves drawn twice, free geometry.
+SKETCH, s, XY
+SRECT, 0, 0, 40, 20
+SDIM, LENGTH, 1, 40
+SDIM, LENGTH, 3, 40
+SCIRCLE, 20, 10, 5
+SCHECK
 
 @ SDIM
 ! Give sketch geometry sizes: a 60 long side, a radius 8 circle 30 from the left.

@@ -4,6 +4,25 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Added
+- `REFS`: every pick the history holds (PICK, and SEL by IDs) and whether it still points at
+  what was picked: ok, repaired or broken, with the reason.
+- **Pick again** on a pick step in History (and `HIST, REPICK, n, "FACE, 12"`): pick again with
+  the model as it was just before that step; clicks then select without adding steps.
+- `SCHECK`: what is wrong with a sketch, or still loose, named by geometry and constraint.
+
+### Changed
+- `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
+- Faces and edges that get a new ID remember what they were made from (a fillet face the edge it
+  rounds, the smaller piece of a split face that face); a pick uses it to tell look-alikes apart
+  and to find a face whose size changed upstream.
+- Sketch trims treat a tangent touch within a millionth of the sketch's size as touching.
+- A closed-chain `SOFFSET` too big for a linked offset cuts its loops away (a slot closes, an
+  outline splits) instead of making an outline that crosses itself.
+- A sketch turn (`STRANSFORM, ROTATE`) by any angle keeps horizontal and vertical as an angle plus
+  parallel and square constraints, so a turned rectangle stays a rectangle.
+- Big sketches rebuild about 4 times faster (500 curves: from 22 s to 5 s per rebuild).
+
 ## [0.5.0] - 2026-11-19
 
 ### Added

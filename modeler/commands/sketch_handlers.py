@@ -714,3 +714,41 @@ def sketch_listing(p: Processor, name: str = "") -> list[str]:
             size = f" = {fmt_num(c.value)}{' deg' if c.kind == 'ANGLE' else ''}"
         lines.append(f"  C{c.n} {c.kind.lower()} {', '.join(c.refs)}{size}")
     return lines
+
+
+@command(
+    "SCHECK",
+    Arg("name", str, "", help="the sketch (left out: the open one, or the last one made)"),
+    Arg("fmt", str, "TEXT", help="TEXT, JSON, or SEL to also select what it found (in an open sketch)"),
+    logged=False,
+    help=(
+        "What is wrong with a sketch, or still loose, named by geometry and constraint: constraints that "
+        "fight or only repeat others (and which ones), geometry that can still move and how, curves drawn "
+        "twice or too small, and whether the profile is closed. SCHECK · SCHECK, s1 · SCHECK, , SEL"
+    ),
+)
+def scheck(p: Processor, name, fmt):
+    import json
+
+    from ..sketch import check as chk
+
+    m = p.model
+    key = (name or m.active_sketch or (list(m.sketches)[-1] if m.sketches else "")).upper()
+    if not key:
+        raise CommandError("SCHECK: there is no sketch")
+    try:
+        sk = m.sketch(key)
+    except ModelError as exc:
+        raise CommandError(f"SCHECK: {exc}") from None
+    res = chk.check(sk)
+    fmt = fmt.upper()
+    if fmt == "SEL":
+        if m.active_sketch != sk.name.upper():
+            raise CommandError(f"SCHECK: open sketch {sk.name} to select in it (SKETCH, {sk.name})")
+        m.sketch_selection = [t for t in res["select"] if not t.startswith("C")]
+        from ..core.model import Event
+
+        m._emit(Event("sketch_selection"))
+    if fmt == "JSON":
+        return json.dumps(res, separators=(",", ":"))
+    return chk.as_text(res)
