@@ -322,7 +322,7 @@ def deviation(scan_pts: np.ndarray, scan_tris: np.ndarray | None, shape, tol: fl
     near_scan = cKDTree(q[keep]) if keep.any() else None
     if near_scan is not None:
         gap, _ = near_scan.query(tg.centres)
-        covered_tri = gap <= max(3 * spacing, tol)
+        covered_tri = gap <= max(spacing, tol)  # within one point spacing of the scan
     else:
         covered_tri = np.zeros(len(tg.centres), dtype=bool)
     face_of_pt = tg.face_of_tri[tri]
