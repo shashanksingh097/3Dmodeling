@@ -4,6 +4,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
 ### Added
 
 - **User guide website** (https://shashanksingh097.github.io/3Dmodeling/):
