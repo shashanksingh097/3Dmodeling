@@ -41,3 +41,5 @@ bracket_strength.cmd | A first strength check: an aluminium bracket bolted to a 
 print_check.cmd | Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK) | 1,-1,-0.5
 milled_plate.cmd | 2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL) | ISO
 gravity_check.cmd | Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY) | ISO
+gear_train.cmd | Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER) | 0.5,-1,1.1
+plastic_case.cmd | A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT) | 1,-0.8,-1

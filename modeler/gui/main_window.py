@@ -642,6 +642,7 @@ class MainWindow(QMainWindow):
         form(tb, "Array…", "array", "ARRAY", "Copies of a body in a row, a grid or round an axis")
         form(tb, "Pattern…", "pattern", "PATTERN", "Repeat history steps (a hole, a boss) along a row or round an axis")
         form(tb, "Mirror…", "mirror", "MIRROR", "A mirror copy of a body")
+        form(tb, "Scale…", "scale", "SCALE", "Make a body bigger or smaller about a point (or per axis)")
 
         # picking and the view are on Home, and in the quick-access icons on every tab
         tb = tbs.group(self, "Pick", "pick", "Home")
@@ -743,6 +744,24 @@ class MainWindow(QMainWindow):
         tbs.action(self, tb, "Cut list", "cutlist", "The frame's cut list: each member's profile, length and end "
                                                     "cuts, with how many\nRuns: CUTLIST",
                    lambda: self.execute("CUTLIST"))
+
+        tb = tbs.group(self, "Standard parts", "standard", "Features")
+        tbs.action(self, tb, "Gear…", "gear", "An involute gear (spur, helical, internal) or a rack from a module and "
+                                             "a tooth count\nRuns: GEAR, x,y,z, module, teeth, width [, kind, helix]",
+                   lambda: self.open_form("GEAR"))
+        tbs.action(self, tb, "Fastener…", "fastener", "An ISO cap screw, hex bolt, nut or washer, M3 to M24, plain or "
+                                                     "with real threads\nRuns: FASTENER, kind, size, x,y,z [, length]",
+                   lambda: self.open_form("FASTENER"))
+
+        tb = tbs.group(self, "Plastic parts", "plastic", "Features")
+        tbs.action(self, tb, "Boss…", "boss", "A screw boss with support ribs on a face of the part\n"
+                                             "Runs: BOSS, body, x,y,z, h, od [, hole, ribs]", lambda: self.open_form("BOSS"))
+        tbs.action(self, tb, "Snap hook…", "snap", "A cantilever snap hook, with the strain it takes to snap in\n"
+                                                  "Runs: SNAP, body, x,y,z, length, width, thickness",
+                   lambda: self.open_form("SNAP"))
+        tbs.action(self, tb, "Vent…", "vent", "A grille of slots cut through the wall under the picked flat face\n"
+                                             "Runs: VENT, count, length, width [, pitch, angle]",
+                   lambda: self.open_form("VENT"))
 
         tb = tbs.group(self, "Freeform", "freeform", "Freeform")
         act(tb, "Control points", "cpoints", "Show the control points of the picked curve or surface; drag one to "

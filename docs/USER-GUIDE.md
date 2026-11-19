@@ -353,6 +353,21 @@ cut. **Wrap** lays a sketch round a cylindrical or conical face, raised or
 cut, for grips, labels and bands. Details: LANGUAGE.md section 32; an example is
 `scripts/enclosure_halves.cmd`.
 
+**Gears and fasteners.** **Gear…** (Features tab, Standard parts) makes
+spur, helical and internal gears and racks from a module and a tooth
+count; the message says the centre distance to a mating gear. **Fastener…**
+makes ISO cap screws, hex bolts, nuts and washers from M3 to M24, plain or
+with real threads, named and made of steel. **Scale…** (Model tab) makes a
+body bigger or smaller. Fillets can change radius along an edge
+(`FILLET, 1, 4`), and chamfers can be uneven (`CHAMFER, 1, 3`). Details:
+LANGUAGE.md section 41; an example is `scripts/gear_train.cmd`.
+
+**Plastic parts.** On the Features tab, **Boss…** adds a screw boss with
+ribs, **Snap hook…** a cantilever hook (with the strain it takes to snap
+in), and **Vent…** a grille of slots through the wall under the picked
+flat face. Details: LANGUAGE.md section 42; an example is
+`scripts/plastic_case.cmd`.
+
 **Exploded views.** Record how an assembly comes apart with `XSTEP` (the
 command menu, under Parts): each step moves some parts by a distance.
 `XSHOW, name` then shows the parts apart with thin trail lines back to

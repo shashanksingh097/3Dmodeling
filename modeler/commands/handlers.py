@@ -383,11 +383,15 @@ def intersect(p: Processor, a, b, **more):
     return _boolean(p, "INTERSECT", BRepAlgoAPI_Common, a, [b, *more.values()])
 
 
-def _blend(p: Processor, name: str, size: float) -> str:
-    """Round or bevel the selected edges (all edges of selected bodies)."""
+def _blend(p: Processor, name: str, size: float, size2: float = 0.0) -> str:
+    """Round or bevel the selected edges (all edges of selected bodies). With size2, a fillet's radius goes
+    from size to size2 along each edge, and a chamfer is size on one face and size2 on the other."""
     m = p.model
     if size <= 0:
         raise CommandError(f"{name}: size must be positive")
+    if size2 < 0:
+        raise CommandError(f"{name}: the second size cannot be negative")
+    ratio = size2 / size if size2 else 1.0
     if not m.selection or m.selection_kind not in ("EDGE", "BODY"):
         raise CommandError(f"{name}: select edges (or bodies) first, e.g. PICK, EDGE, 5")
     if m.selection_kind == "BODY":
@@ -402,10 +406,17 @@ def _blend(p: Processor, name: str, size: float) -> str:
         source = m.bodies[bid].shape
         edge_shapes = [_as_edge(m.entity_shape("EDGE", gid)) for gid in edges]
 
+        faces_of = _edge_faces(source) if name == "CHAMFER" and size2 else None
+
         def build(value: float, source=source, edge_shapes=edge_shapes):
             mk = maker_cls(source)
             for e in edge_shapes:
-                mk.Add(value, e)
+                if ratio == 1.0:
+                    mk.Add(value, e)
+                elif name == "FILLET":
+                    mk.Add(value, value * ratio, e)
+                else:
+                    mk.Add(value, value * ratio, e, _first_face(faces_of, e))
             mk.Build()
             return mk if mk.IsDone() else None
 
@@ -425,8 +436,25 @@ def _blend(p: Processor, name: str, size: float) -> str:
                 f"run into each other. The largest {what} that works here is about {_sig(limit)}."
             )
         body = m.replace([bid], robust.unwrap(mk.Shape()), mk)
-        msgs.append(_added(p, body, f"{name} {size:g} on {len(edges)} edges of body {bid}"))
+        sizes = f"{size:g}" + (f" to {size2:g}" if size2 and name == "FILLET" else f" and {size2:g}" if size2 else "")
+        msgs.append(_added(p, body, f"{name} {sizes} on {len(edges)} edges of body {bid}"))
     return "\n".join(msgs)
+
+
+def _edge_faces(shape):
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
+    from OCP.TopExp import TopExp
+
+    amap = robust._EdgeFaceMap()
+    TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, amap)
+    return amap
+
+
+def _first_face(amap, edge):
+    faces = amap.FindFromKey(edge)
+    if (faces.Size() if hasattr(faces, "Size") else faces.Extent()) == 0:
+        raise CommandError("CHAMFER: an edge has no face")
+    return robust._first_face(faces)
 
 
 def _sig(v: float) -> str:
@@ -437,14 +465,18 @@ def _sig(v: float) -> str:
     return f"{math.floor(v / step) * step:g}"
 
 
-@command("FILLET", Arg("r"), help="Round the selected edges (or all edges of selected bodies) with radius r.")
-def fillet(p: Processor, r):
-    return _blend(p, "FILLET", r)
+@command("FILLET", Arg("r"), Arg("r2", float, 0.0, "the radius at the other end of each edge (0: the same)"),
+         help="Round the selected edges (or all edges of selected bodies) with radius r: FILLET, 2 · FILLET, 1, 4 "
+              "(the radius grows from 1 to 4 along each edge).")
+def fillet(p: Processor, r, r2):
+    return _blend(p, "FILLET", r, r2)
 
 
-@command("CHAMFER", Arg("d"), help="Bevel the selected edges (or all edges of selected bodies) by distance d.")
-def chamfer(p: Processor, d):
-    return _blend(p, "CHAMFER", d)
+@command("CHAMFER", Arg("d"), Arg("d2", float, 0.0, "the distance on the other face (0: the same)"),
+         help="Bevel the selected edges (or all edges of selected bodies) by distance d: CHAMFER, 1 · CHAMFER, 1, 3 "
+              "(1 on one face, 3 on the other).")
+def chamfer(p: Processor, d, d2):
+    return _blend(p, "CHAMFER", d, d2)
 
 
 # =============================================================================
@@ -611,6 +643,52 @@ def mirror(p: Processor, b, x, y, z, nx, ny, nz, copy):
     t = gp_Trsf()
     t.SetMirror(gp_Ax2(gp_Pnt(x, y, z), gp_Dir(nx, ny, nz)))
     return _transform(p, b, t, "MIRROR", copy=bool(copy))
+
+
+@command(
+    "SCALE",
+    Arg("b", BodyRef), Arg("f", help="the scale factor (2: twice as big, 0.5: half)"),
+    Arg("x", float, 0.0, "the point that stays put"), Arg("y", float, 0.0), Arg("z", float, 0.0),
+    Arg("fy", float, 0.0, "a different factor along Y (0: the same as f)"),
+    Arg("fz", float, 0.0, "a different factor along Z (0: the same as f)"),
+    help="Make a body bigger or smaller about the point (x,y,z): SCALE, 3, 2 · SCALE, LAST, 0.5, 10,0,0 · "
+         "SCALE, 3, 1, 0,0,0, 1, 2 (twice as tall only). With different factors round faces become ellipses, "
+         "so the body's faces are turned into general splines.",
+)
+def scale(p: Processor, b, f, x, y, z, fy, fz):
+    if f <= 0 or fy < 0 or fz < 0:
+        raise CommandError("SCALE: the factors must be positive")
+    fy, fz = fy or f, fz or f
+    if abs(fy - f) < 1e-12 and abs(fz - f) < 1e-12:
+        t = gp_Trsf()
+        t.SetScale(gp_Pnt(x, y, z), f)
+        return _transform(p, b, t, f"scaled {f:g}x", copy=False)
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_GTransform
+    from OCP.gp import gp_GTrsf, gp_Mat, gp_XYZ
+
+    from ..geometry import meshbody
+
+    m = p.model
+    shape = m.body(b).shape
+    what = f"scaled {f:g} x {fy:g} x {fz:g}"
+    if meshbody.is_mesh(shape):
+        import numpy as np
+
+        from ..geometry.nurbs import SameTopology
+
+        pts, tri = meshbody.arrays(shape)
+        c = np.array([x, y, z])
+        new = meshbody.make_shape((pts - c) * np.array([f, fy, fz]) + c, tri)
+        m.replace([b], new, _Made(new, SameTopology(shape, new)), same_id=True)
+        return f"{what} body {b}"
+    g = gp_GTrsf()
+    g.SetVectorialPart(gp_Mat(f, 0, 0, 0, fy, 0, 0, 0, fz))
+    g.SetTranslationPart(gp_XYZ(x * (1 - f), y * (1 - fy), z * (1 - fz)))
+    mk = BRepBuilderAPI_GTransform(shape, g, True)
+    if not mk.IsDone() or not robust.is_valid(mk.Shape()):
+        raise CommandError("SCALE: the kernel could not stretch this body")
+    body = m.replace([b], mk.Shape(), mk, same_id=True)
+    return f"{what} body {b}" + ("" if body.name == f"body{b}" else f" '{body.name}'")
 
 
 @command("DELETE", Arg("b", BodyRef), help="Delete a body.")

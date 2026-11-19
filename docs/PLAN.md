@@ -938,5 +938,32 @@ three to a pull request:
     and whether the centre of mass (from the materials) sits over the
     footprint and how far it can lean before tipping. Words plus colours.
 
+More features not yet in the app (added 2026-11-19, after release 0.4.0),
+about three to a pull request:
+
+31. **Gears and standard fasteners** (done: `GEAR`, `FASTENER`; helical racks later): `GEAR` (involute spur and helical
+    gears from a module and a tooth count, internal gears and racks, with a
+    bore, and the centre distance to a mating gear), and `FASTENER` (ISO
+    socket head cap screws, hex bolts, nuts and washers from M3 to M24 at
+    any length, with real threads on request).
+32. **Missing shape edits** (done): `SCALE` (a body made bigger or smaller about a
+    point, the same in every direction or per axis), fillets whose radius
+    changes along the edge (`FILLET, r, r2`), and chamfers with two
+    distances (`CHAMFER, d, d2`).
+33. **Plastic part features** (done: `BOSS`, `SNAP`, `VENT`): screw bosses with support ribs (`BOSS`),
+    snap hooks (`SNAP`), and vents (`VENT`: a grille of slots cut through
+    a face).
+34. **Mould tools**: the parting line for a pull direction (`PARTING`:
+    faces seen from above, from below, and the ones that need draft), and
+    the two mould halves (`MOLD`: core and cavity from a block around the
+    part, with a shrink allowance).
+35. **Welds and fits**: weld beads along the joints of a frame (`WELD`,
+    with their length in the cut list), and ISO 286 fits (`FITS` names
+    such as H7/g6 on holes and shafts: the limits, the clearance or
+    interference, shown on drawings).
+36. **Notes and sizes on the 3D model**: sizes, hole notes and text
+    pinned to faces and edges (`NOTE`), kept with the project, shown in the
+    view and carried onto drawing sheets.
+
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

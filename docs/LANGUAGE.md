@@ -263,7 +263,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Primitives | `BLOCK, x,y,z, dx,dy,dz` · `CYL, x,y,z, r, h [, dx,dy,dz] [, angle]` · `TUBE, x,y,z, ro, ri, h [, axis]` · `CONE, x,y,z, r1, r2, h [, axis]` · `SPHERE, x,y,z, r` · `TORUS, x,y,z, ring_r, tube_r [, axis]` · `WEDGE, x,y,z, dx,dy,dz, ltx` |
 | Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name; `SEL` in place of the tools means every selected body) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
 | Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original, or `CUT, target` to cut them all from another body in one step · `PATTERN, LINEAR/POLAR, b, steps, n, ...` repeats a feature (section 21) |
-| Blends | `FILLET, r` · `CHAMFER, d` (on the selected edges, or all edges of the selected bodies) |
+| Blends | `FILLET, r [, r2]` · `CHAMFER, d [, d2]` (on the selected edges, or all edges of the selected bodies; `r2`: the radius grows from r to r2 along each edge; `d2`: d on one face and d2 on the other) |
 | Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
@@ -271,7 +271,9 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
-| Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
+| Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
+| Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
+| Plastic parts | `BOSS, b, x,y,z, h, od [, hole, ribs, depth, dx,dy,dz]` · `SNAP, b, x,y,z, length, width, thickness [, overhang, up, hook direction, lead, catch]` · `VENT, count, length, width [, pitch, angle, depth, u, v]` (section 42) |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
 | Shapes on curves | `LOFT, s1, s2, ... [, RULED] [, CLOSED] [, SURFACE] [, GUIDE, g1, g2, ...]` · `SPINELOFT, spine, s1, s2, ... [, FRENET/FIXED] [, SURFACE]` (section 20) · `SWEEP, profile, path [, twist, scale, mode, sx, sy, ox, oy, n, solid, on]` · `MORPH, path, twist, scale, mode, s1, s2, ...` · `RAILSWEEP, profile, rail1 [, rail2] ...` (section 19) · `PIPE, path, r [, ri, radius_law, mode]` (section 9) |
@@ -2960,3 +2962,102 @@ The working view, its lights and its looks are put back afterwards.
 
 `RENDER` needs the app's 3D view: in a plain script run without the app it
 says so.
+
+## 41. Gears, fasteners and scaling
+
+```
+GEAR, 0,0,0, 2, 20, 10                   ! spur gear: module 2, 20 teeth, 10 wide
+GEAR, 50,0,0, 2, 30, 10, , , 8           ! 30 teeth, an 8 mm bore
+ROTATE, LAST, 6, 50,0,0                  ! half a tooth (180/30), so the two mesh
+GEAR, 0,0,0, 2, 20, 10, , 15             ! helical, 15 degrees (its mate: -15)
+GEAR, 0,0,0, 1, 60, 6, INTERNAL, , 70    ! a ring gear, 70 outside
+GEAR, 0,-20,0, 2, 12, 8, RACK            ! a rack of 12 teeth along +X
+FASTENER, CAP, M8, 0,0,10, 25            ! an M8x25 socket head cap screw, head on z = 10
+FASTENER, WASHER, M8, 0,0,10             ! a washer under the head
+FASTENER, NUT, M8, 0,0,-12               ! a nut hanging under a plate at z = -12
+FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL   ! a hex head screw with real threads
+SCALE, 3, 2                              ! twice as big, about the origin
+SCALE, 3, 1, 0,0,0, 1, 3                 ! three times as tall only
+FILLET, 1, 4                             ! the radius grows from 1 to 4 along each edge
+CHAMFER, 1, 3                            ! 1 on one face, 3 on the other
+```
+
+**Gears.** `GEAR` makes an involute gear about the axis through (x,y,z)
+(`dx,dy,dz`, default +Z), its bottom face on the point. The size is set by
+the **module** (the pitch diameter is module x teeth) and the tooth count;
+the pressure angle is 20 degrees unless given. The message gives the pitch,
+tip and root diameters and the centre distance to a mating gear.
+
+- **Placing a pair.** Two gears of z1 and z2 teeth mesh at the centre
+  distance module x (z1 + z2) / 2. A tooth of each gear points along its
+  local X axis, so put the second gear along X and, when z2 is even, turn
+  it by 180/z2 degrees so a tooth falls into a gap. `CLASH` then says the
+  two touch without overlapping.
+- **Helical gears** (`helix`, degrees) twist the teeth; the module is then
+  the normal module, and the mate needs the opposite angle.
+- **Internal gears** are a ring with the teeth inside (`rim` is the
+  outside diameter). A gear of z1 teeth inside one of z2 teeth fits as
+  made, along X, at module x (z2 - z1) / 2.
+- **Racks** run along +X with their pitch line at the local Y = 0 and
+  the teeth facing +Y (`rim` is the thickness under the roots). Gaps come
+  every pitch (pi x module) from the start; a gear meshes with its centre
+  module x z / 2 above a gap, turned so a tooth points down.
+
+**Fasteners.** `FASTENER` makes a standard part from the ISO tables, M3 to
+M24: `CAP` (ISO 4762 socket head cap screw), `HEXBOLT` (ISO 4017 hex head
+screw), `NUT` (ISO 4032) and `WASHER` (ISO 7089). The point is the seat:
+the face the head, washer or nut bears on. `dx,dy,dz` is the way the screw
+points (default -Z): heads and washers stand up from the seat, a nut hangs
+the other way, along the screw. Screws need their length under the head.
+`PLAIN` (the default) leaves a smooth shank at the nominal diameter, quick
+to build and to fit; `REAL` cuts helical ISO threads (a few seconds each).
+The body is named after it (`M8x25_CAP_1`, `M8_NUT_1`) and made of steel,
+so `GRAVITY` can list it as fastened and `BOM` gives its mass.
+
+**Scaling.** `SCALE` makes a body bigger or smaller about a point that
+stays put. One factor keeps the shape; with different factors along X, Y
+and Z round faces become ellipses, so the faces are turned into general
+splines. Mesh bodies scale too.
+
+**Fillets and chamfers with two sizes.** `FILLET, r, r2` grows the radius
+from r at one end of each edge to r2 at the other. `CHAMFER, d, d2` cuts
+d along one face and d2 along the other.
+
+An example is `scripts/gear_train.cmd`.
+
+## 42. Plastic parts: bosses, snap hooks and vents
+
+```
+BOSS, case, 20,15,2, 10, 7, 2.5          ! a boss 10 tall, 7 across, a 2.5 hole, 4 ribs
+BOSS, case, 20,15,28, 10, 7, 2.5, 0, 6, 0,0,-1   ! no ribs, a 6 deep hole, hanging down
+SNAP, lid, 0,20,2, 12, 6, 1.5            ! a snap hook 12 long, 6 wide, 1.5 thick
+SNAP, lid, 0,20,2, 12, 6, 1.5, 1, , , , -1,0,0, 30, 45   ! catch 1, facing -X, lets go
+PICK, FACE, 12
+VENT, 6, 20, 2                           ! six slots 20 x 2, 4 apart, through the wall
+VENT, 6, 20, 2, 3, 90, , 10              ! turned 90 degrees, moved 10 along the slots
+```
+
+**Bosses.** `BOSS` adds a screw boss to a part: a post of the outside
+diameter standing on (x,y,z) along `dx,dy,dz` (default +Z), with a hole
+from its free end (`hole`, `depth`: default down to the foot) and support
+ribs round it (`ribs`, default 4, reaching 0.75 x od out and sloping down
+from 0.8 of the height). Put the foot on a face of the part: the boss is
+joined to it.
+
+**Snap hooks.** `SNAP` adds a cantilever hook: a beam of the thickness
+standing on (x,y,z) along `dx,dy,dz`, with a catch at its tip facing
+`hx,hy,hz` (default +X). The point is on the catch side of the beam; the
+beam goes back from it by its thickness. The catch sticks out by
+`overhang` (default the thickness); `lead` is the slope that pushes it in
+and `catch` the angle that holds (90 holds for good, less lets it be pulled
+apart). The message gives the bending strain it takes to snap in, and says
+when it is more than the 2 to 5% most plastics take.
+
+**Vents.** `VENT` cuts a grille of slots through the wall under the
+selected flat face, centred on it: `count` slots of `length` x `width`,
+`pitch` apart (default twice the width), turned by `angle` in the face and
+moved by `u` (along the slots) and `v` (across them). The depth is the wall
+under the middle of the face unless given. Slots that would run off the
+face are refused.
+
+An example is `scripts/plastic_case.cmd`.
