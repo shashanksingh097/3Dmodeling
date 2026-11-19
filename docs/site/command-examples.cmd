@@ -129,9 +129,8 @@ ENDSKETCH
 EXTRUDE, logo, 3
 
 @ IMAGE
-! Show a picture 120 wide on the XZ plane, to draw over it. It is not a body.
-IMAGE, logo.png, ZX, 120
-IMAGE, CLEAR
+! Show a picture 120 wide on the XY plane, to draw over it. It is not a body; IMAGE, CLEAR takes it away.
+IMAGE, logo.png, XY, 120
 
 ! ===================================================================== Curves
 
@@ -925,9 +924,10 @@ NAME, LAST, helper
 DELETE, helper
 
 @ HIDE
-! Hide a body in the view; it stays in the model.
+! Hide a body in the view; it stays in the model (here the cylinder goes, the block stays).
 BLOCK, 0,0,0, 40, 20, 5
-HIDE, 1
+CYL, 20,10,5, 5, 20
+HIDE, 2
 
 @ SHOW
 ! Show hidden bodies again.
@@ -964,12 +964,14 @@ BLOCK, 0,0,0, W, 10, 5
 ! ===================================================================== Layers, colours, materials
 
 @ LAYER
-! Make a layer with a colour; new bodies go on it. Then hide it.
+! Make a layer with a colour; new bodies go on it. Then lock it so nothing on it can change.
+BLOCK, -20,-20,-5, 40, 40, 5
 LAYER, bolts, NEW, #3080ff
 LAYER, bolts
 CYL, 0,0,0, 4, 20
+CYL, 12,0,0, 4, 20
 LAYER, DEFAULT
-LAYER, bolts, OFF
+LAYER, bolts, LOCK
 
 @ COLOR pic
 ! Colour bodies by name, by hex code or by red, green, blue.
@@ -1034,7 +1036,8 @@ POINT, corner, VERTEX, 1
 POINT, c, CENTER, BODY, 1
 
 @ DATUM
-! Remove a datum plane.
+! Remove a datum plane that is no longer needed.
+BLOCK, 0,0,0, 40, 20, 10
 PLANE, temp, XY, 10
 DATUM, DELETE, temp
 
@@ -1689,7 +1692,10 @@ EXTRUDE, s1, 5
 @ SPOINT
 ! A sketch point, for constraints to hold things to.
 SKETCH, s1, XY
-SPOINT, 10, 10
+SRECT, 0, 0, 40, 20
+SPOINT, 20, 10
+SCIRCLE, 20, 10, 4
+SCON, COINCIDENT, 6.C, 5
 ENDSKETCH
 
 @ SCON
