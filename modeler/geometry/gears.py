@@ -247,9 +247,11 @@ def internal(module: float, teeth: int, width: float, helix_deg: float = 0.0, ou
     return _cut(ring, space), g, od
 
 
-def rack(module: float, teeth: int, width: float, back: float = 0.0, pressure_deg: float = 20.0):
-    """A straight rack along +X: teeth on top (pitch line at Y = 0), a bar of thickness ``back`` under the
-    roots, extruded along Z by the width. Returns (shape, pitch, total length)."""
+def rack(module: float, teeth: int, width: float, back: float = 0.0, pressure_deg: float = 20.0,
+         helix_deg: float = 0.0):
+    """A rack along +X: teeth on top (pitch line at Y = 0), a bar of thickness ``back`` under the
+    roots, extruded along Z by the width; with a helix angle the teeth lean along X as they go up Z
+    (it meshes with a helical gear of the same angle). Returns (shape, pitch along X, total length)."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
     from OCP.gp import gp_Pnt, gp_Vec
@@ -258,8 +260,11 @@ def rack(module: float, teeth: int, width: float, back: float = 0.0, pressure_de
         raise GearError("the module and the width must be positive")
     if teeth < 1 or teeth != int(teeth):
         raise GearError("a rack needs a whole number of teeth")
-    a = math.radians(pressure_deg)
-    p = math.pi * module
+    if abs(helix_deg) >= 60:
+        raise GearError("the helix angle must be less than 60 degrees")
+    b = math.radians(helix_deg)
+    a = math.atan(math.tan(math.radians(pressure_deg)) / math.cos(b))  # the pressure angle across X
+    p = math.pi * module / math.cos(b)
     ha, hf = ADDENDUM * module, DEDENDUM * module
     back = back or 2 * module
     t = math.tan(a)
@@ -276,5 +281,98 @@ def rack(module: float, teeth: int, width: float, back: float = 0.0, pressure_de
     for x, y in pts:
         poly.Add(gp_Pnt(x, y, 0))
     poly.Close()
-    face = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
-    return BRepPrimAPI_MakePrism(face, gp_Vec(0, 0, width)).Shape(), p, length
+    if abs(helix_deg) < 1e-9:
+        face = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
+        return BRepPrimAPI_MakePrism(face, gp_Vec(0, 0, width)).Shape(), p, length
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
+    from OCP.gp import gp_Trsf
+    from OCP.TopoDS import TopoDS
+
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(width * math.tan(b), 0, width))
+    top = (getattr(TopoDS, "Wire_s", None) or TopoDS.Wire)(BRepBuilderAPI_Transform(poly.Wire(), t, True).Shape())
+    loft = BRepOffsetAPI_ThruSections(True, True, 1e-6)
+    loft.AddWire(poly.Wire())
+    loft.AddWire(top)
+    loft.Build()
+    if not loft.IsDone():
+        raise GearError("the helical rack could not be made")
+    return loft.Shape(), p, length
+
+
+def bevel(module: float, teeth: int, mate: int, width: float, bore: float = 0.0, pressure_deg: float = 20.0):
+    """A straight bevel gear for a mate of ``mate`` teeth on an axis at right angles. The back (large
+    end) face is at Z = 0, the teeth run up the pitch cone towards its apex on the axis. The tooth
+    outline is the spur gear's, shrunk towards the apex (a close stand-in for the true one).
+    Returns (shape, GearSize at the large end, pitch cone angle in degrees, apex height)."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
+    from OCP.gp import gp_Pnt, gp_Trsf
+    from OCP.TopoDS import TopoDS
+
+    if width <= 0:
+        raise GearError("the face width must be positive")
+    if mate < 6 or mate != int(mate):
+        raise GearError("the mate needs a whole number of teeth, at least 6")
+    g = size(module, teeth, pressure_deg)
+    delta = math.atan2(teeth, mate)
+    cone = g.pitch_r / math.sin(delta)  # pitch cone distance, apex to the large end
+    apex = g.pitch_r / math.tan(delta)
+    if width > cone / 3 + 1e-9:
+        raise GearError(f"the face width should be at most a third of the cone distance ({cone / 3:.4g})")
+    w = _wire(outline(g, g.tip_r, g.root_r))
+    k = (cone - width) / cone
+    t = gp_Trsf()
+    t.SetScale(gp_Pnt(0, 0, apex), k)
+    small = (getattr(TopoDS, "Wire_s", None) or TopoDS.Wire)(BRepBuilderAPI_Transform(w, t, True).Shape())
+    loft = BRepOffsetAPI_ThruSections(True, True, 1e-6)
+    loft.AddWire(w)
+    loft.AddWire(small)
+    loft.Build()
+    if not loft.IsDone():
+        raise GearError("the bevel teeth could not be made")
+    shape = loft.Shape()
+    if bore:
+        if not 0 < bore < 2 * g.root_r * k * 0.9:
+            raise GearError(f"the bore must be smaller than the small end's root circle "
+                            f"(diameter {2 * g.root_r * k:.4g})")
+        shape = _cut(shape, _cyl(bore / 2, apex + 2, -1))
+    return shape, g, math.degrees(delta), apex
+
+
+def worm(module: float, starts: int, length: float, pitch_d: float = 0.0, pressure_deg: float = 20.0):
+    """A worm along +Z from 0 to ``length``: ``starts`` threads of axial pitch pi x module (lead: starts
+    pitches), right hand. Returns (shape, pitch diameter, lead angle in degrees)."""
+    from . import threads as th
+
+    if module <= 0 or length <= 0:
+        raise GearError("the module and the length must be positive")
+    if starts < 1 or starts > 6 or starts != int(starts):
+        raise GearError("a worm has 1 to 6 starts (threads)")
+    d1 = pitch_d or 10 * module
+    if d1 < 4 * module:
+        raise GearError(f"the worm's pitch diameter must be at least 4 modules ({4 * module:g})")
+    px = math.pi * module
+    lead = starts * px
+    a = math.radians(pressure_deg)
+    r1 = d1 / 2
+    tip, root = r1 + ADDENDUM * module, r1 - DEDENDUM * module
+    over = 0.3 * module
+    half_root = px / 4 - DEDENDUM * module * math.tan(a)
+    if half_root <= 0:
+        raise GearError("the pressure angle is too big for this module: the gaps close at the root")
+    sec = [(root, -half_root), (tip + over, -(px / 4 + (ADDENDUM * module + over) * math.tan(a))),
+           (tip + over, px / 4 + (ADDENDUM * module + over) * math.tan(a)), (root, half_root)]
+    shape = _cyl(tip, length)
+    turns = length / lead + 2
+    for k in range(int(starts)):
+        o = (0.0, 0.0, -lead + k * px)
+        profile = th._polygon([(r, 0.0, o[2] + z) for r, z in sec])
+        path = th.helix_wire(o, (0, 0, 1), (1, 0, 0), (root + tip + over) / 2, lead, turns)
+        try:
+            tool = th._sweep(profile, path, (0, 0, 1), "worm thread")
+        except th.ThreadError as exc:
+            raise GearError(str(exc)) from None
+        shape = _cut(shape, tool)
+    return shape, d1, math.degrees(math.atan(lead / (math.pi * d1)))

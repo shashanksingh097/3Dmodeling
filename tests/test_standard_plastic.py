@@ -75,7 +75,7 @@ def test_helical_internal_and_rack():
     assert "12 teeth" in r.message
     lo, hi = bounds(p.model.bodies[4].shape)
     assert math.isclose(hi[0] - lo[0], 12 * math.pi * 2, rel_tol=1e-6)
-    fails(p, "GEAR, 0,0,0, 2, 20, 10, WORM", "EXTERNAL, INTERNAL or RACK")
+    fails(p, "GEAR, 0,0,0, 2, 20, 10, WORMY", "EXTERNAL, INTERNAL, RACK")
     fails(p, "GEAR, 0,0,0, 2, 20.5, 10", "whole number")
     fails(p, "GEAR, 0,0,0, 2, 20, 10, , , 50", "smaller than the root circle")
 

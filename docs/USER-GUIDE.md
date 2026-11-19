@@ -228,7 +228,10 @@ push (**Extrude**) or turn (**Revolve**) into a solid.
    **Offset both…** (a slot along the selected path), **Join to spline**
    (the selected curves, end to end, as one smooth spline), **Project…** and
    **Cut bodies…** (the section of bodies in the sketch plane) are there too.
-   Trim, Extend, Split and Fillet work on splines as well.
+   Trim, Extend, Split and Fillet work on splines as well. **From DXF…**
+   reads a 2D DXF drawing into the sketch, **Trace picture…** traces the
+   dark shapes of a picture into it, and **Picture…** shows a picture on a
+   plane behind the model to draw over.
 5. Press **Extrude…** or **Revolve…**. Make a new body, add a boss to the
    body under the sketch, or cut a pocket.
 
@@ -327,7 +330,11 @@ still and the faces the load acts on, and give the force (N) or pressure
 message says the largest stress, the deflection and the safety factor
 from the part's material. It is a quick check while you design, not a full
 analysis. Details: LANGUAGE.md section 37; an example is
-`scripts/bracket_strength.cmd`.
+`scripts/bracket_strength.cmd`. **Topology…** next to it asks the same
+question the other way round: which share of the part carries the load
+best? It keeps that much material as a mesh body (the part is hidden) to
+model a real part after, and then check with Strength. An example is
+`scripts/topo_bracket.cmd`.
 
 **Will it stand up?** **Gravity** on the Inspect tab checks the whole
 assembly: parts that float, tip off what they rest on, or are held only at
@@ -360,7 +367,16 @@ makes ISO cap screws, hex bolts, nuts and washers from M3 to M24, plain or
 with real threads, named and made of steel. **Scale…** (Model tab) makes a
 body bigger or smaller. Fillets can change radius along an edge
 (`FILLET, 1, 4`), and chamfers can be uneven (`CHAMFER, 1, 3`). Details:
-LANGUAGE.md section 41; an example is `scripts/gear_train.cmd`.
+LANGUAGE.md section 41; an example is `scripts/gear_train.cmd`. **Gear…**
+also makes bevel gears, a worm and its worm wheel, and helical racks.
+
+**Cams.** **Cam…** (Model tab, Standard parts) makes a disc cam (or a
+barrel cam with a groove) and its roller from a lift law such as
+`R10/120 D60 F10/120 D60` (rise 10 over 120°, dwell, fall, dwell). Move
+the roller by `CAMLIFT(law, A)` when the cam turns by A, and the two work
+together in **Motion…**. **Trace path…** (Inspect tab) keeps the path a
+point on a moving part follows as a curve. Details: LANGUAGE.md section 45;
+an example is `scripts/cam_follower.cmd`.
 
 **Plastic parts.** On the Features tab, **Boss…** adds a screw boss with
 ribs, **Snap hook…** a cantilever hook (with the strain it takes to snap

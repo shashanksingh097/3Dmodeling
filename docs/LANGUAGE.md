@@ -274,6 +274,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
 | Moulds, welds, notes | `PARTING, b [, dx,dy,dz, draft]` · `MOLD, b [, wall, shrink, dx,dy,dz, level]` · `WELD, a, b [, size]` · `WELD, ALL [, size]` · `NOTE, "text", x,y,z [, x,y,z]` · `NOTE, SIZE, p1, p2` · `NOTE, HOLE` · `NOTE, FIT, H7` · `NOTE, DELETE, n` · `NOTE, CLEAR` · `FITS, H7/g6 [, size]` (section 43) |
+| Cams, traced paths, sketches from files, topology | `CAM, x,y,z, law, base, roller, width [, DISC/BARREL, bore]` · `CAMLIFT(law, A)` · `GEAR, ..., BEVEL/WORM/WORMWHEEL` · `TRACE, name, from, to, steps, body, x,y,z` · `SDXF, file [, scale, du, dv, layer]` · `STRACE, file, width [, threshold, du, dv, SPLINE/LINES]` · `IMAGE, file, plane, width` · `TOPOPT, b, fixed, loaded, FORCE, fx,fy,fz, share` (section 45) |
 | Sections, tolerances, pipes | `SECTION, plane, side, offset [, ADD]` · `STACKUP, +100 ±0.1, -60 +0/-0.05, ... [, MIN=a, MAX=b]` · `NOTE, DATUM, A` · `NOTE, GDT, kind, tol [, A, B, C]` · `ROUTE, path, PIPE/CABLE, size [, radius, name]` · `ROUTES [, file.csv]` (section 44) |
 | Plastic parts | `BOSS, b, x,y,z, h, od [, hole, ribs, depth, dx,dy,dz]` · `SNAP, b, x,y,z, length, width, thickness [, overhang, up, hook direction, lead, catch]` · `VENT, count, length, width [, pitch, angle, depth, u, v]` (section 42) |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
@@ -3190,3 +3191,70 @@ along the centreline, straight pieces, bends and tees, with the total per
 size, and writes it to CSV.
 
 Examples are `scripts/pipe_run.cmd` and `scripts/toleranced_plate.cmd`.
+
+## 45. Cams, traced paths, sketches from files and a topology check
+
+```
+LAW = "R12/150 D30 F12/150 D30"          ! rise 12 over 150°, dwell 30°, fall, dwell
+CAM, 0, 0, 0, LAW, 30, 8, 12, DISC, 10   ! base radius 30, roller 8, 12 thick, bore 10
+ROTATE, cam_1, A, 0, 0, 0, 0, 0, 1
+MOVE, cam_1_roller, CAMLIFT(LAW, A), 0, 0          ! the roller follows the cam
+CAM, 0, 0, 0, "R30/180H F30/180H", 30, 6, 80, BARREL   ! a groove round a cylinder
+GEAR, 0,0,0, 2, 20, 10, BEVEL, 0, 8, 20, 0,0,1, 30  ! a bevel gear for a 30-tooth mate
+GEAR, 0,0,0, 2, 1, 60, WORM, 0, 0, 20, 1,0,0        ! a one-start worm 60 long along X
+GEAR, 30,-8,40.15, 2, 30, 16, WORMWHEEL, 0, 10, 20, 0,1,0   ! its 30-tooth wheel
+GEAR, 0,0,0, 2, 30, 10, RACK, 15                    ! a helical rack (helix 15°)
+TRACE, A, 0, 360, 24, arm, 40, 0, 2      ! the path of a point on arm as A runs: trace_1
+SDXF, "plate.dxf", 1, 0, 0, OUTLINE      ! a DXF drawing's OUTLINE layer into the sketch
+STRACE, "logo.png", 80                   ! the dark shapes of a picture, 80 wide
+IMAGE, "front.jpg", XZ, 400, -200, 0, 0.6   ! a picture behind the model to draw over
+IMAGE, CLEAR
+TOPOPT, plate, wall, tip, FORCE, 0, 0, -1000, 0.3   ! keep the best 30% for this load
+```
+
+**Cams.** A lift law is pieces round the turn that add up to 360°: `R12/150`
+rises 12 over 150°, `D30` dwells, `F12/150` falls. A letter after a rise or
+fall picks the motion: `C` cycloidal (the default, no jump in
+acceleration), `H` simple harmonic, `P` the 3-4-5 polynomial, `V` constant
+speed. `CAM` makes the cam turning about Z through (x, y, z) and its roller,
+named `cam_k` and `cam_k_roller`. A **disc** cam pushes the roller along
++X; its outline is where the roller's circles touch. A **barrel** cam is a
+cylinder with a groove, and the roller slides along its axis. The message
+gives the stroke, the steepest pressure angle (a warning above 30°) and the
+tightest bend of the outline (an error if the roller is bigger than it, as
+the outline would cross itself). `CAMLIFT(law, A)` is the lift when the cam
+has turned A degrees: move the roller by it, and drive A with `MOTION`.
+
+**More gears.** `BEVEL` makes a straight bevel gear whose pitch cone meets
+its mate's (the `mate` argument gives the mate's teeth) at a right angle;
+the message says where the cone's apex is, and the face width can be at
+most a third of the cone distance. `WORM` takes the number of starts as its
+teeth and its length as its width; `WORMWHEEL` makes a wheel with helical
+teeth at the worm's lead angle (it is not throated, so it touches the worm
+along a line, as a first model of the pair). A `RACK` takes a helix angle
+to mesh with a helical gear of the same angle.
+
+**Traced paths.** `TRACE` runs a parameter set in the history from one
+value to another, follows a point on a body that moves with it (the body
+must only move, not change shape) and adds a spline through where the
+point goes, named `trace_k`. The parameter is put back afterwards.
+
+**Sketches from files.** In a sketch, `SDXF` reads an ASCII DXF drawing:
+lines, arcs, circles, ellipses, polylines (with bulges as arcs), splines and
+points, optionally from one layer only, scaled and shifted by du, dv. Ends
+that meet are joined, so closed outlines become profiles. `STRACE` turns a
+picture grey, splits it into dark and light at a threshold (0 to 255) and
+traces the outlines of the dark shapes, scaled to the width given, as
+smooth splines broken at sharp corners (or straight pieces with `LINES`).
+`IMAGE` shows a picture on a plane (XY, YZ, ZX or a datum plane) at a
+width, shifted by du, dv, with an opacity: it is a backdrop to draw over,
+kept with the model but not part of it.
+
+**Topology check.** `TOPOPT` fills the body with the same cells as `STRESS`,
+holds the fixed faces, loads the loaded ones and keeps the share of the
+material that makes the part stiffest (cells touching the faces stay). The
+result is a mesh body named `topo_k`, trimmed to the part, and the part is
+hidden. It is a suggestion to model a real part after on a coarse grid with
+one load case: check the part you make with `STRESS`.
+
+Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.

@@ -56,6 +56,19 @@ _COMMAND_CHOICES = {
     ("SECTION", "side"): ("ABOVE", "BELOW"),
     ("SECTION", "mode"): ("NEW", "ADD"),
     ("ROUTE", "kind"): ("PIPE", "TUBE", "CABLE"),
+    ("GEAR", "kind"): ("EXTERNAL", "INTERNAL", "RACK", "BEVEL", "WORM", "WORMWHEEL"),
+    ("FASTENER", "kind"): ("CAP", "HEXBOLT", "NUT", "WASHER"),
+    ("CAM", "kind"): ("DISC", "BARREL"),
+    ("STRESS", "kind"): ("FORCE", "PRESSURE"),
+    ("TOPOPT", "kind"): ("FORCE", "PRESSURE"),
+    ("STRACE", "smooth"): ("SPLINE", "LINES"),
+    ("LATTICE", "kind"): ("GYROID", "SCHWARZ", "DIAMOND", "CUBIC", "BCC", "OCTET"),
+    ("MATE", "kind"): ("COINCIDENT", "CONCENTRIC", "DISTANCE", "ANGLE"),
+    ("MASK", "mode"): ("PAINT", "ERASE", "CLEAR", "ALL", "INVERT"),
+    ("STRETCH", "mode"): ("KEEP", "FREE"),
+    ("TRIM", "mode"): ("REMOVE", "KEEP"),
+    ("CMSEL", "mode"): ("S", "R", "A", "U"),
+    ("SPATTERN", "kind"): ("LINEAR", "POLAR"),
 }
 _TOKEN = re.compile(r"[A-Za-z_*/][A-Za-z0-9_]*$")
 

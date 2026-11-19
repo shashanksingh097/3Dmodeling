@@ -34,6 +34,21 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   Notes on drawings now move apart instead of covering each other.
 - **Pipes and cables**: `ROUTE` bends a pipe or cable bundle along a path,
   joins routes as tees, and `ROUTES` lists lengths and bends.
+- **Cams and more gears**: `CAM` makes a disc or barrel cam and its roller
+  from a lift law, checking the pressure angle; `CAMLIFT` gives the lift
+  to move the follower by. `GEAR` adds bevel gears, worms, worm wheels and
+  helical racks. `TRACE` keeps the path of a point through a motion as a
+  curve.
+- **Sketches from drawings and pictures**: `SDXF` reads a DXF drawing into
+  a sketch, `STRACE` traces the outlines of a picture into one, and
+  `IMAGE` shows a picture on a plane to draw over.
+- **Topology check**: `TOPOPT` keeps the share of a part that carries a
+  load best, as a mesh body to model a part after.
+
+### Fixed
+
+- The command forms for `GEAR`, `FASTENER`, `STRESS`, `LATTICE`, `MATE` and
+  a few others offered the wrong list of choices for their kind or mode.
 
 ## [0.4.0] - 2026-11-19
 

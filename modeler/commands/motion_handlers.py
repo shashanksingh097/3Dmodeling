@@ -236,3 +236,120 @@ def motion(p: Processor, name, start, end, steps):
                        + (f"; the smallest gap is {smallest[0]:.4g} at {key} = {format_value(smallest[1])}"
                           if smallest else ""))
     return "\n".join([head, *lines, *summary])
+
+
+# ---- the path of a point through a motion ---------------------------------------------
+def _vertices(shape, most: int = 60):
+    import numpy as np
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_vertex = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+    out = []
+    ex = TopExp_Explorer(shape, TopAbs_VERTEX)
+    while ex.More() and len(out) < most:
+        q = BRep_Tool.Pnt_s(as_vertex(ex.Current()))
+        out.append((q.X(), q.Y(), q.Z()))
+        ex.Next()
+    return np.array(out, float)
+
+
+def rigid_fit(a, b):
+    """The rotation R and shift t that best carry points a onto points b (b ~ a @ R.T + t), and the
+    largest misfit."""
+    import numpy as np
+
+    ca, cb = a.mean(axis=0), b.mean(axis=0)
+    h = (a - ca).T @ (b - cb)
+    u, _s, vt = np.linalg.svd(h)
+    d = np.sign(np.linalg.det(vt.T @ u.T)) or 1.0
+    r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+    t = cb - ca @ r.T
+    err = float(np.max(np.linalg.norm(a @ r.T + t - b, axis=1))) if len(a) else 0.0
+    return r, t, err
+
+
+MAX_TRACE = 31  # steps: the path is kept as a SPLINE through at most 32 points
+
+
+@command(
+    "TRACE",
+    Arg("name", Text, help="the parameter that moves the assembly"),
+    Arg("start", help="its first value"),
+    Arg("end", help="its last value"),
+    Arg("steps", int, 24, f"how many steps between them (1 to {MAX_TRACE})"),
+    Arg("b", Text, help="the moving body that carries the point"),
+    Arg("x", help="the point, where it is now"), Arg("y"), Arg("z"),
+    session=True,
+    help="The path a point on a moving part follows through a motion, kept as a curve: TRACE, A, 0, 360, 24, "
+         "rod, 120,0,10 runs A from 0 to 360, follows the point 120,0,10 of body rod (as the model is now) and "
+         "adds a SPLINE through where it goes (a history step, named trace_1). The parameter is put back.",
+)
+def trace(p: Processor, name, start, end, steps, b, x, y, z):
+    import numpy as np
+
+    from .processor import REGISTRY
+
+    key = name.strip().upper()
+    if not 1 <= steps <= MAX_TRACE:
+        raise CommandError(f"TRACE: steps is 1 to {MAX_TRACE}")
+    if _assign_index(p, key) < 0:
+        raise CommandError(f"TRACE: {key} is not set by the history (write {key} = value in it first)")
+    bid = p._body_ref(REGISTRY["TRACE"], b.strip())
+    m = p.model
+    body_name = m.body(bid).name
+    ref = _vertices(m.body(bid).shape)
+    if len(ref) < 3:
+        raise CommandError(f"TRACE: body {bid} has too few corners to follow (it needs three)")
+    point = np.array([x, y, z], float)
+    before = p.drive.get(key)
+    pts = []
+    worst = 0.0
+    try:
+        for v in positions(start, end, steps):
+            drive_to(p, key, v)
+            now = m.body_by_name(body_name) if not body_name.startswith("body") else m.bodies.get(bid)
+            if now is None:
+                raise CommandError(f"TRACE: body {body_name} is gone at {key} = {format_value(v)}")
+            cur = _vertices(now.shape)
+            if cur.shape != ref.shape:
+                raise CommandError(f"TRACE: body {body_name} changes shape as {key} moves, so a point on it "
+                                   "cannot be followed")
+            r, t, err = rigid_fit(ref, cur)
+            worst = max(worst, err)
+            pts.append(point @ r.T + t)
+    finally:
+        drive_to(p, key, before)
+    size = max(1.0, float(np.ptp(ref, axis=0).max()))
+    if worst > 1e-4 * size:
+        raise CommandError(f"TRACE: body {body_name} does not just move as {key} changes (it changes shape by up "
+                           f"to {worst:.3g}), so a point on it cannot be followed")
+    span = max(float(np.linalg.norm(q - pts[0])) for q in pts)
+    if span < 1e-9 * size:
+        raise CommandError(f"TRACE: the point does not move as {key} goes from {format_value(start)} to "
+                           f"{format_value(end)}")
+    closed = len(pts) > 3 and float(np.linalg.norm(pts[-1] - pts[0])) < 1e-6 * size
+    if closed:
+        pts = pts[:-1]
+    keep = [pts[0]]
+    for q in pts[1:]:  # a point that stays put for a step adds nothing to the curve
+        if float(np.linalg.norm(q - keep[-1])) > 1e-9 * size:
+            keep.append(q)
+    fmt = lambda q: "(" + ", ".join(f"{c:.6g}" for c in q) + ")"  # noqa: E731
+    if len(keep) == 2:
+        line = "LINE, " + ", ".join(f"{c:.6g}" for c in np.concatenate(keep))
+    else:
+        line = "SPLINE, " + ", ".join(fmt(q) for q in keep) + (", CLOSE" if closed else "")
+    k = 1
+    while m.body_by_name(f"trace_{k}") is not None:
+        k += 1
+    res = p.run(line)
+    if not res.ok:
+        raise CommandError(f"TRACE: the path could not be drawn: {res.message}")
+    p.run(f"NAME, LAST, trace_{k}")
+    length = sum(float(np.linalg.norm(keep[i + 1] - keep[i])) for i in range(len(keep) - 1))
+    return (f"TRACE of ({x:g}, {y:g}, {z:g}) on {body_name} as {key} goes from {format_value(start)} to "
+            f"{format_value(end)}: {len(pts)} points, {'a closed loop' if closed else 'an open path'} about "
+            f"{length:.4g} long (through the points), kept as trace_{k}")

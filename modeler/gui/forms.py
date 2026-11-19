@@ -103,8 +103,8 @@ PARAM = "="
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Parameters", (PARAM, "CONFIG", "USECONFIG", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
-    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE")),
-    ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE")),
+    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE")),
+    ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Text and surfaces", ("TEXT", "SURFACE")),
@@ -116,7 +116,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sheet metal", ("SHEET", "FLANGE", "SBEND", "UNFOLD", "SHEETINFO")),
     ("Frames", ("MEMBER", "WELD", "CUTLIST")),
     ("Pipes and cables", ("ROUTE", "ROUTES")),
-    ("Standard parts", ("GEAR", "FASTENER")),
+    ("Standard parts", ("GEAR", "FASTENER", "CAM")),
     ("Plastic parts", ("BOSS", "SNAP", "VENT")),
     ("Moulds", ("PARTING", "MOLD")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
@@ -130,7 +130,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
-    ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT", "MOTION", "STRESS", "GRAVITY")),
+    ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "PROPERTY", "RENDER")),
@@ -195,6 +195,10 @@ STARTS: dict[str, dict[str, str]] = {
     "KEEP": {"mode": "ON"},
     "/UNITS": {"unit": "MM"},
     "/TOL": {"tol": "0.001"},
+    "CAM": {"x": "0, 0, 0", "law": "R10/120 D60 F10/120 D60", "base": "30", "roller": "8", "width": "12"},
+    "TOPOPT": {"keep": "0.3"},
+    "IMAGE": {"width": "100"},
+    "STRACE": {"width": "100"},
 }
 
 # argument triples shown as one point field: first name -> (label, the three names)

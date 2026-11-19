@@ -175,6 +175,21 @@ class Note:
 
 
 @dataclass(frozen=True)
+class Picture:
+    """A picture shown on a plane to sketch over (IMAGE): not a body."""
+
+    path: str
+    origin: tuple[float, float, float]
+    xdir: tuple[float, float, float]
+    ydir: tuple[float, float, float]
+    width: float
+    height: float
+    du: float = 0.0
+    dv: float = 0.0
+    opacity: float = 0.6
+
+
+@dataclass(frozen=True)
 class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
@@ -285,6 +300,7 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
         self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
@@ -356,6 +372,7 @@ class Model:
             "notes": list(self.notes),
             "welds": dict(self.welds),
             "routes": dict(self.routes),
+            "pictures": list(self.pictures),
         }
 
     def restore(self, snap: dict) -> None:
@@ -388,6 +405,7 @@ class Model:
         self.notes = list(snap.get("notes", []))
         self.welds = dict(snap.get("welds", {}))
         self.routes = dict(snap.get("routes", {}))
+        self.pictures = list(snap.get("pictures", []))
         self.sketch_selection = []
         self._emit(Event("restored"))
 
@@ -688,6 +706,14 @@ class Model:
         """kg/m3 from the body's material, 0 if it has none."""
         mat = self.materials.get(self.body(bid).material.upper()) if self.body(bid).material else None
         return mat.density if mat else 0.0
+
+    # ---- pictures ----------------------------------------------------------
+    def set_pictures(self, pictures: list) -> int:
+        """Replace the pictures shown (IMAGE); returns how many there were."""
+        n = len(self.pictures)
+        self.pictures = list(pictures)
+        self._emit(Event("pictures"))
+        return n
 
     # ---- notes -------------------------------------------------------------
     def add_note(self, note: Note) -> int:

@@ -65,6 +65,8 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/cap_mould.png" width="160">](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) | [Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS)](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) |
 | [<img src="examples/pipe_run.png" width="160">](#pipes-and-cables-a-water-line-bent-at-its-corners-with-a-tee-branch-and-a-cable-bundle-on-a-tray-route-routes) | [Pipes and cables: a water line bent at its corners with a tee branch, and a cable bundle on a tray (ROUTE, ROUTES)](#pipes-and-cables-a-water-line-bent-at-its-corners-with-a-tee-branch-and-a-cable-bundle-on-a-tray-route-routes) |
 | [<img src="examples/toleranced_plate.png" width="160">](#tolerances-datums-flatness-parallelism-and-an-h7-bore-placed-by-position-cut-open-by-a-section-plane-note-stackup-section) | [Tolerances: datums, flatness, parallelism and an H7 bore placed by position, cut open by a section plane (NOTE, STACKUP, SECTION)](#tolerances-datums-flatness-parallelism-and-an-h7-bore-placed-by-position-cut-open-by-a-section-plane-note-stackup-section) |
+| [<img src="examples/cam_follower.png" width="160">](#cams-and-more-gears-a-disc-cam-lifting-its-roller-a-barrel-cam-a-bevel-pair-at-right-angles-and-a-worm-driving-its-wheel-cam-camlift-gear-bevelwormwormwheel) | [Cams and more gears: a disc cam lifting its roller, a barrel cam, a bevel pair at right angles and a worm driving its wheel (CAM, CAMLIFT, GEAR BEVEL/WORM/WORMWHEEL)](#cams-and-more-gears-a-disc-cam-lifting-its-roller-a-barrel-cam-a-bevel-pair-at-right-angles-and-a-worm-driving-its-wheel-cam-camlift-gear-bevelwormwormwheel) |
+| [<img src="examples/topo_bracket.png" width="160">](#a-quick-topology-check-the-30-of-a-plate-that-carries-a-load-from-its-tip-to-the-wall-best-as-a-mesh-to-model-a-part-after-topopt) | [A quick topology check: the 30% of a plate that carries a load from its tip to the wall best, as a mesh to model a part after (TOPOPT)](#a-quick-topology-check-the-30-of-a-plate-that-carries-a-load-from-its-tip-to-the-wall-best-as-a-mesh-to-model-a-part-after-topopt) |
 
 ---
 
@@ -2791,6 +2793,77 @@ NOTE, GDT, POSITION, D0.05, A, B
 SEL, NONE
 STACKUP, +20.2 ±0.05, -20 ±0.05, MIN=0.05, MAX=0.4
 SECTION, ZX, ABOVE, 40
+FIT
+```
+
+</details>
+
+---
+
+## Cams and more gears: a disc cam lifting its roller, a barrel cam, a bevel pair at right angles and a worm driving its wheel (CAM, CAMLIFT, GEAR BEVEL/WORM/WORMWHEEL)
+
+![Cams and more gears: a disc cam lifting its roller, a barrel cam, a bevel pair at right angles and a worm driving its wheel (CAM, CAMLIFT, GEAR BEVEL/WORM/WORMWHEEL)](examples/cam_follower.png)
+
+Cams and more gears: a disc cam lifting its roller (CAM, CAMLIFT), a barrel cam with its groove, a pair of bevel gears at right angles, and a worm driving a worm wheel. Change A to turn the cam; the roller follows by CAMLIFT.
+
+**Script:** [scripts/cam_follower.cmd](../scripts/cam_follower.cmd) (17 lines) · **Run:** `python -m modeler scripts/cam_follower.cmd`
+
+**You should get:** 8 bodies, volume 338,040.8 mm³, 584 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Cams and more gears: a disc cam lifting its roller (CAM, CAMLIFT), a barrel cam with its groove,
+! a pair of bevel gears at right angles, and a worm driving a worm wheel. Change A to turn the cam;
+! the roller follows by CAMLIFT.
+A = 40
+LAW = "R12/150 D30 F12/150 D30"
+CAM, 0, 0, 0, LAW, 30, 8, 12, DISC, 10
+ROTATE, cam_1, A, 0, 0, 0, 0, 0, 1
+MOVE, cam_1_roller, CAMLIFT(LAW, A), 0, 0
+CAM, -110, 0, 0, "R30/180H F30/180H", 30, 6, 80, BARREL, 12
+! a bevel pair, 20 teeth meshing with 30, the axes meeting at a right angle
+GEAR, 0, 90, 0, 2, 20, 10, BEVEL, 0, 8, 20, 0, 0, 1, 30
+GEAR, 20.1, 90, 30, 2, 30, 10, BEVEL, 0, 10, 20, -1, 0, 0, 20
+ROTATE, LAST, 6, 20.1, 90, 30, -1, 0, 0
+! a single-start worm along X and its wheel
+GEAR, 70, 0, 0, 2, 1, 60, WORM, 0, 0, 20, 1, 0, 0
+GEAR, 100, -8, 40.15, 2, 30, 16, WORMWHEEL, 0, 10, 20, 0, 1, 0
+ROTATE, LAST, 8, 100, -8, 40.15, 0, 1, 0
+```
+
+</details>
+
+---
+
+## A quick topology check: the 30% of a plate that carries a load from its tip to the wall best, as a mesh to model a part after (TOPOPT)
+
+![A quick topology check: the 30% of a plate that carries a load from its tip to the wall best, as a mesh to model a part after (TOPOPT)](examples/topo_bracket.png)
+
+A quick topology check (TOPOPT): which 30% of a plate carries a load best? The plate is held at its left end and pulled down at the middle of its right end; TOPOPT keeps the material that makes it stiffest, as a mesh body to model a real part after. The plate itself is hidden.
+
+**Script:** [scripts/topo_bracket.cmd](../scripts/topo_bracket.cmd) (16 lines) · **Run:** `python -m modeler scripts/topo_bracket.cmd`
+
+**You should get:** 2 bodies, volume 63,167.9 mm³, 7 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! A quick topology check (TOPOPT): which 30% of a plate carries a load best? The plate is held
+! at its left end and pulled down at the middle of its right end; TOPOPT keeps the material that
+! makes it stiffest, as a mesh body to model a real part after. The plate itself is hidden.
+BLOCK, 0, 0, 0, 120, 8, 50
+NAME, LAST, plate
+BLOCK, 116, 0, 20, 4, 8, 10
+NAME, LAST, pad
+UNION, plate, pad
+SEL, S, FACE, NORMAL, -1, 0, 0
+CM, wall, FACE
+SEL, S, FACE, NORMAL, 1, 0, 0
+SEL, R, FACE, LOC, X, 120
+CM, tip, FACE
+SEL, NONE
+TOPOPT, plate, wall, tip, FORCE, 0, 0, -1000, 0.3, 30
 FIT
 ```
 

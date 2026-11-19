@@ -413,6 +413,19 @@ def pieces(pts: np.ndarray, t: np.ndarray) -> int:
     return len(to_manifold(pts, t).decompose())
 
 
+def drop_specks(pts: np.ndarray, t: np.ndarray, share: float = 1e-4) -> tuple[np.ndarray, np.ndarray]:
+    """The mesh without the pieces holding less than ``share`` of its volume (slivers a boolean leaves)."""
+    parts = to_manifold(pts, t).decompose()
+    if len(parts) < 2:
+        return pts, t
+    total = sum(abs(q.volume()) for q in parts)
+    keep = [q for q in parts if abs(q.volume()) >= share * total]
+    if len(keep) == len(parts) or not keep:
+        return pts, t
+    mf = _mf()
+    return from_manifold(mf.Manifold.batch_boolean(keep, mf.OpType.Add) if len(keep) > 1 else keep[0])
+
+
 def simplify(pts: np.ndarray, t: np.ndarray, tolerance: float) -> tuple[np.ndarray, np.ndarray]:
     """Fewer triangles; no point of the surface moves more than ``tolerance``."""
     return from_manifold(to_manifold(pts, t).simplify(tolerance))
