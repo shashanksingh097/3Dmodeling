@@ -1055,7 +1055,7 @@ three per pull request.
 54. **Sculpting that stays clean** (P1, done: graded detail, sharp edges and masks kept, a check after every stroke with folds smoothed, `CHECK, b, FLAWS` on meshes, a 2,000-stroke test at about 45 ms a stroke): smooth density changes, symmetry,
     masks and sharp edges kept while remeshing, mesh checks after every
     stroke, a long-session test.
-55. **Scan to CAD with numbers** (P1): `DEVIATION` (colours with tolerance
+55. **Scan to CAD with numbers** (P1, done: `DEVIATION` with bands, per-face rows, outliers, holes, low confidence; `RECONSTRUCT` reports it; FITSURF already refines to its tolerance; continuity between fitted freeform regions is left for later): `DEVIATION` (colours with tolerance
     bands, max, RMS and per-region error, outliers and holes); fitting to a
     tolerance; continuity between fitted regions.
 56. **Comparing revisions** (P2): two saved projects or history points,

@@ -39,6 +39,7 @@ _COMMAND_CHOICES = {
     ("IMPORT", "kind"): ("AUTO", "SOLID", "MESH"),
     ("CHECK", "what"): ("", "SELF", "FLAWS"),
     ("CHECK", "fmt"): ("TEXT", "JSON"),
+    ("DEVIATION", "fmt"): ("TEXT", "JSON"),
     ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "SKETCH", "LAYERS", "MATERIALS"),
     ("LAYER", "action"): ("CURRENT", "NEW", "ON", "OFF", "LOCK", "UNLOCK", "COLOR", "ADD", "RENAME", "DELETE"),
     ("LIB", "action"): ("LOAD",),

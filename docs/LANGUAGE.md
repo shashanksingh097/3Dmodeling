@@ -2820,6 +2820,38 @@ its face. It reports the faces it fitted and the solid's volume against the
 mesh's. The mesh must be closed. If a region is freeform, RECONSTRUCT
 names it and stops: fit it with FITSURF, or raise `tol`.
 
+It also measures the mesh against the solid it made and says what share of
+the mesh's points lie within `tol`, with the largest distances and the RMS.
+Faces that are off in places get a warning naming them.
+
+**`DEVIATION`** measures how far a scan is from a model, in numbers and in
+colour:
+
+```
+DEVIATION, scan, part              ! tolerance ±0.1% of the model's size
+DEVIATION, scan, part, 0.05        ! within ±0.05?
+DEVIATION, scan, part, 0.05, JSON  ! the same as data
+```
+
+Every point of the scan gets its distance to the model's surface: positive
+outside the model, negative inside. The first line gives the share of points
+within ±tolerance, the largest distance out and in, the mean and the RMS,
+and "tolerance met" when every point is within. Then come:
+
+- the faces of the model that are off, worst first, each with its share
+  within, RMS and worst distance;
+- outliers: points more than five tolerances off (stray points, the
+  fixture). They are left out of the numbers and listed with the worst one;
+- holes in the scan: loops of open edges, with their length and where;
+- low confidence: faces the scan covers less than 80% of, where the numbers
+  say little.
+
+The scan is coloured in the view: green within the tolerance, yellow to red
+outside the model, cyan to blue inside, magenta or dark blue past three
+tolerances. `ANALYZE, OFF` ends the colours. `DEVIATION` is not a history
+step. The scan can be any body (its triangles are measured), the model must
+be an exact body.
+
 An example is `scripts/scan_machined.cmd`.
 
 ## 35. Exploded views

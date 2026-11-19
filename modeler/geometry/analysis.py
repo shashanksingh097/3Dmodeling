@@ -271,6 +271,16 @@ class Mesh:
 
 def mesh(shape, fine: float = 1.0) -> Mesh:
     """A fine mesh of the shape's faces, with normals and curvatures at the nodes."""
+    from . import meshbody
+
+    if meshbody.is_mesh(shape):  # its own triangles (there is no surface to mesh, or to measure curvature on)
+        from .sculpt import vertex_normals
+
+        pts, t = meshbody.arrays(shape)
+        pts, t = np.asarray(pts, float), np.asarray(t, int)
+        nan = np.full(len(pts), math.nan)
+        return Mesh(pts, vertex_normals(pts, t), t, np.zeros(len(t), int), nan, nan.copy(),
+                    [_as_face(shape) if shape.ShapeType() == TopAbs_FACE else shape])
     diag = max(robust.diagonal(shape), 1e-6)
     nodes, normals, tris, fot, k1s, k2s, faces = [], [], [], [], [], [], []
     base = 0
@@ -415,6 +425,10 @@ def colours(m: Mesh, mode: str, d=(0.0, 0.0, 1.0), min_deg: float = 1.0, stripes
     if mode == "STRESS":  # a strength check's von Mises: blue (none) to red (scale); magenta past it
         v = np.asarray(field.at(m.nodes), float) / max(scale, 1e-30)
         return rainbow(v)
+    if mode == "DEVIATION":  # a scan against its model: bands of the tolerance (scale)
+        from .deviation import band_colours
+
+        return band_colours(field.at(m.nodes), scale)
     if mode == "PRINT":  # PRINTCHECK: d is the build direction, min_deg the overhang limit
         from . import printing
 

@@ -15,6 +15,10 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - STEP part names and colours are kept by `IMPORT` (assemblies placed part by part) and written
   by `EXPORT`.
 - `CHECK, b, FLAWS` on a mesh body: cracks, three-way edges, inside-out triangles, folds and slivers.
+- `DEVIATION, scan, body [, tolerance]`: how far a scan is from its model. Share within tolerance,
+  largest out and in, mean and RMS, the same per face, outliers, holes in the scan and faces it hardly
+  covers; the scan is coloured by tolerance band. `RECONSTRUCT` reports the same numbers for the solid
+  it made.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
