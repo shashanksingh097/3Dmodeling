@@ -1031,5 +1031,60 @@ were built on 2026-11-19:
     command with a tested example.
 49. Release 0.5.0 (prepared 2026-11-19 with items 31 to 48).
 
+### After 0.5.0: a dependable modeler (M13)
+
+From the user's maturity document of 2026-11-19: reliability before new
+commands, every item proven from a saved project, and analysis meshing left
+for a separate app. Where each area stands, and what "done" means for each
+item, is in [M13-maturity.md](M13-maturity.md). Built in this order, about
+three per pull request.
+
+50. **Reference stability, part 1** (P0): `REFS` lists every reference in the
+    history and its state; fingerprints for `SEL` ID lists and named sets; a
+    test set of long histories edited upstream, saved and reopened.
+51. **Reference stability, part 2** (P0): names from parents for faces made
+    by booleans, fillets and chamfers; split, merge and vanish rules; broken
+    references marked in History with a **Pick again** fix.
+52. **Sketcher robustness** (P0): tangent and many-crossing trims, offsets
+    that remove their own loops, constraints kept through `STRANSFORM`,
+    `SCHECK` naming the redundant, conflicting and free parts, a 500-entity
+    sketch test.
+53. **Healing imported models** (P1): tolerance checks for gaps, slivers,
+    tiny edges and duplicate faces; `HEAL` says what it fixed and what is
+    left; STEP names and colours kept; a set of imperfect test files.
+54. **Sculpting that stays clean** (P1): smooth density changes, symmetry,
+    masks and sharp edges kept while remeshing, mesh checks after every
+    stroke, a long-session test.
+55. **Scan to CAD with numbers** (P1): `DEVIATION` (colours with tolerance
+    bands, max, RMS and per-region error, outliers and holes); fitting to a
+    tolerance; continuity between fitted regions.
+56. **Comparing revisions** (P2): two saved projects or history points,
+    changed faces in colour, a deviation map and a report.
+57. **Surface inspection** (P1): `CONTINUITY` (G0/G1/G2), curvature combs,
+    Gaussian and mean curvature, smallest radius, wall thickness, a report.
+58. **Geometry from other parts** (P2): faces, edges, planes and curves from
+    a linked part, linked or copied; a dependency view; loops refused.
+59. **Design tables** (P2): configurations from CSV, steps off per
+    configuration, variants compared, drawing and BOM per configuration.
+60. **Assembly checks** (P2): mates that repeat or fight found and named,
+    free directions listed, local coordinate systems.
+61. **Drawings that follow the model** (P2): views made again after a
+    rebuild, templates, several sheets, sizes checked against the model.
+62. **Project safety** (P1): backups, crash recovery tested, old projects
+    opened in tests, relinking missing files, a check before sharing.
+63. **Speed and long sessions** (P1): a CI benchmark for import, rebuild,
+    picking, drawing and save/open with memory; a long-session test; clear
+    messages for every kernel failure.
+64. **Real desktop checks** (P1): a checklist and test script for the user
+    on Windows and macOS, and fixes for what it finds.
+65. **Five demonstration projects** as regression tests (machined part,
+    freeform part, assembly, scan, sheet metal), each from an empty model to
+    export and read back, each a page on the website.
+66. **Assistant safeguards and reports** (P3): a plan before any change, a
+    confirm step for broad changes, one undo per assistant turn, fuller
+    `DESIGNCHECK` rows.
+67. **Scope and release 0.6.0**: known limitations, a written scope list,
+    then the release.
+
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
