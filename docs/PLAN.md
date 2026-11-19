@@ -396,6 +396,7 @@ spring is a short script whose numbers you can change later.
 
 - Rules for all of them: each wraps a command a person can also type, so it runs headless and is unit tested; answers are compact JSON, rounded to the tolerance, paged, in stable ID order, and carry the model revision (so the AI can ask only for what changed); errors come with a hint; the tool list is fixed for a chat so its definitions can be cached.
 - Built so far (M9a, first part): `ASSERT` with `VALID`, `PIECES`, `NFACES`, `HOLES`, `SYMMETRIC`; `DESCRIBE` (with round holes found from the geometry); `SELFOR`; `LINT`; `DIFF`; the sandbox and a JSON tool list (`python -m modeler tool ...`). M9b first part: `PROBE` (rays, points), `PROFILE` (a cut as text), `THICK` and `MINWALL`, and the `vary` and `round_trip` tools. See docs/M9-ai-tools.md section 8.
+- Next (plan, PLAN.md items 43 to 47, docs/M12-assistant-skills.md): skill files that teach whole workflows to the assistant, the MCP server and people (as guides), analysis answers as data with queries for `ASSERT`, the remaining M9 tools, help when a step fails, and a bigger benchmark.
 - Build order: **M9a** tools without AI (`DESCRIBE`, `ASSERT` and new queries such as `HOLES`, `VALID`, `PIECES`, `MINWALL`, `LINT`, `DIFF`, the sandbox), useful early for the regression corpus and for GUI picks written as criteria; **M9b** seeing without pictures (feature recognition, `PROBE`, section profiles, outlines, wall thickness, design checks, parameter sweeps); **M9c** the chat panel, proposal cards, picking, rendering, the API connection, and a benchmark of modelling requests that records success, tokens and pictures used. The same tools can be served to outside AI agents as an MCP server.
 
 ### 5.9 Model tree and right-click menu (after release 0.2.0)
@@ -993,6 +994,37 @@ about three to a pull request:
     `STRESS` grid: keep a share of the material where it carries the load,
     shown as a mesh body to remodel from). Like `STRESS`, it stays a quick
     design check, not a full solver.
+
+Better assistant tools, skill files and help (added 2026-11-19, a plan for
+now: docs/M12-assistant-skills.md), about three to a pull request:
+
+43. **Skill files** (`modeler/skills/<name>/SKILL.md`, the open Agent Skills
+    layout): one short file per workflow with steps, checks and mistakes to
+    avoid, and an `example.cmd` that CI runs with its `ASSERT` lines. The
+    assistant gets a skill index in its first prompt and `list_skills` /
+    `load_skill`; the MCP server serves them as prompts and resources;
+    `skills export` writes them for outside agents. The first six skills.
+44. **More skills and guides for people**: the rest of the skill list
+    (sheet metal, enclosures, fasteners, gears and cams, assemblies and
+    motion, frames, surfaces, scan to CAD, sculpting, strength, manufacturing,
+    drawings), the same files as Guides in the help browser (open the
+    example, ask the assistant), and the user's own skill folders with an
+    on/off switch in Settings.
+45. **Answers as data**: the analysis commands (`STRESS`, `GRAVITY`,
+    `PRINTCHECK`, `MILL`, `BOM`, `CUTLIST`, `STACKUP`, `MOTION`, `MASSPROP`
+    ...) return a report the tools pass on as JSON, plus queries for
+    `ASSERT` (`MASS()`, `SAFETY()`, `MAXSTRESS()`, `OVERHANGS()` ...);
+    and the M9 tools never built: `search_docs`, `parameters` (who sets and
+    who reads each one), `sketch_state`.
+46. **Help when a step fails**: `diagnose` tries the usual fixes for a failed
+    step in a sandbox and says which edit works, behind a Why? link on failed
+    steps that also works without the assistant; plus `around`, `outline`,
+    fillets, chamfers, pockets and bosses in `describe_body`, and
+    `render_compare` / `render_detail`.
+47. **Measure it**: the benchmark grows to about 25 tasks across the skill
+    areas, run with skills on and off and with a full or small first prompt
+    (about 8 KB instead of 25 KB); the small prompt becomes the default only
+    if the numbers say so. Also a test of Copilot's own skill loading.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
