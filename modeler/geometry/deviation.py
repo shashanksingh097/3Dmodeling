@@ -47,15 +47,44 @@ def target(shape, fine: float) -> Target:
 
     from . import analysis as an
 
+    from . import robust
+
     m = an.mesh(shape, fine=1.0) if fine <= 0 else _mesh(shape, fine)
-    p, t = m.nodes, m.tris
+    # big flat triangles next to small curved ones would hide from a nearest-centre search: split
+    # them so none is much bigger than the rest
+    p, t, fot = _split_big(m.nodes, m.tris, m.face_of_tri, robust.diagonal(shape) / 60)
     a, b, c = p[t[:, 0]], p[t[:, 1]], p[t[:, 2]]
     cr = np.cross(b - a, c - a)
     area2 = np.linalg.norm(cr, axis=1)
     nrm = cr / np.maximum(area2, 1e-300)[:, None]
     cen = (a + b + c) / 3
     size = float(np.max(np.linalg.norm(np.stack([a - cen, b - cen, c - cen], 1), axis=2))) if len(t) else 0.0
-    return Target(p, t, m.face_of_tri, nrm, cen, area2 / 2, cKDTree(cen), size, len(m.faces))
+    return Target(p, t, fot, nrm, cen, area2 / 2, cKDTree(cen), size, len(m.faces))
+
+
+def _split_big(p: np.ndarray, t: np.ndarray, fot: np.ndarray, most: float, rounds: int = 12):
+    """Cut every triangle with an edge longer than ``most`` into four, until none is left
+    (the triangles need not share edges: the pieces lie in the same plane)."""
+    p = np.asarray(p, float)
+    t = np.asarray(t, np.int64)
+    fot = np.asarray(fot)
+    for _ in range(rounds):
+        e = np.linalg.norm(p[t] - p[t[:, [1, 2, 0]]], axis=2).max(axis=1)
+        big = e > most
+        if not big.any():
+            break
+        tb = t[big]
+        n = len(p)
+        k = len(tb)
+        mids = np.vstack([(p[tb[:, 0]] + p[tb[:, 1]]) / 2, (p[tb[:, 1]] + p[tb[:, 2]]) / 2,
+                          (p[tb[:, 2]] + p[tb[:, 0]]) / 2])
+        p = np.vstack([p, mids])
+        m01, m12, m20 = n + np.arange(k), n + k + np.arange(k), n + 2 * k + np.arange(k)
+        four = np.vstack([np.stack([tb[:, 0], m01, m20], 1), np.stack([m01, tb[:, 1], m12], 1),
+                          np.stack([m20, m12, tb[:, 2]], 1), np.stack([m01, m12, m20], 1)])
+        t = np.vstack([t[~big], four])
+        fot = np.concatenate([fot[~big], np.tile(fot[big], 4)])
+    return p, t, fot
 
 
 def _mesh(shape, deflection: float):
@@ -136,7 +165,7 @@ def _closest_on_triangles(q: np.ndarray, a: np.ndarray, b: np.ndarray, c: np.nda
     return np.nan_to_num(out)
 
 
-def distances(tg: Target, pts: np.ndarray, k: int = 8) -> tuple[np.ndarray, np.ndarray]:
+def distances(tg: Target, pts: np.ndarray, k: int = 16) -> tuple[np.ndarray, np.ndarray]:
     """(signed distance, nearest triangle) for each point: positive outside the model."""
     q = np.asarray(pts, float)
     k = min(k, len(tg.tris))
@@ -153,6 +182,20 @@ def distances(tg: Target, pts: np.ndarray, k: int = 8) -> tuple[np.ndarray, np.n
         best[better] = d[better]
         which[better] = cand[better, j]
         sign_vec[better] = (q - cp)[better]
+    # a triangle further than the k-th centre (less its size) cannot be nearer: check the rest
+    kth = np.linalg.norm(q - tg.centres[cand[:, -1]], axis=1)
+    unsure = np.flatnonzero(best > kth - tg.reach)
+    for i in unsure:
+        more = tg.tree.query_ball_point(q[i], best[i] + tg.reach)
+        if len(more) <= k:
+            continue
+        tri = tg.tris[more]
+        qq = np.repeat(q[i:i + 1], len(more), axis=0)
+        cp = _closest_on_triangles(qq, tg.nodes[tri[:, 0]], tg.nodes[tri[:, 1]], tg.nodes[tri[:, 2]])
+        d = np.linalg.norm(qq - cp, axis=1)
+        j = int(np.argmin(d))
+        if d[j] < best[i]:
+            best[i], which[i], sign_vec[i] = d[j], more[j], qq[j] - cp[j]
     # outside when the point lies on the outward side of its nearest triangle
     s = np.einsum("ij,ij->i", sign_vec, tg.normals[which])
     return np.where(s < 0, -best, best), which
