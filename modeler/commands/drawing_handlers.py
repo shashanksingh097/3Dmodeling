@@ -136,6 +136,7 @@ def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
         nsizes = dr.dimension(out, sizes, exact)
     except ValueError as exc:
         raise CommandError(f"DRAWING: {exc}") from None
+    nnotes = dr.add_notes(out, m.notes, size) if getattr(m, "notes", None) else 0
     bounds = dr.layout(out)
     page = None
     if paper != "NONE":
@@ -172,6 +173,7 @@ def drawing(p: Processor, file, views, b, sizes, sheet, scale, section, detail):
     return (f"wrote a drawing of {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file}: "
             f"{', '.join(v.title.lower() for v in out)} view{'s' if len(out) > 1 else ''}, {edges} edges, "
             f"{nsizes} size{'' if nsizes == 1 else 's'}, "
+            + (f"{nnotes} note{'' if nnotes == 1 else 's'} placed, " if nnotes else "")
             + (f"{page.paper} at {sh.scale_text(page.scale)}" if page is not None else
                f"{(bounds[2] - bounds[0]):.4g} x {(bounds[3] - bounds[1]):.4g} {m.units.lower()}"))
 

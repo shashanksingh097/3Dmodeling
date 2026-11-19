@@ -17,6 +17,14 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   chamfers with two distances (`CHAMFER, d, d2`).
 - **Plastic part features**: screw bosses with ribs (`BOSS`), snap hooks
   with their snap-in strain (`SNAP`) and vents through a wall (`VENT`).
+- **Mould tools**: `PARTING` shows the faces for each mould half, the ones
+  that need draft, undercuts and the parting line; `MOLD` makes the two
+  halves with a shrink allowance.
+- **Fits and notes**: `FITS` gives ISO 286 limits and fits. `NOTE` pins
+  text, sizes, hole diameters and fits to the model: shown in the view and
+  put on drawing sheets.
+- **Welds**: `WELD` adds weld beads where parts meet (`WELD, ALL` on a
+  frame), and `CUTLIST` adds the weld lengths.
 
 ## [0.4.0] - 2026-11-19
 

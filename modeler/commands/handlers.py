@@ -1372,7 +1372,7 @@ def fit(p: Processor, target):
     return f"zoomed to {len(ids)} bod{'y' if len(ids) == 1 else 'ies'}"
 
 
-@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS, MATERIALS"),
+@command("LIST", Arg("what", str, "ALL", help="ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS, MATERIALS, NOTES"),
          logged=False,
          help="List bodies, parameters, macros, named sets and the selection. LIST, SKETCH shows every curve and "
               "constraint of the open sketch (or LIST, SKETCH, name).")
@@ -1412,6 +1412,11 @@ def list_(p: Processor, what):
     if what in ("ALL", "SETS") and m.named_sets:
         lines.append("named sets:")
         lines += [f"  {k}: {kind} {', '.join(map(str, ids))}" for k, (kind, ids) in m.named_sets.items()]
+    if what in ("ALL", "NOTES") and m.notes:
+        from .note_handlers import notes_listing
+
+        lines.append("notes:")
+        lines += notes_listing(m)
     if what in ("ALL", "DATUMS") and m.datums:
         from .feature_handlers import _fmt
 

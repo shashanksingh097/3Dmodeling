@@ -29,6 +29,11 @@
   "faces": 9,
   "volume": 26194.6
  },
+ "cap_mould.cmd": {
+  "bodies": 3,
+  "faces": 22,
+  "volume": 172892.663
+ },
  "car_body.cmd": {
   "bodies": 218,
   "faces": 4531,
@@ -195,9 +200,9 @@
   "volume": 121094.962
  },
  "welded_frame.cmd": {
-  "bodies": 15,
-  "faces": 88,
-  "volume": 913900.0
+  "bodies": 29,
+  "faces": 386,
+  "volume": 935183.54
  },
  "wing_rails.cmd": {
   "bodies": 5,

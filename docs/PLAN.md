@@ -953,15 +953,15 @@ about three to a pull request:
 33. **Plastic part features** (done: `BOSS`, `SNAP`, `VENT`): screw bosses with support ribs (`BOSS`),
     snap hooks (`SNAP`), and vents (`VENT`: a grille of slots cut through
     a face).
-34. **Mould tools**: the parting line for a pull direction (`PARTING`:
+34. **Mould tools** (done: `PARTING`, `MOLD`): the parting line for a pull direction (`PARTING`:
     faces seen from above, from below, and the ones that need draft), and
     the two mould halves (`MOLD`: core and cavity from a block around the
     part, with a shrink allowance).
-35. **Welds and fits**: weld beads along the joints of a frame (`WELD`,
+35. **Welds and fits** (done: `WELD`, `FITS`; weld beads are round, not shaped fillets): weld beads along the joints of a frame (`WELD`,
     with their length in the cut list), and ISO 286 fits (`FITS` names
     such as H7/g6 on holes and shafts: the limits, the clearance or
     interference, shown on drawings).
-36. **Notes and sizes on the 3D model**: sizes, hole notes and text
+36. **Notes and sizes on the 3D model** (done: `NOTE`): sizes, hole notes and text
     pinned to faces and edges (`NOTE`), kept with the project, shown in the
     view and carried onto drawing sheets.
 

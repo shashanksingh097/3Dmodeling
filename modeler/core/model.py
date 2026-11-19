@@ -164,6 +164,16 @@ MATERIAL_ALIASES = {"ALUMINUM": "ALUMINIUM", "AL": "ALUMINIUM", "SS": "STAINLESS
 
 
 @dataclass(frozen=True)
+class Note:
+    """A note pinned to the model (NOTE): its text at a point, with a leader line to ``anchor``."""
+
+    text: str
+    at: tuple[float, float, float]
+    anchor: tuple[float, float, float] | None = None
+    span: tuple | None = None  # a size: the two points it measures between (drawn as a line with ends)
+
+
+@dataclass(frozen=True)
 class Event:
     """A change notification sent to listeners (the viewport, the GUI)."""
 
@@ -273,6 +283,8 @@ class Model:
         # exploded views by upper-case name: a list of (body IDs, (dx, dy, dz)) steps (XSTEP, XSHOW)
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
+        self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -339,6 +351,8 @@ class Model:
             "members": dict(self.members),
             "xviews": {k: list(v) for k, v in self.xviews.items()},
             "properties": dict(self.properties),
+            "notes": list(self.notes),
+            "welds": dict(self.welds),
         }
 
     def restore(self, snap: dict) -> None:
@@ -368,6 +382,8 @@ class Model:
         self.members = dict(snap.get("members", {}))
         self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.properties = dict(snap.get("properties", {}))
+        self.notes = list(snap.get("notes", []))
+        self.welds = dict(snap.get("welds", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 
@@ -664,6 +680,27 @@ class Model:
         """kg/m3 from the body's material, 0 if it has none."""
         mat = self.materials.get(self.body(bid).material.upper()) if self.body(bid).material else None
         return mat.density if mat else 0.0
+
+    # ---- notes -------------------------------------------------------------
+    def add_note(self, note: Note) -> int:
+        self.notes.append(note)
+        self._emit(Event("notes"))
+        return len(self.notes)
+
+    def remove_notes(self, which: list[int] | None = None) -> int:
+        """Remove notes by number (1-based); None removes them all. Returns how many went."""
+        if which is None:
+            n = len(self.notes)
+            self.notes = []
+        else:
+            bad = [k for k in which if not 1 <= k <= len(self.notes)]
+            if bad:
+                raise ModelError(f"no note {bad[0]} (there are {len(self.notes)})")
+            keep = set(which)
+            n = len(keep)
+            self.notes = [x for i, x in enumerate(self.notes, 1) if i not in keep]
+        self._emit(Event("notes"))
+        return n
 
     def clear(self) -> None:
         """Remove everything. IDs restart, as in a fresh session."""

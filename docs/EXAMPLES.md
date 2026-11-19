@@ -55,13 +55,14 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/hinged_lid.png" width="160">](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) | [Assembly that moves: a lid on a hinge, driven by a parameter; MOTION finds where it hits the post](#assembly-that-moves-a-lid-on-a-hinge-driven-by-a-parameter-motion-finds-where-it-hits-the-post) |
 | [<img src="examples/scan_to_cad.png" width="160">](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) | [Scan to CAD: a sculpted mesh fitted as one smooth solid (with a hole cut through it) and a painted region fitted as one face](#scan-to-cad-a-sculpted-mesh-fitted-as-one-smooth-solid-with-a-hole-cut-through-it-and-a-painted-region-fitted-as-one-face) |
 | [<img src="examples/exploded_view.png" width="160">](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) | [Exploded view with trail lines (XSTEP, XSHOW), and marks wrapped onto a cone](#exploded-view-with-trail-lines-xstep-xshow-and-marks-wrapped-onto-a-cone) |
-| [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-cutlist-lists-the-cuts) |
+| [<img src="examples/welded_frame.png" width="160">](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-a-weld-bead-on-every-joint-weld-cutlist-lists-the-cuts-and-welds) | [Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace, a weld bead on every joint (WELD); CUTLIST lists the cuts and welds](#frames-and-weldments-a-welded-table-of-square-tube-with-mitred-top-corners-butted-legs-and-an-angle-brace-a-weld-bead-on-every-joint-weld-cutlist-lists-the-cuts-and-welds) |
 | [<img src="examples/bracket_strength.png" width="160">](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) | [A first strength check: an aluminium bracket bolted to a wall, 400 N on its arm, coloured by stress (STRESS)](#a-first-strength-check-an-aluminium-bracket-bolted-to-a-wall-400-n-on-its-arm-coloured-by-stress-stress) |
 | [<img src="examples/print_check.png" width="160">](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) | [Ready to 3D print? A wall hook built standing up: red overhangs need support, blue sits on the bed (PRINTCHECK)](#ready-to-3d-print-a-wall-hook-built-standing-up-red-overhangs-need-support-blue-sits-on-the-bed-printcheck) |
 | [<img src="examples/milled_plate.png" width="160">](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) | [2.5D milling: a pocket around a boss cleared in rings, with G-code (MILL)](#25d-milling-a-pocket-around-a-boss-cleared-in-rings-with-g-code-mill) |
 | [<img src="examples/gravity_check.png" width="160">](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) | [Will it stand up? A table with a book tipping off, a floating lamp shade and a shelf held only at its side, marked (GRAVITY)](#will-it-stand-up-a-table-with-a-book-tipping-off-a-floating-lamp-shade-and-a-shelf-held-only-at-its-side-marked-gravity) |
 | [<img src="examples/gear_train.png" width="160">](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) | [Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER)](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) |
 | [<img src="examples/plastic_case.png" width="160">](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) | [A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT)](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) |
+| [<img src="examples/cap_mould.png" width="160">](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) | [Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS)](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) |
 
 ---
 
@@ -2375,22 +2376,23 @@ FIT
 
 ---
 
-## Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts
+## Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace, a weld bead on every joint (WELD); CUTLIST lists the cuts and welds
 
-![Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace; CUTLIST lists the cuts](examples/welded_frame.png)
+![Frames and weldments: a welded table of square tube with mitred top corners, butted legs and an angle brace, a weld bead on every joint (WELD); CUTLIST lists the cuts and welds](examples/welded_frame.png)
 
-Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between two legs. WELD, ALL puts a 4 mm bead on every joint, and CUTLIST gives what to cut (lengths and end angles, with how many of each) and the weld length.
 
-**Script:** [scripts/welded_frame.cmd](../scripts/welded_frame.cmd) (25 lines) · **Run:** `python -m modeler scripts/welded_frame.cmd`
+**Script:** [scripts/welded_frame.cmd](../scripts/welded_frame.cmd) (27 lines) · **Run:** `python -m modeler scripts/welded_frame.cmd`
 
-**You should get:** 15 bodies, volume 913,900.0 mm³, 88 faces
+**You should get:** 29 bodies, volume 935,183.5 mm³, 386 faces
 
 <details><summary>The whole script</summary>
 
 ```text
 ! Frames and weldments (MEMBER, CUTLIST): a small welded table. The top frame is square tube with
 ! mitred corners, the legs are square tube butted under it, and a cross brace of angle runs between
-! two legs. CUTLIST gives what to cut: lengths and end angles, with how many of each.
+! two legs. WELD, ALL puts a 4 mm bead on every joint, and CUTLIST gives what to cut (lengths and end
+! angles, with how many of each) and the weld length.
 W = 600
 D = 400
 H = 450
@@ -2411,6 +2413,7 @@ NAME, LAST, brace_path
 MEMBER, brace_path, ANGLE, 25x25x3, BUTT, brace, 180
 HIDE, brace_path
 COLOR, brace_1, ORANGE
+WELD, ALL, 4
 CUTLIST
 FIT
 ```
@@ -2659,6 +2662,50 @@ BOSS, case, 10, 50, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
 BOSS, case, 80, 50, 28, 20, 7, 2.5, 4, 0, 0, 0, -1
 SNAP, case, 45, 0.4, 0, 10, 8, 1.2, 0.8, 0, 0, -1, 0, -1, 0
 SNAP, case, 45, 59.6, 0, 10, 8, 1.2, 0.8, 0, 0, -1, 0, 1, 0
+SEL, NONE
+```
+
+</details>
+
+---
+
+## Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS)
+
+![Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS)](examples/cap_mould.png)
+
+Mould tools and notes (PARTING, MOLD, NOTE, FITS): a round cap moulded in ABS. Its side gets 2 degrees of draft, so PARTING finds every face coming out of one half with a flat parting line at the bottom. MOLD makes the two halves round it with 0.5% shrink, shown pulled apart. The bearing bore is machined after moulding: NOTE, FIT pins its H7 size, NOTE, SIZE the cap's height, and a note says the material. FITS gives the fit with a g6 shaft.
+
+**Script:** [scripts/cap_mould.cmd](../scripts/cap_mould.cmd) (25 lines) · **Run:** `python -m modeler scripts/cap_mould.cmd`
+
+**You should get:** 3 bodies, volume 172,892.7 mm³, 22 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Mould tools and notes (PARTING, MOLD, NOTE, FITS): a round cap moulded in ABS. Its side gets 2
+! degrees of draft, so PARTING finds every face coming out of one half with a flat parting line at
+! the bottom. MOLD makes the two halves round it with 0.5% shrink, shown pulled apart. The bearing
+! bore is machined after moulding: NOTE, FIT pins its H7 size, NOTE, SIZE the cap's height, and a
+! note says the material. FITS gives the fit with a g6 shaft.
+CYL, 0, 0, 0, 30, 14
+NAME, LAST, cap
+MATERIAL, cap, ABS
+SEL, S, FACE, LOC, Z, 0
+SEL, A, FACE, LOC, Z, 14
+SEL, INVE
+DRAFT, 2
+SEL, S, EDGE, LOC, Z, 14
+FILLET, 3
+PARTING, cap
+MOLD, cap, 8, 0.5
+MOVE, cap_top, 0, 0, 45
+MOVE, cap_bottom, 0, 0, -30
+HOLE, cap, 0, 0, 14, 12
+SEL, S, FACE, TYPE, CYLINDER
+NOTE, FIT, H7
+FITS, H7/g6
+NOTE, SIZE, 31, 0, 0, 31, 0, 14
+NOTE, "ABS, 0.5% shrink", -45, 0, 25, -25, 0, 8
 SEL, NONE
 ```
 

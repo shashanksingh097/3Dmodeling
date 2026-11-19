@@ -301,6 +301,45 @@ def dimension(views: list[View], which: str = "ALL", extent: dict[str, float] | 
     return count
 
 
+def add_notes(views: list[View], notes, size: float) -> int:
+    """Put the model's notes (NOTE) on the plain views: the text where its point falls in the view, a thin
+    leader to its anchor, and a size's line with end marks. Sections and details are left alone.
+    Returns how many notes were placed in at least one view."""
+    from OCP.gp import gp_Pnt, gp_Pnt2d
+
+    placed: set[int] = set()
+    sized = [v.dims.height for v in views if v.dims.lines or v.dims.texts]
+    h = max(sized) if sized else size / 70  # one text height on every view
+    for v in views:
+        if v.name not in VIEWS:
+            continue
+        pr = _projector(v.name)
+
+        def flat(q):
+            out = gp_Pnt2d()
+            pr.Project(gp_Pnt(*q), out)
+            return out.X(), out.Y()
+
+        for k, n in enumerate(notes):
+            x, y = flat(n.at)
+            if n.anchor is not None:
+                v.thin.append([(x, y), flat(n.anchor)])
+            if n.span is not None:
+                a, b = flat(n.span[0]), flat(n.span[1])
+                if math.dist(a, b) < 1e-9 * max(size, 1.0):
+                    continue  # seen end on: the size says nothing in this view
+                v.thin.append([a, b])
+                dx, dy = b[0] - a[0], b[1] - a[1]
+                ln = math.hypot(dx, dy)
+                tx, ty = -dy / ln * h * 0.6, dx / ln * h * 0.6
+                for e in (a, b):
+                    v.thin.append([(e[0] - tx, e[1] - ty), (e[0] + tx, e[1] + ty)])
+                x, y = (a[0] + b[0]) / 2 + tx, (a[1] + b[1]) / 2 + ty
+            v.notes.append((x, y, h, n.text))
+            placed.add(k)
+    return len(placed)
+
+
 def layout(views: list[View]) -> tuple[float, float, float, float]:
     """Place the views on one sheet (third-angle: top above front, right
     beside it, iso in the free corner, others in a row after), and return

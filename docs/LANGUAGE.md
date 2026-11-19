@@ -273,6 +273,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
+| Moulds, welds, notes | `PARTING, b [, dx,dy,dz, draft]` · `MOLD, b [, wall, shrink, dx,dy,dz, level]` · `WELD, a, b [, size]` · `WELD, ALL [, size]` · `NOTE, "text", x,y,z [, x,y,z]` · `NOTE, SIZE, p1, p2` · `NOTE, HOLE` · `NOTE, FIT, H7` · `NOTE, DELETE, n` · `NOTE, CLEAR` · `FITS, H7/g6 [, size]` (section 43) |
 | Plastic parts | `BOSS, b, x,y,z, h, od [, hole, ribs, depth, dx,dy,dz]` · `SNAP, b, x,y,z, length, width, thickness [, overhang, up, hook direction, lead, catch]` · `VENT, count, length, width [, pitch, angle, depth, u, v]` (section 42) |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
@@ -3061,3 +3062,66 @@ under the middle of the face unless given. Slots that would run off the
 face are refused.
 
 An example is `scripts/plastic_case.cmd`.
+
+## 43. Moulds, fits, notes and welds
+
+```
+PARTING, cover                           ! pulled along +Z, at least 1 degree of draft
+PARTING, cover, 1,0,0, 2                 ! pulled along X, 2 degrees
+MOLD, cover                              ! the two halves: cover_top and cover_bottom
+MOLD, cover, 8, 0.5                      ! an 8 mm wall, 0.5% shrink
+MOLD, cover, 8, 0.5, 0,0,1, 12.5         ! split at 12.5 along the pull
+FITS, H7/g6, 25                          ! limits and the clearance of a fit
+PICK, FACE, 4
+FITS, H7/p6                              ! the size from the picked round face
+NOTE, FIT, H7                            ! pin it: "ø25 H7 (+0.021/0)" with a leader
+NOTE, HOLE                               ! just the diameter
+NOTE, "Paint black", 50,30,40            ! a note at a point
+NOTE, "Break edges", 120,0,30, 100,0,20  ! with a leader to 100,0,20
+NOTE, SIZE, 0,0,0, 100,0,0               ! a size between two points (or two picked vertices, or an edge)
+NOTE, DELETE, 2
+LIST, NOTES
+WELD, post, beam, 5                      ! a 5 mm bead along the joint
+WELD, ALL, 4                             ! every joint between frame members
+```
+
+**Parting.** `PARTING` judges each face of a part for a mould that opens
+along the pull direction: it comes out with the + half, with the - half,
+it is too steep (it needs draft: steeper than the least draft angle), or
+the parting line runs across it (a round side lying down). It lists the
+faces that need draft, **undercuts** (faces whose way out is blocked by the
+part itself, so they need a side action or another pull direction), and
+the parting line: where + faces meet - faces, flat or stepped. The part is
+coloured as by `ANALYZE, DRAFT` and the parting line is marked. Use
+`DRAFT` on the steep faces until it says "ready for a two-part mould".
+
+**Mould halves.** `MOLD` puts a block round the part (`wall` thick,
+default a fifth of the part's size), takes the part's shape out of it
+grown by the shrink allowance (percent, for the plastic's shrinkage as it
+cools), and splits it across the pull: at a flat parting line, else at
+the part's widest place, or at `level`. The halves are new bodies named
+after the part (`cover_top`, `cover_bottom`); the part stays.
+
+**Fits.** `FITS` gives ISO 286 limits from the standard's tables, sizes up
+to 500 mm. Holes are written in capitals (D E F G H JS K M N P), shafts in
+small letters (d e f g h js k m n p), with a grade from 5 to 13. A fit
+(`H7/g6`) gives both parts' limits and the largest and smallest clearance,
+or the interference of a press fit. With no size it reads the diameter of
+the picked round face.
+
+**Notes.** `NOTE` pins text to the model. It is shown in the view, kept
+with the project (notes are history steps, so they follow edits) and put
+on drawing sheets (`DRAWING`) in every plain view, with thin leaders. A
+note on a picked face, edge or vertex gets a leader to it. `NOTE, HOLE` and
+`NOTE, FIT, H7` on a picked round face write its diameter (and limits).
+`NOTE, SIZE` writes the distance between two points. `LIST, NOTES` numbers
+them for `NOTE, DELETE`.
+
+**Welds.** `WELD` adds a bead along the joint where two solids meet: the
+line where their surfaces cross, or the outline of where they touch.
+`WELD, ALL` welds every pair of frame members (`MEMBER`) that touch. Each
+bead is a new body (`weld_1` ...), drawn as a round bead of the weld size
+across, made of the first part's material. `CUTLIST` adds the weld length
+for each size.
+
+Examples are `scripts/cap_mould.cmd` and `scripts/welded_frame.cmd`.
