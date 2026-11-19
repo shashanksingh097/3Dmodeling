@@ -4,6 +4,8 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-19
+
 ### Added
 
 - **Pictures**: `RENDER` saves a ray-traced picture at any size, with
