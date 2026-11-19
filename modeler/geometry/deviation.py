@@ -11,8 +11,9 @@ thousand points takes about a second. From those distances come:
 * holes in the scan: loops of open edges, with their length and where they are;
 * faces the scan hardly covers, where the numbers say little (low confidence).
 
-Only scan points within ``REACH`` tolerances of the model count towards the numbers; the rest
-are outliers.
+Points more than ``OUTLIER`` tolerances off that lie in small separate pieces of the scan (dust,
+the fixture, stray points) are outliers and left out of the numbers; far points on the scan's main
+surface are real and counted.
 """
 
 from __future__ import annotations
@@ -256,6 +257,10 @@ def deviation(scan_pts: np.ndarray, scan_tris: np.ndarray | None, shape, tol: fl
             q, scan_tris = q[used], new[np.asarray(scan_tris)]
     signed, tri = distances(tg, q)
     far = np.abs(signed) > OUTLIER * tol
+    if scan_tris is not None and len(scan_tris):
+        # far points on the scan's main surface are real (a bump, a dent): only far points in small
+        # separate pieces (dust, the fixture, stray points) are outliers
+        far &= _small_piece(len(q), np.asarray(scan_tris))
     keep = ~far
     res = Result(tol, int(keep.sum()), 0.0, 0.0, 0.0, 0.0, 0.0, signed=signed)
     res.outliers = int(far.sum())
@@ -298,6 +303,19 @@ def deviation(scan_pts: np.ndarray, scan_tris: np.ndarray | None, shape, tol: fl
     if scan_tris is not None and len(scan_tris):
         res.holes = holes(q, scan_tris)
     return res
+
+
+def _small_piece(n: int, tris: np.ndarray, share: float = 0.01) -> np.ndarray:
+    """A bool per point: in a connected piece of the mesh with under ``share`` of the points."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    a = np.concatenate([tris[:, 0], tris[:, 1], tris[:, 2]])
+    b = np.concatenate([tris[:, 1], tris[:, 2], tris[:, 0]])
+    g = coo_matrix((np.ones(len(a)), (a, b)), shape=(n, n))
+    _k, label = connected_components(g, directed=False)
+    size = np.bincount(label)
+    return size[label] < share * n
 
 
 def _spacing(q: np.ndarray, tris) -> float:

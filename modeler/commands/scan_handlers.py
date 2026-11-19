@@ -124,7 +124,8 @@ def deviation_text(r, scan: int, body: int) -> list[str]:
         lines.append(f"  every face within ±{tol:.4g}")
     if r.outliers:
         x, y, z, d = r.outlier_worst
-        lines.append(f"  outliers: {r.outliers:,} points more than {5 * tol:.4g} off, left out of the numbers "
+        lines.append(f"  outliers: {r.outliers:,} points more than {5 * tol:.4g} off in small separate pieces of the "
+                     f"scan, left out of the numbers "
                      f"(the worst {d:+.4g} at {_xyz((x, y, z))})")
     if r.holes:
         big = r.holes[0]

@@ -2840,8 +2840,10 @@ and "tolerance met" when every point is within. Then come:
 
 - the faces of the model that are off, worst first, each with its share
   within, RMS and worst distance;
-- outliers: points more than five tolerances off (stray points, the
-  fixture). They are left out of the numbers and listed with the worst one;
+- outliers: points more than five tolerances off in small separate pieces
+  of the scan (stray points, dust, the fixture). They are left out of the
+  numbers and listed with the worst one; far points on the scan's main
+  surface (a real bump or dent) are counted;
 - holes in the scan: loops of open edges, with their length and where;
 - low confidence: faces the scan covers less than 80% of, where the numbers
   say little.
