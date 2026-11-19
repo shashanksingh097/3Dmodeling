@@ -226,6 +226,8 @@ class Processor:
         self.config_values: dict[str, Any] = {}
         # steps turned off in a configuration (CONFIGOFF, DESIGNTABLE): name -> entry uids
         self.config_off: dict[str, set[int]] = {}
+        self.backups_keep = 5  # earlier saves kept (BACKUPS, n)
+        self.saved_script = ""  # the history as last saved or opened: anything else is not saved yet
         self.note_ends: dict = {}  # NOTE, SIZE: what each end was on when first made, by (step uid, note)
         self.drawings_auto = ""  # DRAWINGS, file, AUTO: the file written again after every rebuild and save
         # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
@@ -431,6 +433,8 @@ class Processor:
         self.config_off = {}
         self.drawings_auto = ""
         self.note_ends = {}
+        self.saved_script = ""
+        self.backups_keep = 5
         self.drive = {}
         self.exploded = None
         self.parts = {}

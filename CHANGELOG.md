@@ -37,6 +37,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Drawings that follow the model: `DRAWSHEET` keeps sheets in the history, `DRAWINGS` writes them as one
   PDF with a page per sheet (or an SVG each), again after every rebuild and save with `AUTO`; title
   block templates; sizes pinned with `NOTE` are checked against the model.
+- Project safety: every `SAVE` keeps the version it replaces (`BACKUPS`), saving cannot spoil the last
+  save, a damaged project names its newest backup, `FILES` and `RELINK` for outside files that moved,
+  `SHARECHECK` before sending a project. Projects saved by v0.1 to v0.5 are opened by the tests.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

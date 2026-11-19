@@ -1246,7 +1246,7 @@ class MainWindow(QMainWindow):
         from ..commands.project_handlers import save_project
 
         try:
-            save_project(self.processor, self.autosave_path)
+            save_project(self.processor, self.autosave_path, backup=False)
         except OSError as exc:
             self.statusBar().showMessage(f"Autosave failed: {exc}", 5000)
 

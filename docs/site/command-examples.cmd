@@ -1552,6 +1552,39 @@ DRAWSHEET, views, STANDARD
 DRAWSHEET, plan, TOP, 0, OVERALL, A3
 DRAWINGS, "plate_sheets.pdf", AUTO
 
+@ BACKUPS
+! Every SAVE over a project keeps the one it replaces; BACKUPS lists them.
+BLOCK, 0,0,0, 40, 20, 10
+SAVE, "safe_demo.m3d"
+CYL, 10,10,-1, 3, 12
+SAVE
+BACKUPS
+
+@ FILES
+! The outside files the project reads, and where each was found.
+BLOCK, 0,0,0, 40, 20, 10
+EXPORT, BREP, "files_demo.brep"
+NEW
+IMPORT, BREP, "files_demo.brep"
+FILES
+
+@ RELINK
+! Point the project at a newer version of an imported file: the steps that read it run again.
+BLOCK, 0,0,0, 40, 20, 10
+EXPORT, BREP, "relink_v1.brep"
+NEW
+BLOCK, 0,0,0, 60, 20, 10
+EXPORT, BREP, "relink_v2.brep"
+NEW
+IMPORT, BREP, "relink_v1.brep"
+RELINK, "relink_v1.brep", "relink_v2.brep"
+
+@ SHARECHECK
+! A check before sending the project to someone.
+BLOCK, 0,0,0, 40, 20, 10
+SAVE, "share_demo.m3d"
+SHARECHECK
+
 @ PROPERTY
 ! The project's properties, shown in a drawing sheet's title block.
 PROPERTY, TITLE, Mounting bracket

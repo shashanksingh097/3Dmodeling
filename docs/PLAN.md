@@ -1081,6 +1081,9 @@ three per pull request.
     notes checked against the model.*
 62. **Project safety** (P1): backups, crash recovery tested, old projects
     opened in tests, relinking missing files, a check before sharing.
+    *Done: backups on every SAVE (`BACKUPS`), saving that a crash cannot
+    spoil, a crash-and-recover test, projects from v0.1 to v0.5 opened in
+    tests, `FILES`/`RELINK`, `SHARECHECK`.*
 63. **Speed and long sessions** (P1): a CI benchmark for import, rebuild,
     picking, drawing and save/open with memory; a long-session test; clear
     messages for every kernel failure.

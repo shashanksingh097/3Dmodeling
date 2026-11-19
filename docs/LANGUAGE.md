@@ -319,7 +319,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `BACKUPS [, n]` · `FILES` · `RELINK, name, file` · `SHARECHECK` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
@@ -669,6 +669,42 @@ The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
 it runs `OPEN, AUTOSAVE`. The autosave lives in the app's data folder; set
 the environment variable `MODELER_AUTOSAVE` to another file, or to `off`.
+
+### Keeping projects safe
+
+**Saving.** A project is written next to its file first and put in place
+only when it is complete, so a crash or a full disk while saving leaves the
+last save as it was. Every `SAVE` over a project first keeps the one it
+replaces in the folder `<name>-backups` next to it, named by when it was
+saved; the newest 5 are kept. `BACKUPS` lists them, newest first, and
+`BACKUPS, 10` keeps ten (`BACKUPS, 0` none); open one with `OPEN` to go
+back to it. A project file that is damaged (cut short by a crash, say)
+does not open, and the message names its newest backup. The autosave makes
+no backups. Projects saved by every earlier release are opened by the
+tests, and must give the same model.
+
+**Outside files.** A project keeps a copy of every file it imports or
+links, so it opens when they are gone; a linked part file (`LIB, LINK`) is
+followed while it is there. `FILES` lists them: the step that reads each
+one and where it was found, or that it is missing and the saved copy is
+used. When a file moved, or a newer version of an imported file should be
+used, point the project at it:
+
+```
+FILES                                          ! what the project reads, and from where
+RELINK, "parts/peg.cmd", "D:/new/peg.cmd"      ! the file as the history names it, then where it is now
+```
+
+The steps that read it run again; the history keeps the old name, and the
+next `SAVE` keeps a copy of the new file.
+
+**Before sharing.** `SHARECHECK` lists what to fix before sending the
+project to someone: changes since the last save, failing steps, missing
+files the project has no copy of, broken links and parts that place each
+other in a loop. It also says what goes with the file: steps with
+warnings, part files linked from outside the project folder, the saved
+assistant conversation, names in the title block, and full paths in your
+own folders.
 
 ## 11. Typing help in the command line
 

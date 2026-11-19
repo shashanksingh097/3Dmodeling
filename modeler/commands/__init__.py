@@ -50,3 +50,4 @@ from . import take_handlers  # noqa: F401  (TAKE, DEPENDS: geometry from other p
 from . import variant_handlers  # noqa: F401  (DESIGNTABLE, CONFIGOFF, VARIANTS: design tables)
 from . import mate_check  # noqa: F401  (MATES, CSYS: assembly checks, coordinate systems on bodies)
 from . import drawsheet_handlers  # noqa: F401  (DRAWSHEET, DRAWINGS: drawings that follow the model)
+from . import safety_handlers  # noqa: F401  (BACKUPS, FILES, RELINK, SHARECHECK: keeping projects safe)

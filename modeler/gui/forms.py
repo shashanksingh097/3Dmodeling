@@ -134,7 +134,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "DRAWINGS", "PROPERTY", "RENDER")),
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "DRAWINGS", "PROPERTY", "RENDER",
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK")),
 ]
 
 # Commands with no form, and why: the GUI already does them another way.

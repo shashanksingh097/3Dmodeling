@@ -51,6 +51,8 @@ _COMMAND_CHOICES = {
     ("VARIANTS", "fmt"): ("TEXT", "JSON"),
     ("MATES", "fmt"): ("TEXT", "JSON"),
     ("DRAWINGS", "mode"): ("AUTO", "OFF"),
+    ("FILES", "fmt"): ("TEXT", "JSON"),
+    ("SHARECHECK", "fmt"): ("TEXT", "JSON"),
     ("DRAWSHEET", "sizes"): ("ALL", "OVERALL", "HOLES", "NONE"),
     ("DRAWSHEET", "paper"): ("AUTO", "A4", "A3", "A2", "A1", "A0"),
     ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "SKETCH", "LAYERS", "MATERIALS"),
