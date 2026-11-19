@@ -54,7 +54,7 @@ The language (parameters, expressions, loops, conditions, macros, selection
 by criteria, the editable history) is described in
 [docs/LANGUAGE.md](docs/LANGUAGE.md).
 
-## What it can do (0.4)
+## What it can do (0.5)
 
 - **Model by mouse or by text.** Ribbon tabs with icons, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
 - **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant. A **model tree** shows parts, bodies, sketches and datums, with the steps that made the picked item, each one editable.
@@ -64,14 +64,15 @@ by criteria, the editable history) is described in
 - **NURBS freeform:** curves and surfaces from control points you can drag, networks, fills, G1/G2 blends, extend, trim, guide-curve lofts, zebra and curvature analysis, and deformers (bend, twist, taper, stretch, flow along a curve).
 - **Meshes and sculpting:** mesh bodies that stay fast at a million triangles, with fast booleans, smoothing and remeshing; implicit shapes, smooth blends and lattice infill; a **Sculpt** tab with eight brushes, symmetry, masks and finer detail where you brush, every stroke a history step.
 - **Parts and assemblies:** parts with parameters placed many times, part files linked into assemblies, mates, a part library, configurations and a bill of materials, exploded views with trail lines, and moving assemblies driven by a parameter.
+- **Standard and special parts:** involute spur, helical, internal, bevel and worm gears and racks, ISO cap screws, bolts, nuts and washers with real threads, disc and barrel cams, screw bosses, snap hooks and vents, pipe and cable routes with a pipe list.
 - **Sheet metal, ribs and frames:** sheets with flanges and bends unfolded to a flat pattern, ribs, lips, grooves, wrapping onto cylinders and cones, and welded frames of tubes and beams with a cut list.
-- **Checks before you make it:** a first strength check (stress colours, deflection and safety factor), a gravity check of the whole assembly (floating, tipping or loose parts), 3D printing checks (overhangs, thin walls, hollows), and 2.5D milling paths written as G-code.
+- **Checks before you make it:** a first strength check (stress colours, deflection and safety factor), a gravity check of the whole assembly (floating, tipping or loose parts), 3D printing checks (overhangs, thin walls, hollows), 2.5D milling paths written as G-code, a quick topology check that shows where the material carries the load, mould halves with a parting line, ISO 286 fits, tolerance stack-ups, and notes, sizes and GD&T frames on the 3D model.
 - **Scan to CAD:** fit surfaces to scans, or rebuild machined parts from them as planes, cylinders and cones.
 - **Layers, colours, materials**, right-click menus (hide, fade the others, isolate), mass properties, distances, angles, clash checks, section views, and assembly checks: do parts touch, how much clearance a shaft has in its hole.
 - **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
 - **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes; export STEP, IGES, BREP, STL, OBJ, 3MF, glTF; 2D drawings as PDF sheets with a title block, sections and details, or SVG and DXF; ray-traced pictures and turntables.
-- **Assistant:** chat with GitHub Copilot (Copilot Free works) or your own key (OpenAI, Anthropic, Azure, a local Ollama model); it reads the model with exact tools, can ask you to click what you mean, tests scripts in a sandbox and proposes them with a Run button. Other assistants can drive the app through its MCP server.
-- **Light and dark themes.**
+- **Assistant:** chat with GitHub Copilot (Copilot Free works) or your own key (OpenAI, Anthropic, Azure, a local Ollama model); it reads the model with exact tools, can ask you to click what you mean, tests scripts in a sandbox and proposes them with a Run button. It follows 17 step-by-step guides (also in **Help > Guides**), and **Why did it fail?** tries the usual fixes for a failed step. Other assistants can drive the app through its MCP server.
+- **Light and dark themes**, and a [user guide website](https://shashanksingh097.github.io/3Dmodeling/) with a tested example for every command.
 
 ## Install from source
 

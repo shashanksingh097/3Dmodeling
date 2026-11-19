@@ -1026,6 +1026,10 @@ were built on 2026-11-19:
     areas, run with skills on and off and with a full or small first prompt
     (about 8 KB instead of 25 KB); the small prompt becomes the default only
     if the numbers say so. Also a test of Copilot's own skill loading.
+48. **User guide website** (done: `python -m modeler docs`, GitHub Pages):
+    a quick start, the app guide and command language as pages, and every
+    command with a tested example.
+49. Release 0.5.0 (prepared 2026-11-19 with items 31 to 48).
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
