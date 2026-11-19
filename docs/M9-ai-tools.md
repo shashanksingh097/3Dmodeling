@@ -4,7 +4,9 @@ This is the design of the tools the in-app AI assistant uses to build and
 check models. The summary is in PLAN.md section 5.8.
 
 **Status.** Most of step M9a and the first part of M9b (section 7) are
-built: see "What is built" at the end. The rest is still a plan.
+built: see "What is built" at the end. The rest is still a plan, and
+the next round (skill files, answers as data, help when a step fails) is
+planned in [M12-assistant-skills.md](M12-assistant-skills.md).
 
 ## 1. The idea
 
