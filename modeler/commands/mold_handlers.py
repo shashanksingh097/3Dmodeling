@@ -64,6 +64,12 @@ def parting(p: Processor, b, dx, dy, dz, angle):
     elif not split:
         lines.append("  no parting line found: every face comes out on one side")
     ok = not steep and not under
+    p.give_report("PARTING", {"body": b, "pull": [round(float(v), 6) for v in part.direction], "angle": angle,
+                              "share": {"plus": round(pct("+"), 2), "minus": round(pct("-"), 2),
+                                        "steep": round(pct("steep"), 2), "both": round(pct("both"), 2)},
+                              "needs_draft": steep, "undercuts": under, "crossed": split,
+                              "parting_edges": len(part.edges), "flat": bool(part.flat) if part.edges else None,
+                              "ready": ok})
     lines.append("ready for a two-part mould" if ok else "fix the faces above before making the mould")
     p.analysis = Analysis(b, "DRAFT", tuple(float(x) for x in part.direction), angle)
     hook = getattr(p.view, "show_analysis", None) if p.view else None

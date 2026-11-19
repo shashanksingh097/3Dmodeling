@@ -118,6 +118,50 @@ def examples() -> dict[str, list[tuple[str, str]]]:
     return out
 
 
+GUIDES = "Guides"
+
+
+def guides() -> dict:
+    """The skill files the assistant uses, shown to people as guides (ai/skills.py)."""
+    from ..ai import skills as sk
+
+    return sk.discover()
+
+
+def guide_markdown(name: str) -> str:
+    """One guide as Markdown: the skill's text, its commands as links and its example script."""
+    s = guides().get(name)
+    if s is None:
+        return f"No guide {name}."
+    body = s.body
+    # command names in back quotes become links to their pages
+    reg = _commands()
+
+    def link(m: re.Match) -> str:
+        word = re.sub(r"\s*\n\s*", " ", m.group(1))  # a span can run over a line break
+        head = word.split(",")[0].strip()
+        return f"[`{word}`](cmd:{head})" if head.upper() == head and head in reg else m.group(0)
+
+    body = re.sub(r"(?<!`)`([^`]+?)`(?!`)", link, body)
+    out = [body.rstrip()]
+    if s.commands:
+        out.append("## Commands in this guide\n\n" + " · ".join(
+            f"[{c}](cmd:{c})" for c in s.commands if c in reg))
+    if s.example:
+        with open(s.example, encoding="utf-8") as f:
+            out.append("## Example script\n\n**Open example** runs it in a new model.\n\n```\n"
+                       + f.read().rstrip() + "\n```")
+    if s.source != "built-in":
+        out.append(f"*From {s.source} skills: {s.path}*")
+    return "\n\n".join(out)
+
+
+def guides_for(name: str) -> list:
+    from ..ai import skills as sk
+
+    return sk.for_command(name)
+
+
 def signature(c) -> str:
     return ", ".join([c.name] + [x.name if x.default is None else f"[{x.name}]" for x in c.args])
 
@@ -179,6 +223,10 @@ def page_html(name: str) -> str:
         out.append("<p>Press <b>Open form</b> to fill it in with the mouse.</p>")
     except F.FormError:
         out.append("<p>This command has no form: the window does it another way, or you type it.</p>")
+    used = guides_for(name)
+    if used:
+        out.append("<h3>Guides that use it</h3><p>" + " &nbsp; ".join(
+            f'<a href="guide:{escape(s.name)}">{escape(s.title)}</a>' for s in used) + "</p>")
     sib = [n for g, names in groups() if g == cat for n in names if n != name]
     if sib:
         out.append(f"<h3>Also under {escape(cat)}</h3><p>" + " &nbsp; ".join(_link(n) for n in sib) + "</p>")
@@ -192,9 +240,11 @@ class HelpBrowser(QDialog):
         self.setWindowTitle("Command reference")
         self.resize(940, 660)
         self.current = ""
+        self.guide = ""
         lay = QVBoxLayout(self)
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Type to search names, help and arguments, e.g. fillet, hole, sweep")
+        self.search_box.setPlaceholderText("Type to search guides, names, help and arguments, e.g. fillet, hole, "
+                                           "sheet metal")
         self.search_box.setClearButtonEnabled(True)
         self.search_box.textChanged.connect(self.search)
         lay.addWidget(self.search_box)
@@ -215,8 +265,16 @@ class HelpBrowser(QDialog):
         self.form_button.clicked.connect(self.open_form)
         self.type_button = QPushButton("Put in command line")
         self.type_button.clicked.connect(self.put_in_command_line)
+        self.example_button = QPushButton("Open example")
+        self.example_button.setToolTip("Run the guide's example script in a new model")
+        self.example_button.clicked.connect(self.open_example)
+        self.ask_button = QPushButton("Ask the assistant")
+        self.ask_button.setToolTip("Open the assistant with this guide named, ready for your request")
+        self.ask_button.clicked.connect(self.ask_assistant)
         row.addWidget(self.form_button)
         row.addWidget(self.type_button)
+        row.addWidget(self.example_button)
+        row.addWidget(self.ask_button)
         row.addStretch(1)
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
@@ -231,6 +289,19 @@ class HelpBrowser(QDialog):
         reg = _commands()
         low = filt.strip().lower()
         self.tree.clear()
+        found = [s for s in guides().values()
+                 if not low or low in s.name.replace("-", " ") or low in s.title.lower()
+                 or low in s.description.lower() or low in s.body.lower()]
+        if found:
+            top = QTreeWidgetItem([f"{GUIDES} ({len(found)})"])
+            top.setFlags(top.flags() & ~Qt.ItemIsSelectable)
+            for s in found:
+                it = QTreeWidgetItem([s.title])
+                it.setData(0, Qt.UserRole, "guide:" + s.name)
+                it.setToolTip(0, s.description)
+                top.addChild(it)
+            self.tree.addTopLevelItem(top)
+            top.setExpanded(bool(low))
         for cat, names in groups():
             hits = [n for n in names if matches(reg[n], low)]
             if not hits:
@@ -247,7 +318,9 @@ class HelpBrowser(QDialog):
 
     def _picked(self, item: QTreeWidgetItem, _col: int = 0) -> None:
         name = item.data(0, Qt.UserRole)
-        if name:
+        if name and name.startswith("guide:"):
+            self.show_guide(name[6:])
+        elif name:
             self.show_command(name)
         else:
             item.setExpanded(not item.isExpanded())
@@ -256,6 +329,8 @@ class HelpBrowser(QDialog):
         s = url.toString()
         if s.startswith("cmd:"):
             self.show_command(s[4:])
+        elif s.startswith("guide:"):
+            self.show_guide(s[6:])
         else:
             from PySide6.QtGui import QDesktopServices
 
@@ -264,14 +339,28 @@ class HelpBrowser(QDialog):
     # ---- right side -----------------------------------------------------------
     def search(self, text: str) -> None:
         self._fill_tree(text)
-        self.current = ""
+        self.current = self.guide = ""
         self.view.setHtml(list_html(text))
         self._buttons()
+
+    def show_guide(self, name: str) -> None:
+        if name not in guides():
+            return
+        self.current, self.guide = "", name
+        self.view.setMarkdown(guide_markdown(name))
+        self._buttons()
+        it = self._item("guide:" + name)
+        if it is not None:
+            self.tree.blockSignals(True)
+            it.parent().setExpanded(True)
+            self.tree.setCurrentItem(it)
+            self.tree.blockSignals(False)
 
     def show_command(self, name: str) -> None:
         name = name.upper()
         if name not in _commands():
             return
+        self.guide = ""
         self.current = name
         self.view.setHtml(page_html(name))
         self._buttons()
@@ -302,11 +391,42 @@ class HelpBrowser(QDialog):
                 pass
         self.form_button.setEnabled(has_form and self.win is not None)
         self.type_button.setEnabled(bool(self.current) and self.win is not None)
+        g = guides().get(self.guide) if self.guide else None
+        self.example_button.setEnabled(bool(g and g.example) and self.win is not None)
+        self.ask_button.setEnabled(bool(g) and self.win is not None
+                                   and getattr(self.win, "assistant_panel", None) is not None)
+        for b in (self.form_button, self.type_button):
+            b.setVisible(not self.guide)
+        for b in (self.example_button, self.ask_button):
+            b.setVisible(bool(self.guide))
 
     def open_form(self):
         if self.win is None or not self.current:
             return None
         return self.win.open_form(self.current)
+
+    def open_example(self) -> None:
+        g = guides().get(self.guide) if self.guide else None
+        if self.win is None or g is None or not g.example:
+            return
+        shell = getattr(self.win, "shell", None)
+        if shell is not None:
+            shell.open_example(g.example)
+        else:
+            self.win.execute("NEW")
+            self.win.execute('RUN, "' + g.example.replace("\\", "/") + '"')
+
+    def ask_assistant(self) -> None:
+        g = guides().get(self.guide) if self.guide else None
+        panel = getattr(self.win, "assistant_panel", None) if self.win is not None else None
+        if g is None or panel is None:
+            return
+        dock = getattr(self.win, "assistant_dock", None)
+        if dock is not None:
+            dock.show()
+            dock.raise_()
+        panel.input.setText(f"Using the {g.name} skill: ")
+        panel.input.setFocus()
 
     def put_in_command_line(self) -> None:
         if self.win is None or not self.current:

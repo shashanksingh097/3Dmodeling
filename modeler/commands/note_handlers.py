@@ -414,6 +414,15 @@ def stackup(p: Processor, l1, **rest):
         if verdict(wlo, whi) != "always within":
             worst_link = max(range(len(links)), key=lambda i: links[i].half)
             lines.append(f"  the widest tolerance is link {worst_link + 1}: tighten it first")
+    rep = {"nominal": round(st.nominal, 6), "worst": [round(wlo, 6), round(whi, 6)],
+           "rss": [round(rlo, 6), round(rhi, 6)],
+           "links": [{"sign": lk.sign, "nominal": lk.nominal, "upper": lk.upper, "lower": lk.lower,
+                      "share": round(float(share), 2)} for lk, share in zip(links, st.shares())]}
+    if limits:
+        rep["allowed"] = {"min": limits.get("MIN"), "max": limits.get("MAX")}
+        rep["worst_ok"] = verdict(wlo, whi) == "always within"
+        rep["rss_ok"] = verdict(rlo, rhi) == "always within"
+    p.give_report("STACKUP", rep)
     if wlo < 0 < whi or whi < 0:
         lines.append("  the parts can " + ("overlap (the gap goes below 0)" if whi >= 0 else "never fit: the gap is "
                                            "always below 0"))

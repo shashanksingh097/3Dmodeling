@@ -52,6 +52,8 @@ errors, and write scripts.
 How to work:
 - Learn the language from the tools, not from memory: find_commands and command_help give each
   command's arguments, defaults and examples. Commands look like `BLOCK, 0,0,0, 10,20,5`.
+- For a whole workflow (sheet metal, an enclosure, gears, an assembly that moves, fixing a failed step
+  ...) load the matching skill first (the list is below; list_skills also shows the project's own).
 - Read the user's model with model_summary, describe_body, history, probe_ray, section_profile.
   Prefer these exact text answers to guessing.
 - "This face", "these edges", "here": call user_context for what is selected. If nothing fits,
@@ -134,7 +136,12 @@ FOLDER_PROMPT = """- The user's working folder is {0}. Put files from EXPORT and
 def first_prompt(home: str) -> str:
     """The system message of every new chat: how to work, the folder, the
     language in short and every command in one line."""
-    return (SYSTEM_PROMPT + FOLDER_PROMPT.format(home) + "\n" + LANGUAGE_BASICS
+    from . import skills as sk
+
+    index = sk.index_text()
+    skills = ("\nSkills (load_skill gives the steps, checks and an example; load the one that fits a request "
+              "before you write a script for it):\n" + index + "\n") if index else ""
+    return (SYSTEM_PROMPT + FOLDER_PROMPT.format(home) + skills + "\n" + LANGUAGE_BASICS
             + "\nEvery command (arguments in [brackets] are optional; command_help gives the details and "
               "examples):\n" + command_catalogue() + "\n")
 

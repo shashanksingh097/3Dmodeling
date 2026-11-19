@@ -198,6 +198,84 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         except DescribeError as exc:
             raise ExprError(f"CLEARANCE(): {exc}") from None
 
+    # ---- the analysis checks as numbers (their reports, see Processor.give_report) ----
+    def quiet(fn, *args):
+        """Run a check's handler for its report only: no colours or marks in the view, and
+        the model's own analysis and reports left as they were. Cached per model state."""
+        key = (fn.__name__, args, id(m), m.units,
+               tuple((i, id(b.shape), b.material, i in m.hidden) for i, b in sorted(m.bodies.items())),
+               tuple((k, v[0], tuple(v[1])) for k, v in sorted(m.named_sets.items())))
+        cache = p.__dict__.setdefault("_query_reports", {})
+        if key in cache:
+            return cache[key]
+        from .processor import CommandError
+
+        saved = (p.view, getattr(p, "analysis", None), p.last_report, dict(p.reports))
+        p.view = None
+        try:
+            fn(p, *args)
+            rep = p.last_report
+        except CommandError as exc:
+            raise ExprError(str(exc)) from None
+        finally:
+            p.view, p.analysis, p.last_report = saved[0], saved[1], saved[2]
+            p.reports.clear()
+            p.reports.update(saved[3])
+        if len(cache) > 32:
+            cache.clear()
+        cache[key] = rep
+        return rep
+
+    def mass(b):
+        from ..core.model import UNITS
+
+        bid = body_id(b, "MASS")
+        dens = m.density(bid)
+        if not dens:
+            raise ExprError(f"MASS(): body {bid} has no material (MATERIAL, b, STEEL) to weigh it")
+        g = props("BODY", m.body(bid).shape)
+        return dens * abs(g.Mass()) * (UNITS[m.units] / 1000.0) ** 3
+
+    def stress_report(fn, b, fixed, loaded, fx=0.0, fy=0.0, fz=0.0, h=0.0):
+        from .stress_handlers import stress
+
+        bid = body_id(b, fn)
+        return quiet(stress, bid, str(fixed), str(loaded), "FORCE", float(fx), float(fy), float(fz), float(h))
+
+    def safety(b, fixed, loaded, fx=0.0, fy=0.0, fz=0.0, h=0.0):
+        sf = stress_report("SAFETY", b, fixed, loaded, fx, fy, fz, h)["safety_factor"]
+        return float("inf") if sf is None else sf
+
+    def maxstress(b, fixed, loaded, fx=0.0, fy=0.0, fz=0.0, h=0.0):
+        return stress_report("MAXSTRESS", b, fixed, loaded, fx, fy, fz, h)["max_stress_MPa"]
+
+    def deflect(b, fixed, loaded, fx=0.0, fy=0.0, fz=0.0, h=0.0):
+        return stress_report("DEFLECT", b, fixed, loaded, fx, fy, fz, h)["max_deflection_mm"]
+
+    def overhangs(b, angle=45.0, up="+Z"):
+        from .print_handlers import printcheck
+
+        return quiet(printcheck, body_id(b, "OVERHANGS"), str(up), float(angle), 0.0)["overhang_area"]
+
+    def gravity_report(ground="FLOOR", fastened=""):
+        from .gravity_handlers import gravity
+
+        g = ground if isinstance(ground, str) else str(body_id(ground, "FLOATING"))
+        return quiet(gravity, g, str(fastened), 0.0, 0.0, -1.0, 0.0)
+
+    def floating(ground="FLOOR", fastened=""):
+        return len(gravity_report(ground, fastened)["problems"])
+
+    def tipangle(ground="FLOOR", fastened=""):
+        a = gravity_report(ground, fastened)["tip_angle"]
+        return 0.0 if a is None else a
+
+    def qty(name):
+        from .config_handlers import bom_rows
+
+        want = str(name).strip().upper()
+        return sum(r["qty"] for r in bom_rows(p) if r["name"].upper() == want)
+
     def sameshape(a, b):
         from ..ai import relate as rl
         from ..ai.describe import DescribeError
@@ -338,6 +416,14 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         "GROUPS": groups,
         "SAMESHAPE": sameshape,
         "PROBLEMS": problems,
+        "MASS": mass,
+        "SAFETY": safety,
+        "MAXSTRESS": maxstress,
+        "DEFLECT": deflect,
+        "OVERHANGS": overhangs,
+        "FLOATING": floating,
+        "TIPANGLE": tipangle,
+        "QTY": qty,
         "CLEARANCE": fitgap,
         "VOL": vol,
         "AREA": area,

@@ -48,6 +48,8 @@ definitions), among them:
 | `check` | expectations that must hold (`VOL(1) > 100`, `VALID(1)`) |
 | `sandbox`, `sandbox_script`, `vary`, `round_trip` | try changes on a copy, vary a parameter |
 | `lint`, `diff`, `selector_for`, `preview_selection` | scripts and stable references |
+| `list_skills`, `load_skill`, `search_docs` | step-by-step guides to whole jobs, and the manual |
+| `parameters`, `sketch_state` | who sets and reads each parameter; a sketch's constraints and freedom |
 
 Three tools are only here, because the app's assistant hands its work to
 the person instead:
@@ -68,6 +70,17 @@ empty), and `undo` takes steps back in the copy.
 A failing tool answers with `isError: true` and an `error` (often with a
 `hint`); the model is left as it was. Answers are JSON, as text and as
 `structuredContent`.
+
+## Skills: prompts and resources
+
+The server also offers the app's skill files (`python -m modeler skills
+list`): each skill is a **prompt** (`prompts/list`, `prompts/get` with an
+optional `request` argument, which adds the user's request to the skill's
+text and example) and two **resources**, `skill://NAME` (the `SKILL.md`)
+and `skill://NAME/example.cmd`. The tools `list_skills`, `load_skill` and
+`search_docs` give the same text to clients that only use tools. To give
+the skills to an agent that reads Agent Skills folders itself, write them
+out with `python -m modeler skills export --to DIR`.
 
 ## Files
 

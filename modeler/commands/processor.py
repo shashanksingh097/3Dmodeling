@@ -129,6 +129,7 @@ class Result:
     message: str = ""
     pending: bool = False  # interactive input is inside an open block
     warning: str = ""  # the command ran, but something needs the user's attention
+    report: dict | None = None  # the same answer as data, from checks such as STRESS or PRINTCHECK
 
 
 @dataclass
@@ -246,6 +247,8 @@ class Processor:
         self.file_map: dict[str, str] = {}
         self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
         self.project_path: str | None = None  # the last SAVE/OPEN file
+        self.last_report: dict | None = None  # give_report: the data of the line being run
+        self.reports: dict[str, dict] = {}  # the newest report of each check (STRESS, GRAVITY ...)
         self.part_doc = None  # a part document (commands/partdoc_handlers.py PartDoc), or None for a project
         self.section = None  # SECTION view: (datum plane, "ABOVE"/"BELOW") or None; a view setting only
         self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
@@ -843,12 +846,19 @@ class Processor:
         finally:
             m.mesh_entities_ok = before
 
+    def give_report(self, name: str, data: dict) -> None:
+        """A check hands its answer over as data too: the Result of the line gets it
+        (the assistant's tools pass it on as JSON), and ``reports[name]`` keeps the newest."""
+        self.last_report = data
+        self.reports[name] = data
+
     def _run_unlogged(self, cmd: Command, st: Cmd, label: str) -> Result:
         self._trace = []
+        self.last_report = None
         try:
             values, _ = self._bind(cmd, st.args)
             msg = self._call(cmd, values)
-            return Result(label, True, msg)
+            return Result(label, True, msg, report=self.last_report)
         except (CommandError, ModelError, ExprError, ScriptError) as exc:
             return Result(label, False, str(exc))
         except Exception as exc:  # kernel failures should not kill the app

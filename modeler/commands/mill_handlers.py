@@ -83,6 +83,11 @@ def mill(p: Processor, b, op, faces, tool, down, over, file, feed, speed):
         except OSError as exc:
             raise CommandError(f"MILL: cannot write {out} ({exc})") from None
         lines.append(f"G-code written to {out}")
+    p.give_report("MILL", {"body": b, "op": op, "passes": len(path.runs), "tool": tool, "step_down": down,
+                           "step_over": None if op == "OUTLINE" else over,
+                           "cut_length": round(float(path.cut_length()), 3), "minutes": round(float(mins), 3),
+                           "feed": feed, "z_range": [round(float(lo_p[2]), 4), round(float(path.safe), 4)],
+                           "notes": list(path.notes), "file": out if file else ""})
     lines.append("the path shows in the view (MILL, OFF hides it). Check it in your machine's simulator before "
                  "cutting")
     return "\n".join(lines)

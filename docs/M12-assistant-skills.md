@@ -1,6 +1,7 @@
 # M12: better assistant tools, skill files and help
 
-This is a plan, not built yet. It follows on from
+Items 43 to 45 are built (see "What was built" at the end); 46 and 47
+are still a plan. It follows on from
 [M9-ai-tools.md](M9-ai-tools.md) (the tools), [M9-copilot.md](M9-copilot.md)
 (the in-app assistant) and [mcp.md](mcp.md) (the same tools for outside
 agents). The short version is PLAN.md items 43 to 47.
@@ -228,3 +229,43 @@ shows it does no harm.
 | 45 | reports and new queries for the analysis commands (4.1); `search_docs`, `parameters`, `sketch_state` |
 | 46 | `diagnose` and the Why? button; `around`, `outline`, more feature recognition, `render_compare`, `render_detail` |
 | 47 | benchmark to about 25 tasks with run modes; the small first prompt behind a setting; a test of Copilot's own skill loading |
+
+## 9. What was built (items 43 to 45, 2026-11-19)
+
+- **17 skills** in `modeler/skills/`: modeling-basics, editing-a-model,
+  fixing-failed-steps, sketch-to-solid, holes-and-patterns, enclosure,
+  sheet-metal, fasteners-and-threads, gears-and-cams, assembly-and-motion,
+  frames-and-welds, curves-and-surfaces, scan-to-cad, sculpting,
+  strength-and-weight, manufacturing, drawings-and-tolerances. Each has a
+  `SKILL.md` (front matter `name`, `description`, `commands`) and an
+  `example.cmd` that ends in `ASSERT` lines.
+- **`modeler/ai/skills.py`**: reading (built-in, the user's skills folder,
+  `MODELER_SKILLS`, folders added in the app, a project's own `skills/`
+  folder; a later one replaces an earlier one of the same name), switching
+  skills off, `check` (name matches the folder, size, no keys or tokens,
+  every command exists, every `cmd` block passes `LINT`, the example runs
+  and no step of it fails afterwards) and `export`.
+  `python -m modeler skills list | show NAME | check | export --to DIR`.
+  `tests/test_skills.py` runs every example.
+- **Assistant tools**: `list_skills`, `load_skill`, `search_docs` (BM25
+  over LANGUAGE.md, USER-GUIDE.md, the skills and the example scripts, no
+  network), `parameters` (value, the step that sets it with a ready
+  `HIST, EDIT` line, the steps that read it) and `sketch_state` (geometry,
+  constraints, freedom left, repeated constraints, profiles). The first
+  prompt carries a one-line index of the skills.
+- **MCP server**: each skill is a prompt (`prompts/get` with an optional
+  `request`) and two resources (`skill://name`, `skill://name/example.cmd`).
+- **Answers as data**: `STRESS`, `PRINTCHECK`, `GRAVITY`, `MOTION`, `BOM`,
+  `CUTLIST`, `MASSPROP`, `MILL`, `PARTING`, `SHEETINFO` and `STACKUP` put a
+  report on their result; the `run` tool shows it on the step. New queries
+  `MASS`, `SAFETY`, `MAXSTRESS`, `DEFLECT`, `OVERHANGS`, `FLOATING`,
+  `TIPANGLE` and `QTY` run the checks quietly and keep the answer until the
+  model changes.
+- **For people**: Help > Guides shows the skills in the help browser, with
+  links to every command they use (and "Guides that use it" on command
+  pages), Open example and Ask the assistant. Help > Assistant skills… lists
+  the skills with an on/off box, the user's own folders and Check skills.
+
+Not done yet: the smaller first prompt (4.4) waits for the benchmark in
+item 47, and Copilot's own `skill_directories` stays unused because our
+sessions only allow our own tools; `load_skill` does the same job.

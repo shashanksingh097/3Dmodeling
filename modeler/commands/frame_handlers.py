@@ -176,6 +176,10 @@ def cutlist(p: Processor, file):
     lines.append("total: " + "; ".join(f"{pr} {sz}: {fmt_num(round(v, 1))}" for (pr, sz), v in totals.items()))
     lines += welds
     text = "\n".join(lines)
+    p.give_report("CUTLIST", {"rows": [{**r, "length": round(float(r["length"]), 3), "ends": list(r["ends"])}
+                                       for r in rows],
+                              "totals": [{"profile": pr, "size": sz, "length": round(v, 3)}
+                                         for (pr, sz), v in totals.items()]})
     if file:
         path = file if os.path.splitext(file)[1] else file + ".csv"
         try:

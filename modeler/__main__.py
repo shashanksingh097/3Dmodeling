@@ -22,6 +22,9 @@
     python -m modeler mcp [--script part.cmd]
                                       serve the assistant's modelling tools to any MCP
                                       client over stdin/stdout (docs/mcp.md)
+    python -m modeler skills [list|show NAME|check|export --to FOLDER]
+                                      the assistant's skill files (one per workflow);
+                                      "export" writes them for other agents (.claude/skills)
     python -m modeler tools           the AI assistant's tool definitions, as JSON
     python -m modeler tool [--script file.cmd] NAME ['{"arg": value}']
                                       call one tool headless and print its JSON answer;
@@ -193,6 +196,10 @@ def main(argv: list[str] | None = None) -> int:
         from .ai.mcp_server import main as mcp_main
 
         return mcp_main(args[1:])
+    if args[:1] == ["skills"]:
+        from .ai.skills import main as skills_main
+
+        return skills_main(args[1:])
     if args[:1] == ["copilot"]:
         from .ai.copilot import main as copilot_main
 

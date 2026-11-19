@@ -6,6 +6,23 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ### Added
 
+- **Assistant skills and Guides**: 17 step-by-step guides to whole jobs
+  (sheet metal, enclosures, fasteners, gears and cams, assemblies and
+  motion, frames, surfaces, scan to CAD, sculpting, strength,
+  manufacturing, drawings, fixing a failed step ...), each with an example
+  script that is checked. The assistant loads the one that fits a request;
+  people read them in **Help > Guides**; the MCP server serves them as
+  prompts and resources; `python -m modeler skills` lists, checks and
+  exports them. **Help > Assistant skills…** switches them off and adds
+  folders with your own.
+- **Better assistant tools**: `search_docs` (the manual, guides and
+  examples), `parameters` (who sets and who reads each one, with a ready
+  edit line) and `sketch_state`.
+- **Checks as data and in ASSERT**: `STRESS`, `GRAVITY`, `PRINTCHECK`,
+  `BOM`, `MASSPROP` and other checks hand their numbers to the assistant as
+  data, and new queries `MASS`, `SAFETY`, `MAXSTRESS`, `DEFLECT`,
+  `OVERHANGS`, `FLOATING`, `TIPANGLE` and `QTY` keep design rules in the
+  script (`ASSERT, SAFETY(bracket, "wall", "tip", 0, 0, -400), GE, 2`).
 - **Gears**: `GEAR` makes involute spur, helical and internal gears and
   racks from a module and a tooth count, with a bore, and says the centre
   distance to a mating gear.

@@ -90,6 +90,11 @@ Every numeric argument of every command is an expression.
 | `HOLES(b)`, `HOLES(b, d)`, `HOLES(b, d, 1)` | round holes in the body: all, of diameter `d`, and only through (1) or only blind (0) holes; section 23 |
 | `SYMMETRIC(b, "YZ")` | 1 if the body is its own mirror image in the plane (a base plane or a datum plane) |
 | `MINWALL(b)` | the thinnest wall of a solid (see `THICK`, section 23) |
+| `MASS(b)` | mass in kg, from the body's `MATERIAL` (an error when it has none) |
+| `SAFETY(b, "fixed", "loaded", fx, fy, fz [, h])` | the `STRESS` safety factor with those named sets and that force in N (h: mesh size); `MAXSTRESS(...)` gives the largest stress in MPa and `DEFLECT(...)` the largest movement in mm |
+| `OVERHANGS(b [, angle [, up]])` | overhanging area that `PRINTCHECK` finds (default 45 degrees, up `+Z`) |
+| `FLOATING([ground, fastened])`, `TIPANGLE([ground, fastened])` | how many parts `GRAVITY` finds floating or tipping, and the smallest tip angle in degrees |
+| `QTY("name")` | how many of a part the `BOM` counts |
 
 `ECHO, VOL(flange) / 1000` prints a value without changing anything.
 
@@ -1751,6 +1756,28 @@ history step, so it runs again whenever the history is re-run: change
 done again with the new value. `scripts/flange.cmd` ends with a few.
 
 Without a tolerance, `EQ` allows a millionth of the value (plus `/TOL`).
+
+The analysis queries turn whole checks into one line, so a design rule stays
+in the script and is checked again on every rebuild:
+
+```
+ASSERT, SAFETY(bracket, "wall", "tip", 0, 0, -400), GE, 2
+ASSERT, OVERHANGS(case), EQ, 0, 1
+ASSERT, FLOATING(), EQ, 0
+ASSERT, MASS(bracket), LT, 0.25
+```
+
+They run quietly: no colours on the model and no message of their own, and
+the answer is kept until the model changes, so checking twice costs nothing.
+
+### Answers as data
+
+`STRESS`, `PRINTCHECK`, `GRAVITY`, `MOTION`, `BOM`, `CUTLIST`, `MASSPROP`,
+`MILL`, `PARTING`, `SHEETINFO` and `STACKUP` also hand back their answer as
+data next to the message. The assistant's `run` tool and the MCP server show
+it as a `report` on the step (for example `{"safety_factor": 3.1,
+"max_deflection_mm": 0.12, ...}`), so a program reads the numbers instead of
+picking them out of the text.
 
 ### DESCRIBE: the model in words
 
