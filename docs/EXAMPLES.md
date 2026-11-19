@@ -63,6 +63,8 @@ saves the 3D view (see `modeler/gallery.py`).
 | [<img src="examples/gear_train.png" width="160">](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) | [Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER)](#gears-and-fasteners-a-pinion-and-a-wheel-in-mesh-a-planet-in-a-ring-gear-and-a-rack-on-cap-screws-with-washers-and-nuts-gear-fastener) |
 | [<img src="examples/plastic_case.png" width="160">](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) | [A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT)](#a-moulded-case-seen-from-its-open-side-screw-bosses-with-ribs-snap-hooks-on-the-rim-and-two-vents-boss-snap-vent) |
 | [<img src="examples/cap_mould.png" width="160">](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) | [Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS)](#mould-tools-and-notes-a-drafted-cap-between-its-two-mould-halves-with-an-h7-bore-note-a-size-and-a-material-note-parting-mold-note-fits) |
+| [<img src="examples/pipe_run.png" width="160">](#pipes-and-cables-a-water-line-bent-at-its-corners-with-a-tee-branch-and-a-cable-bundle-on-a-tray-route-routes) | [Pipes and cables: a water line bent at its corners with a tee branch, and a cable bundle on a tray (ROUTE, ROUTES)](#pipes-and-cables-a-water-line-bent-at-its-corners-with-a-tee-branch-and-a-cable-bundle-on-a-tray-route-routes) |
+| [<img src="examples/toleranced_plate.png" width="160">](#tolerances-datums-flatness-parallelism-and-an-h7-bore-placed-by-position-cut-open-by-a-section-plane-note-stackup-section) | [Tolerances: datums, flatness, parallelism and an H7 bore placed by position, cut open by a section plane (NOTE, STACKUP, SECTION)](#tolerances-datums-flatness-parallelism-and-an-h7-bore-placed-by-position-cut-open-by-a-section-plane-note-stackup-section) |
 
 ---
 
@@ -2707,6 +2709,89 @@ FITS, H7/g6
 NOTE, SIZE, 31, 0, 0, 31, 0, 14
 NOTE, "ABS, 0.5% shrink", -45, 0, 25, -25, 0, 8
 SEL, NONE
+```
+
+</details>
+
+---
+
+## Pipes and cables: a water line bent at its corners with a tee branch, and a cable bundle on a tray (ROUTE, ROUTES)
+
+![Pipes and cables: a water line bent at its corners with a tee branch, and a cable bundle on a tray (ROUTE, ROUTES)](examples/pipe_run.png)
+
+Pipes and cables (ROUTE, ROUTES): a water line along a skid, bent at each corner, with a branch that joins it as a tee, and a cable bundle of seven wires run beside it on a tray. ROUTES lists each route's length, straight pieces and bends, and the total per size.
+
+**Script:** [scripts/pipe_run.cmd](../scripts/pipe_run.cmd) (25 lines) · **Run:** `python -m modeler scripts/pipe_run.cmd`
+
+**You should get:** 7 bodies, volume 2,102,540.4 mm³, 43 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Pipes and cables (ROUTE, ROUTES): a water line along a skid, bent at each corner, with a branch that
+! joins it as a tee, and a cable bundle of seven wires run beside it on a tray. ROUTES lists each
+! route's length, straight pieces and bends, and the total per size.
+L = 600
+BLOCK, -40, -60, -40, L + 80, 260, 10
+NAME, LAST, skid
+COLOR, skid, GREY
+POLYLINE, (0,0,40), (L,0,40), (L,180,40), (L,180,240)
+NAME, LAST, main_path
+ROUTE, main_path, PIPE, 28x2, 50, water
+POLYLINE, (L/2,0,40), (L/2,0,140), (L/2 + 120,0,140)
+NAME, LAST, branch_path
+ROUTE, branch_path, PIPE, 28x2, 50
+BLOCK, 0, 150, -30, L - 100, 40, 4
+NAME, LAST, tray
+COLOR, tray, ORANGE
+POLYLINE, (0,170,-20), (L - 150,170,-20), (L - 150,170,100), (L - 60, 170, 100)
+NAME, LAST, cable_path
+ROUTE, cable_path, CABLE, 7x4, 30
+COLOR, cable_1, BLUE
+HIDE, main_path
+HIDE, branch_path
+HIDE, cable_path
+ROUTES
+FIT
+```
+
+</details>
+
+---
+
+## Tolerances: datums, flatness, parallelism and an H7 bore placed by position, cut open by a section plane (NOTE, STACKUP, SECTION)
+
+![Tolerances: datums, flatness, parallelism and an H7 bore placed by position, cut open by a section plane (NOTE, STACKUP, SECTION)](examples/toleranced_plate.png)
+
+Tolerances (NOTE, STACKUP, SECTION): a bearing plate with datums A (the bottom) and B (the left side), the top held flat and parallel to A, the bore placed to A and B and toleranced H7, and a stack-up of the shaft's end play through the plate. SECTION cuts the view open through the bore.
+
+**Script:** [scripts/toleranced_plate.cmd](../scripts/toleranced_plate.cmd) (20 lines) · **Run:** `python -m modeler scripts/toleranced_plate.cmd`
+
+**You should get:** 1 body, volume 177,862.8 mm³, 7 faces
+
+<details><summary>The whole script</summary>
+
+```text
+! Tolerances (NOTE, STACKUP, SECTION): a bearing plate with datums A (the bottom) and B (the left side),
+! the top held flat and parallel to A, the bore placed to A and B and toleranced H7, and a stack-up of
+! the shaft's end play through the plate. SECTION cuts the view open through the bore.
+BLOCK, 0,0,0, 120,80,20
+NAME, LAST, plate
+HOLE, plate, 60,40,20, 30
+SEL, S, FACE, LOC, Z, 0
+NOTE, DATUM, A
+SEL, S, FACE, LOC, X, 0
+NOTE, DATUM, B
+SEL, S, FACE, LOC, Z, 20
+NOTE, GDT, FLATNESS, 0.02
+NOTE, GDT, PARALLELISM, 0.05, A
+SEL, S, FACE, TYPE, CYLINDER
+NOTE, FIT, H7
+NOTE, GDT, POSITION, D0.05, A, B
+SEL, NONE
+STACKUP, +20.2 ±0.05, -20 ±0.05, MIN=0.05, MAX=0.4
+SECTION, ZX, ABOVE, 40
+FIT
 ```
 
 </details>

@@ -379,6 +379,19 @@ drawing sheets. **Fits…** gives ISO 286 limits and the clearance or
 interference of a fit such as H7/g6. **Weld…** (Features tab, Frames) adds
 weld beads where parts meet; the cut list adds their length.
 
+**Sections and tolerances.** **Section…** (Inspect tab) opens a window
+with a plane, the side to keep and a slider that moves the plane through
+the model; **Add plane** cuts along up to three planes. **Stack-up…**
+(Inspect tab, Notes) adds up a chain of sizes with their tolerances and
+gives the worst case and statistical gap. **Note…** also puts datum
+letters and geometric tolerance frames (flatness, position ...) on a
+picked face. Details: LANGUAGE.md section 44.
+
+**Pipes and cables.** **Route…** (Model tab, Pipes) runs a pipe or a cable
+along a polyline or sketch, bent at the corners; a route that ends on
+another joins it as a tee. **Pipe list** lists the lengths and bends. An
+example is `scripts/pipe_run.cmd`.
+
 **Exploded views.** Record how an assembly comes apart with `XSTEP` (the
 command menu, under Parts): each step moves some parts by a distance.
 `XSHOW, name` then shows the parts apart with thin trail lines back to
@@ -473,7 +486,7 @@ Details: [LANGUAGE.md](LANGUAGE.md) section 22.
 | `RELATE` | where one part sits relative to another: sides, gaps, centred, rests on, flush faces |
 | `COMPARE` | whether two bodies are the same shape, a moved copy or a mirror image |
 | `DESIGNCHECK` | broken bodies, loose pieces, tiny edges, slivers, thin walls |
-| **Section**, `SECTION` | cuts the view open on a plane |
+| **Section…**, `SECTION` | cuts the view open on a plane, moved with a slider; the cuts are hatched and their areas listed |
 | `CHECK`, `HEAL`, `CLEAN` | finds and repairs broken bodies (often from imports) |
 | `THICK`, `PROFILE`, `PROBE` | wall thickness, a cut through a body as text, what a ray hits |
 | `ASSERT` | a check inside a script, e.g. `ASSERT, HOLES(bracket, 8), EQ, 2` |

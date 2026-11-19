@@ -44,3 +44,4 @@ from . import plastic_handlers  # noqa: F401  (BOSS, SNAP, VENT: moulded plastic
 from . import mold_handlers  # noqa: F401  (PARTING, MOLD: mould tools)
 from . import note_handlers  # noqa: F401  (NOTE, FITS: notes on the model, ISO 286 fits)
 from . import weld_handlers  # noqa: F401  (WELD: weld beads)
+from . import route_handlers  # noqa: F401  (ROUTE, ROUTES: pipes and cables)

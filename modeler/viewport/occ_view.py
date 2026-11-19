@@ -216,7 +216,7 @@ class OccViewport(QWidget):
         self._ais: dict[int, AIS_Shape] = {}
         self._drawn_color: dict[int, tuple | None] = {}  # body ID -> colour it was drawn in
         self._datum_ais: list = []  # datum planes, axes, points and their labels (never pickable)
-        self._clip = None  # the SECTION clip plane, if any
+        self._clips = []  # the SECTION clip planes
         self._sketch_ais: list = []  # sketch curves, points and labels (never pickable)
         self._preview_ais: list = []  # what a sketch tool is drawing
         self._mark_ais: list = []  # what the assistant points at (set_marks)
@@ -1532,25 +1532,32 @@ class OccViewport(QWidget):
 
     # ---- section view ---------------------------------------------------
     def set_section(self, section) -> None:
-        """Cut the view open along a plane (SECTION). section = (datum, side) or None."""
+        """Cut the view open along planes (SECTION). section = [(datum, side), ...] or None."""
         if not self._initialized:
             self._pending_section = section
             return
+        from OCP.Aspect import Aspect_HS_DIAGONAL_45
         from OCP.Graphic3d import Graphic3d_ClipPlane
         from OCP.gp import gp_Dir, gp_Pln, gp_Pnt
 
-        if self._clip is not None:
-            self.view.RemoveClipPlane(self._clip)
-            self._clip = None
-        if section is not None:
-            d, side = section
+        for clip in self._clips:
+            self.view.RemoveClipPlane(clip)
+        self._clips = []
+        if section is not None and not isinstance(section, list):
+            section = [section]
+        for d, side in section or []:
             keep = d.z if side == "ABOVE" else tuple(-c for c in d.z)  # towards the half that stays
             clip = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*d.origin), gp_Dir(*keep)))
             clip.SetCapping(True)
             clip.SetCappingColor(_rgb(0.85, 0.35, 0.3))
+            try:
+                clip.SetCappingHatch(Aspect_HS_DIAGONAL_45)
+                clip.SetCappingHatchOn()
+            except Exception:  # an older kernel without hatched caps: plain caps are fine
+                pass
             clip.SetOn(True)
             self.view.AddClipPlane(clip)
-            self._clip = clip
+            self._clips.append(clip)
         self.view.Redraw()
 
     def _sync_selection(self) -> None:

@@ -756,6 +756,14 @@ class MainWindow(QMainWindow):
                                                      "with real threads\nRuns: FASTENER, kind, size, x,y,z [, length]",
                    lambda: self.open_form("FASTENER"))
 
+        tb = tbs.group(self, "Pipes", "route", "Model")
+        tbs.action(self, tb, "Route…", "route", "A pipe, tube or cable along the lines of a polyline or sketch, bent "
+                                               "at the corners; a route that ends on another joins it as a tee\n"
+                                               "Runs: ROUTE, path, PIPE/CABLE, size [, bend radius]",
+                   lambda: self.open_form("ROUTE"))
+        tbs.action(self, tb, "Pipe list", "routes", "Each route's size, length, straight pieces and bends\n"
+                                                   "Runs: ROUTES", lambda: self.execute("ROUTES"))
+
         tb = tbs.group(self, "Plastic parts", "plastic", "Features")
         tbs.action(self, tb, "Boss…", "boss", "A screw boss with support ribs on a face of the part\n"
                                              "Runs: BOSS, body, x,y,z, h, od [, hole, ribs]", lambda: self.open_form("BOSS"))
@@ -789,11 +797,16 @@ class MainWindow(QMainWindow):
 
         tb = tbs.group(self, "Notes", "notes", "Inspect")
         tbs.action(self, tb, "Note…", "note", "Pin a note, a size, a hole size or a fit to the model: shown in the "
-                                             "view and on drawings\nRuns: NOTE, \"text\", x,y,z · NOTE, SIZE, ... · "
-                                             "NOTE, FIT, H7", lambda: self.open_form("NOTE"))
+                                             "view and on drawings; also datums and geometric tolerance frames\n"
+                                             "Runs: NOTE, \"text\", x,y,z · NOTE, SIZE, ... · NOTE, FIT, H7 · "
+                                             "NOTE, GDT, FLATNESS, 0.05", lambda: self.open_form("NOTE"))
         tbs.action(self, tb, "Fits…", "fits", "ISO 286 limits and fits: the hole's and shaft's limits and the "
                                              "clearance or interference\nRuns: FITS, H7/g6 [, size]",
                    lambda: self.open_form("FITS"))
+        tbs.action(self, tb, "Stack-up…", "stackup", "A tolerance stack-up: the gap a chain of sizes closes on, worst "
+                                                    "case and statistical, and which tolerance matters most\n"
+                                                    "Runs: STACKUP, +100 ±0.1, -60 ±0.05, ...",
+                   lambda: self.open_form("STACKUP"))
 
         tb = tbs.group(self, "Measure", "measure", "Inspect")
         act(tb, "Distance", "distance", "Shortest distance between the two selected things\nRuns: DIST",
@@ -815,8 +828,10 @@ class MainWindow(QMainWindow):
                                                   "overlaps, and the whole on the floor\n"
                                                   "Runs: GRAVITY [, ground, fastened parts]",
                    lambda: self.open_form("GRAVITY"))
-        act(tb, "Section", "section", "Cut the view open at the last datum plane (or XY); press again to close it\n"
-                                      "Runs: SECTION, plane / SECTION, OFF", lambda: fa.section_toggle(p))
+        tbs.action(self, tb, "Section…", "section", "Cut the view open along a plane and move it with a slider; "
+                                                  "the cut faces are hatched and their areas listed\n"
+                                                  "Runs: SECTION, plane, side, offset / SECTION, OFF",
+                   self.open_section)
 
         tb = tbs.group(self, "Make", "printer", "Inspect")
         tbs.action(self, tb, "Print check…", "printer", "Ready to 3D print? What sits on the bed, what overhangs "
@@ -858,6 +873,12 @@ class MainWindow(QMainWindow):
         from .motion_panel import open_motion
 
         return open_motion(self)
+
+    def open_section(self):
+        """The Section window (gui/section_panel.py): a cutting plane moved with a slider."""
+        from .section_panel import open_section
+
+        return open_section(self)
 
     def open_sweep_editor(self, row: int | None = None):
         """Shape a SWEEP's twist and scale by dragging handles (see gui/sweep_editor.py)."""

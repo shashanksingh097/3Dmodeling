@@ -25,6 +25,15 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   put on drawing sheets.
 - **Welds**: `WELD` adds weld beads where parts meet (`WELD, ALL` on a
   frame), and `CUTLIST` adds the weld lengths.
+- **Section view**: `SECTION` takes an offset and up to three planes, caps
+  the cuts with hatching and prints each cut's area and centre; the
+  Section window moves the plane with a slider.
+- **Tolerances**: `STACKUP` gives a stack-up's worst case and statistical
+  gap, with each size's share; `NOTE, DATUM` and `NOTE, GDT` put datums and
+  geometric tolerance frames on faces, drawn as frames on drawing sheets.
+  Notes on drawings now move apart instead of covering each other.
+- **Pipes and cables**: `ROUTE` bends a pipe or cable bundle along a path,
+  joins routes as tees, and `ROUTES` lists lengths and bends.
 
 ## [0.4.0] - 2026-11-19
 

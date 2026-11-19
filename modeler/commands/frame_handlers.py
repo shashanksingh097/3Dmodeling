@@ -13,7 +13,7 @@ from ..lang.expr import fmt_num
 from .processor import Arg, CommandError, Path, Processor, Text, command
 
 
-def _segments(edges, what: str) -> list[tuple]:
+def _segments(edges, what: str, cmd: str = "MEMBER") -> list[tuple]:
     """Each edge's ends, after checking that it is straight."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_CurveType
@@ -22,13 +22,13 @@ def _segments(edges, what: str) -> list[tuple]:
     for e in edges:
         c = BRepAdaptor_Curve(e)
         if c.GetType() != GeomAbs_CurveType.GeomAbs_Line:
-            raise CommandError(f"MEMBER: {what} has a curved piece; members run along straight lines")
+            raise CommandError(f"{cmd}: {what} has a curved piece; draw the path with straight lines")
         a, b = c.Value(c.FirstParameter()), c.Value(c.LastParameter())
         out.append(((a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())))
     return out
 
 
-def _chain(segs: list[tuple], what: str) -> tuple[list, bool]:
+def _chain(segs: list[tuple], what: str, cmd: str = "MEMBER") -> tuple[list, bool]:
     """Order the segments into one path: its corner points, and whether it closes."""
     tol = 1e-6 * max(1.0, max(float(np.linalg.norm(np.subtract(a, b))) for a, b in segs))
 
@@ -47,14 +47,14 @@ def _chain(segs: list[tuple], what: str) -> tuple[list, bool]:
                 left.pop(k)
                 break
         else:
-            raise CommandError(f"MEMBER: {what}: the lines do not join into one path (draw them end to end)")
+            raise CommandError(f"{cmd}: {what}: the lines do not join into one path (draw them end to end)")
     closed = len(pts) > 2 and same(pts[0], pts[-1])
     if closed:
         pts = pts[:-1]
     return pts, closed
 
 
-def _path_points(p: Processor, path: str) -> tuple[list, bool, str]:
+def _path_points(p: Processor, path: str, cmd: str = "MEMBER") -> tuple[list, bool, str]:
     """The corner points of a path: a sketch's lines, or a curve body (POLYLINE ...)."""
     from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
     from OCP.TopExp import TopExp_Explorer
@@ -73,10 +73,10 @@ def _path_points(p: Processor, path: str) -> tuple[list, bool, str]:
     else:
         from .processor import REGISTRY
 
-        bid = p._body_ref(REGISTRY["MEMBER"], name)
+        bid = p._body_ref(REGISTRY[cmd], name)
         shape = m.body(bid).shape
         if TopExp_Explorer(shape, TopAbs_FACE).More():
-            raise CommandError(f"MEMBER: body {bid} is not a path: give a POLYLINE (or other line) body or a sketch")
+            raise CommandError(f"{cmd}: body {bid} is not a path: give a POLYLINE (or other line) body or a sketch")
         as_edge = getattr(TopoDS, "Edge_s", None) or TopoDS.Edge
         edges = []
         ex = TopExp_Explorer(shape, TopAbs_EDGE)
@@ -85,8 +85,8 @@ def _path_points(p: Processor, path: str) -> tuple[list, bool, str]:
             ex.Next()
         what = f"body {bid}"
     if not edges:
-        raise CommandError(f"MEMBER: {what} has no lines")
-    pts, closed = _chain(_segments(edges, what), what)
+        raise CommandError(f"{cmd}: {what} has no lines")
+    pts, closed = _chain(_segments(edges, what, cmd), what, cmd)
     return pts, closed, what
 
 

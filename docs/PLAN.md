@@ -965,5 +965,34 @@ about three to a pull request:
     pinned to faces and edges (`NOTE`), kept with the project, shown in the
     view and carried onto drawing sheets.
 
+More features not yet in the app (added 2026-11-19, after item 36),
+about three to a pull request:
+
+37. **Section view in the 3D view** (done: `SECTION` offset and `ADD`, the Section window): a cutting plane through the
+    model moved with a slider, the cut faces capped and hatched, more than
+    one plane, and the cut area and its centre printed, kept as a view
+    setting and not as history.
+38. **Tolerance stack-up and geometric tolerances** (done: `STACKUP`, `NOTE, GDT`, `NOTE, DATUM`): `STACKUP` (a chain of
+    sizes with their tolerances or fits, typed or from parameters,
+    giving the worst case and the statistical (root sum square) range of
+    the closing gap), and frames such as flatness, perpendicularity and
+    position with datum letters on `NOTE`, shown in the view and on drawings.
+39. **Pipe and cable routing** (done: `ROUTE`, `ROUTES`; fittings are plain bends and tees): `ROUTE` (a pipe or tube along the lines of
+    a polyline or sketch, bends of a set radius at the corners, elbows and
+    tees where routes meet, a list of pipe lengths and bends; cables as
+    round bundles with a diameter from the wires in them).
+40. **Cams, traced paths and more gears**: `CAM` (a disc or barrel cam from
+    a lift table or law, with its follower), `TRACE` (the path of a point
+    through a `MOTION` run, kept as a curve), and bevel and worm gears and
+    helical racks for `GEAR`.
+41. **Sketching from pictures and DXF**: a picture placed on a plane at a
+    known scale to sketch over (`IMAGE`), outlines traced from a picture
+    into a sketch, and DXF files read into a sketch (lines, arcs, circles,
+    polylines and splines).
+42. **Lighter parts**: `TOPOPT` (a quick topology optimisation on the
+    `STRESS` grid: keep a share of the material where it carries the load,
+    shown as a mesh body to remodel from). Like `STRESS`, it stays a quick
+    design check, not a full solver.
+
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

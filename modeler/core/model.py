@@ -171,6 +171,7 @@ class Note:
     at: tuple[float, float, float]
     anchor: tuple[float, float, float] | None = None
     span: tuple | None = None  # a size: the two points it measures between (drawn as a line with ends)
+    frame: object | None = None  # a geometric tolerance or datum (geometry/tolerances.Frame), drawn as boxes
 
 
 @dataclass(frozen=True)
@@ -284,6 +285,7 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
@@ -353,6 +355,7 @@ class Model:
             "properties": dict(self.properties),
             "notes": list(self.notes),
             "welds": dict(self.welds),
+            "routes": dict(self.routes),
         }
 
     def restore(self, snap: dict) -> None:
@@ -384,6 +387,7 @@ class Model:
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
         self.welds = dict(snap.get("welds", {}))
+        self.routes = dict(snap.get("routes", {}))
         self.sketch_selection = []
         self._emit(Event("restored"))
 
@@ -465,6 +469,7 @@ class Model:
         self.instances.pop(bid, None)
         self.sheets.pop(bid, None)
         self.members.pop(bid, None)
+        self.routes.pop(bid, None)
         if emit:
             self._drop_stale_selection()
             self._emit(Event("body_removed", bid))
@@ -481,6 +486,7 @@ class Model:
             self.check_unlocked(b)
         sheet = self.sheets.get(inputs[0]) if inputs else None
         member = self.members.get(inputs[0]) if inputs else None
+        route = self.routes.get(inputs[0]) if inputs else None
         olds = [self.remove_body(b, emit=False) for b in inputs]
         for b in olds:
             self._emit(Event("body_removed", b.id))
@@ -491,6 +497,8 @@ class Model:
             self.sheets[body.id] = sheet
         if member is not None:  # a hole drilled in a frame member leaves it on the cut list
             self.members[body.id] = member
+        if route is not None:  # a route cut or joined is still that route
+            self.routes[body.id] = route
         self._remap_selection()
         return body
 
