@@ -229,9 +229,28 @@ def test_datums_are_drawn_but_never_block_a_pick(win, app):
 def test_section_view_adds_a_clip_plane(win):
     vp = win.viewport
     win.execute("SECTION, XY")
-    assert vp._clip is not None and vp.view.ClipPlanes().Size() == 1
+    assert len(vp._clips) == 1 and vp.view.ClipPlanes().Size() == 1
+    win.execute("SECTION, YZ, ABOVE, 0, ADD")
+    assert len(vp._clips) == 2 and vp.view.ClipPlanes().Size() == 2
     win.execute("SECTION, OFF")
-    assert vp._clip is None and vp.view.ClipPlanes().Size() == 0
+    assert not vp._clips and vp.view.ClipPlanes().Size() == 0
+
+
+def test_section_window_moves_the_plane(win):
+    from modeler.gui.section_panel import open_section
+
+    dlg = open_section(win)
+    dlg.plane.setCurrentText("XY")
+    dlg.slider.setValue(dlg.slider.maximum())
+    assert "section view at plane XY" in dlg.apply()
+    d, _side = win.processor.section[0]
+    assert abs(d.origin[2] - dlg.range[1]) < 1e-6
+    dlg.add_plane()
+    dlg.plane.setCurrentText("YZ")
+    dlg.apply()
+    assert len(win.processor.section) == 2
+    dlg.close()
+    assert win.processor.section is None
 
 
 def test_feature_toolbar_sends_commands(win):

@@ -267,22 +267,96 @@ def clash(p: Processor, a, b):
     return "\n".join(lines)
 
 
+MAX_SECTIONS = 3
+
+
+def cut_faces(shape, d: dt.Datum):
+    """The faces where a plane cuts a solid (an empty list when it misses), with area and centre."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCP.gp import gp_Ax3, gp_Dir, gp_Pln, gp_Pnt
+
+    if not robust.solids(shape):
+        return []
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+    BRepBndLib.Add_s(shape, box)
+    lo_c, hi_c = box.CornerMin(), box.CornerMax()  # (Get() does not convert in OCP 8)
+    x0, y0, z0, x1, y1, z1 = lo_c.X(), lo_c.Y(), lo_c.Z(), hi_c.X(), hi_c.Y(), hi_c.Z()
+    far = max(abs(c - o) for c, o in zip(((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), d.origin))
+    size = robust.diagonal(shape) * 2 + 2 * far + 1.0  # the sheet reaches past the part, wherever it is
+    pln = gp_Pln(gp_Ax3(gp_Pnt(*d.origin), gp_Dir(*d.z), gp_Dir(*d.x)))
+    sheet = BRepBuilderAPI_MakeFace(pln, -size, size, -size, size).Face()
+    com = BRepAlgoAPI_Common(shape, sheet)
+    if not com.IsDone():
+        return []
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    out = []
+    ex = TopExp_Explorer(com.Shape(), TopAbs_FACE)
+    while ex.More():
+        f = ex.Current()
+        ex.Next()
+        g = GProp_GProps()
+        BRepGProp.SurfaceProperties_s(f, g)
+        if g.Mass() > 1e-12:
+            c = g.CentreOfMass()
+            out.append((g.Mass(), (c.X(), c.Y(), c.Z())))
+    return out
+
+
+def _cut_report(p: Processor, planes) -> list[str]:
+    lines = []
+    for k, (d, _side) in enumerate(planes, 1):
+        hits = []
+        for bid in p.model.shown_ids():
+            faces = cut_faces(p.model.bodies[bid].shape, d)
+            if faces:
+                area = sum(a for a, _c in faces)
+                cx = [round(sum(a * c[i] for a, c in faces) / area, 9) + 0.0 for i in range(3)]
+                hits.append(f"body {bid}: area {_n(area)}, centre ({', '.join(_n(v) for v in cx)})"
+                            + (f", {len(faces)} pieces" if len(faces) > 1 else ""))
+        tag = f"plane {k}" if len(planes) > 1 else "the plane"
+        lines.append(f"  {tag} cuts " + ("; ".join(hits) if hits else "no solid"))
+    return lines
+
+
 @command("SECTION", Arg("plane", Raw, "OFF", "a datum plane, XY/YZ/ZX, or OFF"),
          Arg("side", str, "BELOW", "BELOW (default: keep the part under the plane) or ABOVE"),
+         Arg("offset", float, 0.0, "move the plane this far along its normal"),
+         Arg("mode", str, "NEW", "NEW (this plane only) or ADD (one more plane, up to three)"),
          logged=False,
          help="Cut the view open along a plane to look inside (the model is not changed): SECTION, mid · "
-              "SECTION, XY, ABOVE · SECTION, OFF.")
-def section(p: Processor, plane, side):
+              "SECTION, XY, ABOVE · SECTION, XY, BELOW, 12.5 (moved 12.5 along the plane's normal) · "
+              "SECTION, YZ, ABOVE, 0, ADD (up to three planes at once) · SECTION, OFF. The cut faces are capped "
+              "and hatched, and the area and centre of each cut are printed. The Section window moves the "
+              "plane with a slider.")
+def section(p: Processor, plane, side, offset, mode):
     word = plane.strip()
-    if side not in ("ABOVE", "BELOW"):
-        raise CommandError("SECTION: side must be ABOVE or BELOW")
+    if mode not in ("NEW", "ADD"):
+        raise CommandError("SECTION: mode is NEW or ADD")
+    adding, shift = mode == "ADD", offset
+    side = side.upper()
     if not word or word.upper() == "OFF":
         p.section = None
         msg = "section view off"
     else:
+        if side not in ("ABOVE", "BELOW"):
+            raise CommandError("SECTION: side must be ABOVE or BELOW")
         d = plane_ref(p, word, "SECTION")
-        p.section = (d, side)
-        msg = f"section view at plane {d.name}, showing what is {side.lower()} it"
+        if shift:
+            d = dt.Datum("PLANE", d.name, dt.add(d.origin, dt.mul(d.z, shift)), d.z, d.x)
+        planes = list(p.section or []) if adding else []
+        if len(planes) >= MAX_SECTIONS:
+            raise CommandError(f"SECTION: at most {MAX_SECTIONS} planes at once; SECTION, OFF starts again")
+        planes.append((d, side))
+        p.section = planes
+        where = f"plane {d.name}" + (f" moved {_n(shift)}" if shift else "")
+        msg = (f"section view at {where}, showing what is {side.lower()} it" +
+               (f" ({len(planes)} planes)" if len(planes) > 1 else ""))
+        msg = "\n".join([msg, *_cut_report(p, planes)])
     hook = getattr(p.view, "set_section", None) if p.view else None
     if hook:
         hook(p.section)

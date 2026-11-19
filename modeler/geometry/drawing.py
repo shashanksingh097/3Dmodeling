@@ -320,10 +320,35 @@ def add_notes(views: list[View], notes, size: float) -> int:
             pr.Project(gp_Pnt(*q), out)
             return out.X(), out.Y()
 
+        boxes: list[tuple[float, float, float, float]] = []  # what is placed on this view so far
+        dh = v.dims.height
+        for (cx, cy), deg, text in v.dims.texts:  # keep clear of the sizes' numbers
+            tw, th = 0.55 * dh * len(text) + 0.4 * dh, 1.3 * dh
+            if abs(deg) > 45:
+                tw, th = th, tw
+            boxes.append((cx - tw / 2, cy - th / 2, cx + tw / 2, cy + th / 2))
+
+        def clear_spot(x, y, w, hh):
+            """Move (x, y) up until a w x hh box there misses the boxes placed so far."""
+            for _ in range(40):
+                box = (x - w / 2, y - hh / 2, x + w / 2, y + hh / 2)
+                if not any(box[0] < o[2] and o[0] < box[2] and box[1] < o[3] and o[1] < box[3] for o in boxes):
+                    boxes.append(box)
+                    return x, y
+                y += 0.6 * hh
+            boxes.append((x - w / 2, y - hh / 2, x + w / 2, y + hh / 2))
+            return x, y
+
+        def from_edge(x, y, w, hh, tx, ty):
+            """Where a leader from the box at (x, y) towards (tx, ty) leaves the box."""
+            dx, dy = tx - x, ty - y
+            t = min([abs(w / 2 / dx) if abs(dx) > 1e-12 else math.inf,
+                     abs(hh / 2 / dy) if abs(dy) > 1e-12 else math.inf, 1.0])
+            return x + dx * t, y + dy * t
+
         for k, n in enumerate(notes):
             x, y = flat(n.at)
-            if n.anchor is not None:
-                v.thin.append([(x, y), flat(n.anchor)])
+            fr = getattr(n, "frame", None)
             if n.span is not None:
                 a, b = flat(n.span[0]), flat(n.span[1])
                 if math.dist(a, b) < 1e-9 * max(size, 1.0):
@@ -335,6 +360,35 @@ def add_notes(views: list[View], notes, size: float) -> int:
                 for e in (a, b):
                     v.thin.append([(e[0] - tx, e[1] - ty), (e[0] + tx, e[1] + ty)])
                 x, y = (a[0] + b[0]) / 2 + tx, (a[1] + b[1]) / 2 + ty
+            if fr is not None:
+                from . import tolerances as tl
+
+                w, hh = tl.frame_size(fr, h)
+            else:
+                rows = n.text.split("\n")
+                w, hh = 0.55 * h * max(len(r) for r in rows) + 0.4 * h, 1.3 * h * len(rows)
+            if n.anchor is not None and n.span is None and math.dist((x, y), flat(n.anchor)) < 0.02 * size:
+                continue  # its leader runs straight at the eye: this view does not show the note
+            x, y = clear_spot(x, y, w, hh)
+            if n.anchor is not None:
+                ax, ay = flat(n.anchor)
+                v.thin.append([from_edge(x, y, w, hh, ax, ay), (ax, ay)])
+            if fr is not None:
+                lines, texts = tl.frame_lines(fr, x, y, h)
+                v.thin.extend(lines)
+                v.notes.extend((tx, ty, h, t) for tx, ty, t in texts)
+                if fr.kind == "DATUM" and n.anchor is not None:  # the datum triangle on the face
+                    ax, ay = flat(n.anchor)
+                    dx, dy = ax - x, ay - y
+                    ln = math.hypot(dx, dy)
+                    if ln > 1e-12:
+                        ux, uy = dx / ln, dy / ln
+                        s = 0.6 * h
+                        b0 = (ax - ux * s * 1.2 - uy * s, ay - uy * s * 1.2 + ux * s)
+                        b1 = (ax - ux * s * 1.2 + uy * s, ay - uy * s * 1.2 - ux * s)
+                        v.thin.append([(ax, ay), b0, b1, (ax, ay)])
+                placed.add(k)
+                continue
             v.notes.append((x, y, h, n.text))
             placed.add(k)
     return len(placed)

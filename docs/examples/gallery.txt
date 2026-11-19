@@ -44,3 +44,5 @@ gravity_check.cmd | Will it stand up? A table with a book tipping off, a floatin
 gear_train.cmd | Gears and fasteners: a pinion and a wheel in mesh, a planet in a ring gear and a rack, on cap screws with washers and nuts (GEAR, FASTENER) | 0.5,-1,1.1
 plastic_case.cmd | A moulded case seen from its open side: screw bosses with ribs, snap hooks on the rim and two vents (BOSS, SNAP, VENT) | 1,-0.8,-1
 cap_mould.cmd | Mould tools and notes: a drafted cap between its two mould halves, with an H7 bore note, a size and a material note (PARTING, MOLD, NOTE, FITS) | 1,-1,0.35
+pipe_run.cmd | Pipes and cables: a water line bent at its corners with a tee branch, and a cable bundle on a tray (ROUTE, ROUTES) | 1,-1.2,0.9
+toleranced_plate.cmd | Tolerances: datums, flatness, parallelism and an H7 bore placed by position, cut open by a section plane (NOTE, STACKUP, SECTION) | 1,-1,0.8

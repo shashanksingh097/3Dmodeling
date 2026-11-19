@@ -270,10 +270,11 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
 | Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
-| Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE]` (section 15) |
+| Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE, offset, NEW/ADD]` (sections 15, 44) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
 | Moulds, welds, notes | `PARTING, b [, dx,dy,dz, draft]` · `MOLD, b [, wall, shrink, dx,dy,dz, level]` · `WELD, a, b [, size]` · `WELD, ALL [, size]` · `NOTE, "text", x,y,z [, x,y,z]` · `NOTE, SIZE, p1, p2` · `NOTE, HOLE` · `NOTE, FIT, H7` · `NOTE, DELETE, n` · `NOTE, CLEAR` · `FITS, H7/g6 [, size]` (section 43) |
+| Sections, tolerances, pipes | `SECTION, plane, side, offset [, ADD]` · `STACKUP, +100 ±0.1, -60 +0/-0.05, ... [, MIN=a, MAX=b]` · `NOTE, DATUM, A` · `NOTE, GDT, kind, tol [, A, B, C]` · `ROUTE, path, PIPE/CABLE, size [, radius, name]` · `ROUTES [, file.csv]` (section 44) |
 | Plastic parts | `BOSS, b, x,y,z, h, od [, hole, ribs, depth, dx,dy,dz]` · `SNAP, b, x,y,z, length, width, thickness [, overhang, up, hook direction, lead, catch]` · `VENT, count, length, width [, pitch, angle, depth, u, v]` (section 42) |
 | Paths | `LINE, p1, p2` · `ARC, p1, p2, p3` · `POLYLINE, p1, p2, ... [, CLOSE]` · `SPLINE, p1, p2, ... [, CLOSE]` · `HELIX, x,y,z, r, pitch, turns [, axis] [, taper] [, RIGHT/LEFT] [, pitch_law]` · `CURVE, PARAM, x(t), y(t), z(t) [, t0, t1, n]` |
 | Profiles | `CIRCLE, x,y,z, r` · `ELLIPSE, x,y,z, a, b` · `RECT, x,y,z, w, h [, r]` · `POLYGON, x,y,z, r, sides` · `STAR, x,y,z, ro, ri, points` · `SLOT, x,y,z, length, width` · `AIRFOIL, x,y,z, chord, code`, each followed by `[, nx,ny,nz [, angle]]` (section 9) |
@@ -801,7 +802,7 @@ the two selected things.
 | `ANGLE, FACE, 1, FACE, 3` | the angle between flat faces, straight or round edges, axes and planes |
 | `MASSPROP [, body [, density]]` | volume, area, centre of mass and principal moments of inertia; with a density in kg/m3 (7850 for steel), or when every body has a `MATERIAL` (section 22), also the mass in kg and inertia in kg.mm2. No body: the selected bodies, or all shown |
 | `CLASH [, a, b]` | whether bodies overlap, by how much, or how far apart they are; alone, every pair of shown bodies |
-| `SECTION, plane [, BELOW/ABOVE]` | cuts the view open along a plane to look inside; the cut faces are drawn red. `SECTION, OFF` closes it |
+| `SECTION, plane [, BELOW/ABOVE, offset, NEW/ADD]` | cuts the view open along a plane to look inside, moved `offset` along its normal; the cut faces are capped red and hatched, and the area and centre of each cut are printed. `ADD` keeps the planes so far (up to three). `SECTION, OFF` closes it |
 
 In the GUI the **Features** toolbar runs these from the selection: pick a
 flat face and press **Plane**, **Work plane** or **Hole**; select faces and
@@ -3125,3 +3126,67 @@ across, made of the first part's material. `CUTLIST` adds the weld length
 for each size.
 
 Examples are `scripts/cap_mould.cmd` and `scripts/welded_frame.cmd`.
+
+## 44. Sections, tolerances and pipes
+
+```
+SECTION, XY, BELOW, 12.5                 ! cut the view open 12.5 above XY, keep what is below
+SECTION, YZ, ABOVE, 0, ADD               ! and along YZ too (up to three planes)
+SECTION, OFF
+STACKUP, +100 ±0.1, -60 +0/-0.05, -39.8 ±0.05      ! the gap a chain of sizes closes on
+STACKUP, +25 H7, -25 g6                  ! ISO 286 tolerances in the chain
+STACKUP, +W ±0.1, -(W - 0.5) ±0.05, MIN=0.1, MAX=0.8   ! parameters, and the gap allowed
+PICK, FACE, 5
+NOTE, DATUM, A                           ! datum A on the picked face
+NOTE, GDT, FLATNESS, 0.02                ! a tolerance frame on the picked face
+NOTE, GDT, POSITION, D0.05, A, B         ! a round zone (D or ø), from datums A and B
+ROUTE, p1, PIPE, 28x2                    ! a pipe 28 across, 2 wall, bent at 1.5 x 28
+ROUTE, p1, PIPE, 28x2, 50, water         ! bends of radius 50, named water
+ROUTE, s1, CABLE, 7x2.5                  ! a bundle of seven 2.5 wires, bent at 6 x its diameter
+ROUTES                                   ! the pipe list (ROUTES, pipes.csv writes it)
+```
+
+**Sections.** `SECTION` is a view setting, not a history step: it cuts the
+view open along a plane (a datum plane or XY, YZ, ZX), moved `offset` along
+the plane's normal. The cut faces are capped and hatched, and the command
+prints the area and centre of the cut through each shown solid (and how
+many pieces it falls into). `ADD` keeps the planes already there and cuts
+along one more, up to three. **Section…** on the Inspect tab opens a window
+with a slider that moves the plane through the model.
+
+**Stack-ups.** `STACKUP` adds up a chain of sizes that closes on a gap:
+each size is added (`+`) or taken away (`-`), with its tolerance written
+`±0.1`, `+0.1/-0.05`, or as an ISO 286 letter and grade (`H7`, `g6`). Sizes
+can be parameters or expressions (put an expression in brackets). It gives
+the nominal gap, the **worst case** (every size at its limit at once), and
+the **statistical** range (root sum square: each band taken as centred and
+the half-widths added as squares, which is what parts from a steady process
+give), and each size's share of the spread, so you see which tolerance to
+tighten. `MIN=` and `MAX=` give the gap allowed and say whether the worst
+case and the statistical range stay within it.
+
+**Geometric tolerances.** `NOTE, DATUM, A` puts a datum letter on the
+picked face. `NOTE, GDT, kind, tolerance [, datums]` puts a tolerance frame
+on it: STRAIGHTNESS, FLATNESS, CIRCULARITY, CYLINDRICITY (form: no datum),
+LINEPROFILE, PROFILE, PARALLELISM, PERPENDICULARITY, ANGULARITY,
+POSITION, CONCENTRICITY, SYMMETRY, RUNOUT, TOTALRUNOUT (short names such as
+FLAT, PERP and POS work too). A tolerance written `D0.05` (or `ø0.05`) is a
+round zone. Up to three datum letters follow; it warns about a datum that
+is not on the model yet. The view shows the frame as text with its symbol;
+drawing sheets draw the boxes and the symbol as lines, and the datum's
+triangle on the face. Notes on drawings move apart so they do not cover
+each other or the sizes.
+
+**Pipes and cables.** `ROUTE` runs a pipe (or tube) or a cable along the
+straight lines of a polyline or sketch. At each corner it bends with the
+bend radius, measured on the centreline (default 1.5 diameters for a pipe,
+6 for a cable); it says so when a piece is too short for the bends at its
+ends. A pipe's size is outside diameter x wall (`28x2`; one number makes a
+solid rod); a cable's is wires x wire diameter (`7x2.5`), and the bundle's
+diameter is the circle that packs them. A route that starts or ends on
+another route's centreline joins it as a **tee**: the two are fused and
+both bores are cut open again. `ROUTES` lists each route's size, length
+along the centreline, straight pieces, bends and tees, with the total per
+size, and writes it to CSV.
+
+Examples are `scripts/pipe_run.cmd` and `scripts/toleranced_plate.cmd`.

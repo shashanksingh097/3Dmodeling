@@ -253,7 +253,7 @@ def test_example_cover_plate():
     p = Processor()
     import pathlib
 
-    text = (pathlib.Path(__file__).parent.parent / "scripts" / "cover_plate.cmd").read_text()
+    text = (pathlib.Path(__file__).parent.parent / "scripts" / "cover_plate.cmd").read_text(encoding="utf-8")
     ok(p, text)
     assert vol(p) == pytest.approx(23951.88, rel=1e-5)
 

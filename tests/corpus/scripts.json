@@ -134,6 +134,11 @@
   "faces": 3,
   "volume": 14738.566
  },
+ "pipe_run.cmd": {
+  "bodies": 7,
+  "faces": 43,
+  "volume": 2102540.367
+ },
  "plastic_case.cmd": {
   "bodies": 1,
   "faces": 143,
@@ -198,6 +203,11 @@
   "bodies": 17,
   "faces": 1526,
   "volume": 121094.962
+ },
+ "toleranced_plate.cmd": {
+  "bodies": 1,
+  "faces": 7,
+  "volume": 177862.833
  },
  "welded_frame.cmd": {
   "bodies": 29,

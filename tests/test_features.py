@@ -293,7 +293,7 @@ def test_section_is_a_view_setting(p):
     ok(p, BOX + "PLANE, mid, YZ, 30")
     n = p.cursor
     assert "section view at plane mid" in p.run("SECTION, mid").message
-    assert p.section[0].name == "mid" and p.cursor == n
+    assert p.section[0][0].name == "mid" and p.cursor == n
     p.run("SECTION, OFF")
     assert p.section is None
 

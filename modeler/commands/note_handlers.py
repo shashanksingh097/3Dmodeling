@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from ..core.model import Note
 from ..geometry import fits as ft
 from ..geometry import robust
+from ..geometry import tolerances as tl
 from ..lang.expr import fmt_num
 from .processor import Arg, CommandError, Processor, Raw, Text, command
 
@@ -131,6 +134,18 @@ def _placed(p: Processor, kind: str, shape) -> tuple[tuple, tuple]:
     return tuple(map(float, pt + lift * d)), tuple(map(float, pt))
 
 
+def _stacked(p: Processor, at, anchor) -> tuple:
+    """Move a new note's text up past the notes already pinned to the same place."""
+    if anchor is None:
+        return at
+    same = sum(1 for n in p.model.notes if n.anchor is not None
+               and max(abs(a - b) for a, b in zip(n.anchor, anchor)) < 1e-6)
+    if not same:
+        return at
+    step = 0.05 * _model_size(p)
+    return (at[0], at[1], at[2] + step * same)
+
+
 def _rim_placed(p: Processor, kind: str, shape) -> tuple[tuple, tuple]:
     """A hole or shaft note: the leader goes to the rim at its upper end, the text out past it."""
     from ..geometry import threads as th
@@ -181,7 +196,7 @@ def _coords(p: Processor, raw: str, what: str) -> list[float]:
 
 @command(
     "NOTE",
-    Arg("text", Text, help="the text (quoted), or SIZE, HOLE, FIT, DELETE, CLEAR"),
+    Arg("text", Text, help="the text (quoted), or SIZE, HOLE, FIT, GDT, DATUM, DELETE, CLEAR"),
     Arg("a1", Raw, "", "a point x,y,z [, a point x,y,z for the leader]; SIZE: two points; FIT: H7 or H7/g6; "
                        "DELETE: note numbers"),
     Arg("a2", Raw, ""), Arg("a3", Raw, ""), Arg("a4", Raw, ""), Arg("a5", Raw, ""), Arg("a6", Raw, ""),
@@ -189,7 +204,11 @@ def _coords(p: Processor, raw: str, what: str) -> list[float]:
          "point) · NOTE, \"Break edges\", 50,0,40, 30,0,20 (with a leader to 30,0,20) · PICK, FACE, 7 then NOTE, "
          "\"Polish\" (on the face) · NOTE, SIZE, 0,0,0, 100,0,0 (a size between two points; or pick two vertices "
          "or one straight edge) · NOTE, HOLE (on a picked round face: its diameter) · NOTE, FIT, H7 (the "
-         "diameter with its ISO 286 limits) · NOTE, DELETE, 2 · NOTE, CLEAR. LIST, NOTES lists them.",
+         "diameter with its ISO 286 limits) · NOTE, DATUM, A (a datum letter on the picked face) · NOTE, GDT, "
+         "FLATNESS, 0.05 · NOTE, GDT, POSITION, D0.1, A, B (a geometric tolerance frame on the picked face: "
+         "STRAIGHTNESS, FLATNESS, CIRCULARITY, CYLINDRICITY, LINEPROFILE, PROFILE, PARALLELISM, "
+         "PERPENDICULARITY, ANGULARITY, POSITION, CONCENTRICITY, SYMMETRY, RUNOUT, TOTALRUNOUT; D0.1 is a round "
+         "zone; up to three datums) · NOTE, DELETE, 2 · NOTE, CLEAR. LIST, NOTES lists them.",
 )
 def note(p: Processor, text, a1, a2, a3, a4, a5, a6):
     m = p.model
@@ -248,8 +267,34 @@ def note(p: Processor, text, a1, a2, a3, a4, a5, a6):
                        f"{'a shaft' if shaft else 'a hole'}")
             txt += f" {lim.name} ({lim.text()})"
         at, anchor = _rim_placed(p, kind, shape)
-        k = m.add_note(Note(txt, at, anchor))
+        k = m.add_note(Note(txt, _stacked(p, at, anchor), anchor))
         return f"note {k}: {txt} on {kind.lower()} {gid}"
+    if up in ("GDT", "DATUM"):
+        if len(picks) != 1:
+            raise CommandError(f"NOTE: pick one face or edge first (PICK, FACE, n), then NOTE, {up}, ...")
+        kind, shape, gid = picks[0]
+        try:
+            if up == "DATUM":
+                if not a1.strip() or a2.strip():
+                    raise CommandError("NOTE: give one datum letter: NOTE, DATUM, A")
+                fr, warn = tl.datum(a1), []
+                if any(n.frame is not None and n.frame.kind == "DATUM" and n.frame.tol == fr.tol for n in m.notes):
+                    raise CommandError(f"NOTE: datum {fr.tol} is already on the model")
+            else:
+                if not a1.strip() or not a2.strip():
+                    raise CommandError("NOTE: give the kind and the tolerance: NOTE, GDT, FLATNESS, 0.05")
+                fr, warn = tl.frame(a1, a2, [a3, a4, a5, a6])
+                have = {n.frame.tol for n in m.notes if n.frame is not None and n.frame.kind == "DATUM"}
+                missing = [d for d in fr.datums if d not in have]
+                if missing:
+                    warn.append(f"datum {', '.join(missing)} is not on the model yet (NOTE, DATUM, {missing[0]})")
+        except tl.ToleranceError as exc:
+            raise CommandError(f"NOTE: {exc}") from None
+        for w in warn:
+            p.warn(f"NOTE: {w}")
+        at, anchor = _placed(p, kind, shape)
+        k = m.add_note(Note(fr.text(), _stacked(p, at, anchor), anchor, None, fr))
+        return f"note {k}: {fr.text()} on {kind.lower()} {gid}"
     if not word:
         raise CommandError("NOTE: give the text, e.g. NOTE, \"Paint black\", 10,20,30")
     v = _coords(p, rest, "the point")
@@ -260,6 +305,7 @@ def note(p: Processor, text, a1, a2, a3, a4, a5, a6):
     elif len(picks) == 1:
         kind, shape, gid = picks[0]
         at, anchor = _placed(p, kind, shape)
+        at = _stacked(p, at, anchor)
         where = f"on {kind.lower()} {gid}"
     else:
         raise CommandError("NOTE: give a point (NOTE, \"text\", x,y,z) or pick one face, edge or vertex first")
@@ -306,3 +352,69 @@ def fits(p: Processor, spec, d):
         lines.append(f"  from {ft.mm(-r.least)} mm interference to {ft.mm(r.most)} mm clearance")
     return "\n".join(lines)
 
+
+
+_LINK_ARGS = [Arg(f"l{i}", Raw, "") for i in range(2, 17)]
+
+
+@command(
+    "STACKUP",
+    Arg("l1", Raw, help="the sizes of the chain, each added (+) or taken away (-), with its tolerance"),
+    *_LINK_ARGS,
+    logged=False,
+    help="A tolerance stack-up: the gap a chain of sizes closes on, worst case and statistical (root sum "
+         "square): STACKUP, +100 ±0.1, -60 +0/-0.05, -39.8 ±0.05 · STACKUP, +25 H7, -25 g6 (ISO 286 tolerances) "
+         "· STACKUP, +W ±0.1, -(W - 0.5) ±0.05, MIN=0.1, MAX=0.8 (parameters, and the gap allowed). The links "
+         "are +25 ±0.1, -24.9 +0.1/-0.05 or +25 H7; at most 16. It lists each link's share of the spread, so you "
+         "see which tolerance to tighten.",
+)
+def stackup(p: Processor, l1, **rest):
+    texts = [t.strip() for t in (l1, *(rest[f"l{i}"] for i in range(2, 17))) if t and t.strip()]
+    limits: dict[str, float] = {}
+    links = []
+    for t in texts:
+        key = t.split("=", 1)[0].strip().upper() if "=" in t else ""
+        if key in ("MIN", "MAX"):
+            try:
+                limits[key] = float(p.evaluate(t.split("=", 1)[1]))
+            except Exception:
+                raise CommandError(f"STACKUP: {t!r}: the gap allowed must be a number") from None
+            continue
+        try:
+            links.append(tl.parse_link(t, p.evaluate))
+        except tl.ToleranceError as exc:
+            raise CommandError(f"STACKUP: {exc}") from None
+    if not links:
+        raise CommandError("STACKUP: give the sizes of the chain: STACKUP, +100 ±0.1, -60 ±0.05, -39.8 ±0.05")
+    st = tl.Stack(links)
+
+    def n(v):
+        return fmt_num(round(v, 4) + 0.0)
+
+    wlo, whi = st.worst
+    rlo, rhi = st.rss
+    lines = [f"STACKUP of {len(links)} sizes: the gap is {n(st.nominal)} nominal",
+             f"  worst case: {n(wlo)} to {n(whi)} (spread {n(whi - wlo)})",
+             f"  statistical (root sum square): {n(rlo)} to {n(rhi)} (spread {n(rhi - rlo)})"]
+    for k, (lk, share) in enumerate(zip(links, st.shares()), 1):
+        lines.append(f"  {k}. {'+' if lk.sign > 0 else '-'}{n(lk.nominal)} {'+' if lk.upper >= 0 else ''}{n(lk.upper)}"
+                     f"/{'+' if lk.lower > 0 else ''}{n(lk.lower)}: {share:.0f}% of the spread")
+    if limits:
+        lo, hi = limits.get("MIN", -math.inf), limits.get("MAX", math.inf)
+        want = (f"from {n(lo)} " if lo > -math.inf else "") + (f"up to {n(hi)}" if hi < math.inf else "")
+
+        def verdict(a, b):
+            if a >= lo - 1e-12 and b <= hi + 1e-12:
+                return "always within"
+            if b < lo or a > hi:
+                return "never within"
+            return "sometimes outside"
+
+        lines.append(f"  gap allowed {want.strip()}: worst case {verdict(wlo, whi)}, statistical {verdict(rlo, rhi)}")
+        if verdict(wlo, whi) != "always within":
+            worst_link = max(range(len(links)), key=lambda i: links[i].half)
+            lines.append(f"  the widest tolerance is link {worst_link + 1}: tighten it first")
+    if wlo < 0 < whi or whi < 0:
+        lines.append("  the parts can " + ("overlap (the gap goes below 0)" if whi >= 0 else "never fit: the gap is "
+                                           "always below 0"))
+    return "\n".join(lines)

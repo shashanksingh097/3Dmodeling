@@ -54,6 +54,8 @@ _COMMAND_CHOICES = {
     ("TEXT", "style"): ("REGULAR", "BOLD", "ITALIC", "BOLDITALIC"),
     ("OFFSET", "corners"): ("ROUND", "SHARP"),
     ("SECTION", "side"): ("ABOVE", "BELOW"),
+    ("SECTION", "mode"): ("NEW", "ADD"),
+    ("ROUTE", "kind"): ("PIPE", "TUBE", "CABLE"),
 }
 _TOKEN = re.compile(r"[A-Za-z_*/][A-Za-z0-9_]*$")
 
