@@ -1,0 +1,72 @@
+# The user guide website. Not used on its own: `python -m modeler docs`
+# copies it to build/docs-site/mkdocs.yml and adds the nav (see modeler/docsite.py).
+site_name: 3Dmodeling user guide
+site_description: How to use 3Dmodeling, the 3D modeler where every click is a command you can script.
+site_url: https://shashanksingh097.github.io/3Dmodeling/
+repo_url: https://github.com/shashanksingh097/3Dmodeling
+repo_name: shashanksingh097/3Dmodeling
+edit_uri: ""
+copyright: 3Dmodeling, made in the open on GitHub
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/cube-outline
+    repo: fontawesome/brands/github
+  favicon: img/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Dark theme
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Light theme
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+extra_css:
+  - css/extra.css
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: false
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+validation:
+  omitted_files: warn
+  unrecognized_links: warn
+  anchors: warn

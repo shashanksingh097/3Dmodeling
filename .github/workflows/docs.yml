@@ -1,0 +1,53 @@
+name: User guide website
+
+# Builds the website from docs/ and the command registry (modeler/docsite.py),
+# running every command example on the way. On main it is published to
+# GitHub Pages (Settings > Pages > Source: GitHub Actions, once).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1
+          python -m pip install --upgrade pip
+          python -m pip install -e . "mkdocs-material>=9.5,<10"
+      - name: Make the pages (runs every command example)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          NO_MKDOCS_2_WARNING: "1"
+        run: python -m modeler docs --build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: build/site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

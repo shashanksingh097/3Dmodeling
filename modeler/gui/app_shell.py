@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .. import EXAMPLES_URL, HOME_URL, ISSUES_URL, USER_GUIDE_URL, __version__
+from .. import COMMANDS_URL, EXAMPLES_URL, HOME_URL, ISSUES_URL, USER_GUIDE_URL, __version__
 
 if TYPE_CHECKING:
     from ..commands import Result
@@ -455,6 +455,8 @@ class AppShell:
           "Which skill files the assistant may use, and folders with your own")
         m.addSeparator()
         a(m, "&User guide (web)", lambda: QDesktopServices.openUrl(QUrl(USER_GUIDE_URL)), None, USER_GUIDE_URL)
+        a(m, "Every command with an e&xample (web)", lambda: QDesktopServices.openUrl(QUrl(COMMANDS_URL)), None,
+          "The command reference on the user guide website, a tested example for every command")
         a(m, "&Examples with pictures (web)", lambda: QDesktopServices.openUrl(QUrl(EXAMPLES_URL)), None,
           "Every example script with a picture of what it makes")
         a(m, "&Report a problem (web)", self.report_problem, None, "Open a new issue, with your versions filled in")

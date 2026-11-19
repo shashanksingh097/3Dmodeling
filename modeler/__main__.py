@@ -16,6 +16,8 @@
                                       for a moving assembly; see modeler/render.py)
     python -m modeler gallery [NAME ...]
                                       remake docs/examples/ pictures and docs/EXAMPLES.md
+    python -m modeler docs [--serve|--build|--check|--pictures]
+                                      the user guide website (modeler/docsite.py)
     python -m modeler copilot [status|login|quota|models|ask|check]
                                       the assistant on GitHub Copilot, from a shell;
                                       "check" tests sign-in and a question for one account
@@ -182,6 +184,10 @@ def main(argv: list[str] | None = None) -> int:
         from .gallery import main as gallery_main
 
         return gallery_main(args[1:])
+    if args[:1] == ["docs"]:
+        from .docsite import main as docs_main
+
+        return docs_main(args[1:])
     if args[:1] == ["tools"]:
         import json
 

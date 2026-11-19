@@ -4,7 +4,7 @@ A desktop 3D modeler for solid parts where **every action is a command**.
 
 **Download:** [latest release](https://github.com/shashanksingh097/3Dmodeling/releases) for
 Windows, macOS (Apple silicon) and Linux, no Python needed.
-**Learn it:** the [user guide](docs/USER-GUIDE.md), the [examples with pictures](docs/EXAMPLES.md), or **Help > Getting started** in the app.
+**Learn it:** the [user guide website](https://shashanksingh097.github.io/3Dmodeling/) (every command with a tested example), the [examples with pictures](docs/EXAMPLES.md), or **Help > Getting started** in the app.
 
 Anything you do in the GUI (creating a block, selecting a face, moving a node,
 deleting an entity, changing the view) is turned into a plain-text command and
@@ -105,6 +105,7 @@ kernel, installs with pip) and numpy.
 
 ## Documents
 
+- [User guide website](https://shashanksingh097.github.io/3Dmodeling/) (made by `python -m modeler docs` from the files below, see `modeler/docsite.py`)
 - [User guide](docs/USER-GUIDE.md), [examples with pictures](docs/EXAMPLES.md) and [command language](docs/LANGUAGE.md)
 - [Changelog](CHANGELOG.md) and [how releases are made](docs/RELEASING.md)
 - [Product and technical plan](docs/PLAN.md), with what comes after 0.2
