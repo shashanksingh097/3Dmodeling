@@ -9,6 +9,10 @@
                                       -C uses one of the script's CONFIGs at the end,
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
+    python -m modeler desktop-check [--out FOLDER]
+                                      open the window and check the 3D view, mouse picking at
+                                      this screen's scaling, files, fonts and themes; writes a
+                                      report to attach to a problem report (docs/site/desktop-check.md)
     python -m modeler perf [--quick] [--check] [--json out.json]
                                       time import, rebuild, picking, drawing and save/open,
                                       with memory; --check fails above docs/perf-budgets.json
@@ -217,6 +221,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_headless(args[1:])
     if args[:1] == ["check"]:
         return _check()
+    if args[:1] == ["desktop-check"]:
+        from .desktop_check import main as desktop_main
+
+        return desktop_main(args[1:])
     if args[:1] == ["perf"]:
         from .perf import main as perf_main
 

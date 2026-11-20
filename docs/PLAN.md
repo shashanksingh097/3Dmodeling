@@ -1093,6 +1093,10 @@ three per pull request.
     (docs/speed-sessions.md).*
 64. **Real desktop checks** (P1): a checklist and test script for the user
     on Windows and macOS, and fixes for what it finds.
+    *Done: `desktop-check` (11 automatic steps, a report with pictures), the
+    checklist by hand on the website, runs in CI and on the release builds
+    for Windows and macOS. All steps pass on Linux at 100 %, 150 % and 200 %
+    screen scaling; fixes for what the user's own computers find come next.*
 65. **Five demonstration projects** as regression tests (machined part,
     freeform part, assembly, scan, sheet metal), each from an empty model to
     export and read back, each a page on the website.

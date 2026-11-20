@@ -5,6 +5,11 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ## [Unreleased]
 
 ### Added
+- `python -m modeler desktop-check` (`3Dmodeling-cli desktop-check` in the downloaded app): opens
+  the window and checks the 3D view, mouse picking at the screen's scaling, turning and zooming,
+  files in folders with non-English names, fonts, themes and closing, and writes a report to
+  attach to a problem report. The checks by hand are on the website's Desktop check page; CI and
+  the release builds run it on Windows and macOS and keep the report.
 - `python -m modeler perf`: a speed and memory benchmark (import, picking, drawing, save/open,
   a long history and its rebuild); CI runs it on every push against `docs/perf-budgets.json`.
 - Clear messages for kernel failures: the command, what the failure usually means, what to try,
