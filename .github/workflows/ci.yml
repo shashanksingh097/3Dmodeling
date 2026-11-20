@@ -52,3 +52,25 @@ jobs:
         if: runner.os != 'Linux'
         continue-on-error: true
         run: python -m pytest -q tests/test_viewport.py tests/test_sketch_gui.py tests/test_forms_gui.py tests/test_app_shell.py tests/test_render.py tests/test_nurbs_gui.py tests/test_assistant_gui.py tests/test_skills_gui.py
+
+  perf:
+    name: speed benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      # times import, rebuild, picking, drawing and save/open with memory; fails when a
+      # case is over its budget in docs/perf-budgets.json (docs/speed-sessions.md)
+      - name: Benchmark
+        run: python -m modeler perf --check --json perf.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf
+          path: perf.json

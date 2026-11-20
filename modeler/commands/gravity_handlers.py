@@ -18,7 +18,9 @@ def _bodies(p: Processor, text: str) -> list[int]:
 def _name(p: Processor, bid) -> str:
     if bid == "floor":
         return "the floor"
-    b = p.model.bodies[bid]
+    b = p.model.bodies.get(bid)
+    if b is None:
+        return f"body {bid} (there is no such body)"
     return f"{b.name} ({bid})" if b.name and b.name != f"body{bid}" else f"body {bid}"
 
 

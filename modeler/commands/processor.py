@@ -110,6 +110,8 @@ class Command:
     session: bool = False  # acts on the history itself (UNDO, HIST ...): top level only
     # first words that make the command a query, run but not kept (TAKE, LIST, part)
     queries: tuple[str, ...] = ()
+    # the most an argument may be (counts and sizes that would take hours or all the memory)
+    limits: dict[str, float] = field(default_factory=dict)
 
     def is_query(self, args: list[str]) -> bool:
         return not self.logged or bool(self.queries and args and args[0].strip().upper() in self.queries)
@@ -729,7 +731,7 @@ class Processor:
                     e.ok, e.message, e.warning = True, "suppressed", ""
                 elif self.is_off(e):
                     e.ok, e.message, e.warning = True, f"off in configuration {self.config}", ""
-                elif skip and j > start and self._can_skip(e, now := self._state()):
+                elif skip and j > start and self._can_skip(e, now := self._shared_state(j)):
                     # nothing it reads changed: take over what it did last time
                     after = self._skipped_state(e, now)
                     self._restore(after, emit=False)
@@ -827,6 +829,18 @@ class Processor:
                 "parts": dict(self.parts), "part_files": dict(self.part_files),
                 "configs": {k: dict(v) for k, v in self.configs.items()}}
 
+    def _shared_state(self, i: int | None = None) -> dict:
+        """The state now; the snapshot taken after the step before (step ``i`` starts from
+        ``_snaps[i]``) when nothing has changed since, the usual case, so a long history keeps
+        one copy of each state, not two."""
+        from ..core.track import same
+
+        now = self._state()
+        i = self.entry_index if i is None else i
+        if 0 <= i < len(self._snaps) and same(now, self._snaps[i]):
+            return self._snaps[i]
+        return now
+
     def _restore(self, state: dict, emit: bool = True) -> None:
         self.params = dict(state["params"])
         self.macros = dict(state["macros"])
@@ -879,6 +893,15 @@ class Processor:
         m.mesh_entities_ok = cmd.name in MESH_OK
         try:
             return cmd.fn(self, **values) or ""
+        except (CommandError, ModelError, ExprError, ScriptError, RebuildCancelled, _Exit, _Cycle, _Return,
+                RecursionError):
+            raise
+        except Exception as exc:  # the kernel refused, or a bug: say so in plain words (core/kernel_errors.py)
+            from ..core.kernel_errors import explain
+
+            if (type(exc).__module__ or "").startswith("modeler.gui"):
+                raise  # the window's own requests (NeedInput, NeedSelection ...)
+            raise CommandError(explain(cmd.name, exc)) from exc
         finally:
             m.mesh_entities_ok = before
 
@@ -909,7 +932,7 @@ class Processor:
             entry.seconds = time.perf_counter() - t0
 
     def _run_entry_timed(self, entry: Entry, stmts: list[Stmt]) -> tuple[bool, str]:
-        before = self._state()
+        before = self._shared_state()
         revision = self.model_revision()
         self._trace, self._steps, self._loops, self._scopes = [], 0, 0, []
         self._warnings = []
@@ -1342,6 +1365,11 @@ class Processor:
             i += 1
         for arg in cmd.args[i:]:
             values[arg.name] = self._default(cmd, arg)
+        for name, most in cmd.limits.items():
+            v = values.get(name)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) > most:
+                raise CommandError(f"{cmd.name}: {name} {format_value(v)} is more than this command can make "
+                                   f"in a sensible time; at most {format_value(most)}")
         while shown and shown[-1] == "":
             shown.pop()
         return values, ", ".join(shown)

@@ -1087,6 +1087,10 @@ three per pull request.
 63. **Speed and long sessions** (P1): a CI benchmark for import, rebuild,
     picking, drawing and save/open with memory; a long-session test; clear
     messages for every kernel failure.
+    *Done: `python -m modeler perf` with budgets checked in CI, cuts on big
+    bodies 4-5 times faster, half the memory per step, a long-session test,
+    every kernel failure explained, every example tried with extreme values
+    (docs/speed-sessions.md).*
 64. **Real desktop checks** (P1): a checklist and test script for the user
     on Windows and macOS, and fixes for what it finds.
 65. **Five demonstration projects** as regression tests (machined part,

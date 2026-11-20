@@ -51,3 +51,15 @@ from . import variant_handlers  # noqa: F401  (DESIGNTABLE, CONFIGOFF, VARIANTS:
 from . import mate_check  # noqa: F401  (MATES, CSYS: assembly checks, coordinate systems on bodies)
 from . import drawsheet_handlers  # noqa: F401  (DRAWSHEET, DRAWINGS: drawings that follow the model)
 from . import safety_handlers  # noqa: F401  (BACKUPS, FILES, RELINK, SHARECHECK: keeping projects safe)
+
+# counts that would take hours or all the memory are refused with a clear message (PLAN item 63;
+# found by trying every command's example with extreme values, tests/test_kernel_messages.py)
+for _name, _limits in {
+    "GEAR": {"teeth": 1000},
+    "HELIX": {"turns": 2000},
+    "SPRING": {"turns": 500},
+    "POLYGON": {"sides": 1000},
+    "STAR": {"points": 1000},
+    "SMOOTH": {"steps": 1000},
+}.items():
+    REGISTRY[_name].limits.update(_limits)

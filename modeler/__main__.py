@@ -9,6 +9,9 @@
                                       -C uses one of the script's CONFIGs at the end,
                                       -q prints only errors and *MSG output
     python -m modeler check           print versions and test the 3D view setup
+    python -m modeler perf [--quick] [--check] [--json out.json]
+                                      time import, rebuild, picking, drawing and save/open,
+                                      with memory; --check fails above docs/perf-budgets.json
     python -m modeler --version       print the version
     python -m modeler render part.cmd part.png [--view ISO] [--size 1600x1000]
                                       save a picture of what a script makes
@@ -214,6 +217,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_headless(args[1:])
     if args[:1] == ["check"]:
         return _check()
+    if args[:1] == ["perf"]:
+        from .perf import main as perf_main
+
+        return perf_main(args[1:])
     if args[:1] == ["rebuild-helper"]:  # started by the window for long rebuilds (core/helper.py)
         from .core.helper import main as helper_main
 
