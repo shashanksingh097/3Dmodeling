@@ -300,7 +300,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `TAKE, what, part, n, name [, LINK/COPY]` · `DEPENDS [, JSON]` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `MATE, FRAME, a, b [, FLIP]` · `MATES [, JSON]` · `CSYS, name, body, x,y,z [, nx,ny,nz [, angle]]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `TAKE, what, part, n, name [, LINK/COPY]` · `DEPENDS [, JSON]` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE, offset, NEW/ADD]` (sections 15, 44) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
@@ -319,7 +319,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
-| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `PROPERTY, key, value` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
+| Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `BACKUPS [, n]` · `FILES` · `RELINK, name, file` · `SHARECHECK` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
 | Mesh bodies | `TOMESH, b [, deflection]` · `TOSOLID, b` · `SMOOTH, b [, steps [, strength]]` · `REMESH, b, length` · `SIMPLIFY, b, tolerance` · `FITSURF, b [, region, tol, trim]` (smooth NURBS from a mesh, section 29) · `SEGMENT, b [, angle, tol]` · `RECONSTRUCT, b [, angle, tol]` (exact planes, cylinders and spheres from a scan, section 34); `UNION`, `SUBTRACT` and `INTERSECT` with a mesh body run on triangles (section 25) |
 | Frames | `MEMBER, path, profile, size [, MITRE/BUTT, name, turn]` · `CUTLIST [, file.csv]` (structural members and the cut list, section 36) |
 | Strength | `STRESS, b, fixed, loaded [, FORCE/PRESSURE, fx, fy, fz, h]` (a first strength check, section 37) |
@@ -616,10 +616,95 @@ letter mark the place on that view, and the detail is named `DETAIL B (3:1)`.
 `PROPERTY` with no values lists the properties. With a key and no value it
 removes that one. Properties are kept in the project and follow undo.
 
+### Drawings that follow the model: DRAWSHEET and DRAWINGS
+
+`DRAWING` writes a file once. A **sheet** is kept with the model instead:
+`DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail,
+template]` is a history step that says what the sheet shows (the same
+choices as `DRAWING`), and its views are made from the model every time the
+drawings are written, so they always show the model as it is:
+
+```
+DRAWSHEET, views, STANDARD                      ! sheet 1: the four views
+DRAWSHEET, plan, TOP, 0, OVERALL, A3, 1:1       ! sheet 2: the top view on A3
+DRAWSHEET, cut, FRONT, 0, NONE, A4, , "Y 10"    ! sheet 3: a section
+DRAWINGS, "plate.pdf"                           ! one PDF, a page per sheet
+DRAWINGS, "plate.pdf", AUTO                     ! ... and again after every rebuild and save
+DRAWINGS                                        ! the sheets, and the sizes checked
+```
+
+`DRAWINGS, "plate.svg"` writes one SVG per sheet (`plate_views.svg`,
+`plate_plan.svg` ...). The title block says which sheet it is ("SHEET 2 of
+3"). With `AUTO` the file is written again after every rebuild and every
+save, so it never shows an old model; `DRAWINGS, , OFF` stops that. The
+setting is saved with the project. `DRAWSHEET, DELETE, name` removes a
+sheet.
+
+**Templates.** A title block of your own is a small text file:
+
+```
+! our title block
+paper = A3                  ! the paper, when the sheet does not say
+row = TITLE                 ! one field: shown big, without its label
+row = NUMBER, REVISION      ! fields side by side, each with its label
+row = MATERIAL, SCALE, SHEET
+row = AUTHOR, COMPANY, DATE
+COMPANY = Example Ltd       ! a value used when PROPERTY does not set it
+```
+
+Fields are `PROPERTY` names, and `SCALE`, `PAPER`, `UNITS`, `SHEET` and
+`DATE` (today unless set). Give the file as the sheet's last value:
+`DRAWSHEET, plan, TOP, 0, ALL, , , , , "company.tpl"`.
+
+**Sizes checked against the model.** `DRAWINGS` also checks the sizes
+pinned to the model with `NOTE`. A size between two points (`NOTE, SIZE`)
+remembers what each end was on when it was made (a corner, an edge, a face);
+when that changes (the part got longer, so the corner moved away from the
+end) the size is out of date and is named. A diameter typed into a note
+(`NOTE, "ø6", ...`) is checked against the hole next to it. Sizes made from
+picks (`NOTE, SIZE` on picked vertices, `NOTE, HOLE`) are made again from
+the model on every rebuild, so they always fit.
+
 The app autosaves the project a moment after every change. When it starts
 and finds the autosave of the last session, the **Recover** button appears;
 it runs `OPEN, AUTOSAVE`. The autosave lives in the app's data folder; set
 the environment variable `MODELER_AUTOSAVE` to another file, or to `off`.
+
+### Keeping projects safe
+
+**Saving.** A project is written next to its file first and put in place
+only when it is complete, so a crash or a full disk while saving leaves the
+last save as it was. Every `SAVE` over a project first keeps the one it
+replaces in the folder `<name>-backups` next to it, named by when it was
+saved; the newest 5 are kept. `BACKUPS` lists them, newest first, and
+`BACKUPS, 10` keeps ten (`BACKUPS, 0` none); open one with `OPEN` to go
+back to it. A project file that is damaged (cut short by a crash, say)
+does not open, and the message names its newest backup. The autosave makes
+no backups. Projects saved by every earlier release are opened by the
+tests, and must give the same model.
+
+**Outside files.** A project keeps a copy of every file it imports or
+links, so it opens when they are gone; a linked part file (`LIB, LINK`) is
+followed while it is there. `FILES` lists them: the step that reads each
+one and where it was found, or that it is missing and the saved copy is
+used. When a file moved, or a newer version of an imported file should be
+used, point the project at it:
+
+```
+FILES                                          ! what the project reads, and from where
+RELINK, "parts/peg.cmd", "D:/new/peg.cmd"      ! the file as the history names it, then where it is now
+```
+
+The steps that read it run again; the history keeps the old name, and the
+next `SAVE` keeps a copy of the new file.
+
+**Before sharing.** `SHARECHECK` lists what to fix before sending the
+project to someone: changes since the last save, failing steps, missing
+files the project has no copy of, broken links and parts that place each
+other in a loop. It also says what goes with the file: steps with
+warnings, part files linked from outside the project folder, the saved
+assistant conversation, names in the title block, and full paths in your
+own folders.
 
 ## 11. Typing help in the command line
 
@@ -1379,6 +1464,43 @@ both items, and nothing moves.
 In the window: pick the two items (click, then Ctrl+click), right-click and
 choose **Mate the two picked…**, or **Parts > Mate** in the command forms.
 The form opens with the two picks filled in.
+
+### Checking the mates: MATES
+
+`MATES` measures every mate again on the finished assembly:
+
+- **holds**, or **DOES NOT HOLD** with how far off it is and the later
+  step that moved the copy away (the two **fight**: that step is marked
+  `FIGHTS step n`). `MATE` itself warns when it undoes an earlier mate.
+- **REPEATS step n** when a mate fixes nothing the earlier mates on that
+  copy had not fixed already (two mates on the same faces, say), or
+  *partly repeats* when only some of what it fixes is new.
+- for each copy that was mated, the ways it can still move: **slides
+  along** a direction or **turns about** an axis through a point (a face
+  on a face leaves two slides and a turn; a pin in a hole that sits on its
+  head only turns). A copy with none is **fully placed**.
+
+`MATES, JSON` gives the same as data.
+
+### Coordinate systems on bodies: CSYS
+
+`CSYS, name, body, x,y,z [, nx,ny,nz [, angle]]` makes a coordinate
+system at (x,y,z) with its Z along (nx,ny,nz) (default up) and its X
+turned by angle about Z; `CSYS, name, FACE, id [, angle]` puts one on a
+flat face, Z out of the body. It moves with its body (`MOVE`, `ROTATE`,
+`MATE`), and it is a datum plane with an X axis, so `WORKPLANE, name`
+draws in it and `DIST` measures to it. Body `0` makes one fixed in space.
+`CSYS` alone lists them.
+
+`MATE, FRAME, a, b` moves the body of coordinate system `b` so that `b`
+lies on `a`, origin and axes: one step that places a copy fully. `FLIP`
+turns `b` over (Z the other way, X the same), for two faces that meet:
+
+```
+CSYS, top, base, 20, 20, 10           ! on the base's top face
+CSYS, foot, pin, 0, 0, 0, 0, 0, -1    ! at the pin's foot, Z out of it
+MATE, FRAME, top, foot, FLIP          ! the pin stands on the base
+```
 
 ## 18. Screw threads and springs
 
@@ -2741,6 +2863,38 @@ runner takes `-C name`:
 ```
 python -m modeler run plate.cmd -C big
 ```
+
+**Design tables.** A CSV file with one row per configuration: its name,
+then a column per parameter, and an optional `off` column with the steps
+this configuration leaves out (by history number):
+
+```
+config, W,  H,  off
+small,  30, 5,  5 6
+big,    60, 20,
+```
+
+`DESIGNTABLE, "sizes.csv"` makes one `CONFIG` step per row (or changes the
+one already there, so reading the table again after editing it updates the
+configurations). `DESIGNTABLE, "sizes.csv", EXPORT` writes the
+configurations out as such a table. Both are run when given, not kept in
+the history; the values are kept by the `CONFIG` steps.
+
+**Steps off per configuration.** `CONFIGOFF, small, "5 6"` leaves steps 5
+and 6 out while `small` is in use (a hole the small size does not have);
+`CONFIGOFF, small, "5", ON` puts one back and `CONFIGOFF, small` lists them.
+The steps are remembered as steps, not numbers, so the right ones stay off
+when steps are added or removed before them; they are saved with the
+project. In the History panel such a step says "off in configuration SMALL".
+
+**Comparing variants.** `VARIANTS` builds every configuration on its own,
+and `DEFAULT`, without touching the model in use. For each one it says
+whether it builds (or the step where it stops, with the reason), the
+pieces, volume, mass and overall size, and the change in volume from
+`DEFAULT`. `VARIANTS, JSON` gives the same as data; `VARIANTS, TEXT,
+folder` also writes each configuration's parts list (`small_bom.csv`) and
+drawing (`small.svg`) to the folder. `BOM, , small` shows the parts list of
+one configuration without switching to it.
 
 **`BOM`** lists the parts of the model: one row per part placed with
 `INST` (instances of the same part with the same values are counted

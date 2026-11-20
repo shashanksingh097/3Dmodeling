@@ -14,7 +14,7 @@ and a title block, written as PDF or SVG (geometry/drawing.py makes the views).
   with PROPERTY (TITLE, NUMBER, MATERIAL, AUTHOR, COMPANY, REVISION, DATE)
   with the scale, the units and the projection.
 
-The PDF is written by hand (PDF 1.4, one page, lines and Helvetica text), so
+The PDF is written by hand (PDF 1.4, a page per sheet, lines and Helvetica text), so
 nothing beyond the standard library is needed.
 """
 
@@ -339,7 +339,8 @@ def _best(w: float, h: float, W: float, H: float) -> float:
     return SCALES[-1]
 
 
-def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props: dict, units: str) -> Page:
+def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props: dict, units: str,
+            template: Template | None = None) -> Page:
     pw, ph = PAPER[paper]
     pg = Page(pw, ph, scale=scale, paper=paper)
     x0, y0, x1, y1 = sheet_bounds
@@ -376,7 +377,10 @@ def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props:
     # frame
     pg.thick.append([(MARGIN, MARGIN), (pw - MARGIN, MARGIN), (pw - MARGIN, ph - MARGIN), (MARGIN, ph - MARGIN),
                      (MARGIN, MARGIN)])
-    _title_block(pg, props, units)
+    if template is not None:
+        _template_block(pg, template, props, units)
+    else:
+        _title_block(pg, props, units)
     return pg
 
 
@@ -398,12 +402,107 @@ def _title_block(pg: Page, props: dict, units: str) -> None:
     pg.texts.append((x0 + 3, rows[1] + 2.5, 3.0, f"NUMBER  {get.get('NUMBER', '-')}", "l", "k", 0.0))
     pg.texts.append((x1 - 3, rows[1] + 2.5, 3.0, f"REV  {get.get('REVISION', '-')}", "r", "k", 0.0))
     pg.texts.append((x0 + 3, rows[0] + 3.5, 2.8, f"MATERIAL  {get.get('MATERIAL', '-')}", "l", "k", 0.0))
+    sheet = f"    SHEET {get['SHEET']}" if get.get("SHEET") else ""
     pg.texts.append((mid + 3, rows[0] + 3.5, 2.8, f"SCALE  {scale_text(pg.scale)}    {units.lower()}    "
-                                                  f"{pg.paper}", "l", "k", 0.0))
+                                                  f"{pg.paper}{sheet}", "l", "k", 0.0))
     date = get.get("DATE") or datetime.date.today().isoformat()
     pg.texts.append((x0 + 3, y0 + 3.5, 2.8, f"DRAWN  {get.get('AUTHOR', '-')}   {date}", "l", "k", 0.0))
     pg.texts.append((mid + 3, y0 + 3.5, 2.8, f"{get.get('COMPANY', '')}   third-angle projection".strip(),
                      "l", "k", 0.0))
+
+
+# ---- title block templates ---------------------------------------------------------------------------
+
+@dataclass
+class Template:
+    """A title block of your own: rows of fields, from the top, and default values.
+
+    The file is plain text, one setting a line (``!`` starts a comment)::
+
+        paper = A3                    ! the paper, when the sheet does not say
+        row = TITLE                   ! a row with one field: shown big, without its label
+        row = NUMBER, REVISION        ! fields side by side, each with its label
+        row = MATERIAL, SCALE, SHEET
+        row = AUTHOR, DATE, COMPANY
+        COMPANY = Example Ltd         ! a value used when PROPERTY does not set it
+
+    Fields are PROPERTY names, and SCALE, PAPER, UNITS, SHEET ("2 of 3"), DATE (today unless set).
+    """
+
+    name: str = ""
+    paper: str = ""
+    rows: list = field(default_factory=list)  # list of lists of field names
+    values: dict = field(default_factory=dict)
+    width: float = TITLE_W
+    height: float = TITLE_H
+
+
+def read_template(path: str) -> Template:
+    import os
+
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError as exc:
+        raise SheetError(f"cannot read the template {path} ({exc.strerror or exc})") from None
+    t = Template(os.path.basename(path))
+    for n, raw in enumerate(lines, 1):
+        line = raw.split("!", 1)[0].strip()
+        if not line:
+            continue
+        key, eq, val = line.partition("=")
+        key, val = key.strip().upper(), val.strip()
+        if not eq or not key:
+            raise SheetError(f"template {t.name}, line {n}: write NAME = value")
+        if key == "PAPER":
+            if val.upper() not in PAPER:
+                raise SheetError(f"template {t.name}, line {n}: the paper is one of {', '.join(PAPER)}")
+            t.paper = val.upper()
+        elif key == "ROW":
+            cells = [c.strip().upper() for c in val.split(",") if c.strip()]
+            if not cells:
+                raise SheetError(f"template {t.name}, line {n}: a row needs at least one field")
+            t.rows.append(cells)
+        elif key == "WIDTH":
+            t.width = float(val)
+        elif key == "HEIGHT":
+            t.height = float(val)
+        else:
+            t.values[key] = val
+    if not t.rows:
+        raise SheetError(f"template {t.name} has no rows (row = TITLE ...)")
+    return t
+
+
+def _template_block(pg: Page, t: Template, props: dict, units: str) -> None:
+    import datetime
+
+    get = {k.upper(): str(v) for k, v in t.values.items()}
+    get.update({k.upper(): str(v) for k, v in props.items()})
+    get.setdefault("DATE", datetime.date.today().isoformat())
+    get.update({"SCALE": scale_text(pg.scale), "PAPER": pg.paper, "UNITS": units.lower()})
+    tw = min(t.width, pg.width - 2 * MARGIN)
+    x1, y0 = pg.width - MARGIN, MARGIN
+    x0, y1 = x1 - tw, y0 + t.height
+    pg.thick.append([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)])
+    rh = t.height / len(t.rows)
+    for i, row in enumerate(t.rows):
+        top = y1 - i * rh
+        if i:
+            pg.thin.append([(x0, top), (x1, top)])
+        cw = tw / len(row)
+        for j, key in enumerate(row):
+            cx = x0 + j * cw
+            if j:
+                pg.thin.append([(cx, top), (cx, top - rh)])
+            val = get.get(key, "-")
+            if len(row) == 1 and key == "TITLE":
+                h = min(6.0, rh * 0.5)
+                pg.texts.append((cx + 3, top - rh / 2 - h / 3, h, val, "l", "k", 0.0))
+            else:
+                h = min(3.0, rh * 0.32)
+                pg.texts.append((cx + 2, top - h - 1, h * 0.7, key.title(), "l", "k", 0.0))
+                pg.texts.append((cx + 2, top - rh + h * 0.5, h, val, "l", "k", 0.0))
 
 
 # ---- writers -------------------------------------------------------------------------------
@@ -420,6 +519,10 @@ def _text_width(t: str, h: float) -> float:
 
 
 def pdf(pg: Page) -> bytes:
+    return pdf_pages([pg])
+
+
+def _page_ops(pg: Page) -> bytes:
     k = 72 / 25.4  # mm -> points
     ops = ["1 J 1 j"]
 
@@ -450,17 +553,27 @@ def pdf(pg: Page) -> bytes:
         c, s = math.cos(a), math.sin(a)
         ops.append(f"BT /F1 {h * k:.2f} Tf {c:.4f} {s:.4f} {-s:.4f} {c:.4f} {tx * k:.2f} {ty * k:.2f} Tm "
                    f"({_esc_pdf(t)}) Tj ET")
-    content = "\n".join(ops).encode("latin-1", "replace")
-    W, H = pg.width * k, pg.height * k
+    return "\n".join(ops).encode("latin-1", "replace")
+
+
+def pdf_pages(pages: list[Page]) -> bytes:
+    """A PDF with one page per sheet."""
+    k = 72 / 25.4
+    n = len(pages)
+    # objects: 1 catalog, 2 pages, 3 font, 4 info, then a page and its content per sheet
+    kids = " ".join(f"{5 + 2 * i} 0 R" for i in range(n))
     objs = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {W:.2f} {H:.2f}] /Contents 4 0 R "
-        f"/Resources << /Font << /F1 5 0 R >> >> >>".encode(),
-        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream",
+        f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode(),
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
         b"<< /Producer (3Dmodeling) >>",
     ]
+    for i, pg in enumerate(pages):
+        content = _page_ops(pg)
+        W, H = pg.width * k, pg.height * k
+        objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {W:.2f} {H:.2f}] /Contents {6 + 2 * i} 0 R "
+                    f"/Resources << /Font << /F1 3 0 R >> >> >>".encode())
+        objs.append(b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream")
     out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
     offsets = []
     for i, o in enumerate(objs, 1):
@@ -470,7 +583,7 @@ def pdf(pg: Page) -> bytes:
     out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
     for off in offsets:
         out += f"{off:010d} 00000 n \n".encode()
-    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R /Info 4 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
     return bytes(out)
 
 

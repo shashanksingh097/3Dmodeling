@@ -101,7 +101,7 @@ class FormError(Exception):
 PARAM = "="
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
-    ("Parameters", (PARAM, "CONFIG", "USECONFIG", "DRIVE")),
+    ("Parameters", (PARAM, "CONFIG", "USECONFIG", "CONFIGOFF", "DESIGNTABLE", "VARIANTS", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
     ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE", "SCHECK")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
@@ -133,8 +133,9 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
-    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "PROPERTY", "RENDER")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "DRAWINGS", "PROPERTY", "RENDER",
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK")),
 ]
 
 # Commands with no form, and why: the GUI already does them another way.

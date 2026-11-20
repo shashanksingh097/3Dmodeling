@@ -42,7 +42,7 @@ from .feature_handlers import _Args, plane_ref
 from .handlers import _transform
 from .processor import Arg, CommandError, Processor, Raw, command
 
-KINDS = ("COINCIDENT", "CONCENTRIC", "DISTANCE", "ANGLE")
+KINDS = ("COINCIDENT", "CONCENTRIC", "DISTANCE", "ANGLE", "FRAME")
 TOL = 1e-7
 
 
@@ -50,9 +50,10 @@ class Item:
     """One side of a mate: what it is (PLANE, AXIS, POINT, CIRCLE) and where."""
 
     def __init__(self, label: str, what: str, point: dt.P3, direction: dt.P3 = (0.0, 0.0, 1.0),
-                 body: int | None = None, shape=None) -> None:
+                 body: int | None = None, shape=None, ref: tuple = ()) -> None:
         self.label, self.what, self.point, self.dir = label, what, point, direction
         self.body, self.shape = body, shape
+        self.ref = ref  # how to find it again: ("FACE", 12) or ("DATUM", "name")
 
     @property
     def words(self) -> str:
@@ -60,6 +61,12 @@ class Item:
 
 
 def _item_of_entity(p: Processor, kind: str, gid: int) -> Item:
+    it = _entity_item(p, kind, gid)
+    it.ref = (kind, gid)
+    return it
+
+
+def _entity_item(p: Processor, kind: str, gid: int) -> Item:
     m = p.model
     try:
         shape = m.entity_shape(kind, gid)
@@ -91,7 +98,15 @@ def _item_of_entity(p: Processor, kind: str, gid: int) -> Item:
     raise CommandError(f"MATE: use FACE, EDGE or VERTEX items (or DATUM, XY, YZ, ZX for the fixed one), not {kind}")
 
 
-def _item_of_datum(d: dt.Datum, label: str) -> Item:
+def _item_of_datum(d: dt.Datum, label: str, frames: dict | None = None) -> Item:
+    it = _datum_item(d, label)
+    it.ref = ("DATUM", d.name)
+    if frames and d.name.upper() in frames:
+        it.body = frames[d.name.upper()]
+    return it
+
+
+def _datum_item(d: dt.Datum, label: str) -> Item:
     if d.kind == "PLANE":
         return Item(label, "PLANE", d.origin, dt.unit(d.z), shape=ft.datum_shape(d))
     if d.kind == "AXIS":
@@ -104,7 +119,7 @@ def _read_item(p: Processor, a: _Args, which: str) -> Item:
     if word == "DATUM":
         name = a.word("the datum name")
         try:
-            return _item_of_datum(p.model.datum(name), f"datum {name}")
+            return _item_of_datum(p.model.datum(name), f"datum {name}", p.model.frames)
         except ModelError as exc:
             raise CommandError(f"MATE: {exc}") from None
     if word in dt.BASE_PLANES:
@@ -300,8 +315,9 @@ def _check(p: Processor, kind: str, a: Item, b_kind: str, b_gid: int, value: flo
     help="Place a copy against another: MATE, kind, <fixed item>, <moving item> [, value] [, FLIP] moves the "
          "body of the second item. Items: FACE, 12 · EDGE, 4 · VERTEX, 9 · DATUM, name · XY (fixed only). "
          "COINCIDENT: faces against each other, axes or round edges in line, points together. CONCENTRIC: axes "
-         "in line. DISTANCE, d: faces d apart. ANGLE, a: a degrees between them. FLIP turns the copy the other "
-         "way. With no items, the two selected (the first stays). Solved in order; check with CONTACT.",
+         "in line. DISTANCE, d: faces d apart. ANGLE, a: a degrees between them. FRAME, a, b: coordinate system "
+         "b (CSYS) onto a. FLIP turns the copy the other way. With no items, the two selected (the first stays). "
+         "Solved in order; MATES finds mates that repeat or fight and lists what is still free.",
 )
 def mate(p: Processor, kind, **raws):
     kind = {"COINC": "COINCIDENT", "CONC": "CONCENTRIC", "DIST": "DISTANCE", "ANG": "ANGLE"}.get(kind, kind)
@@ -309,6 +325,8 @@ def mate(p: Processor, kind, **raws):
         raise CommandError(f"MATE: the kind is one of {', '.join(KINDS)}, not {kind!r}")
     vals = [raws[f"a{i}"] for i in range(1, 9)]
     words = [v.strip() for v in vals]
+    if kind == "FRAME":
+        return _mate_frames(p, [w for w in words if w])
     flip = False
     while words and not words[-1]:
         words.pop()
@@ -350,7 +368,59 @@ def mate(p: Processor, kind, **raws):
     checked = _check(p, kind, ia, b_ref[0], b_ref[1], value)
     name = p.model.bodies[ib.body].name
     who = f"body {ib.body}" + ("" if not name or name == f"body{ib.body}" else f" '{name}'")
+    _record(p, kind, ia, (b_ref[0], b_ref[1]), ib.body, value, flip)
     return f"{kind.lower()}: {ib.label} to {ia.label}, {who} moved ({what}" + (f"; {checked}" if checked else "") + ")"
+
+
+def _record(p: Processor, kind: str, ia: Item, b_ref: tuple, body: int, value, flip: bool) -> None:
+    """Keep the mate (MATES checks them all), and say when it repeats or undoes an earlier one."""
+    from .mate_check import after_mate
+
+    rec = {"step": p.entry_index + 1, "kind": kind, "a": tuple(ia.ref), "b": tuple(b_ref), "body": body,
+           "fixed": ia.body, "value": value, "flip": flip}
+    p.model.mates = [*p.model.mates, rec]
+    after_mate(p, rec)
+
+
+def _mate_frames(p: Processor, words: list[str]) -> str:
+    """MATE, FRAME, a, b [, FLIP]: the body of frame b moves so b lies on a (origin and axes)."""
+    flip = bool(words) and words[-1].upper() == "FLIP"
+    if flip:
+        words = words[:-1]
+    if len(words) != 2:
+        raise CommandError("MATE: FRAME takes two coordinate systems: MATE, FRAME, fixed, moving [, FLIP]")
+    m = p.model
+    try:
+        da = plane_ref(p, words[0], "MATE")
+        db = m.datum(words[1], "PLANE")
+    except ModelError as exc:
+        raise CommandError(f"MATE: {exc}") from None
+    body = m.frames.get(db.name.upper())
+    if body is None or body not in m.bodies:
+        raise CommandError(f"MATE: {db.name} is not on a body (make it with CSYS, name, body ...), so nothing "
+                           "can move")
+    if m.frames.get(da.name.upper()) == body:
+        raise CommandError(f"MATE: {da.name} and {db.name} are on the same body ({body})")
+    za, xa = (dt.mul(da.z, -1.0), da.x) if flip else (da.z, da.x)
+    t = frame_move(db, da.origin, za, xa)
+    _transform(p, body, t, "moved", copy=False)
+    a_item = _item_of_datum(da, f"frame {da.name}", m.frames)
+    _record(p, "FRAME", a_item, ("DATUM", db.name), body, None, flip)
+    nb = m.datum(db.name)
+    off = dt.norm(dt.sub(nb.origin, da.origin))
+    return (f"frame: {db.name} onto {da.name}" + (" (z turned round)" if flip else "")
+            + f", body {body} moved (origins {off:.6g} apart)")
+
+
+def frame_move(d: dt.Datum, origin, z, x) -> gp_Trsf:
+    """The move that takes frame ``d`` onto (origin, z, x)."""
+    from OCP.gp import gp_Ax3
+
+    src = gp_Ax3(gp_Pnt(*d.origin), gp_Dir(*d.z), gp_Dir(*d.x))
+    dst = gp_Ax3(gp_Pnt(*origin), gp_Dir(*z), gp_Dir(*x))
+    t = gp_Trsf()
+    t.SetDisplacement(src, dst)
+    return t
 
 
 def _gid_from_label(label: str) -> int:

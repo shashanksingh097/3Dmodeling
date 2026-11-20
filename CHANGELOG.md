@@ -28,6 +28,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - `TAKE, FACE/EDGE/PLANE/AXIS, part, n, name [, LINK/COPY]`: geometry from another part (by name
   or a placed copy), linked so it follows the part, or copied; a face that is gone is a broken link.
   `DEPENDS` lists linked files, parts, copies and taken geometry, with broken links and loops.
+- Design tables: `DESIGNTABLE, "sizes.csv"` makes configurations from a CSV file (and `EXPORT` writes
+  them out), `CONFIGOFF` leaves steps out of a configuration, `VARIANTS` builds every configuration
+  and compares them (and writes each one's parts list and drawing), `BOM, , config` lists one.
+- `MATES`: every mate measured again (holds or not, which later step undid it, which mates repeat
+  others) and the ways each mated copy can still move. `MATE` warns when it undoes or repeats one.
+- `CSYS`: coordinate systems that move with their body; `MATE, FRAME, a, b` puts one on another.
+- Drawings that follow the model: `DRAWSHEET` keeps sheets in the history, `DRAWINGS` writes them as one
+  PDF with a page per sheet (or an SVG each), again after every rebuild and save with `AUTO`; title
+  block templates; sizes pinned with `NOTE` are checked against the model.
+- Project safety: every `SAVE` keeps the version it replaces (`BACKUPS`), saving cannot spoil the last
+  save, a damaged project names its newest backup, `FILES` and `RELINK` for outside files that moved,
+  `SHARECHECK` before sending a project. Projects saved by v0.1 to v0.5 are opened by the tests.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

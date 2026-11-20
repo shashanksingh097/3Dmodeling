@@ -290,12 +290,38 @@ def _link_paths(p: Processor, project: str) -> dict:
 
 
 CHAT_KEEP = 200  # assistant messages kept with a project (the newest)
+BACKUPS_KEEP = 5  # earlier saves of a project kept in its backups folder (BACKUPS, n changes it)
 
 
-def save_project(p: Processor, path: str) -> int:
-    """Write the project zip; returns the number of history entries."""
+def save_project(p: Processor, path: str, backup: bool = True) -> int:
+    """Write the project zip; returns the number of history entries. The file is written next to the
+    project first and put in its place only when complete, so a crash while saving leaves the last
+    saved project as it was; with ``backup`` the one it replaces is kept in the backups folder."""
     os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
     tmp = path + ".tmp"
+    try:
+        n = _write_project(p, path, tmp)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+    if backup and os.path.isfile(path):
+        from .safety_handlers import keep_backup
+
+        keep_backup(p, path)
+    os.replace(tmp, path)
+    if backup:
+        p.saved_script = p.script()
+    if backup and p.drawings_auto:
+        from .drawsheet_handlers import refresh
+
+        refresh(p)
+    return n
+
+
+def _write_project(p: Processor, path: str, tmp: str) -> int:
     files = {}
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("script.cmd", p.script())
@@ -326,6 +352,12 @@ def save_project(p: Processor, path: str) -> int:
             # where each linked part file is, so reopening reads the file itself
             "links": _link_paths(p, path),
         }
+        if p.drawings_auto:  # the drawings written again after every rebuild and save
+            meta["drawings_auto"] = p.drawings_auto
+        if p.note_ends:  # what the ends of each size were on when it was made
+            meta["note_ends"] = [[u, n, list(e)] for (u, n), e in p.note_ends.items()]
+        if p.config_off:  # steps turned off per configuration, by entry uid
+            meta["config_off"] = {k: sorted(v) for k, v in p.config_off.items() if v}
         if p.config:  # the configuration in use (CONFIG/USECONFIG), with its values for the replay
             meta["config"] = {"name": p.config, "values": dict(p.config_values)}
         if p.chat:  # the assistant conversation, kept with the project
@@ -341,8 +373,9 @@ def save_project(p: Processor, path: str) -> int:
             meta["strokes"] = "strokes.npz"
         if p.taken:  # geometry taken from other parts (TAKE): fingerprints, and copies as BREP text
             meta["taken"] = p.taken
+        if p.backups_keep != BACKUPS_KEEP:
+            meta["backups_keep"] = p.backups_keep
         z.writestr("project.json", json.dumps(meta, indent=2))
-    os.replace(tmp, path)
     return p.cursor
 
 
@@ -351,7 +384,11 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     try:
         z = zipfile.ZipFile(path)
     except (OSError, zipfile.BadZipFile) as exc:
-        raise CommandError(f"OPEN: {path} is not a project file ({exc})") from None
+        from .safety_handlers import backups_of
+
+        older = backups_of(path)
+        hint = f"; the newest backup is {older[0]} (OPEN it, or BACKUPS lists them)" if older else ""
+        raise CommandError(f"OPEN: {path} is not a project file or is damaged ({exc}){hint}") from None
     with z:
         try:
             meta = json.loads(z.read("project.json"))
@@ -383,12 +420,17 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))
+    p.drawings_auto = str(meta.get("drawings_auto", "") or "")
+    p.backups_keep = int(meta.get("backups_keep", BACKUPS_KEEP))
+    p.note_ends = {(int(u), int(n)): tuple(e) for u, n, e in meta.get("note_ends", []) if len(e) == 2}
+    p.config_off = {str(k).upper(): {int(u) for u in v} for k, v in dict(meta.get("config_off", {})).items()}
     cfg = meta.get("config")
     if isinstance(cfg, dict) and cfg.get("name"):
         p.config = str(cfg["name"]).upper()
         p.config_values = {str(k).upper(): v for k, v in dict(cfg.get("values", {})).items()}
     results = p.run_script(script, meta.get("history"))
     p.model.set_view_state(meta.get("view"))
+    p.saved_script = p.script()
     errors = [f"'{first_code_line(r.line)}': {r.message}" for r in results if not r.ok]
     return len([r for r in results if r.ok]), errors
 

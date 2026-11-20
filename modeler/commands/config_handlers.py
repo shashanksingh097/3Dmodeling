@@ -254,13 +254,27 @@ def write_bom_csv(p: Processor, rows: list[dict], path: str) -> None:
 @command(
     "BOM",
     Arg("file", Path, "", "a .csv file to write it to (none: just show it)"),
+    Arg("config", str, "", "the configuration to list (default: the one in use)"),
     logged=False,
     help="The parts list: one row per part (instances of a part with the same values counted together) and per "
-         "named solid, with quantity, material, volume and mass: BOM · BOM, parts.csv also writes it as CSV",
+         "named solid, with quantity, material, volume and mass: BOM · BOM, parts.csv also writes it as CSV · "
+         "BOM, , big lists configuration big without switching to it",
 )
-def bom(p: Processor, file):
-    rows = bom_rows(p)
-    text = bom_text(p, rows)
+def bom(p: Processor, file, config):
+    q = p
+    if config and config.upper() != (p.config or "DEFAULT"):
+        from .variant_handlers import variant
+
+        try:
+            q = variant(p, config)
+        except CommandError as exc:
+            raise CommandError(f"BOM: {exc}") from None
+    rows = bom_rows(q)
+    text = bom_text(q, rows)
+    if q is not p:
+        text = f"configuration {config.upper()}:\n" + text
+        for f in getattr(q, "variant_failed", [])[:1]:
+            p.warn(f"configuration {config.upper()} does not build: step {f['step']}: {f['message']}")
     p.give_report("BOM", {"rows": [{**r, "volume": round(float(r["volume"]), 4),
                                     "mass": None if r["mass"] is None else round(float(r["mass"]), 6)}
                                    for r in rows],

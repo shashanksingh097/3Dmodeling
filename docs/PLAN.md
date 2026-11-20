@@ -1068,12 +1068,22 @@ three per pull request.
     links named), `DEPENDS`.*
 59. **Design tables** (P2): configurations from CSV, steps off per
     configuration, variants compared, drawing and BOM per configuration.
+    *Done: `DESIGNTABLE` (read and EXPORT), `CONFIGOFF`, `VARIANTS` (with a
+    folder: parts list and drawing per configuration), `BOM, , config`.*
 60. **Assembly checks** (P2): mates that repeat or fight found and named,
     free directions listed, local coordinate systems.
+    *Done: `MATES` (holds, fights, repeats, free slides and turns), `CSYS`
+    coordinate systems that move with their body, `MATE, FRAME`.*
 61. **Drawings that follow the model** (P2): views made again after a
     rebuild, templates, several sheets, sizes checked against the model.
+    *Done: `DRAWSHEET` sheets in the history, `DRAWINGS` (a PDF page per
+    sheet, AUTO after every rebuild and save), title block templates, size
+    notes checked against the model.*
 62. **Project safety** (P1): backups, crash recovery tested, old projects
     opened in tests, relinking missing files, a check before sharing.
+    *Done: backups on every SAVE (`BACKUPS`), saving that a crash cannot
+    spoil, a crash-and-recover test, projects from v0.1 to v0.5 opened in
+    tests, `FILES`/`RELINK`, `SHARECHECK`.*
 63. **Speed and long sessions** (P1): a CI benchmark for import, rebuild,
     picking, drawing and save/open with memory; a long-session test; clear
     messages for every kernel failure.

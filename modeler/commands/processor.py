@@ -224,6 +224,12 @@ class Processor:
         self.configs: dict[str, dict[str, Any]] = {}
         self.config = ""
         self.config_values: dict[str, Any] = {}
+        # steps turned off in a configuration (CONFIGOFF, DESIGNTABLE): name -> entry uids
+        self.config_off: dict[str, set[int]] = {}
+        self.backups_keep = 5  # earlier saves kept (BACKUPS, n)
+        self.saved_script = ""  # the history as last saved or opened: anything else is not saved yet
+        self.note_ends: dict = {}  # NOTE, SIZE: what each end was on when first made, by (step uid, note)
+        self.drawings_auto = ""  # DRAWINGS, file, AUTO: the file written again after every rebuild and save
         # DRIVE: parameters held at a value for a moment (a slider moving an assembly); not history
         self.drive: dict[str, Any] = {}
         self.exploded: dict | None = None  # XSHOW: the model as it was, put back before the next command
@@ -397,7 +403,10 @@ class Processor:
                 entry.uid = uid
                 self._uid = max(self._uid, uid)
         self.entry_index = self.cursor
-        ok, message = self._run_entry(entry, stmts)
+        if self.is_off(entry):
+            ok, message = True, f"off in configuration {self.config}"
+        else:
+            ok, message = self._run_entry(entry, stmts)
         entry.ok, entry.message = ok, message
         if not ok:
             self.last_failure = {"line": label, "message": message}  # for diagnose (ai/diagnose.py)
@@ -421,6 +430,11 @@ class Processor:
         self.configs = {}
         self.config = ""
         self.config_values = {}
+        self.config_off = {}
+        self.drawings_auto = ""
+        self.note_ends = {}
+        self.saved_script = ""
+        self.backups_keep = 5
         self.drive = {}
         self.exploded = None
         self.parts = {}
@@ -440,6 +454,10 @@ class Processor:
         self._snaps = [self._state()]
         self._undo, self._redo = [], []
         self._history_changed()
+
+    def is_off(self, e: Entry) -> bool:
+        """Is the entry turned off in the configuration in use?"""
+        return bool(self.config and e.uid and e.uid in self.config_off.get(self.config, ()))
 
     @property
     def log(self) -> list[str]:
@@ -709,6 +727,8 @@ class Processor:
                     raise RebuildCancelled()
                 if e.suppressed:
                     e.ok, e.message, e.warning = True, "suppressed", ""
+                elif self.is_off(e):
+                    e.ok, e.message, e.warning = True, f"off in configuration {self.config}", ""
                 elif skip and j > start and self._can_skip(e, now := self._state()):
                     # nothing it reads changed: take over what it did last time
                     after = self._skipped_state(e, now)
@@ -745,6 +765,10 @@ class Processor:
             msg += f"; {len(errors)} failed:\n  " + "\n  ".join(errors)
         if warnings:
             msg += f"\n{len(warnings)} warning{'s' if len(warnings) > 1 else ''}:\n  " + "\n  ".join(warnings)
+        if self.drawings_auto:  # drawings kept up to date (DRAWINGS, file, AUTO)
+            from .drawsheet_handlers import refresh
+
+            refresh(self)
         return msg
 
     def history_backup(self) -> dict:
