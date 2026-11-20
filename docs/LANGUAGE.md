@@ -300,7 +300,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
 | Part features | `HOLE, b, x,y,z, d [, depth, kind, d2, h2, tip, dx,dy,dz]` · `SPLIT, b, plane/body [, BOTH/ABOVE/BELOW]` · `SHELL, t [, IN/OUT]` · `DRAFT, angle [, plane [, dx,dy,dz]]` · `OFFSET, b, d [, ROUND/SHARP]` (section 14) |
-| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `HIST, PART, first, "last, name"` (section 17) |
+| Parts | `*PART, name, P=default, ...` ... `*ENDPART` · `INST, part, x,y,z [, angle [, dx,dy,dz]] [, P=value ...]` · `EXPLODE, b` · `XSTEP, view, bodies, dx,dy,dz` · `XSHOW, view [, factor, trails]` (exploded views, section 35) · `MATE, kind, item, item [, value] [, FLIP]` · `LIB, LINK, name/file` · `LIB, LOAD, name/file` · `RELOAD` · `LIBSAVE, part [, file]` · `LIST, PARTS` · `TAKE, what, part, n, name [, LINK/COPY]` · `DEPENDS [, JSON]` · `HIST, PART, first, "last, name"` (section 17) |
 | Measure | `DIST` · `ANGLE` · `MASSPROP [, b [, density]]` · `CLASH [, a, b]` · `SECTION, plane/OFF [, BELOW/ABOVE, offset, NEW/ADD]` (sections 15, 44) |
 | Transforms | `MOVE, b, dx,dy,dz` · `ROTATE, b, angle [, x,y,z [, dx,dy,dz]]` · `SCALE, b, f [, x,y,z [, fy, fz]]` · `COPY, b, dx,dy,dz` · `MIRROR, b [, x,y,z [, nx,ny,nz [, copy]]]` |
 | Standard parts | `GEAR, x,y,z, module, teeth, width [, EXTERNAL/INTERNAL/RACK, helix, rim, pressure, dx,dy,dz]` · `FASTENER, CAP/HEXBOLT/NUT/WASHER, M8, x,y,z [, length, PLAIN/REAL, dx,dy,dz]` (section 41) |
@@ -1253,6 +1253,42 @@ library; the copy saved in the project comes last.
 `loaded from ... (a copy)`, or `defined in this project`.
 
 
+### Geometry from other parts: TAKE and DEPENDS
+
+`TAKE` brings a face, edge, plane or axis of another part into this
+project, so one part can be built against another:
+
+| Line | Gives |
+| --- | --- |
+| `TAKE, FACE, plate, 3, lid` | a sheet body `lid`: face 3 of part `plate` |
+| `TAKE, EDGE, plate, 10, rim` (or `CURVE`) | a curve body |
+| `TAKE, PLANE, plate, 6, end_plane` | a datum plane on a flat face (normal out of the part) |
+| `TAKE, AXIS, plate, FACE 7, hole_axis` | a datum axis along a round face; `EDGE n` for a straight edge |
+| `TAKE, LIST, plate` | the faces and edges with their numbers, type, size and place (not kept in the history) |
+
+The part is a part name, taken in the part's own coordinates with its
+default values, or a placed copy (an `INST` body), taken where that copy
+stands.
+
+`LINK` (the default) takes the geometry again on every rebuild, so it follows
+the part when the part, its file (`LIB, LINK`) or a value changes. The face
+is found again by what it is: among the faces of the same kind (plane,
+cylinder ...) facing the same way, the one nearest to where it was, which is
+the same number unless the part's faces were numbered anew; the step then
+says which face it followed. When nothing of that kind is left the step
+fails as a **broken link**. `COPY` takes the geometry once and keeps it with
+the saved project: later changes to the part do not reach it. Edit the step
+(another number, another part) to take it afresh.
+
+A part cannot take from itself, directly or through other parts: the part
+build stops with "places itself".
+
+`DEPENDS` shows what uses what: the linked part files (and whether each is
+missing), every part with where it comes from, the other parts it uses and
+the bodies it is placed as, the geometry taken with `TAKE`, loops between
+parts, and every broken link with its step. `DEPENDS, JSON` gives the same
+as data.
+
 ### Part documents: design one part on its own
 
 A **part document** is a session that holds one part: its steps are normal
@@ -2011,6 +2047,28 @@ When they match it says whether the second body is a moved copy of the
 first (and by how much) or its mirror image (and in which plane), otherwise
 what differs. `SAMESHAPE(a, b)` is 1 or 0.
 
+**Revisions.** `COMPARE, STEP, n` compares the model as it was after
+history step `n` with now; `COMPARE, PROJECT, "old.m3d"` compares a saved
+project with now. Bodies are paired by name. For each body that changed it
+says, face by face, what is the same, what changed (the same surface with
+another size: a plane cut by a new pocket, a hole made bigger, with the old
+and new radius), what moved (the same face somewhere else, and by how
+much), what was added and what was removed, the volume before and after,
+and how far the surface moved (the largest distance out and in, and the
+share of the surface that moved by more than the tolerance). The changed
+body is coloured by how far it moved: green the same, red outward, blue
+inward. `ANALYZE, OFF` ends the colours.
+
+```
+COMPARE, STEP, 12                    ! since step 12
+COMPARE, STEP, 12, part, 0.01, JSON  ! one body, tolerance 0.01, as data
+COMPARE, PROJECT, "bracket_v1.m3d"   ! against a saved revision
+```
+
+Faces are matched by what they are, not by their IDs, so a project that was
+opened again or rebuilt compares correctly. `DIFF` (above) lists what each
+step made; `COMPARE, STEP` shows how the shape itself changed.
+
 `DESIGNCHECK, housing` runs rule checks and gives the IDs of what breaks
 them: not valid, open edges, not a solid, loose pieces in one body, inside
 out, edges shorter than a thousandth of the size (or `minedge`), narrow
@@ -2192,6 +2250,42 @@ picture. `ANALYZE` only looks: it is not a history step.
 
 The **Zebra** button (Features toolbar) shows stripes on the picked body and
 ends them when pressed again; the form (Freeform category) has the others.
+
+### Continuity, curvature combs and inspection
+
+```
+CONTINUITY, b                      ! every join judged, with the largest gap and angle
+CONTINUITY, b, 0.001, JSON         ! faces further apart than 0.001 do not meet; as data
+COMB, EDGE, 12                     ! a curvature comb on edge 12
+COMB, b                            ! combs on every curved edge of a body
+COMB, OFF                          ! hide the combs
+INSPECT, b                         ! the places worth a second look
+```
+
+`CONTINUITY` looks along every edge between two faces and measures the gap
+between their surfaces (do they meet: G0), the angle between their normals
+(are they tangent: G1) and the curvature straight across the edge on each
+side (does it carry on: G2). Each join is *open* (a gap over the tolerance,
+a ten-thousandth of the size by default), *sharp* (over 5 degrees: a real
+edge), a *kink* (between 0.25 and 5 degrees: nearly tangent, almost always
+a mistake), *G1* or *G2*. The answer counts each kind, gives the largest gap
+and the largest angle of the smooth joins, and names the open joins, kinks
+and G1 joins by edge and face.
+
+`COMB` draws a curvature comb: at points along an edge, a tooth as long as
+the curvature there, standing outside the bend, with a line through the
+tips. A comb shows at a glance where a curve tightens, flattens or changes
+the side it bends to. The answer gives each edge's tightest bend radius and,
+for a flat curve, how many times it changes side. Straight edges get no
+comb. All teeth in one `COMB` use one scale (the longest is a tenth of the
+body's size), or give one: `COMB, b, , 50`.
+
+`INSPECT` lists the places on a body worth a second look, each with its
+IDs: kinks, gaps between faces, open edges, sliver and tiny faces, the
+tightest bend (radius and where, "very tight" under a thousandth of the
+size), the thinnest wall and how many G1 joins there are. `ANALYZE, b,
+CURVATURE` and `GAUSS` show the curvature as colours, and `THICK` lists
+thin walls.
 
 ### Deformers: bend, twist, taper, stretch, and flow along a curve
 

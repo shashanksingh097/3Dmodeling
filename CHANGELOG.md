@@ -19,6 +19,15 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   largest out and in, mean and RMS, the same per face, outliers, holes in the scan and faces it hardly
   covers; the scan is coloured by tolerance band. `RECONSTRUCT` reports the same numbers for the solid
   it made.
+- `COMPARE, STEP, n` and `COMPARE, PROJECT, "old.m3d"`: two revisions face by face (added, removed,
+  moved, changed with old and new sizes), volume before and after, how far the surface moved, and
+  the changed body coloured by distance.
+- `CONTINUITY`: every join between faces judged open, sharp, kink (nearly tangent), G1 or G2, with the
+  largest gap and angle. `COMB` draws curvature combs on edges. `INSPECT` lists kinks, gaps, open
+  edges, slivers, tiny faces, the tightest bend and the thinnest wall.
+- `TAKE, FACE/EDGE/PLANE/AXIS, part, n, name [, LINK/COPY]`: geometry from another part (by name
+  or a placed copy), linked so it follows the part, or copied; a face that is gone is a broken link.
+  `DEPENDS` lists linked files, parts, copies and taken geometry, with broken links and loops.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.

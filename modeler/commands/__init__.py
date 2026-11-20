@@ -46,3 +46,4 @@ from . import note_handlers  # noqa: F401  (NOTE, FITS: notes on the model, ISO 
 from . import weld_handlers  # noqa: F401  (WELD: weld beads)
 from . import route_handlers  # noqa: F401  (ROUTE, ROUTES: pipes and cables)
 from . import image_handlers  # noqa: F401  (SDXF, STRACE, IMAGE: sketching from drawings and pictures)
+from . import take_handlers  # noqa: F401  (TAKE, DEPENDS: geometry from other parts, what uses what)

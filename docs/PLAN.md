@@ -1058,12 +1058,14 @@ three per pull request.
 55. **Scan to CAD with numbers** (P1, done: `DEVIATION` with bands, per-face rows, outliers, holes, low confidence; `RECONSTRUCT` reports it; FITSURF already refines to its tolerance; continuity between fitted freeform regions is left for later): `DEVIATION` (colours with tolerance
     bands, max, RMS and per-region error, outliers and holes); fitting to a
     tolerance; continuity between fitted regions.
-56. **Comparing revisions** (P2): two saved projects or history points,
+56. **Comparing revisions** (P2, done: `COMPARE, STEP, n` and `COMPARE, PROJECT, file` face by face, with distances and colours): two saved projects or history points,
     changed faces in colour, a deviation map and a report.
-57. **Surface inspection** (P1): `CONTINUITY` (G0/G1/G2), curvature combs,
+57. **Surface inspection** (P1, done: `CONTINUITY`, `COMB`, `INSPECT`; curvature maps were `ANALYZE` and wall thickness `THICK` already): `CONTINUITY` (G0/G1/G2), curvature combs,
     Gaussian and mean curvature, smallest radius, wall thickness, a report.
 58. **Geometry from other parts** (P2): faces, edges, planes and curves from
     a linked part, linked or copied; a dependency view; loops refused.
+    *Done: `TAKE` (LINK follows the part, COPY kept with the project, broken
+    links named), `DEPENDS`.*
 59. **Design tables** (P2): configurations from CSV, steps off per
     configuration, variants compared, drawing and BOM per configuration.
 60. **Assembly checks** (P2): mates that repeat or fight found and named,

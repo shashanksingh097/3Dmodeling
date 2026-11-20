@@ -109,7 +109,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
     ("Text and surfaces", ("TEXT", "SURFACE")),
     ("Freeform (NURBS)", ("NURBS", "NSURF", "NETWORK", "FILL", "BLEND", "SEW", "EXTEND", "TRIM", "PROJECT",
-                          "MOVEPT", "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES", "ANALYZE")),
+                          "MOVEPT", "WEIGHT", "KNOT", "DEGREE", "REBUILD", "POLES", "ANALYZE",
+                          "CONTINUITY", "COMB", "INSPECT")),
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE", "RIB",
                   "LIP", "WRAP")),
@@ -132,7 +133,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
-    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE")),
+    ("Parts", ("INST", "MATE", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "PROPERTY", "RENDER")),
 ]
 
