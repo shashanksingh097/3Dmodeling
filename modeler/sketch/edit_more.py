@@ -39,7 +39,6 @@ from .edit import (
     _sub,
     _unit,
     _dot,
-    _ang,
     _copy_geo,
     trim,
 )

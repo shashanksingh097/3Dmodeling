@@ -358,29 +358,69 @@ def sphere_mask(pts: np.ndarray, centre, r: float, value: float = 1.0,
 
 
 # ---- finer triangles where the brush goes (dynamic detail) ---------------------------------------
-def _region(pts: np.ndarray, centres: np.ndarray, reach: float) -> np.ndarray:
-    """Which points are within ``reach`` of any centre."""
-    inside = np.zeros(len(pts), dtype=bool)
+def _distance(pts: np.ndarray, centres: np.ndarray, reach: float) -> np.ndarray:
+    """Each point's distance to the nearest centre, for points within ``reach`` (inf elsewhere)."""
+    out = np.full(len(pts), np.inf)
     if not len(centres):
-        return inside
+        return out
     lo, hi = centres.min(axis=0) - reach, centres.max(axis=0) + reach
     box = np.flatnonzero(np.all((pts >= lo) & (pts <= hi), axis=1))
     if not len(box):
-        return inside
+        return out
     best = np.full(len(box), np.inf)
     for c in centres:  # a stroke has tens to hundreds of centres
         np.minimum(best, ((pts[box] - c) ** 2).sum(axis=1), out=best)
-    inside[box[best <= reach * reach]] = True
-    return inside
+    near = best <= reach * reach
+    out[box[near]] = np.sqrt(best[near])
+    return out
+
+
+def _region(pts: np.ndarray, centres: np.ndarray, reach: float) -> np.ndarray:
+    """Which points are within ``reach`` of any centre."""
+    return np.isfinite(_distance(pts, centres, reach))
+
+
+GRADE = 0.5  # outside the brush, triangles may grow by this much of their distance from it
+
+
+def sharp_edges(pts: np.ndarray, tris: np.ndarray, angle: float = 40.0) -> tuple[np.ndarray, np.ndarray]:
+    """Edges where the surface turns by more than ``angle`` degrees (a crease, the edge of a box),
+    as sorted keys lo * n + hi, and a bool per point: on such an edge."""
+    p = np.asarray(pts, dtype=float)
+    t = np.asarray(tris, dtype=np.int64)
+    n = len(p)
+    a = t.reshape(-1)
+    b = t[:, [1, 2, 0]].reshape(-1)
+    key = np.minimum(a, b) * n + np.maximum(a, b)
+    order = np.argsort(key, kind="stable")
+    ks = key[order]
+    pair = np.flatnonzero(ks[1:] == ks[:-1])
+    sharp_pt = np.zeros(n, dtype=bool)
+    if not len(pair):
+        return np.zeros(0, dtype=np.int64), sharp_pt
+    tri = order // 3
+    fn = np.cross(p[t[:, 1]] - p[t[:, 0]], p[t[:, 2]] - p[t[:, 0]])
+    ln = np.linalg.norm(fn, axis=1)
+    ln[ln == 0] = 1
+    fn /= ln[:, None]
+    c = np.einsum("ij,ij->i", fn[tri[pair]], fn[tri[pair + 1]])
+    keys = np.unique(ks[pair][c < np.cos(np.radians(angle))])
+    sharp_pt[keys // n] = True
+    sharp_pt[keys % n] = True
+    return keys, sharp_pt
 
 
 def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach: float,
-                mask: np.ndarray | None = None, passes: int = 8, relax: int = 5):
+                mask: np.ndarray | None = None, passes: int = 8, relax: int = 5, grade: float = GRADE):
     """Split the edges longer than ``length`` that lie within ``reach`` of the centres (both ends; with
     ``centres`` None, everywhere),
     until none is left there (at most ``passes`` rounds). Existing points keep their indices; new
     points (edge middles) are added at the end and take the mean mask of their edge's ends.
-    Returns (points, triangles, mask or None, number of points added)."""
+
+    Outside ``reach`` the size grows gently: a triangle at distance d may have edges up to
+    ``length + grade * (d - reach)``, so fine and coarse areas meet over a band, not in one step.
+    Points on sharp edges (a crease, a box's edge) stay on them: the evening-out after the split
+    leaves them alone. Returns (points, triangles, mask or None, number of points added)."""
     if length <= 0:
         raise SculptError("the detail size must be positive")
     p = np.asarray(pts, dtype=float)
@@ -388,8 +428,23 @@ def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach
     m = None if mask is None else np.asarray(mask, dtype=float)
     c = None if centres is None else np.asarray(centres, dtype=float).reshape(-1, 3)
     n0 = len(p)
+    _keys, sharp0 = sharp_edges(p, t) if relax else (None, np.zeros(len(p), dtype=bool))
+    band = reach
+    if c is not None and grade > 0:
+        # how far out the grading reaches: until the allowed size is the size the mesh already has
+        near = _region(p, c, reach)
+        tn = t[near[t].any(axis=1)]
+        if len(tn):
+            coarse = float(np.linalg.norm(p[tn] - p[tn[:, [1, 2, 0]]], axis=2).max())
+            band = reach + max(coarse - length, 0.0) / grade
     for _ in range(passes):
-        inside = np.ones(len(p), dtype=bool) if c is None else _region(p, c, reach)
+        if c is None:
+            inside = np.ones(len(p), dtype=bool)
+            allowed = np.full(len(p), length)
+        else:
+            dist = _distance(p, c, band)
+            inside = np.isfinite(dist)
+            allowed = length + grade * np.maximum(np.where(inside, dist, 0.0) - reach, 0.0)
         if not inside.any():
             break
         # longest-edge splitting (Rivara): a triangle near the stroke whose longest edge is too long has
@@ -398,7 +453,7 @@ def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach
         # work in a window round the stroke; it is big enough when every split edge has an end whose
         # triangles are all in the window (then both triangles on that edge are in it)
         n = len(p)
-        grow = reach * 1.5
+        grow = band * 1.5
         while True:
             win = np.ones(len(p), dtype=bool) if c is None else _region(p, c, grow)
             cand = np.flatnonzero(win[t].any(axis=1))
@@ -408,7 +463,7 @@ def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach
             key = np.minimum(a, b) * n + np.maximum(a, b)
             lengths = np.linalg.norm(p[a] - p[b], axis=1).reshape(-1, 3)
             lkey = key.reshape(-1, 3)[np.arange(len(tc)), lengths.argmax(axis=1)]
-            seed = (lengths.max(axis=1) > length) & inside[tc].all(axis=1)
+            seed = (lengths.max(axis=1) > allowed[tc].min(axis=1)) & inside[tc].all(axis=1)
             marked_keys = np.unique(lkey[seed])
             for _ in range(64):
                 has = np.isin(key, marked_keys).reshape(-1, 3).any(axis=1)
@@ -462,17 +517,24 @@ def refine_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, reach
             out += [np.stack([r[:, 0], m0, m2], 1), np.stack([m0, r[:, 1], m1], 1),
                     np.stack([m2, m1, r[:, 2]], 1), np.stack([m0, m1, m2], 1)]
         t = np.vstack(out)
-    if len(p) > n0:  # even out the points there along the surface, so the brush gets no slivers
-        region = np.ones(len(p), dtype=bool) if c is None else _region(p, c, reach)
+    if len(p) > n0 and relax:  # even out the points there along the surface, so the brush gets no slivers
+        region = np.ones(len(p), dtype=bool) if c is None else _region(p, c, band)
         region[n0:] = True
+        # points on sharp edges (old ones, and the middles of sharp edges) stay put
+        _k, sharp = sharp_edges(p, t)
+        sharp[:n0] |= sharp0
+        region &= ~sharp
+        if m is not None:
+            region &= m < 1.0  # frozen points stay; partly frozen ones move that much less
         new = np.flatnonzero(region)
+        hold = None if m is None else np.clip(1.0 - m[new], 0.0, 1.0)[:, None]
         sub = t[region[t].any(axis=1)]  # every triangle at those points
         topo = Topology.of(sub, len(p))
         for _ in range(relax):
             d = _neighbour_mean(p, topo, new) - p[new]
             nrm = _local_normals(p, sub, new)
             d -= (d * nrm).sum(axis=1)[:, None] * nrm
-            p[new] += 0.5 * d
+            p[new] += 0.5 * d if hold is None else 0.5 * d * hold
     return p, t, m, len(p) - n0
 
 
@@ -515,6 +577,10 @@ def collapse_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, rea
         edges = pairs[0][np.argsort(pairs[1])]  # shortest first, each once
         topo = Topology.of(t, len(p))
         nb = lambda i: topo.indices[topo.indptr[i]:topo.indptr[i + 1]]  # noqa: E731
+        # sharp edges near the stroke: a join keeps their points on them
+        around = t[inside[t].any(axis=1)]
+        skeys, sharp = sharp_edges(p, around)
+        nn = len(p)
         locked = np.zeros(len(p), dtype=bool)
         remap = np.arange(len(p))
         done = 0
@@ -524,7 +590,16 @@ def collapse_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, rea
             na, nbb = nb(ea), nb(eb)
             if len(np.intersect1d(na, nbb, assume_unique=True)) != 2:
                 continue  # joining would pinch the surface
-            mid = (p[ea] + p[eb]) / 2
+            if sharp[ea] and sharp[eb]:
+                k = min(ea, eb) * nn + max(ea, eb)
+                pos = np.searchsorted(skeys, k)
+                if pos >= len(skeys) or skeys[pos] != k:
+                    continue  # two sharp points not joined by a sharp edge: a corner would be cut
+                mid = (p[ea] + p[eb]) / 2  # along the sharp edge: it stays on it
+            elif sharp[ea] or sharp[eb]:
+                mid = p[ea].copy() if sharp[ea] else p[eb].copy()  # onto the sharp point, not off it
+            else:
+                mid = (p[ea] + p[eb]) / 2
             # the triangles that stay (not on the edge) at either end must not turn over
             ts = t[topo.triangles_of(np.array([ea, eb]))]
             keep = ~(((ts == ea) | (ts == eb)).sum(axis=1) == 2)
@@ -557,3 +632,64 @@ def collapse_near(pts: np.ndarray, tris: np.ndarray, length: float, centres, rea
         if m is not None:
             m = m[used]
     return p, t, m, n0 - len(p)
+
+
+# ---- one whole stroke: detail, brush, joins, and a check that the mesh is still clean ---------------
+@dataclass
+class Step:
+    pts: np.ndarray
+    tris: np.ndarray
+    mask: np.ndarray | None
+    report: Report
+    added: int = 0  # points added for detail
+    joined: int = 0  # points joined where the brush squeezed them
+    cleaned: int = 0  # folds the stroke made, smoothed flat again
+    worse: dict | None = None  # {kind: (how many more, a place)} for flaws the stroke left
+
+
+def sculpt_step(pts: np.ndarray, tris: np.ndarray, brush: str, radius: float, strength: float, path,
+                sym: str = "", mask: np.ndarray | None = None, detail: float = 0.0,
+                max_triangles: int | None = None, check: bool = True) -> Step:
+    """What SCULPT does to a mesh: finer triangles where the stroke goes (``detail``), the brush,
+    joining what it squeezed together, then the mesh checked where the stroke went: folds it made
+    are smoothed flat, other new flaws (cracks, slivers ...) are listed in ``worse``."""
+    from . import meshcheck as mc
+
+    path = np.asarray(path, dtype=float).reshape(-1, 3)
+    pts0, t0 = pts, tris
+    t = tris
+    added = joined = 0
+    if detail < 0:
+        raise SculptError("the detail size is 0 (off) or more")
+    centres = None
+    if detail > 0:
+        if radius / detail > 200:
+            raise SculptError(f"a detail of {detail:g} is too fine for a radius of {radius:g} "
+                              f"(use at least {radius / 200:g})")
+        centres = resample(path, radius * SPACING)
+        centres = np.vstack([centres * s for s in _mirrors(sym)])
+        pts, t, mask, added = refine_near(pts, t, detail, centres, radius * 1.25, mask)
+        if max_triangles is not None and len(t) > max_triangles:
+            raise SculptError(f"that makes {len(t):,} triangles, more than {max_triangles:,}; use a larger detail size")
+    new, rep = stroke(pts, t, brush, radius, strength, path, sym, mask)
+    if detail > 0 and rep.moved:  # join what the brush squeezed together
+        new, t, mask, joined = collapse_near(new, t, detail * JOIN, centres, radius * 1.25, mask)
+    step = Step(new, t, mask, rep, added, joined, 0, {})
+    if not check or not rep.moved:
+        return step
+    # where the stroke (and its mirror copies) could reach: by position, since detail renumbers points
+    line = resample(path, radius * 0.5)
+    around = np.vstack([line * m for m in _mirrors(sym)])
+    reach = radius * 1.3
+    before = mc.check(pts0, t0, np.flatnonzero(_region(np.asarray(pts0, dtype=float), around, reach)))
+    region = np.flatnonzero(_region(new, around, reach))
+    after = mc.check(new, t, region)
+    if after.folded > before.folded:
+        frozen = None if mask is None or len(mask) != len(new) else np.asarray(mask) >= 0.5
+        fixed, _left = mc.untangle(new, t, region, frozen)
+        again = mc.check(fixed, t, region)
+        if again.count < after.count:
+            step.cleaned = after.folded - again.folded
+            step.pts, after = fixed, again
+    step.worse = {k: (n, after.where.get(k, [0.0, 0.0, 0.0])) for k, n in after.worse_than(before).items()}
+    return step

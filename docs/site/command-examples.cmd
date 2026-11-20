@@ -830,6 +830,15 @@ NAME, part, scan
 RECONSTRUCT, scan
 MOVE, LAST, 0, 50, 0
 
+@ DEVIATION
+! How far a scan is from its model: here a mesh of the part, measured against the part.
+BLOCK, 0,0,0, 60, 40, 20
+NAME, LAST, part
+BLOCK, 0,0,0, 60, 40, 20
+TOMESH, LAST, 0.01
+NAME, LAST, scan
+DEVIATION, scan, part, 0.05
+
 @ IMPLICIT pic
 ! Two balls blended smoothly into one shape, from an equation.
 IMPLICIT, blob, SMIN(BALL(0,0,0,10), BALL(14,0,0,7), 4), -12,-12,-12, 24,12,12
@@ -939,6 +948,7 @@ SHOW
 ! Check that every body is a valid, closed solid.
 BLOCK, 0,0,0, 40, 20, 5
 CHECK
+CHECK, 1, FLAWS, 0.01
 
 @ HEAL
 ! Repair a body (here an exported and re-imported triangle mesh).

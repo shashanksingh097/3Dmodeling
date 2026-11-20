@@ -10,6 +10,15 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - **Pick again** on a pick step in History (and `HIST, REPICK, n, "FACE, 12"`): pick again with
   the model as it was just before that step; clicks then select without adding steps.
 - `SCHECK`: what is wrong with a sketch, or still loose, named by geometry and constraint.
+- `CHECK, b, FLAWS [, tolerance]`: gaps, holes, loose and flipped faces, slivers, tiny edges and
+  duplicate faces of an imported body, by face and edge ID, against a tolerance (also as JSON).
+- STEP part names and colours are kept by `IMPORT` (assemblies placed part by part) and written
+  by `EXPORT`.
+- `CHECK, b, FLAWS` on a mesh body: cracks, three-way edges, inside-out triangles, folds and slivers.
+- `DEVIATION, scan, body [, tolerance]`: how far a scan is from its model. Share within tolerance,
+  largest out and in, mean and RMS, the same per face, outliers, holes in the scan and faces it hardly
+  covers; the scan is coloured by tolerance band. `RECONSTRUCT` reports the same numbers for the solid
+  it made.
 
 ### Changed
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
@@ -22,6 +31,13 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - A sketch turn (`STRANSFORM, ROTATE`) by any angle keeps horizontal and vertical as an angle plus
   parallel and square constraints, so a turned rectangle stays a rectangle.
 - Big sketches rebuild about 4 times faster (500 curves: from 22 s to 5 s per rebuild).
+- `HEAL` repairs in turn (duplicates, sewing gaps and loose faces into a solid, flipped faces,
+  tiny edges, invalid faces), keeps each repair that helps, and lists what it fixed and what is
+  left. `IMPORT` warns when an exact file gives a body that is not a clean solid.
+- Sculpting stays clean: with a detail size the triangles grow back gently away from the stroke,
+  sharp edges and frozen points stay put while the triangles are evened out and joined, and every
+  stroke is checked where it went (folds it made are smoothed flat, anything else is a warning).
+  A test runs 2,000 strokes on a growing mesh and finds it clean at the end.
 
 ## [0.5.0] - 2026-11-19
 

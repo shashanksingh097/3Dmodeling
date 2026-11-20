@@ -301,7 +301,9 @@ def test_check_finds_an_open_solid_and_heal_says_when_it_cannot_fix_it(p, tmp_pa
     out = p.run("CHECK, 1").message
     assert "PROBLEM" in out and "HEAL, 1" in out
     r = p.run("HEAL, 1")
-    assert not r.ok and "could not be repaired" in r.message  # a missing face cannot be invented
+    # a missing face cannot be invented: HEAL fixes what it can and names the hole that is left
+    assert r.ok and "still a surface, not a solid" in r.message
+    assert "left:" in r.message and "4 open edges" in r.message and "a hole" in r.message
     assert sorted(p.model.bodies) == [1]
 
 

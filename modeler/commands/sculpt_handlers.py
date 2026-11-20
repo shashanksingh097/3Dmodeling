@@ -95,32 +95,27 @@ def sculpt_cmd(p: Processor, b, brush, radius, strength, stroke, sym, detail):
     mask = p.model.masks.get(b)
     if mask is not None and len(mask) != len(pts):
         mask = None
-    added = joined = 0
     try:
-        if detail < 0:
-            raise sc.SculptError("the detail size is 0 (off) or more")
-        if detail > 0:
-            if float(radius) / detail > 200:
-                raise sc.SculptError(f"a detail of {fmt_num(detail)} is too fine for a radius of {fmt_num(radius)} "
-                                     f"(use at least {fmt_num(float(radius) / 200)})")
-            centres = sc.resample(path, float(radius) * sc.SPACING)
-            centres = np.vstack([centres * s for s in sc._mirrors(sym)])
-            pts, t, mask, added = sc.refine_near(pts, t, detail, centres, float(radius) * 1.25, mask)
-            if len(t) > mb.MAX_MESH_BODY_TRIANGLES:
-                raise sc.SculptError(f"that makes {len(t):,} triangles, more than {mb.MAX_MESH_BODY_TRIANGLES:,}; "
-                                     f"use a larger detail size")
-        new, rep = sc.stroke(pts, t, brush, float(radius), float(strength), path, sym, mask)
-        if detail > 0 and rep.moved:  # join what the brush squeezed together
-            new, t, mask, joined = sc.collapse_near(new, t, detail * sc.JOIN, centres, float(radius) * 1.25, mask)
+        r = sc.sculpt_step(pts, t, brush, float(radius), float(strength), path, sym, mask, detail,
+                           max_triangles=mb.MAX_MESH_BODY_TRIANGLES)
     except sc.SculptError as exc:
         raise CommandError(f"SCULPT: {exc}") from None
-    if rep.moved == 0:
+    if r.report.moved == 0:
         raise CommandError(f"SCULPT: the stroke is not near body {b} (no point within {fmt_num(radius)} of it)")
-    msg = _swap(p, b, new, t, f"SCULPT {brush.upper()} on body {b}", moved_only=not (added or joined))
-    if mask is not None and len(mask) == len(new):
-        p.model.masks[b] = mask  # the same points (or the new ones given their edge's mask): it still fits
-    more = f", {added:,} points added for detail" if added else ""
-    more += f", {joined:,} squeezed together joined" if joined else ""
+    msg = _swap(p, b, r.pts, r.tris, f"SCULPT {brush.upper()} on body {b}", moved_only=not (r.added or r.joined))
+    if r.mask is not None and len(r.mask) == len(r.pts):
+        p.model.masks[b] = r.mask  # the same points (or the new ones given their edge's mask): it still fits
+    rep = r.report
+    more = f", {r.added:,} points added for detail" if r.added else ""
+    more += f", {r.joined:,} squeezed together joined" if r.joined else ""
+    more += f", {r.cleaned} fold{'s' if r.cleaned != 1 else ''} smoothed flat" if r.cleaned else ""
+    if r.worse:
+        from ..geometry import meshcheck as mc
+
+        what = ", ".join(mc.words(k, n) for k, (n, _w) in r.worse.items())
+        x, y, z = next(iter(r.worse.values()))[1]
+        p.warn(f"SCULPT: the stroke left {what} near ({fmt_num(round(x, 3))}, {fmt_num(round(y, 3))}, "
+               f"{fmt_num(round(z, 3))}); a SMOOTH stroke there, a larger detail size or UNDO clears it")
     return f"{msg}; {rep.moved:,} points moved (at most {fmt_num(round(rep.largest, 4))}), {rep.dabs} dabs{more}"
 
 

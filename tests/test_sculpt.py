@@ -233,7 +233,8 @@ def test_refine_near_splits_only_near_the_stroke():
     centres = np.array([(0, -20, 0), (5, -19, 0)])
     mask = np.zeros(len(pts))
     mask[pts[:, 1] < -18] = 1
-    q, tt, m, added = sc.refine_near(pts, t, 0.4, centres, 3, mask)
+    # grade 0: no band of gently growing triangles round the stroke (tests/test_sculpt_clean.py has that)
+    q, tt, m, added = sc.refine_near(pts, t, 0.4, centres, 3, mask, grade=0)
     assert added > 100 and len(q) == len(pts) + added and len(m) == len(q)
     # old points keep their indices; near the stroke they slide a little along the surface (to even
     # out the triangles), far away they stay exactly where they were
@@ -245,7 +246,7 @@ def test_refine_near_splits_only_near_the_stroke():
     a, b = tt.reshape(-1), tt[:, [1, 2, 0]].reshape(-1)
     lengths = np.linalg.norm(q[a] - q[b], axis=1)
     assert lengths[inside[a] & inside[b]].max() <= 0.4 * 1.6
-    unrelaxed = sc.refine_near(pts, t, 0.4, centres, 3, relax=0)[0]
+    unrelaxed = sc.refine_near(pts, t, 0.4, centres, 3, relax=0, grade=0)[0]
     assert (unrelaxed[: len(pts)] == pts).all()
     assert lengths[~inside[a] & ~inside[b]].max() > 1  # far away nothing changed
     assert m[len(pts):].max() == 1 and m[len(pts):].min() >= 0

@@ -603,6 +603,11 @@ On macOS, Ctrl is Cmd.
 * **A sketch will not extrude, or will not sit still.** `SCHECK` names
   the constraints that repeat others, curves drawn twice, the geometry that
   can still move, and why the profile does not close.
+* **An imported part is not a solid, or booleans refuse it.** Type
+  `CHECK, 1, FLAWS` (with the body's number) to see its gaps, loose or
+  flipped faces, slivers and tiny edges, then `HEAL, 1`. HEAL says what it
+  fixed and what is left; a gap wider than the tolerance needs a larger
+  one (`HEAL, 1, 0.05`).
 * **The app shows "Something went wrong".** Your model is still there.
   The details are in the log; **Help > Report a problem** opens an issue
   with your versions filled in, so please paste the details there.
