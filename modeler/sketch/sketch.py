@@ -65,6 +65,18 @@ class Geo:
     closed: bool = False  # a spline that runs back to its start (it has no E)
 
 
+def _copy_geo(g: "Geo") -> "Geo":
+    new = copy.copy(g)
+    new.pts = dict(g.pts)
+    return new
+
+
+def _copy_con(c: "Con") -> "Con":
+    new = copy.copy(c)
+    new.data = copy.deepcopy(c.data) if c.data else {}
+    return new
+
+
 @dataclass
 class Con:
     n: int
@@ -120,8 +132,10 @@ class Sketch:
     def copy(self) -> "Sketch":
         new = copy.copy(self)
         new.x = list(self.x)
-        new.geos = {k: copy.deepcopy(g) for k, g in self.geos.items()}
-        new.cons = {k: copy.deepcopy(c) for k, c in self.cons.items()}
+        # plain field copies: deepcopy of a thousand small objects per command was most of the
+        # time of a big sketch (their dicts are the only mutable parts)
+        new.geos = {k: _copy_geo(g) for k, g in self.geos.items()}
+        new.cons = {k: _copy_con(c) for k, c in self.cons.items()}
         new.free = set(self.free)
         new.redundant = list(self.redundant)
         new.used_by = list(self.used_by)

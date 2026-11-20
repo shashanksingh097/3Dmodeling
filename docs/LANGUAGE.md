@@ -257,6 +257,32 @@ it pointing at the same face:
   edges of a block, say), the entry fails and asks you to pick again. A
   failed entry is easy to see; a pick that quietly moved to the wrong face
   is not.
+* **Look-alikes are told apart by how they were made.** When several
+  entities fit, the one on the same body wins, then the one made by the same
+  step, then the one made from the same entity. A face that got a new ID
+  remembers what it was made from: a fillet face the edge it rounds, the
+  smaller piece of a split face the face it was split from, a new edge the
+  face a boolean cut it into. So when a size changed upstream and nothing
+  has the old shape any more, a pick on a fillet face still finds "the face
+  this fillet step made from that edge", if there is exactly one.
+* **Merged faces** keep the older ID (the one from the first body of the
+  step), and a split face keeps its ID on its largest piece.
+
+`SEL` by IDs (`SEL, S, FACE, ID, 5, 6`) is kept the same way: each entity
+it picked is remembered, and found again when its ID moves. When the range
+itself changes (`SEL, S, FACE, ID, N` with a new `N`), it starts afresh.
+
+**`REFS`** lists every pick the history holds and its state: `ok`,
+`repaired` (its ID changed and it was found again; the reason is shown) or
+`broken` (it could not be found, so its step failed). `REFS, PROBLEMS`
+shows only the repaired and broken ones, `REFS, ALL, JSON` the same as data.
+
+**Picking a step again.** In the window, right-click a pick step in the
+History and choose **Pick again…**: the model goes back to just before that
+step, clicks in the view only select (they add no steps), and **Use the
+picked faces for step n** rewrites the step and runs the rest again. The
+same as a command: `HIST, REPICK, 4, "FACE, 12"` (IDs as they are just
+before step 4; several IDs give one pick step each). `UNDO` takes it back.
 
 A plain script (Save log) holds only the text, so it does not carry these
 IDs. In scripts you write to keep, select by geometry or by name.
@@ -269,7 +295,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Booleans | `UNION, a, b [, c ...]` · `SUBTRACT, a, b [, c ...]` · `INTERSECT, a, b [, c ...]` (IDs or names; the result keeps the first body's name; `SEL` in place of the tools means every selected body) · `KEEP, ON/OFF` (keep the inputs as hidden bodies; tools keep their names) |
 | Patterns | `ARRAY, LINEAR, b, n, dx,dy,dz [, n2, dx2,dy2,dz2]` · `ARRAY, POLAR, b, n [, angle [, x,y,z [, dx,dy,dz]]]` · `ARRAY, PATH, b, path, n [, twist_law [, scale_law]] [, MINTWIST/FRENET/FIXED]`; add `FUSE` to fuse the copies into the original, or `CUT, target` to cut them all from another body in one step · `PATTERN, LINEAR/POLAR, b, steps, n, ...` repeats a feature (section 21) |
 | Blends | `FILLET, r [, r2]` · `CHAMFER, d [, d2]` (on the selected edges, or all edges of the selected bodies; `r2`: the radius grows from r to r2 along each edge; `d2`: d on one face and d2 on the other) |
-| Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) |
+| Check and repair | `CHECK [, b]` · `HEAL, b [, tolerance]` · `CLEAN, b` (section 12) · `REFS [, PROBLEMS]` (section 6) · `SCHECK [, sketch]` (section 16) |
 | Datums | `PLANE, name, how, ...` · `AXIS, name, how, ...` · `POINT, name, how, ...` · `DATUM, DELETE, name` · `WORKPLANE, plane/OFF` (section 13) |
 | Sketches | `SKETCH, name [, plane / FACE, id]` · `ENDSKETCH` · `SLINE` · `SPOLY` · `SRECT` · `SRECTC` · `SRECT3` · `SCIRCLE` · `SCIRCLE3` · `SARC` · `SARC3` · `SARCT` · `SSLOT` · `SSLOTARC` · `SNGON` · `SELLIPSE` · `SEARC` · `SCIRCLET` · `SSPLINE` · `SPOINT` · `SCON` · `SDIM` · `SDEL` · `SMOVE` · `SCONSTRUCT` · `SSEL` · `STRIM` · `SEXTEND` · `SFILLET` · `SCHAMFER` · `SSPLIT` · `SCORNER` · `SOFFSET` · `SOFFSET2` · `SINTERSECT` · `SJOIN` · `SMIRROR` · `SPATTERN` · `STRANSFORM` · `SPROJECT` (section 16) |
 | Sketch features | `EXTRUDE, sketch, d [, NEW/ADD/CUT [, b [, back]]]` · `REVOLVE, sketch, axis [, angle [, NEW/ADD/CUT [, b]]]` (section 16) |
@@ -982,6 +1008,7 @@ See `scripts/sketch_bracket.cmd`.
 | `STRANSFORM, MOVE, du, dv, 1, 2` | moves geometry 1 and 2 by (du, dv) |
 | `STRANSFORM, ROTATE, 45, O, 1, 2` · `STRANSFORM, SCALE, 2, 0, 0, 1, 2` | turns it about a point (a name like `O` or `3.C`, or u, v), or scales it about one |
 | `STRANSFORM, ..., COPY` | leaves the originals and makes copies |
+| `SCHECK` · `SCHECK, s1` | what is wrong with a sketch, or still loose: constraints that only repeat others (and which), curves drawn twice or too small, geometry that can still move and how, and whether the profile closes. `SCHECK, , SEL` also selects what it found; `SCHECK, s1, JSON` gives it as data |
 
 What they leave behind keeps meaning what you asked for:
 
@@ -1003,7 +1030,14 @@ What they leave behind keeps meaning what you asked for:
   stay smooth. Positive is outwards for a closed chain or a circle, and to
   the left for an open chain (walking along its lowest-numbered curve from
   its start). Change a size of the original afterwards and the offset
-  follows.
+  follows. When the distance is so big that parts of a closed chain's
+  offset would turn round or cross (a slot narrower than twice the
+  distance, a neck that pinches off), the loops are cut away instead: the
+  slot closes, or the outline splits in two. That offset is made of plain
+  curves joined end to end and is not held to the original; the output says
+  so.
+* Trims, extends and splits treat curves that come within a millionth of
+  the sketch's size of touching (a tangent line or circle) as touching.
 * Mirror and pattern copies are held as images of their originals: drag or
   size an original and every copy moves with it, and a copied circle keeps
   the same radius.
@@ -1018,7 +1052,10 @@ What they leave behind keeps meaning what you asked for:
 * A corner joins the two ends with a coincident constraint; whatever pinned
   an end that moved is dropped and named.
 * `STRANSFORM` takes the constraints among the geometry with it: a turn by
-  a quarter swaps horizontal and vertical, a scale scales the sizes.
+  a quarter swaps horizontal and vertical, a scale scales the sizes. A turn
+  by any other angle keeps what horizontal and vertical meant: the first
+  such line gets an angle (where it now points), the others are held
+  parallel or square to it, so a turned rectangle stays a rectangle.
   Constraints that tie the geometry to the rest of the sketch (to the
   origin, to other curves) are dropped when it moves, and not copied. A
   copy made with `COPY` is free: unlike a `SPATTERN` copy it does not follow

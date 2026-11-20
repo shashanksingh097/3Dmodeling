@@ -142,26 +142,38 @@ def _carrier_hits(sk: Sketch, g: Geo, h: Geo) -> list[tuple[float, float]]:
         dvec = _unit(_sub(b, a))
         f = _sub(a, c)
         B = _dot(f, dvec)
-        Cq = _dot(f, f) - rad * rad
-        disc = B * B - Cq
-        if disc < -1e-9 * rad * rad:
+        # how far the line passes from the centre: within a millionth of the sketch of the
+        # radius counts as touching (a tangent drawn by hand or solved to 1e-9 is not exact)
+        miss = math.sqrt(max(_dot(f, f) - B * B, 0.0))
+        tol = _touch_tol(sk)
+        if miss > rad + tol:
             return []
-        if disc < 0:
-            disc = 0.0
-        sq = math.sqrt(disc)
-        return [_add(a, dvec, -B - sq)] if sq < 1e-12 else [_add(a, dvec, -B - sq), _add(a, dvec, -B + sq)]
+        if abs(miss - rad) <= tol:
+            return [_add(a, dvec, -B)]
+        sq = math.sqrt(max(rad * rad - miss * miss, 0.0))
+        return [_add(a, dvec, -B - sq), _add(a, dvec, -B + sq)]
     (c1, r1), (c2, r2) = circ(g), circ(h)
     dd = math.dist(c1, c2)
-    if dd < 1e-12 or dd > r1 + r2 + 1e-9 or dd < abs(r1 - r2) - 1e-9:
+    tol = _touch_tol(sk)
+    if dd < 1e-12 or dd > r1 + r2 + tol or dd < abs(r1 - r2) - tol:
         return []
+    u = _unit(_sub(c2, c1))
+    if abs(dd - (r1 + r2)) <= tol:  # touching from outside
+        return [_add(c1, u, r1 * dd / (r1 + r2) if r1 + r2 else 0.0)]
+    if abs(dd - abs(r1 - r2)) <= tol:  # touching from inside
+        return [_add(c1, u, r1 if r1 >= r2 else -r1)]
     a = (r1 * r1 - r2 * r2 + dd * dd) / (2 * dd)
     hh = math.sqrt(max(r1 * r1 - a * a, 0.0))
-    u = _unit(_sub(c2, c1))
     m = _add(c1, u, a)
     if hh < 1e-12:
         return [m]
     nrm = (-u[1], u[0])
     return [_add(m, nrm, hh), _add(m, nrm, -hh)]
+
+
+def _touch_tol(sk: Sketch) -> float:
+    """How close two curves must come to count as touching: a millionth of the sketch's size."""
+    return 1e-6 * max(sk.extent(), 1.0)
 
 
 def _param(sk: Sketch, g: Geo, q) -> float:
@@ -997,13 +1009,162 @@ def offset(sk: Sketch, d: float, names: list, uid: int = 0) -> tuple[str, list[G
     made: list[Geo] = []
     note = ""
     for chain, closed in _chains(sk, geos):
-        made += _offset_chain(sk, chain, closed, d, uid)
-        if closed and len(chain) > 1 and _crosses_itself(sk, chain):
+        figure_eight = closed and len(chain) > 1 and _crosses_itself(sk, chain)
+        saved = sk.copy()
+        try:
+            mine = _offset_chain(sk, chain, closed, d, uid)
+            folds = closed and not figure_eight and len(mine) > 1 and any(
+                len(ch) > 1 and _crosses_itself(sk, ch) for ch, _ in _chains(sk, mine))
+            failed = None
+        except SketchError as exc:
+            mine, folds, failed = [], False, exc
+        if (failed or folds) and closed and not figure_eight and len(chain) > 1:
+            # too far for a linked offset: parts of it would turn round or cross. Let the kernel
+            # offset the chain and drop the loops, as plain curves not linked to the originals
+            sk.__dict__.update(saved.copy().__dict__)
+            mine = _offset_by_kernel(sk, chain, d, uid)
+            note = (f" (at {_n(abs(d))} parts of the offset would cross, so the loops were cut away; "
+                    f"{_pieces_said(mine)}, not linked to the originals)")
+        elif failed:
+            raise failed
+        made += mine
+        if figure_eight:
             note = (" (the chain crosses itself, so it has no outside: positive went to the left walking "
                     "along the lowest-numbered curve)")
     sk.solve()
     return (f"offset {', '.join(str(g.n) for g in geos)} by {_n(d)}: {', '.join(str(g.n) for g in made)}"
             + note), made
+
+
+def _pieces_said(geos: list[Geo]) -> str:
+    return f"{len(geos)} curve{'s' if len(geos) != 1 else ''}"
+
+
+def _offset_by_kernel(sk: Sketch, chain: list[_Piece], d: float, uid: int) -> list[Geo]:
+    """Offset a closed chain with OCCT's planar offset, which cuts away the parts that would cross
+    (a slot narrower than twice the distance closes; a neck splits the outline in two). d > 0 goes
+    outwards. The result is added as plain lines, arcs, circles and splines, joined end to end."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffset
+    from OCP.BRepTools import BRepTools_WireExplorer
+    from OCP.GeomAbs import GeomAbs_Arc, GeomAbs_CurveType
+    from OCP.TopAbs import TopAbs_REVERSED, TopAbs_WIRE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    from . import profile as pf
+
+    as_wire = getattr(TopoDS, "Wire_s", None) or TopoDS.Wire
+    mk = BRepBuilderAPI_MakeWire()
+    for pc in chain:
+        mk.Add(pf.edge(sk, pc.g))
+    if not mk.IsDone():
+        raise SketchError("the chain could not be joined into one outline to offset")
+    wire = mk.Wire()
+    old_area = abs(_area(sk, chain))
+
+    def run(dist):
+        off = BRepOffsetAPI_MakeOffset(wire, GeomAbs_Arc)
+        off.Perform(dist)
+        if not off.IsDone():
+            return None
+        shape = off.Shape()
+        wires = []
+        ex = TopExp_Explorer(shape, TopAbs_WIRE)
+        while ex.More():
+            wires.append(as_wire(ex.Current()))
+            ex.Next()
+        return wires
+
+    def loops_area(wires) -> float:
+        total = 0.0
+        for w in wires:
+            pts = [sk.frame.local(p)[:2] for p in _wire_points(w)]
+            total += abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1]))) / 2
+        return total
+
+    # OCCT's sign depends on how the wire runs: take the side that grows (d > 0) or shrinks
+    best = None
+    for dist in (d, -d):
+        wires = run(dist)
+        if wires is None:
+            continue
+        area = loops_area(wires) if wires else 0.0
+        if (area > old_area) == (d > 0) and (wires or d < 0):
+            best = wires
+            break
+    if best is None:
+        raise SketchError(f"{_n(abs(d))} is too far: nothing is left of the outline")
+    if not best:
+        raise SketchError(f"{_n(abs(d))} is too far: the offset closes up completely")
+
+    def uv(p):
+        q = sk.frame.local((p.X(), p.Y(), p.Z()))
+        return (q[0], q[1])
+
+    made: list[Geo] = []
+    for w in best:
+        loop: list[tuple[Geo, str, str]] = []  # (geo, role where the walk enters, role where it leaves)
+        ex = BRepTools_WireExplorer(w)
+        while ex.More():
+            e = ex.Current()
+            rev = e.Orientation() == TopAbs_REVERSED
+            c = BRepAdaptor_Curve(e)
+            t0, t1 = c.FirstParameter(), c.LastParameter()
+            a, b = uv(c.Value(t0)), uv(c.Value(t1))
+            if rev:
+                a, b = b, a
+            kind = c.GetType()
+            if kind == GeomAbs_CurveType.GeomAbs_Line:
+                if math.dist(a, b) > 1e-9:
+                    loop.append((sk.add_line(a, b, uid=uid), "S", "E"))
+            elif kind == GeomAbs_CurveType.GeomAbs_Circle:
+                circ = c.Circle()
+                cen = uv(circ.Location())
+                r = circ.Radius()
+                if math.dist(a, b) < 1e-9 and abs(t1 - t0) > math.pi:
+                    loop.append((sk.add_circle(cen, r, uid=uid), "", ""))
+                else:
+                    mid = uv(c.Value((t0 + t1) / 2))
+                    ang = [math.degrees(math.atan2(q[1] - cen[1], q[0] - cen[0])) for q in (a, mid, b)]
+                    ccw = _cross(_sub(mid, a), _sub(b, mid)) > 0
+                    s_ang, e_ang = (ang[0], ang[2]) if ccw else (ang[2], ang[0])
+                    if e_ang <= s_ang:
+                        e_ang += 360.0
+                    g = sk.add_arc(cen, r, s_ang, e_ang, uid=uid)
+                    loop.append((g, "S", "E") if ccw else (g, "E", "S"))
+            else:
+                n = 24
+                pts = [uv(c.Value(t0 + (t1 - t0) * i / n)) for i in range(n + 1)]
+                if rev:
+                    pts.reverse()
+                loop.append((sk.add_spline(pts, False, uid=uid), "S", "E"))
+            ex.Next()
+        for (g1, _, out), (g2, inn, _) in zip(loop, loop[1:] + loop[:1]):
+            if out and inn and len(loop) > 1:
+                sk.add_con("COINCIDENT", (f"{g1.n}.{out}", f"{g2.n}.{inn}"), uid=uid, auto=True, solve=False)
+        made += [g for g, _, _ in loop]
+    return made
+
+
+def _wire_points(w, n: int = 16) -> list:
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepTools import BRepTools_WireExplorer
+    from OCP.TopAbs import TopAbs_REVERSED
+
+    pts = []
+    ex = BRepTools_WireExplorer(w)
+    while ex.More():
+        e = ex.Current()
+        c = BRepAdaptor_Curve(e)
+        t0, t1 = c.FirstParameter(), c.LastParameter()
+        ts = [t0 + (t1 - t0) * i / n for i in range(n)]
+        if e.Orientation() == TopAbs_REVERSED:
+            ts = [t1 - (t - t0) for t in ts]
+        pts += [(lambda q: (q.X(), q.Y(), q.Z()))(c.Value(t)) for t in ts]
+        ex.Next()
+    return pts
 
 
 def _offset_chain(sk: Sketch, chain: list[_Piece], closed: bool, d: float, uid: int) -> list[Geo]:

@@ -117,6 +117,9 @@ def fingerprint(model: "Model", kind: str, gid: int) -> dict[str, Any]:
     fp["body"] = body.name
     fp["origin"] = model.origin(kind, gid)
     fp["id"] = gid
+    parent = model.parent(kind, gid) if kind != "BODY" else None
+    if parent:
+        fp["parent"] = list(parent)
     return fp
 
 
@@ -163,19 +166,49 @@ def find(model: "Model", fp: dict[str, Any]) -> tuple[int | None, str]:
         d["body"] = (model.body(gid) if kind == "BODY" else model.bodies[model.entity_owner(kind, gid)[0]]).name
         cands.append((gid, d))
     if not cands:
-        return None, "nothing with the same shape and size is left"
+        return _by_lineage(model, fp, "nothing with the same shape and size is left")
     scale = max(1.0, *(abs(v) for v in fp["c"]))
     here = [(g, d) for g, d in cands if math.dist(d["c"], fp["c"]) <= 1e-6 * scale]
     for group, how in ((here, "same place"), (cands, "moved")):
-        if len(group) > 1:  # prefer the body it was on
-            named = [(g, d) for g, d in group if d["body"] == fp.get("body")]
-            if len(named) == 1:
-                group = named
+        if len(group) > 1:  # look-alikes: prefer the body it was on, then the step and entity it came from
+            for keep in (lambda g: _body_name(model, kind, g) == fp.get("body"),
+                         lambda g: fp.get("origin") and model.origin(kind, g) == fp["origin"],
+                         lambda g: fp.get("parent") and list(model.parent(kind, g) or ()) == fp["parent"]):
+                narrowed = [(g, d) for g, d in group if keep(g)]
+                if narrowed:
+                    group = narrowed
+                if len(group) == 1:
+                    break
         if len(group) == 1:
             return group[0][0], how
         if group:
             return None, f"{len(group)} entities look the same, so the choice is not safe"
     return None, "nothing fits"
+
+
+def _body_name(model: "Model", kind: str, gid: int) -> str:
+    return (model.body(gid) if kind == "BODY" else model.bodies[model.entity_owner(kind, gid)[0]]).name
+
+
+def _by_lineage(model: "Model", fp: dict[str, Any], reason: str) -> tuple[int | None, str]:
+    """No entity has the picked one's shape and size any more (an upstream size changed): find
+    it by how it was made instead. Accepted only when exactly one entity of the same type was
+    made by the same history step, from the same parent entity when it had one (a fillet face
+    from the edge it rounds)."""
+    kind, origin = fp["kind"], fp.get("origin")
+    if not origin or kind == "BODY":
+        return None, reason
+    same = [g for g in model.entity_ids(kind) if model.origin(kind, g) == origin]
+    same = [g for g in same if _describe(kind, model.entity_shape(kind, g))["type"] == fp["type"]]
+    if fp.get("parent"):
+        kin = [g for g in same if list(model.parent(kind, g) or ()) == fp["parent"]]
+        if len(kin) == 1:
+            return kin[0], f"made by the same step from the same {fp['parent'][0].lower()}"
+    if len(same) == 1:
+        return same[0], "the only one of its type made by the same step"
+    if len(same) > 1:
+        return None, f"{reason}, and {len(same)} entities made by the same step could be it"
+    return None, reason
 
 
 class RefLog:

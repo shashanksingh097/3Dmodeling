@@ -1039,13 +1039,13 @@ for a separate app. Where each area stands, and what "done" means for each
 item, is in [M13-maturity.md](M13-maturity.md). Built in this order, about
 three per pull request.
 
-50. **Reference stability, part 1** (P0): `REFS` lists every reference in the
+50. **Reference stability, part 1** (P0, done: `REFS`, SEL by IDs kept, tests/test_reference_stability.py): `REFS` lists every reference in the
     history and its state; fingerprints for `SEL` ID lists and named sets; a
     test set of long histories edited upstream, saved and reopened.
-51. **Reference stability, part 2** (P0): names from parents for faces made
+51. **Reference stability, part 2** (P0, done: parents for new faces and edges, **Pick again**, `HIST, REPICK`): names from parents for faces made
     by booleans, fillets and chamfers; split, merge and vanish rules; broken
     references marked in History with a **Pick again** fix.
-52. **Sketcher robustness** (P0): tangent and many-crossing trims, offsets
+52. **Sketcher robustness** (P0, done: `SCHECK`, tangent trims, offsets that cut their loops, turns keep H/V, big sketches 4x faster; open-spline offsets that loop are still refused): tangent and many-crossing trims, offsets
     that remove their own loops, constraints kept through `STRANSFORM`,
     `SCHECK` naming the redundant, conflicting and free parts, a 500-entity
     sketch test.

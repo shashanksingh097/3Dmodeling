@@ -195,16 +195,29 @@ def regions(sk: Sketch) -> list[tuple[Loop, list[Loop]]]:
     """Faces to build: (outer loop, its holes). A loop inside a hole is an
     island, a face of its own (even-odd nesting)."""
     lps = sorted(loops(sk), key=lambda lp: -abs(lp.area))
+    # boxes first: in a sketch with hundreds of loops most pairs are far apart
+    boxes = [(min(p[0] for p in lp.poly), min(p[1] for p in lp.poly),
+              max(p[0] for p in lp.poly), max(p[1] for p in lp.poly)) for lp in lps]
+    eps = 1e-9 * max(1.0, sk.extent())
+
+    def holds(j: int, i: int) -> bool:  # box j can hold box i
+        a, b = boxes[j], boxes[i]
+        return a[0] - eps <= b[0] and a[1] - eps <= b[1] and b[2] <= a[2] + eps and b[3] <= a[3] + eps
+
+    def meets(j: int, i: int) -> bool:
+        a, b = boxes[j], boxes[i]
+        return not (b[0] > a[2] + eps or a[0] > b[2] + eps or b[1] > a[3] + eps or a[1] > b[3] + eps)
+
     parent: dict[int, int | None] = {}
     for i, lp in enumerate(lps):
         parent[i] = None
         for j in range(i - 1, -1, -1):  # the smallest bigger loop that holds it
-            if abs(lps[j].area) > abs(lp.area) and _inside(_nudge(lp), lps[j].poly):
+            if abs(lps[j].area) > abs(lp.area) and holds(j, i) and _inside(_nudge(lp), lps[j].poly):
                 parent[i] = j
                 break
         if parent[i] is None:
             for j in range(i):
-                if _crosses(lp, lps[j]):
+                if meets(j, i) and _crosses(lp, lps[j]):
                     raise SketchError(f"the loops through {lp.names} and through {lps[j].names} cross each other")
 
     def depth(i: int) -> int:

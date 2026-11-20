@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import time
 
 from OCP.BRep import BRep_Builder
@@ -842,9 +843,76 @@ def sel(p: Processor, mode, kind, crit, v1, v2, v3, v4, v5, v6):
     if crit and crit not in CRITERIA:  # SEL, S, FACE, 3, 6: IDs without the word ID
         vals = [crit] + vals[:-1]
         crit = "ID"
-    ids = _match(p, k, crit or "ID", [v for v in vals])
+    if (crit or "ID") == "ID":
+        try:
+            ids = _match(p, k, "ID", vals)
+            gone = None
+        except CommandError as exc:  # every ID in the range is gone: the fingerprints may still find them
+            ids, gone = [], exc
+        ids = _sel_ids_kept(p, k, ids, vals)
+        if not ids and gone:
+            raise gone
+    else:
+        ids = _match(p, k, crit, vals)
     m.select(k, ids, mode)
     return _describe_selection(p)
+
+
+SEL_FINGERPRINTS = 60  # an ID range longer than this is not fingerprinted (too slow to check)
+
+
+def _sel_ids_kept(p: Processor, k: str, ids: list[int], vals: list[str]) -> list[int]:
+    """SEL by IDs keeps pointing at what it picked, like PICK (see core/refs.py).
+
+    Each run stores a fingerprint of every entity the ID range picked, with the
+    range itself. When the history runs again with the same range, an ID that is
+    gone or now belongs to an entity made by another step is found again by its
+    fingerprint; when one cannot be found the step fails rather than guessing.
+    A changed range (a new parameter value, say) starts afresh."""
+    if p.refs is None:
+        return ids
+    m = p.model
+    a = int(_num(p, vals[0], "the first ID"))
+    b = int(_num(p, vals[1], "the last ID")) if vals[1] else a
+    span = [min(a, b), max(a, b)]
+    old = p.refs.take()
+    out = ids
+    how_of: dict[int, str] = {}
+    if old and old.get("sel") == k and old.get("range") == span and old.get("fps"):
+        found, moved, lost = [], [], []
+        for fp in old["fps"]:
+            last = fp.get("id")
+            if last is not None and m._in_use(k, last) and refs.same_entity(m, k, last, fp):
+                found.append(last)
+                continue
+            target, how = refs.find(m, fp)
+            if target is None:
+                lost.append(f"{k} {last} ({how})")
+            else:
+                found.append(target)
+                how_of[target] = how
+                moved.append(f"{k} {last} -> {target} ({how})")
+        if lost:
+            p.refs.record(old)
+            raise CommandError(f"SEL: these {k.lower()}s it picked before could not be found again: "
+                               f"{', '.join(lost)}. Pick them again and edit this entry.")
+        out = sorted(dict.fromkeys(found))
+        if moved:
+            p.warn(f"SEL: IDs changed, picked the same {k.lower()}s by their shape: {'; '.join(moved)}. "
+                   "Check them, then edit this entry.")
+        elif set(out) != set(ids):
+            p.warn(f"SEL: IDs {span[0]} to {span[1]} now cover other {k.lower()}s too; kept the "
+                   f"{len(out)} picked before. Edit this entry to pick the new ones.")
+    fps = None
+    if len(out) <= SEL_FINGERPRINTS:
+        fps = []
+        for gid in out:
+            fp = refs.fingerprint(m, k, gid)
+            if gid in how_of:
+                fp["how"] = how_of[gid]
+            fps.append(fp)
+    p.refs.record({"sel": k, "range": span, "fps": fps})
+    return out
 
 
 def _num(p: Processor, text: str, what: str) -> float:
@@ -1249,7 +1317,7 @@ def redo(p: Processor, n):
 
 @command(
     "HIST",
-    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY, PART, ROLLBACK"),
+    Arg("action", str, "LIST", help="LIST, EDIT, INSERT, DELETE, SUPPRESS, RESUME, MOVE, REPLAY, PART, ROLLBACK, REPICK"),
     Arg("n", int, 0, "entry number (1-based)"),
     Arg("text", Text, "", "new text (quoted; \\n separates lines), or the target position for MOVE"),
     session=True,
@@ -1258,7 +1326,8 @@ def redo(p: Processor, n):
         "HIST, INSERT, 3, \"...\" · HIST, DELETE, 3 · HIST, SUPPRESS, 3 / RESUME, 3 · HIST, MOVE, 5, 2 · HIST, REPLAY · "
         "HIST, PART, 3, \"6, bracket\" turns entries 3 to 6 into a part, placed once where it was · "
         "HIST, ROLLBACK, 3 shows the model as after entry 3 (later entries stay, to redo) · "
-        "UNDO takes back a history edit"
+        "HIST, REPICK, 4, \"FACE, 12\" makes pick step 4 pick FACE 12 instead (IDs as just before step 4) "
+        "and runs the rest again (in the window: right-click the step > Pick again) · UNDO takes back a history edit"
     ),
 )
 def hist(p: Processor, action, n, text):
@@ -1302,6 +1371,8 @@ def _hist(p: Processor, action, n, text):
         return p.suppress_entry(n, True)
     if action in ("RESUME", "UNSUPPRESS"):
         return p.suppress_entry(n, False)
+    if action == "REPICK":
+        return _repick(p, n, text)
     if action == "PART":
         from ..lang.script import ScriptError, split_args
 
@@ -1318,6 +1389,64 @@ def _hist(p: Processor, action, n, text):
             raise CommandError("HIST, MOVE, n, to: give the new position") from None
         return p.move_entry(n, to)
     raise CommandError(f"HIST: unknown action {action!r}")
+
+
+_PICK_STEP = re.compile(r"^\s*(PICK|SEL)\s*,", re.I)
+
+
+def is_pick_step(text: str) -> bool:
+    """A history step that picks by ID (PICK, or SEL by IDs): one HIST, REPICK can redo."""
+    lines = [ln for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("!")]
+    if not lines or not all(_PICK_STEP.match(ln) for ln in lines):
+        return False
+    first = [w.strip().upper() for w in lines[0].split(",")]
+    if first[0] == "SEL":
+        return len(first) > 3 and (first[3] in ("ID", "") or first[3][:1].isdigit())
+    return True
+
+
+def _repick(p: Processor, n: int, text: str = "") -> str:
+    """Rewrite pick step n to pick other entities, then run the steps after it again.
+
+    text is "KIND, id [, id ...]" (IDs as they are just before step n). Left empty, the current
+    selection is used: the window rolls the model back to just before step n, lets the user pick
+    without adding steps, and then sends this."""
+    if not 1 <= n <= len(p.history):
+        raise CommandError(f"HIST, REPICK: give 1 to {len(p.history)}")
+    e = p.history[n - 1]
+    if not is_pick_step(e.text):
+        raise CommandError(f"HIST, REPICK: step {n} does not pick by ID (PICK or SEL by IDs)")
+    m = p.model
+    if text.strip():
+        words = [w.strip() for w in text.split(",") if w.strip()]
+        try:
+            kind, ids = check_kind(words[0]), [int(p.evaluate(w)) for w in words[1:]]
+        except (ModelError, ExprError, TypeError, ValueError, IndexError):
+            raise CommandError('HIST, REPICK, n, "FACE, 12 [, 14 ...]": give the kind and the IDs') from None
+    else:
+        if p.cursor != n - 1:
+            raise CommandError(f'HIST, REPICK, {n}, "FACE, 12": give what to pick (IDs as just before step {n})')
+        kind, ids = m.selection_kind, list(m.selection)
+    if not ids:
+        raise CommandError(f"HIST, REPICK: nothing to pick for step {n}")
+    first = [w.strip().upper() for w in _first_line(e.text).split(",")]
+    mode = (first[3] if first[0] == "PICK" and len(first) > 3 and first[3] else
+            first[1] if first[0] == "SEL" and len(first) > 1 else "S")
+    mode = mode if mode in ("S", "A", "U") else "S"
+    lines = [f"PICK, {kind}, {ids[0]}" + (f", {mode}" if mode != "S" else "")]
+    lines += [f"PICK, {kind}, {g}, {'U' if mode == 'U' else 'A'}" for g in ids[1:]]
+    if p.cursor < len(p.history):
+        p.roll_to(len(p.history))
+    msg = p.edit_entry(n, lines[0])
+    for k, line in enumerate(lines[1:], start=1):  # one entry per pick (an entry is one statement)
+        msg = p.insert_entry(n + k, line)
+    more = f" (steps {n} to {n + len(lines) - 1})" if len(lines) > 1 else ""
+    return f"step {n} now picks {kind} {', '.join(map(str, ids))}{more}; " + msg
+
+
+def _first_line(text: str) -> str:
+    lines = [ln for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("!")]
+    return lines[0] if lines else ""
 
 
 def _history_text(p: Processor) -> str:

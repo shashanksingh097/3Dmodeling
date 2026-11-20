@@ -452,10 +452,14 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
             to[g.n] = new.n
             made.append(new)
         skipped = 0
+        turned: list = []
         for c in list(sk.cons.values()):
             if not internal(c):
                 continue
             k = _kept_kind(c, kind, amount)
+            if k is None and _turns_with(c, kind):
+                turned.append((c.kind, to[_geo_of(c.refs[0])], c))
+                continue
             if k is None or c.kind in ("OFFSET", "COPY"):
                 skipped += not c.auto
                 continue
@@ -467,6 +471,7 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
             if value is not None and kind == "SCALE" and c.kind in _SIZES:
                 value *= amount
             sk.add_con(k, tuple(moved(r) for r in c.refs), value, uid=uid, auto=c.auto, solve=False)
+        _hold_turned(sk, turned, uid)
         sk.solve()
         note = f" ({skipped} constraint{'s' if skipped != 1 else ''} could not go with the copy)" if skipped else ""
         shown = f"{made[0].n}..{made[-1].n}" if len(made) > 3 else ", ".join(str(g.n) for g in made)
@@ -474,10 +479,15 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
     # in place: what ties the geometry to the rest lets go first
     touching = [k for k, c in sk.cons.items() if any(_geo_of(r) in inside for r in c.refs) and not internal(c)]
     _drop(sk, touching, said)
+    turned: list = []
     for k, c in list(sk.cons.items()):
         if not internal(c):
             continue
         nk = _kept_kind(c, kind, amount)
+        if nk is None and _turns_with(c, kind):
+            turned.append((c.kind, _geo_of(c.refs[0]), c))
+            del sk.cons[k]  # held again below, as an angle and parallels, once the geometry has turned
+            continue
         if nk is None:
             _drop(sk, [k], said)
             continue
@@ -501,8 +511,37 @@ def transform(sk: Sketch, kind: str, values, names: list, copy: bool = False, ui
             for extra in ("arg",):
                 if extra in keep:
                     c.data[extra] = keep[extra]
+    _hold_turned(sk, turned, uid)
     sk.solve()
     return f"{how}: {', '.join(str(g.n) for g in geos)}{_dropped(said)}", geos
+
+
+def _turns_with(c, kind: str) -> bool:
+    """A constraint a turn by an odd angle breaks, but whose meaning can be kept: horizontal or
+    vertical on one line, an angle of one line from H."""
+    return kind == "ROTATE" and len(c.refs) == 1 and c.kind in ("HORIZONTAL", "VERTICAL", "ANGLE")
+
+
+def _hold_turned(sk: Sketch, turned: list, uid: int) -> None:
+    """Keep the intent of horizontal, vertical and angle constraints through a turn: the first such
+    line gets an angle from H (where it now points), every other one is parallel or square to it."""
+    if not turned:
+        return
+    ref_kind, ref_n, ref_c = turned[0]
+    ang = round(sk.measure("ANGLE", (str(ref_n),)), 9)
+    sk.add_con("ANGLE", (str(ref_n),), ang, uid=uid or ref_c.uid, solve=False)
+    base = 0.0 if ref_kind == "HORIZONTAL" else 90.0 if ref_kind == "VERTICAL" else (ref_c.value or 0.0)
+    for k, n, c in turned[1:]:
+        if n == ref_n:
+            continue
+        mine = 0.0 if k == "HORIZONTAL" else 90.0 if k == "VERTICAL" else (c.value or 0.0)
+        rel = (mine - base) % 180.0
+        if abs(rel) < 1e-9 or abs(rel - 180.0) < 1e-9:
+            sk.add_con("PARALLEL", (str(ref_n), str(n)), uid=uid or c.uid, auto=c.auto, solve=False)
+        elif abs(rel - 90.0) < 1e-9:
+            sk.add_con("PERPENDICULAR", (str(ref_n), str(n)), uid=uid or c.uid, auto=c.auto, solve=False)
+        else:
+            sk.add_con("ANGLE", (str(n),), round(sk.measure("ANGLE", (str(n),)), 9), uid=uid or c.uid, solve=False)
 
 
 __all__ = ["CORNER", "chamfer", "split", "corner", "trim_many", "transform", "offset_both"]

@@ -594,6 +594,15 @@ On macOS, Ctrl is Cmd.
   before the shell, or the right spelling of a name. It lists the ones
   that work, and one button runs a fix (Undo takes it back). It also opens
   the guide for that command. No assistant or internet is needed.
+* **A pick lost its face.** After an earlier step changed, a click
+  (`PICK`) may no longer find what it picked: the step turns red, or amber
+  when it found the face again by its shape. Right-click it and choose
+  **Pick again…**: the model goes back to just before that step, you click
+  the right face, and **Use the picked faces for step n** puts it in and
+  runs the rest. `REFS, PROBLEMS` lists every such pick.
+* **A sketch will not extrude, or will not sit still.** `SCHECK` names
+  the constraints that repeat others, curves drawn twice, the geometry that
+  can still move, and why the profile does not close.
 * **The app shows "Something went wrong".** Your model is still there.
   The details are in the log; **Help > Report a problem** opens an issue
   with your versions filled in, so please paste the details there.

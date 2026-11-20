@@ -259,6 +259,10 @@ class Model:
         # the same ID but different makers are not the same thing: that is
         # how a pick notices that "its" ID now belongs to something else.
         self._origin: dict[str, dict[int, int]] = {k: {} for k in ID_KINDS}
+        # entity ID -> (kind, ID) of the input entity it came from, for entities that got a new
+        # ID: a fillet face from the edge it rounds, the smaller pieces of a split face from that
+        # face. A pick whose ID is gone uses it to find "the face this step made from that edge".
+        self._parent: dict[str, dict[int, tuple[str, int]]] = {k: {} for k in ENTITY_KINDS}
         self.selection_kind: str = "FACE"
         self.selection: list[int] = []  # body IDs or entity IDs of selection_kind
         self.named_sets: dict[str, tuple[str, list[int]]] = {}  # NAME -> (kind, ids)
@@ -347,6 +351,7 @@ class Model:
             "next": dict(self._next),
             "entities": {k: dict(v) for k, v in self._entities.items()},
             "origin": {k: dict(v) for k, v in self._origin.items()},
+            "parent": {k: dict(v) for k, v in self._parent.items()},
             "selection_kind": self.selection_kind,
             "selection": list(self.selection),
             "named_sets": copy.deepcopy(self.named_sets),
@@ -380,6 +385,7 @@ class Model:
         self._next = dict(snap["next"])
         self._entities = {k: dict(v) for k, v in snap["entities"].items()}
         self._origin = {k: dict(snap.get("origin", {}).get(k, {})) for k in ID_KINDS}
+        self._parent = {k: dict(snap.get("parent", {}).get(k, {})) for k in ENTITY_KINDS}
         self.selection_kind = snap["selection_kind"]
         self.selection = list(snap["selection"])
         self.named_sets = copy.deepcopy(snap["named_sets"])
@@ -431,6 +437,10 @@ class Model:
         """uid of the history entry that made this entity (0: made outside the history)."""
         return self._origin[kind].get(gid, 0)
 
+    def parent(self, kind: str, gid: int) -> tuple[str, int] | None:
+        """(kind, ID) of the entity this one was made from, when it got a new ID (see _parent)."""
+        return self._parent.get(kind, {}).get(gid)
+
     # ---- bodies ----------------------------------------------------------
     def add_body(self, shape: TopoDS_Shape, name: str = "", made_from=None, keep_id: int | None = None,
                  like: Body | None = None) -> Body:
@@ -454,27 +464,77 @@ class Model:
         else:
             look = {"layer": self.layers[self.current_layer].name}
         body = Body(id=bid, name=name or f"body{bid}", shape=shape, **look)
+        fresh: dict[str, set[int]] = {}
+        split_from: dict[str, dict[int, tuple[str, int]]] = {}
         for kind in ENTITY_KINDS:
             m = TopTools_IndexedMapOfShape()
             TopExp.MapShapes_s(shape, _TOPABS[kind], m)
             ids: list[int | None] = [None] * m.Extent()
+            pieces: dict[int, tuple[str, int]] = {}
             if made_from is not None:
-                _carry_ids(kind, m, ids, *made_from)
+                _carry_ids(kind, m, ids, *made_from, split=pieces)
                 # an ID already held by another body (one piece of a split
                 # carried it first) cannot be shared: the entity gets a new one
                 ids = [None if i is not None and i in self._entities[kind] else i for i in ids]
             claimed = {i for i in ids if i is not None}
+            fresh[kind] = set()
+            split_from[kind] = {}
             for i in range(len(ids)):
                 if ids[i] is None:
                     ids[i] = self._alloc(kind, claimed)
                     claimed.add(ids[i])
+                    fresh[kind].add(i + 1)
+                    self._parent[kind].pop(ids[i], None)  # an old entity's, if the ID was used before
+                    if i + 1 in pieces:
+                        split_from[kind][ids[i]] = pieces[i + 1]
                 self._entities[kind][ids[i]] = (bid, i + 1)
             body.maps[kind] = m
             body.entity_ids[kind] = ids  # type: ignore[assignment]
+        if made_from is not None:
+            self._note_parents(body, made_from, fresh, split_from)
         self.bodies[bid] = body
         self.last_body = bid
         self._emit(Event("body_added", bid))
         return body
+
+    # entities whose input is checked for what it made: more than this and the parents are
+    # left out (a boolean on a 300-hole plate should not pay for them)
+    PARENT_LIMIT = 4000
+
+    def _note_parents(self, body: Body, made_from, fresh: dict[str, set[int]],
+                      split_from: dict[str, dict[int, tuple[str, int]]]) -> None:
+        """Record what each newly numbered entity was made from (see _parent).
+
+        A piece of a split face comes from that face. Otherwise the maker's Generated() says
+        which input entity made it: the edge a fillet rounded, the face a boolean cut a new
+        edge into. The first input that claims it wins, edges before faces before vertices."""
+        for kind, kids in split_from.items():
+            self._parent[kind].update(kids)
+        if not any(fresh.values()):
+            return
+        maker, inputs = made_from
+        if not hasattr(maker, "Generated"):
+            return
+        if sum(len(b.entity_ids[k]) for b in inputs for k in ENTITY_KINDS) > self.PARENT_LIMIT:
+            return
+        kind_of = {_TOPABS[k]: k for k in ENTITY_KINDS}
+        for pk in ("EDGE", "FACE", "VERTEX"):
+            for b in inputs:
+                old_map = b.maps[pk]
+                for i, pgid in enumerate(b.entity_ids[pk]):
+                    old = old_map.FindKey(i + 1)
+                    try:
+                        made = list(maker.Generated(old))
+                    except Exception:  # noqa: BLE001  (not every maker tracks every kind)
+                        continue
+                    for s in made:
+                        k = kind_of.get(s.ShapeType())
+                        if k is None:
+                            continue
+                        t = body.maps[k].FindIndex(s)
+                        if t > 0 and t in fresh[k]:
+                            gid = body.entity_ids[k][t - 1]
+                            self._parent[k].setdefault(gid, (pk, pgid))
 
     def remove_body(self, bid: int, emit: bool = True) -> Body:
         body = self.body(bid)
@@ -950,8 +1010,11 @@ def _measure(kind: str, shape: TopoDS_Shape) -> float:
     return g.Mass()
 
 
-def _carry_ids(kind: str, new_map, ids: list, maker, inputs: list[Body]) -> None:
-    """Fill ``ids`` (per new entity) with the IDs of the input entities they came from."""
+def _carry_ids(kind: str, new_map, ids: list, maker, inputs: list[Body], split: dict | None = None) -> None:
+    """Fill ``ids`` (per new entity) with the IDs of the input entities they came from.
+
+    A face split in several pieces keeps its ID on the largest; the others get their
+    map index -> (kind, ID of the face they were split from), in ``split``."""
     sizes: dict[int, float] = {}
     leftovers: list = []
     for body in inputs:
@@ -979,6 +1042,9 @@ def _carry_ids(kind: str, new_map, ids: list, maker, inputs: list[Body]) -> None
                 continue
             if len(targets) > 1:
                 targets.sort(key=lambda t: -sizes.setdefault(t, _measure(kind, new_map.FindKey(t))))
+                if split is not None:
+                    for t in targets[1:]:
+                        split.setdefault(t, (kind, gid))
             ids[targets[0] - 1] = gid
     if leftovers:
         _carry_by_geometry(kind, new_map, ids, leftovers)
