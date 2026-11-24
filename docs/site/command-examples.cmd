@@ -581,6 +581,21 @@ FLANGE, , 25
 SEL, S, EDGE, AT, 60, 20, 0
 FLANGE, , 15, 45
 
+@ TOSHEET
+! A bent bracket saved as STEP and read back has no sheet metal record;
+! TOSHEET finds its thickness and bends so UNFOLD lays it flat.
+SKETCH, base, XY
+SRECT, 0, 0, 60, 40
+ENDSKETCH
+SHEET, base, 2, 2
+SEL, S, EDGE, AT, 30, 0, 2
+FLANGE, , 25
+EXPORT, STEP, "tosheet_bracket.step", 1
+CLEAR
+IMPORT, STEP, "tosheet_bracket.step", bracket
+TOSHEET, bracket
+UNFOLD, bracket
+
 @ SBEND
 ! Bend a plate 90 degrees along a line sketched across it.
 SKETCH, base, XY

@@ -1,12 +1,16 @@
 ---
 name: sheet-metal
 description: Bent sheet metal parts - a plate cut from a sketch, walls bent along its edges or along a sketched line, and the flat blank with bend allowance written to DXF. Use for brackets, covers, chassis, clips and anything folded from one sheet.
-commands: SKETCH, SHEET, FLANGE, SBEND, UNFOLD, SHEETINFO, HOLE
+commands: SKETCH, SHEET, FLANGE, SBEND, UNFOLD, SHEETINFO, HOLE, TOSHEET
 ---
 # Sheet metal
 
 ## Steps
 
+0. **A bent part from elsewhere** (an imported STEP): `TOSHEET, part [, K]`
+   finds its thickness, bends and walls, then `UNFOLD` and `SHEETINFO` work
+   on it. Only walls bent straight off the base are found; a part with walls
+   of several thicknesses is refused with the reason.
 1. **Parameters**: thickness `T`, bend radius `R` (often = T), K-factor
    (0.44 unless the shop says otherwise).
 2. **The flat plate**: a sketch of the outline (holes in the sketch become

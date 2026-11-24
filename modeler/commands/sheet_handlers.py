@@ -300,3 +300,36 @@ def sheetinfo(p: Processor, b):
          "along": round(float(np.linalg.norm(np.asarray(f.b) - np.asarray(f.a))), 4),
          "bend_allowance": round(float(sh.allowance(f.angle, f.radius)), 6)} for f in sh.flanges]})
     return "\n".join(lines)
+
+
+@command(
+    "TOSHEET",
+    Arg("b", BodyRef, help="a bent part that was not made with SHEET (an imported one, say)"),
+    Arg("k", float, smt.K_FACTOR, "the K-factor for its bends, 0..1 of the thickness"),
+    help="Find the sheet metal in a solid made elsewhere: its base, thickness, bends (radius, angle, up or "
+         "down) and walls, so UNFOLD, SHEETINFO and FLANGE work on it: TOSHEET, bracket · TOSHEET, bracket, 0.4. "
+         "Only flanges bent straight off the base are found; parts with walls of several thicknesses are refused "
+         "with the reason.",
+)
+def tosheet(p: Processor, b, k):
+    from ..geometry import sheet_detect as sd
+
+    if not 0 <= k <= 1:
+        raise CommandError("TOSHEET: the K-factor is between 0 and 1 (usually 0.3 to 0.5)")
+    m = p.model
+    if b in m.sheets:
+        raise CommandError(f"TOSHEET: body {b} is sheet metal already (SHEETINFO, {b} shows it)")
+    try:
+        sh = sd.detect(m.body(b).shape, k)
+    except sd.NotSheet as exc:
+        raise CommandError(f"TOSHEET: body {b} is not sheet metal that can be unfolded: {exc}") from None
+    m.sheets[b] = sh
+    n = len(sh.flanges)
+    bends = "; ".join(f"{'up' if f.up else 'down'} {f.angle:.4g} deg R{f.radius:.4g}, wall {f.length:.4g}"
+                      for f in sh.flanges)
+    p.give_report("TOSHEET", {"body": b, "thickness": sh.t, "k": sh.k, "bends": [
+        {"up": f.up, "angle": round(f.angle, 6), "radius": round(f.radius, 6), "wall": round(f.length, 6),
+         "line": [list(map(lambda c: round(c, 6), f.a)), list(map(lambda c: round(c, 6), f.b))]}
+        for f in sh.flanges]})
+    return (f"TOSHEET body {b}: sheet metal {fmt_num(round(sh.t, 6))} thick, {n} bend{'s' if n != 1 else ''}"
+            + (f" ({bends})" if bends else "") + f", K {k:g}; UNFOLD, {b} lays it flat")
