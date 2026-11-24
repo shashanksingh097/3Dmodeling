@@ -457,11 +457,12 @@ def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None
 
 
 def command_menu(win: "MainWindow", menu) -> None:
-    """Fill a menu with every form, under the same headings as forms.CATEGORIES."""
+    """Fill a menu with every form, under the same headings as forms.CATEGORIES (and the plug-ins')."""
+    menu.clear()
     by_cat: dict[str, list[F.FormSpec]] = {}
     for sp in F.specs().values():
         by_cat.setdefault(sp.category, []).append(sp)
-    for cat, _names in F.CATEGORIES:
+    for cat, _names in F.categories():
         sub = menu.addMenu(cat)
         sub.setToolTipsVisible(True)
         for sp in by_cat.get(cat, []):

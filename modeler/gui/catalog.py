@@ -30,7 +30,9 @@ def _commands():
 
 def groups() -> list[tuple[str, list[str]]]:
     """(heading, command names) in menu order; every registered command appears once."""
-    from .forms import CATEGORIES
+    from .forms import categories
+
+    CATEGORIES = categories()
 
     reg = _commands()
     seen: set[str] = set()

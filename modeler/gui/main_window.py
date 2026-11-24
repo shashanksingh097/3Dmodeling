@@ -582,7 +582,8 @@ class MainWindow(QMainWindow):
         self.shell = AppShell(self, settings, guard)
         self._build_toolbar()
         self.shell.build_file_menu()
-        fd.command_menu(self, self.menuBar().addMenu("&Commands"))
+        self.commands_menu = self.menuBar().addMenu("&Commands")
+        fd.command_menu(self, self.commands_menu)
         from .sketch_ui import SketchUI
 
         self.sketch_ui = SketchUI(self)
@@ -604,6 +605,7 @@ class MainWindow(QMainWindow):
         from . import prefs as _prefs
 
         _prefs.restore(self)
+        _prefs.load_plugins(self)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name

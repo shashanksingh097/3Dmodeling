@@ -1,6 +1,7 @@
 """Preferences: the window's theme (light, dark or the system's), the 3D
-view's background and how toolbar buttons show. Kept in the app's settings
-and put back when the app starts.
+view's background and how toolbar buttons show, and which plug-ins are on
+(modeler/plugins.py). Kept in the app's settings and put back when the app
+starts.
 
 The light and dark themes use Qt's Fusion style with a palette of their
 own, so they look the same on every system; "system" leaves the style and
@@ -11,14 +12,16 @@ palette the platform gave. The toolbar icons are drawn from the palette
 from __future__ import annotations
 
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel,
-                               QVBoxLayout)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
+                               QLabel, QListWidget, QListWidgetItem, QPushButton, QTabWidget, QVBoxLayout, QWidget)
 
 from . import icons
 from ..viewport.occ_view import BACKGROUNDS
 
 THEME_SETTING = "theme"
 BACKGROUND_SETTING = "viewBackground"
+PLUGINS_OFF_SETTING = "pluginsOff"
 THEMES = {"system": "The system's", "light": "Light", "dark": "Dark"}
 BACKGROUND_LABELS = {"grey": "Grey (default)", "dark": "Dark", "light": "Light", "white": "White"}
 
@@ -113,8 +116,34 @@ def restore(win) -> None:
         win.viewport.set_background(bg)
 
 
+def plugins_off(win) -> list[str]:
+    s = _settings(win)
+    raw = s.value(PLUGINS_OFF_SETTING, []) if s is not None else []
+    if isinstance(raw, str):
+        raw = [raw] if raw else []
+    return [str(x) for x in (raw or [])]
+
+
+def load_plugins(win) -> None:
+    """Read the turned-on plug-ins (at start, and after a change in Preferences) and put their
+    commands in the Commands menu. A plug-in that does not load is named in the status bar."""
+    from .. import plugins
+    from . import form_dialog as fd
+
+    plugins.configure(plugins_off(win))
+    found = plugins.load_all()
+    menu = getattr(win, "commands_menu", None)
+    if menu is not None:
+        fd.command_menu(win, menu)
+    bad = [pl.name for pl in found if pl.problem]
+    if bad:
+        win.statusBar().showMessage(f"Plug-in{'s' if len(bad) != 1 else ''} not loaded: {', '.join(bad)} "
+                                    "(Preferences > Plug-ins says why)", 10000)
+
+
 class PreferencesDialog(QDialog):
-    """Theme, 3D view background and toolbar buttons; each applies at once."""
+    """Theme, 3D view background and toolbar buttons; each applies at once. Plug-ins on a tab
+    of their own."""
 
     def __init__(self, win) -> None:
         super().__init__(win)
@@ -122,7 +151,11 @@ class PreferencesDialog(QDialog):
 
         self.win = win
         self.setWindowTitle("Preferences")
-        lay = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        outer.addWidget(self.tabs)
+        look = QWidget()
+        lay = QVBoxLayout(look)
         form = QFormLayout()
         self.theme = QComboBox()
         for key, text in THEMES.items():
@@ -150,10 +183,103 @@ class PreferencesDialog(QDialog):
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)
         lay.addWidget(note)
+        lay.addStretch(1)
+        self.tabs.addTab(look, "Look")
+        self.tabs.addTab(self._plugins_tab(), "Plug-ins")
         box = QDialogButtonBox(QDialogButtonBox.Close)
         box.rejected.connect(self.accept)
         box.accepted.connect(self.accept)
-        lay.addWidget(box)
+        outer.addWidget(box)
+
+    # ---- plug-ins ----
+    def _plugins_tab(self) -> QWidget:
+        from .. import plugins
+
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        intro = QLabel("Plug-ins are your own commands, written in Python, one file each in the plug-in folder. "
+                       "Each command gets a form, a help page and a guide for the assistant. Tick to turn one on. "
+                       "Only add files you trust: a plug-in runs with the app's rights.")
+        intro.setWordWrap(True)
+        lay.addWidget(intro)
+        self.plugin_list = QListWidget()
+        self.plugin_list.itemChanged.connect(self._plugin_toggled)
+        lay.addWidget(self.plugin_list, 1)
+        self.plugin_folder = QLabel(plugins.folder())
+        self.plugin_folder.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.plugin_folder.setWordWrap(True)
+        lay.addWidget(self.plugin_folder)
+        row = QHBoxLayout()
+        for text, slot in (("Open the folder", self._open_folder), ("Add the example", self._add_example),
+                           ("Reload", self._reload)):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row.addWidget(b)
+        row.addStretch(1)
+        lay.addLayout(row)
+        self._fill_plugins()
+        return page
+
+    def _fill_plugins(self) -> None:
+        from .. import plugins
+
+        self._filling = True
+        self.plugin_list.clear()
+        found = plugins.plugins()
+        for pl in found:
+            if not pl.enabled:
+                what = "off"
+            elif pl.problem:
+                what = f"not loaded: {pl.problem}"
+            else:
+                what = "adds " + ", ".join(pl.commands)
+            item = QListWidgetItem(f"{pl.name}  ({what})" + (f"\n    {pl.about}" if pl.about else ""))
+            item.setData(Qt.UserRole, pl.name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked if pl.enabled else Qt.Unchecked)
+            if pl.problem:
+                item.setToolTip(pl.problem)
+            self.plugin_list.addItem(item)
+        if not found:
+            empty = QListWidgetItem("No plug-ins yet: press Add the example, then change it to make your own.")
+            empty.setFlags(Qt.NoItemFlags)
+            self.plugin_list.addItem(empty)
+        self._filling = False
+
+    def _plugin_toggled(self, item: QListWidgetItem) -> None:
+        if getattr(self, "_filling", False) or item.data(Qt.UserRole) is None:
+            return
+        off = set(plugins_off(self.win))
+        name = str(item.data(Qt.UserRole))
+        if item.checkState() == Qt.Checked:
+            off.discard(name)
+        else:
+            off.add(name)
+        if _settings(self.win) is not None:
+            _settings(self.win).setValue(PLUGINS_OFF_SETTING, sorted(off))
+        self._reload()
+
+    def _reload(self) -> None:
+        load_plugins(self.win)
+        self._fill_plugins()
+
+    def _add_example(self) -> None:
+        from .. import plugins
+
+        path = plugins.add_example()
+        self.win.statusBar().showMessage(f"Example plug-in added: {path}", 8000)
+        self._reload()
+
+    def _open_folder(self) -> None:
+        import os
+
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from .. import plugins
+
+        os.makedirs(plugins.folder(), exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(plugins.folder()))
 
 
 def open_dialog(win) -> PreferencesDialog:

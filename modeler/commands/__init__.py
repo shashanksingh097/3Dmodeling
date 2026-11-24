@@ -55,6 +55,7 @@ from . import found_handlers  # noqa: F401  (FEATURES, DEFEATURE, RESIZE: editin
 from . import joint_handlers  # noqa: F401  (JOINT, JOINTS: joints that stay solved)
 from . import handle_handlers  # noqa: F401  (HANDLES: the drag handles, as data)
 from . import sheet_table_handlers  # noqa: F401  (SHEETTABLE, REVISION, SHEETDATA: tables on drawing sheets)
+from . import plugin_handlers  # noqa: F401  (PLUGINS: the plug-ins found)
 
 # counts that would take hours or all the memory are refused with a clear message (PLAN item 63;
 # found by trying every command's example with extreme values, tests/test_kernel_messages.py)
