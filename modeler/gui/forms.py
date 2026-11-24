@@ -120,7 +120,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Standard parts", ("GEAR", "FASTENER", "CAM")),
     ("Plastic parts", ("BOSS", "SNAP", "VENT")),
     ("Moulds", ("PARTING", "MOLD")),
-    ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE")),
+    ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE", "FEATURES", "DEFEATURE", "RESIZE")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
