@@ -1118,3 +1118,91 @@ three per pull request.
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.
+### After 0.6.0: easy for people and for the assistant (M14)
+
+From a comparison (2026-11-24) of our commands with the tools other open and
+commercial modellers offer. The modelling list was mostly covered; these are
+the things that were missing. The user's rule for this group: make every
+item as easy as possible, for a person with the mouse and for the assistant
+with text. So each item has three parts that ship together:
+
+- **By mouse**: a direct way in the 3D view or the tree (drag, right click,
+  one button), with a live preview and a typed value when needed.
+- **By command**: every mouse action writes one ordinary history step that a
+  script can repeat, and a form for every new command.
+- **For the assistant**: a reading tool that lists what is there as data (so
+  it never has to guess from a picture), a skill file, and benchmark tasks.
+
+Analysis meshing and solvers stay out (see the scope page). Built in this
+order, about three per pull request. A new comparison follows once these are
+done.
+
+68. **Drag handles in the 3D view** (P0): a move and rotate handle on a picked
+    body (arrows, rings, plane squares), and a pull arrow on a picked face.
+    Drag with a live preview, snap to grid, vertices and edges, type an exact
+    value while dragging, Esc cancels. Each drag writes `MOVE`, `ROTATE`,
+    `PUSHPULL` or `MOVEFACE`. The assistant gets nothing new to learn: the
+    same commands, plus `HANDLES` to list what a drag would change.
+69. **Joints that stay solved** (P0): `JOINT, kind, a, b [, limits]` with FIXED,
+    REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR, GEAR, RACK, SCREW and BELT,
+    and a solver that keeps every joint true after any edit. Dragging a part
+    moves the linkage within its limits; `DRIVE` and `MOTION` run on joints
+    as well as parameters. Joints show in the tree, with a right-click menu
+    to flip, suppress or edit. `JOINTS` lists each joint, its free motions
+    and any that fight, as data. Mates stay as one-off placements.
+70. **Editing imported parts without history** (P0): `FEATURES, b` finds the
+    holes, fillets, chamfers, bosses, pockets and patterns on a body with no
+    history (STEP, IGES) and lists them with sizes. Then resize or remove
+    them in bulk: `DEFEATURE, b, FILLETS, LT, 2`, `RESIZE, b, HOLES, EQ, 6, 8`.
+    In the GUI the found features show in the tree under the body; right
+    click gives Select similar, Change size, Remove. Select similar also
+    works on any picked face or edge (same radius, same type, same size).
+71. **Sheet metal from an imported bent part** (P1): `TOSHEET, b` finds the
+    thickness, the bends and their radii in a solid that was not made with
+    `SHEET`, so `UNFOLD`, `SHEETINFO` and `FLANGE` work on it. Refused with a
+    plain reason when the walls are not of one thickness.
+72. **More on drawing sheets** (P1): balloons that follow the parts list,
+    a parts-list table, a hole table (position, size, thread, depth) and a
+    revision table, all made again when the model changes. Added by command
+    (`DRAWSHEET` options) and by right click on a view.
+73. **Sizes and tolerances in STEP** (P1): `NOTE` sizes, hole notes,
+    geometric tolerances and datums written to STEP (AP242) so other
+    programs read them, and read back when such a file is imported.
+74. **Plug-ins** (P1): a folder where people put their own Python commands
+    (one file each, with a form, help and a skill made from their arguments),
+    a plug-in list in Preferences to turn them on or off, and a check that a
+    plug-in cannot change the model except through commands.
+75. **Mouse styles and shortcuts** (P1): orbit, pan and zoom styles that copy
+    the common CAD programs, picked in Preferences, and a shortcut editor for
+    every command and button, saved with the user's settings.
+76. **The window in other languages** (P2): every menu, button, form label
+    and message ready for translation (Qt translations), the first language
+    files, and a test that no text is left out. Commands stay in English, so
+    scripts work in every language.
+77. **Point clouds** (P2): import .ply, .xyz, .pts and .e57 points as a point
+    body (thinned for speed), pick a patch of points and fit a plane,
+    cylinder, sphere, cone or freeform surface to it (`FITPOINTS`), with the
+    deviation reported like `DEVIATION`.
+78. **Shrinkwrap** (P3): `WRAPSKIN, b|ALL, gap` puts one clean closed skin
+    around a messy mesh or a whole assembly (holes, overlaps and loose bits
+    closed over), for printing and for quick outside shapes.
+79. **Fixing clashes** (P3): from a `CLASH` result, one click (or
+    `CLASHFIX, a, b, CUT|MOVE`) cuts the overlap out of one part or moves it
+    clear, with a preview first.
+80. **Getting a part ready for analysis** (P2): geometry only, for export to
+    the separate meshing and solver app; no meshing or solving here.
+    `MIDSURFACE, b` makes the middle surface of a thin part with the
+    thickness kept on each face (for shell models), and `BEAMS, b` the centre
+    lines of frame members with their profiles (for beam models).
+81. **Flow and enclosure volumes** (P2): `FLUIDVOLUME, b, caps` fills the
+    inside of a pipe, valve or housing up to picked openings as a new solid,
+    and `ENCLOSURE, b|ALL, margins` puts a box, cylinder or sphere round the
+    model with the model cut out (for air around a part). Both list the
+    openings and faces they used, as data.
+82. **Parts that share faces** (P2): `IMPRINT` and `SHARE, a, b` split
+    touching faces of neighbouring parts so they share the same face where
+    they touch, written to STEP so the separate app meshes them as one
+    connected piece; `SHARE, ALL, CHECK` lists the touching pairs that are
+    still apart. Small
+    faces, slivers and short edges that would trouble a mesher are listed by
+    `CHECK, b, FLAWS` and can be merged away (`MERGEFACES`).
