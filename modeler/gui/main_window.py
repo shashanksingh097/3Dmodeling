@@ -589,9 +589,9 @@ class MainWindow(QMainWindow):
         self.sketch_ui = SketchUI(self)
         self.build_view_menu()
         self.shell.build_help_menu()
-        self.statusBar().showMessage(
-            "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
-        )
+        from ..viewport import mouse_styles as _ms
+
+        self.statusBar().showMessage(_ms.get(_ms.DEFAULT).status_text())  # Preferences may change the style
         self._setup_autosave(autosave)
         from .link_watch import LinkWatcher
 

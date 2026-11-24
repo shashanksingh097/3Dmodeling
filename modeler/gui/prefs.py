@@ -13,15 +13,19 @@ from __future__ import annotations
 
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-                               QLabel, QListWidget, QListWidgetItem, QPushButton, QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                               QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QTabWidget,
+                               QVBoxLayout, QWidget)
 
 from . import icons
+from ..viewport import mouse_styles as ms
 from ..viewport.occ_view import BACKGROUNDS
 
 THEME_SETTING = "theme"
 BACKGROUND_SETTING = "viewBackground"
 PLUGINS_OFF_SETTING = "pluginsOff"
+MOUSE_SETTING = "mouseStyle"
+WHEEL_SETTING = "invertWheel"
 THEMES = {"system": "The system's", "light": "Light", "dark": "Dark"}
 BACKGROUND_LABELS = {"grey": "Grey (default)", "dark": "Dark", "light": "Light", "white": "White"}
 
@@ -114,6 +118,20 @@ def restore(win) -> None:
     bg = current(win, BACKGROUND_SETTING, "grey")
     if bg in BACKGROUNDS:
         win.viewport.set_background(bg)
+    apply_mouse(win, current(win, MOUSE_SETTING, ms.DEFAULT), current(win, WHEEL_SETTING, "false") == "true",
+                remember=False)
+    from . import shortcuts
+
+    shortcuts.apply(win)
+
+
+def apply_mouse(win, style: str, invert_wheel: bool = False, remember: bool = True) -> None:
+    """Use a mouse style (viewport/mouse_styles.py) and say in the status bar what the drags do."""
+    win.viewport.set_mouse_style(style, invert_wheel)
+    win.statusBar().showMessage(ms.get(style).status_text())
+    if remember and _settings(win) is not None:
+        _settings(win).setValue(MOUSE_SETTING, ms.get(style).key)
+        _settings(win).setValue(WHEEL_SETTING, "true" if invert_wheel else "false")
 
 
 def plugins_off(win) -> list[str]:
@@ -185,11 +203,56 @@ class PreferencesDialog(QDialog):
         lay.addWidget(note)
         lay.addStretch(1)
         self.tabs.addTab(look, "Look")
+        self.tabs.addTab(self._mouse_tab(), "Mouse and keys")
         self.tabs.addTab(self._plugins_tab(), "Plug-ins")
         box = QDialogButtonBox(QDialogButtonBox.Close)
         box.rejected.connect(self.accept)
         box.accepted.connect(self.accept)
         outer.addWidget(box)
+
+    # ---- mouse and keys ----
+    def _mouse_tab(self) -> QWidget:
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        form = QFormLayout()
+        self.mouse = QComboBox()
+        for st in ms.STYLES.values():
+            self.mouse.addItem(st.label + (f" (like {st.like})" if st.like else ""), st.key)
+        now = self.win.viewport.mouse_style.key
+        self.mouse.setCurrentIndex(list(ms.STYLES).index(now) if now in ms.STYLES else 0)
+        form.addRow("Mouse style:", self.mouse)
+        self.mouse_help = QLabel("")
+        self.mouse_help.setWordWrap(True)
+        form.addRow("", self.mouse_help)
+        self.invert_wheel = QCheckBox("Turn the wheel the other way to zoom in")
+        self.invert_wheel.setChecked(self.win.viewport.wheel_sign < 0)
+        form.addRow("Wheel:", self.invert_wheel)
+        lay.addLayout(form)
+        self.mouse.currentIndexChanged.connect(self._mouse_changed)
+        self.invert_wheel.toggled.connect(self._mouse_changed)
+        self._mouse_text()
+        keys = QPushButton("Keyboard shortcuts…")
+        keys.setToolTip("Give any menu item, toolbar button or command form a key of your own")
+        keys.clicked.connect(self._shortcuts)
+        row = QHBoxLayout()
+        row.addWidget(keys)
+        row.addStretch(1)
+        lay.addLayout(row)
+        lay.addStretch(1)
+        return page
+
+    def _mouse_text(self) -> None:
+        st = ms.get(self.mouse.currentData())
+        self.mouse_help.setText(st.help + " A left click picks and a right click opens the menu in every style.")
+
+    def _mouse_changed(self, *_args) -> None:
+        apply_mouse(self.win, self.mouse.currentData(), self.invert_wheel.isChecked())
+        self._mouse_text()
+
+    def _shortcuts(self) -> None:
+        from . import shortcuts
+
+        self.shortcut_dialog = shortcuts.open_dialog(self.win)
 
     # ---- plug-ins ----
     def _plugins_tab(self) -> QWidget:

@@ -53,7 +53,7 @@ def test_preferences_tab_turns_a_plugin_off_and_on(win):
 
     dlg = prefs.open_dialog(win)
     try:
-        assert [dlg.tabs.tabText(i) for i in range(dlg.tabs.count())] == ["Look", "Plug-ins"]
+        assert [dlg.tabs.tabText(i) for i in range(dlg.tabs.count())] == ["Look", "Mouse and keys", "Plug-ins"]
         item = dlg.plugin_list.item(0)
         assert item.text().startswith("bolt_ring  (adds BOLTRING)")
         item.setCheckState(Qt.Unchecked)

@@ -41,6 +41,7 @@ from PySide6.QtWidgets import QWidget
 
 from ..core.model import Event, Model, ModelError
 from ..geometry import meshbody as mb
+from . import mouse_styles as ms
 
 _TOPABS = {"BODY": TopAbs_SHAPE, "FACE": TopAbs_FACE, "EDGE": TopAbs_EDGE, "VERTEX": TopAbs_VERTEX}
 
@@ -56,6 +57,7 @@ _VIEWS = {
 }
 
 _CLICK_TOLERANCE = 4  # px of movement still counted as a click
+_BUTTON_WORDS = {Qt.LeftButton: "LEFT", Qt.MiddleButton: "MIDDLE", Qt.RightButton: "RIGHT"}
 
 
 def _rgb(r: float, g: float, b: float) -> Quantity_Color:
@@ -194,6 +196,11 @@ class OccViewport(QWidget):
 
     background = "grey"
 
+    def set_mouse_style(self, key: str, invert_wheel: bool = False) -> None:
+        """Which drags orbit, pan and zoom (one of mouse_styles.STYLES), and the wheel's direction."""
+        self.mouse_style = ms.get(key)
+        self.wheel_sign = -1 if invert_wheel else 1
+
     def set_background(self, name: str) -> None:
         """The 3D view's background, one of BACKGROUNDS."""
         if name not in BACKGROUNDS:
@@ -254,7 +261,9 @@ class OccViewport(QWidget):
         self._hover_at = 0.0
         self._initialized = False
         self._press: QPoint | None = None
-        self._drag = ""  # "", "rotate", "pan", "sketch", "point" (a control point)
+        self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point)
+        self.mouse_style = ms.get(ms.DEFAULT)  # which drags orbit, pan and zoom (set_mouse_style)
+        self.wheel_sign = 1  # -1: the wheel zooms the other way
         self._last = QPoint()
 
         for attr in (
@@ -1888,11 +1897,20 @@ class OccViewport(QWidget):
             self._drag = "point"
             self._draw_control_points()
             return
-        if e.button() == Qt.LeftButton and not (e.modifiers() & Qt.ShiftModifier):
+        # what a drag does comes from the mouse style (Preferences; viewport/mouse_styles.py)
+        what = self.mouse_style.action(_BUTTON_WORDS.get(e.button(), ""), ms.modifier_word(
+            bool(e.modifiers() & Qt.ShiftModifier), bool(e.modifiers() & Qt.ControlModifier),
+            bool(e.modifiers() & Qt.AltModifier)))
+        if what == "ROTATE":
             self._drag = "rotate"
             self.view.StartRotation(x, y)
-        else:
+        elif what == "PAN":
             self._drag = "pan"
+        elif what == "ZOOM":
+            self._drag = "zoom"
+            self.view.StartZoomAtPoint(x, y)
+        else:
+            self._drag = ""  # no navigation: a click still picks or opens the menu
 
     def mouseMoveEvent(self, e) -> None:
         if not self._initialized:
@@ -1934,6 +1952,11 @@ class OccViewport(QWidget):
             elif self._drag == "pan":
                 lx, ly = self._px(self._last)
                 self.view.Pan(x - lx, ly - y)
+            elif self._drag == "zoom":  # drag up to zoom in, round where the drag started
+                lx, ly = self._px(self._last)
+                px, py = self._px(self._press)
+                self.view.StartZoomAtPoint(px, py)
+                self.view.ZoomAtPoint(px, py, px + (ly - y), py + (ly - y))
             self._last = pos
         elif self._press is None:
             self.context.MoveTo(x, y, self.view, True)  # hover highlight
@@ -2062,6 +2085,6 @@ class OccViewport(QWidget):
         if not self._initialized:
             return
         x, y = self._px(e.position().toPoint())
-        step = int(e.angleDelta().y() / 8)
+        step = int(e.angleDelta().y() / 8) * self.wheel_sign
         self.view.StartZoomAtPoint(x, y)
         self.view.ZoomAtPoint(x, y, x + step, y + step)
