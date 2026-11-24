@@ -1143,6 +1143,10 @@ done.
     value while dragging, Esc cancels. Each drag writes `MOVE`, `ROTATE`,
     `PUSHPULL` or `MOVEFACE`. The assistant gets nothing new to learn: the
     same commands, plus `HANDLES` to list what a drag would change.
+    *Done (gui/drag_handles.py, Home > Drag handles, `HANDLES`): arrows and
+    rings on a body, a pull arrow and small arrows on faces, grid and 5 degree
+    snapping, typed values, Esc; a jointed body drags its linkage. Snapping to
+    vertices and edges is left for later.*
 69. **Joints that stay solved** (P0): `JOINT, kind, a, b [, limits]` with FIXED,
     REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR, GEAR, RACK, SCREW and BELT,
     and a solver that keeps every joint true after any edit. Dragging a part
@@ -1150,6 +1154,10 @@ done.
     as well as parameters. Joints show in the tree, with a right-click menu
     to flip, suppress or edit. `JOINTS` lists each joint, its free motions
     and any that fight, as data. Mates stay as one-off placements.
+    *Done (core/joints.py, `JOINT`, `JOINTS`): every kind and coupling, held
+    values as parameters (DRIVE, MOTION), limits, chains and closed loops,
+    a MOVE or ROTATE of a jointed body moves the linkage. Joint rows in the
+    tree with flip and suppress are left for later.*
 70. **Editing imported parts without history** (P0): `FEATURES, b` finds the
     holes, fillets, chamfers, bosses, pockets and patterns on a body with no
     history (STEP, IGES) and lists them with sizes. Then resize or remove
@@ -1157,6 +1165,11 @@ done.
     In the GUI the found features show in the tree under the body; right
     click gives Select similar, Change size, Remove. Select similar also
     works on any picked face or edge (same radius, same type, same size).
+    *Done (geometry/found.py, `FEATURES`, `DEFEATURE`, `RESIZE`, `SEL ...
+    LIKE` and `FEATURE`, right-click Select similar / Change size / Remove,
+    skill imported-parts): holes with bottoms and counterbores, rounds,
+    chamfers, rows and rings of holes. Bosses and pockets, and feature rows
+    in the tree, are left for later.*
 71. **Sheet metal from an imported bent part** (P1): `TOSHEET, b` finds the
     thickness, the bends and their radii in a solid that was not made with
     `SHEET`, so `UNFOLD`, `SHEETINFO` and `FLANGE` work on it. Refused with a
