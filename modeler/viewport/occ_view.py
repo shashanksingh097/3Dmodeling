@@ -559,9 +559,14 @@ class OccViewport(QWidget):
             hi = [max(b[i + 3] for b in boxes) for i in range(3)]
             mid = tuple((lo[i] + hi[i]) / 2 for i in range(3))
             size = max(8.0, 0.4 * dt.norm(dt.sub(hi, lo)))
+        frames = {k.upper() for k in getattr(m, "frames", {})}
         for d in items:
             is_wp = wp is not None and d.name.upper() == wp.name.upper()
-            if d.kind == "PLANE":
+            if d.kind == "PLANE" and d.name.upper() in frames and not is_wp:
+                # a coordinate system on a body (CSYS): three short arrows, X red, Y green, Z blue,
+                # not a plane the size of the model (an assembly has many of them)
+                at = self._show_frame(d, max(4.0, 0.12 * size))
+            elif d.kind == "PLANE":
                 shape = ft.plane_face(d, mid, size)
                 ais = AIS_Shape(shape)
                 ais.SetColor(_rgb(0.35, 0.85, 0.45) if is_wp else _rgb(0.35, 0.6, 1.0))
@@ -589,9 +594,10 @@ class OccViewport(QWidget):
                 ais = AIS_Shape(shape)
                 ais.SetColor(_rgb(1.0, 0.4, 0.8))
                 at = d.origin
-            ctx.Display(ais, 1, 0, False)
-            ctx.Deactivate(ais)
-            self._datum_ais.append(ais)
+            if d.kind != "PLANE" or d.name.upper() not in frames or is_wp:
+                ctx.Display(ais, 1, 0, False)
+                ctx.Deactivate(ais)
+                self._datum_ais.append(ais)
             label = AIS_TextLabel()
             label.SetText(TCollection_ExtendedString(d.name + ("  (work plane)" if is_wp else "")))
             from OCP.gp import gp_Pnt
@@ -602,6 +608,23 @@ class OccViewport(QWidget):
             ctx.Display(label, False)
             ctx.Deactivate(label)
             self._datum_ais.append(label)
+
+    def _show_frame(self, d, length: float):
+        """Three arrows for a coordinate system; returns where its name goes."""
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCP.gp import gp_Pnt
+
+        from ..core import datum as dt
+
+        for axis, colour in ((d.x, (0.9, 0.2, 0.2)), (d.y, (0.2, 0.75, 0.25)), (d.z, (0.25, 0.45, 1.0))):
+            tip = dt.add(d.origin, dt.mul(axis, length))
+            ais = AIS_Shape(BRepBuilderAPI_MakeEdge(gp_Pnt(*d.origin), gp_Pnt(*tip)).Edge())
+            ais.SetColor(_rgb(*colour))
+            ais.SetWidth(3.0)
+            self.context.Display(ais, 1, 0, False)
+            self.context.Deactivate(ais)
+            self._datum_ais.append(ais)
+        return dt.add(d.origin, dt.mul(d.z, length * 1.15))
 
     # ---- notes ----------------------------------------------------------
     def _show_pictures(self) -> None:

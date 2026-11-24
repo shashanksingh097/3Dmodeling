@@ -49,6 +49,12 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Project safety: every `SAVE` keeps the version it replaces (`BACKUPS`), saving cannot spoil the last
   save, a damaged project names its newest backup, `FILES` and `RELINK` for outside files that moved,
   `SHARECHECK` before sending a project. Projects saved by v0.1 to v0.5 are opened by the tests.
+- Five demonstration projects (`docs/demos/`, a page each on the website under Demonstrations): a
+  machined bracket, a freeform mouse, a hinge assembly, scan to CAD and a sheet metal cover. The tests
+  build each from an empty model, read every file it exports back, save and open it and change its
+  first value.
+- Coordinate systems (`CSYS`) are drawn as small red, green and blue axes instead of large planes.
+- Unfolded sheet metal writes true circles and arcs to DXF, not short lines.
 
 ### Changed
 - Cuts on bodies with many faces are much faster again (300 holes one at a time: 94 s to 17 s;
@@ -72,6 +78,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   sharp edges and frozen points stay put while the triangles are evened out and joined, and every
   stroke is checked where it went (folds it made are smoothed flat, anything else is a warning).
   A test runs 2,000 strokes on a growing mesh and finds it clean at the end.
+
+### Fixed
+- `RELINK` with a Windows path such as `C:\Users\...` no longer fails to read the line.
 
 ## [0.5.0] - 2026-11-19
 

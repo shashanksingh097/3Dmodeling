@@ -1100,6 +1100,9 @@ three per pull request.
 65. **Five demonstration projects** as regression tests (machined part,
     freeform part, assembly, scan, sheet metal), each from an empty model to
     export and read back, each a page on the website.
+    *Done: `docs/demos/` (a script and picture each), pages under
+    Demonstrations on the website, `tests/test_demos.py` builds, reads back,
+    saves, opens and edits each.*
 66. **Assistant safeguards and reports** (P3): a plan before any change, a
     confirm step for broad changes, one undo per assistant turn, fuller
     `DESIGNCHECK` rows.

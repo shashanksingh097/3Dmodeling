@@ -58,6 +58,10 @@ class Sheet:
         d = np.asarray(p, float) - np.asarray(self.origin, float)
         return np.array([d @ np.asarray(self.x), d @ np.asarray(self.y), d @ np.asarray(self.n)])
 
+    def local_dir(self, d) -> np.ndarray:
+        d = np.asarray(d, float)
+        return np.array([d @ np.asarray(self.x), d @ np.asarray(self.y), d @ np.asarray(self.n)])
+
     def world(self, u: float, v: float, h: float = 0.0) -> tuple:
         o, x, y, n = (np.asarray(a, float) for a in (self.origin, self.x, self.y, self.n))
         return tuple(o + u * x + v * y + h * n)
@@ -448,8 +452,53 @@ def _box(sh: Sheet, shape):
     return tuple(a.min(axis=0)), tuple(a.max(axis=0))
 
 
-def outline_2d(sh: Sheet, face, deflection: float) -> list[list[tuple]]:
-    """Every edge of the flat face as 2D polylines in the sheet's x, y (arcs as short lines)."""
+def arcs_2d(sh: Sheet, face) -> tuple[list, list]:
+    """The flat face's edges in the sheet's x, y: circles and arcs as ("CIRCLE", centre, r) and
+    ("ARC", centre, r, from_deg, to_deg) (a laser cuts true arcs), everything else as polylines
+    (see outline_2d). Returns (arcs, the edges that are not arcs)."""
+    import math
+
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_CurveType
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    as_e = getattr(TopoDS, "Edge_s", None) or TopoDS.Edge
+    arcs, rest = [], []
+    ex = TopExp_Explorer(face, TopAbs_EDGE)
+    while ex.More():
+        edge = as_e(ex.Current())
+        c = BRepAdaptor_Curve(edge)
+        if c.GetType() == GeomAbs_CurveType.GeomAbs_Circle:
+            circ = c.Circle()
+            ctr = tuple(sh.local((circ.Location().X(), circ.Location().Y(), circ.Location().Z())))
+            n = circ.Axis().Direction()
+            if abs(abs(sh.local_dir((n.X(), n.Y(), n.Z()))[2]) - 1) < 1e-6:  # lies flat in the sheet
+                t0, t1 = c.FirstParameter(), c.LastParameter()
+                if abs(t1 - t0 - 2 * math.pi) < 1e-9:
+                    arcs.append(("CIRCLE", ctr[:2], circ.Radius()))
+                else:
+                    a, b, m = c.Value(t0), c.Value(t1), c.Value((t0 + t1) / 2)
+                    pa, pb, pm = (sh.local((q.X(), q.Y(), q.Z()))[:2] for q in (a, b, m))
+
+                    def ang(q):
+                        return math.degrees(math.atan2(q[1] - ctr[1], q[0] - ctr[0])) % 360
+
+                    s0, s1, sm = ang(pa), ang(pb), ang(pm)
+                    # DXF arcs run anticlockwise from the first angle to the second
+                    if (sm - s0) % 360 > (s1 - s0) % 360:
+                        s0, s1 = s1, s0
+                    arcs.append(("ARC", ctr[:2], circ.Radius(), s0, s1))
+                ex.Next()
+                continue
+        rest.append(edge)
+        ex.Next()
+    return arcs, rest
+
+
+def outline_2d(sh: Sheet, face, deflection: float, edges=None) -> list[list[tuple]]:
+    """Every edge of the flat face (or just ``edges``) as 2D polylines in the sheet's x, y (arcs as short lines)."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GCPnts import GCPnts_QuasiUniformDeflection
     from OCP.GeomAbs import GeomAbs_CurveType
@@ -458,10 +507,15 @@ def outline_2d(sh: Sheet, face, deflection: float) -> list[list[tuple]]:
     from OCP.TopoDS import TopoDS
 
     as_e = getattr(TopoDS, "Edge_s", None) or TopoDS.Edge
+    if edges is None:
+        edges = []
+        ex = TopExp_Explorer(face, TopAbs_EDGE)
+        while ex.More():
+            edges.append(as_e(ex.Current()))
+            ex.Next()
     out = []
-    ex = TopExp_Explorer(face, TopAbs_EDGE)
-    while ex.More():
-        c = BRepAdaptor_Curve(as_e(ex.Current()))
+    for edge in edges:
+        c = BRepAdaptor_Curve(edge)
         if c.GetType() == GeomAbs_CurveType.GeomAbs_Line:
             ps = [c.Value(c.FirstParameter()), c.Value(c.LastParameter())]
         else:
@@ -469,13 +523,13 @@ def outline_2d(sh: Sheet, face, deflection: float) -> list[list[tuple]]:
             ps = [d.Value(i) for i in range(1, d.NbPoints() + 1)] if d.IsDone() else []
         if len(ps) >= 2:
             out.append([tuple(sh.local((q.X(), q.Y(), q.Z()))[:2]) for q in ps])
-        ex.Next()
     return out
 
 
 def dxf(sh: Sheet, flat: Flat, deflection: float, units: str = "MM") -> str:
     """An ASCII DXF of the flat pattern: layer OUTLINE (cut), BEND (dashed centre lines) and TEXT."""
-    lines = outline_2d(sh, flat.face, deflection)
+    arcs, others = arcs_2d(sh, flat.face)
+    lines = outline_2d(sh, flat.face, deflection, others)
     bends = [(sh.local(p)[:2], sh.local(q)[:2], text) for p, q, text in flat.bends]
     L: list[str] = []
 
@@ -487,7 +541,9 @@ def dxf(sh: Sheet, flat: Flat, deflection: float, units: str = "MM") -> str:
         return f"{float(v):.6f}".rstrip("0").rstrip(".")
 
     ins = {"MM": 4, "CM": 5, "M": 6, "IN": 1}.get(units.upper(), 0)
-    allp = [q for pl in lines for q in pl] or [(0, 0)]
+    allp = [q for pl in lines for q in pl] + [(a[1][0] + dx * a[2], a[1][1] + dy * a[2])
+                                               for a in arcs for dx, dy in ((-1, -1), (1, 1))]
+    allp = allp or [(0, 0)]
     x0, y0 = min(q[0] for q in allp), min(q[1] for q in allp)
     x1, y1 = max(q[0] for q in allp), max(q[1] for q in allp)
     g(0, "SECTION"); g(2, "HEADER")
@@ -512,6 +568,10 @@ def dxf(sh: Sheet, flat: Flat, deflection: float, units: str = "MM") -> str:
     for pl in lines:
         for (a, b), (c, d) in zip(pl, pl[1:]):
             g(0, "LINE"); g(8, "OUTLINE"); g(10, f(a)); g(20, f(b)); g(30, 0); g(11, f(c)); g(21, f(d)); g(31, 0)
+    for a in arcs:
+        g(0, a[0]); g(8, "OUTLINE"); g(10, f(a[1][0])); g(20, f(a[1][1])); g(30, 0); g(40, f(a[2]))
+        if a[0] == "ARC":
+            g(50, f(a[3])); g(51, f(a[4]))
     hgt = max(x1 - x0, y1 - y0, 1e-6) / 70
     for p, q, text in bends:
         g(0, "LINE"); g(8, "BEND"); g(10, f(p[0])); g(20, f(p[1])); g(30, 0); g(11, f(q[0])); g(21, f(q[1])); g(31, 0)

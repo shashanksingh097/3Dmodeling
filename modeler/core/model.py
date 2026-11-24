@@ -943,6 +943,10 @@ class Model:
             self._emit(Event("selection"))
 
     # ---- datums ------------------------------------------------------------
+    def datums_changed(self) -> None:
+        """Tell the view that datums moved or changed how they are drawn."""
+        self._emit(Event("datums"))
+
     def add_datum(self, d: Datum) -> None:
         key = d.name.upper()
         if self.body_by_name(d.name) is not None:

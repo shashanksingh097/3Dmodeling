@@ -197,7 +197,7 @@ def files_cmd(p: Processor, fmt):
 
 @command(
     "RELINK",
-    Arg("name", Text, help="the file as the history names it (FILES lists them)"),
+    Arg("name", Path, help="the file as the history names it (FILES lists them)"),
     Arg("file", Path, help="where it is now"),
     session=True,
     help="Point the project at a file that moved, or at a newer version of an imported file: RELINK, "

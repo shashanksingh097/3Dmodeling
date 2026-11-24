@@ -89,7 +89,9 @@ def test_dxf_has_outline_bend_lines_and_notes(tmp_path):
     pairs = list(zip(text[0::2], text[1::2]))
     layers = [v for c, v in pairs if c.strip() == "8"]
     assert layers.count("BEND") == 2
-    assert layers.count("OUTLINE") > 8  # the rectangle, its two strips and the circle as short lines
+    ents = [v for c, v in pairs if c.strip() == "0"]
+    assert layers.count("OUTLINE") == 7  # the outline's lines (the blank is not a plain rectangle) ...
+    assert ents.count("CIRCLE") == 1  # ... and the hole as a true circle, for the laser
     notes = [v for c, v in pairs if c.strip() == "1" and "%%d" in v]
     assert sorted(notes) == ["DOWN 45%%d R2", "UP 90%%d R2"]  # %%d is the DXF degree sign
     assert pairs[-1] == ("0", "EOF")
