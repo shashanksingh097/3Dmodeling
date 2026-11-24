@@ -1113,6 +1113,8 @@ three per pull request.
     `docs/assistant-safeguards.md`.*
 67. **Scope and release 0.6.0**: known limitations, a written scope list,
     then the release.
+    *Done: the Scope and limitations page on the website, version 0.6.0 and
+    its CHANGELOG section; the release is a draft for the user to publish.*
 
 A run of the viewer on a real Windows or macOS desktop (risk 5) is being
 done by the user alongside.

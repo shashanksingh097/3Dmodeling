@@ -108,3 +108,5 @@ also a script you can save, edit, share and run again.
 | look up one command, with an example you can paste | [Command reference](reference/index.md) |
 | open a finished model and see how it was made | [Examples](examples.md) |
 | get help from the AI assistant inside the app | [The assistant](app/the-assistant-github-copilot.md) |
+| follow a whole project, from an empty model to exported files | [Demonstrations](demos/index.md) |
+| know what it does not do, and what to use instead | [Scope and limitations](scope.md) |

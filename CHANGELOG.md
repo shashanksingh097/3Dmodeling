@@ -4,7 +4,16 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
+This release makes what is there dependable (PLAN items 50-67): stable references, saved
+projects that keep working, speed and long-session checks, desktop checks, five demonstration
+projects and safeguards for the assistant. See the website's Scope and limitations page.
+
 ### Added
+- A Scope and limitations page on the website: what the app is for, what stays out on purpose
+  (meshing for analysis, full FEA, production CAM, native files of other CAD programs) and the
+  known limitations.
 - `python -m modeler desktop-check` (`3Dmodeling-cli desktop-check` in the downloaded app): opens
   the window and checks the 3D view, mouse picking at the screen's scaling, turning and zooming,
   files in folders with non-English names, fonts, themes and closing, and writes a report to

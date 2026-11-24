@@ -96,3 +96,13 @@ def test_every_guide_page_has_pictures(tmp_path):
     assert not bare, f"pages without a picture: {bare}"
     examples = (docs / "examples.md").read_text(encoding="utf-8")
     assert "<img src=" not in examples, "raw HTML pictures break under MkDocs' page folders"
+
+
+def test_the_scope_page_is_on_the_site():
+    """PLAN item 67: the scope and known-limitations page is on the site, and the commands it
+    names exist."""
+    src = open(os.path.join(D.SITE_SRC, "scope.md"), encoding="utf-8").read()
+    for word in set(re.findall(r"`([A-Z]{3,})(?:[,`])", src)):
+        assert word in REGISTRY, word
+    assert "Meshing for analysis" in src and "Known limitations" in src
+    assert "scope.md" in open(D.__file__, encoding="utf-8").read()

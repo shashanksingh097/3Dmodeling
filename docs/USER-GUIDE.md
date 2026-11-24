@@ -5,7 +5,7 @@ is turned into a short line of text, a **command**, and kept in the
 **History**. So every model is also a script: you can edit any step later,
 change a number and watch the part rebuild, or write the whole part as text.
 
-This guide covers version 0.5. It is also on the
+This guide covers version 0.6. It is also on the
 [user guide website](https://shashanksingh097.github.io/3Dmodeling/), with a
 tested example for every command. The full command language is in
 [LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**
