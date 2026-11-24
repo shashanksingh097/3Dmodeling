@@ -53,6 +53,7 @@ from . import drawsheet_handlers  # noqa: F401  (DRAWSHEET, DRAWINGS: drawings t
 from . import safety_handlers  # noqa: F401  (BACKUPS, FILES, RELINK, SHARECHECK: keeping projects safe)
 from . import found_handlers  # noqa: F401  (FEATURES, DEFEATURE, RESIZE: editing parts without history)
 from . import joint_handlers  # noqa: F401  (JOINT, JOINTS: joints that stay solved)
+from . import handle_handlers  # noqa: F401  (HANDLES: the drag handles, as data)
 
 # counts that would take hours or all the memory are refused with a clear message (PLAN item 63;
 # found by trying every command's example with extreme values, tests/test_kernel_messages.py)

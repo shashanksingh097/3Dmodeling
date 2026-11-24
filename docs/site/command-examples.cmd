@@ -730,33 +730,44 @@ DELFACE
 ! The holes, rounds, chamfers and rows of holes on a part, found from its faces
 ! alone, so it works on imported STEP parts too.
 BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
 SEL, S, EDGE, LOC, Z, 10
 SEL, R, EDGE, LOC, X, 0
 FILLET, 3
 SEL, S, FACE, LOC, Z, 10
-HOLE, 1, 20,20,10, 6
-HOLE, 1, 40,20,10, 6
-HOLE, 1, 60,20,10, 6
-FEATURES, 1
+HOLE, plate, 20,20,10, 6
+HOLE, plate, 40,20,10, 6
+HOLE, plate, 60,20,10, 6
+FEATURES, plate
 
 @ DEFEATURE
 ! Remove every round under 4 and every 6 hole in one step each.
 BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
 SEL, S, EDGE, LOC, Z, 10
 FILLET, 2
 SEL, S, FACE, LOC, Z, 10
-HOLE, 1, 20,20,10, 6
-DEFEATURE, 1, FILLET, LT, 4
-DEFEATURE, 1, HOLE, EQ, 6
+HOLE, plate, 20,20,10, 6
+DEFEATURE, plate, FILLET, LT, 4
+DEFEATURE, plate, HOLE, EQ, 6
 
 @ RESIZE
 ! Every 6 hole becomes 8, in place, keeping its depth.
 BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
 SEL, S, FACE, LOC, Z, 10
-HOLE, 1, 20,20,10, 6
-HOLE, 1, 60,20,10, 6, 5
-RESIZE, 1, HOLE, EQ, 6, 8
-FEATURES, 1, HOLE
+HOLE, plate, 20,20,10, 6
+HOLE, plate, 60,20,10, 6, 5
+RESIZE, plate, HOLE, EQ, 6, 8
+FEATURES, plate, HOLE
+
+@ HANDLES
+! The drag handles the 3D view shows for a pick, and the step a drag of each
+! writes (turn on Home > Drag handles to drag them with the mouse).
+BLOCK, 0,0,0, 40,20,10
+NAME, LAST, plate
+PICK, BODY, plate
+HANDLES
 
 @ MOVEFACE
 ! Move the +X side face of a block 6 in -X.

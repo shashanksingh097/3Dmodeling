@@ -17,6 +17,7 @@ Mouse:
 from __future__ import annotations
 
 import ctypes
+import math
 import os
 import sys
 import traceback
@@ -225,6 +226,12 @@ class OccViewport(QWidget):
         self._picture_ais: list = []  # IMAGE: pictures to sketch over
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
+        self.handles_on = False  # drag handles on the picked body or faces (gui/drag_handles.py)
+        self.handle_step, self.handle_angle = 1.0, 5.0  # what drags snap to (Preferences)
+        self._hd = None  # gui.drag_handles.Handles for the selection, while handles are on
+        self._hd_ais: list = []
+        self._hd_ghost = None  # the face preview while a face is pulled
+        self._hd_label = None  # the value next to the mouse while dragging
         self._cp_ais: list = []  # the control points, their net, and a dragged shape's preview
         self._an = None  # commands.analysis_handlers.Analysis while a body is shown coloured (ANALYZE)
         self._an_ais = None  # the coloured mesh drawn in place of that body
@@ -417,6 +424,8 @@ class OccViewport(QWidget):
             self._draw_analysis()
         if self.sculpt_on and ev.kind not in ("selection", "sketch_selection"):
             self.draw_mask()
+        if self.handles_on and ev.kind != "sketch_selection" and self._drag != "handle":
+            self.refresh_handles()
 
     def _apply_body_event(self, ev: Event) -> None:
         if ev.kind == "body_added":
@@ -1267,6 +1276,137 @@ class OccViewport(QWidget):
             self._an_hidden = a.body
         ctx.UpdateCurrentViewer()
 
+    # ---- drag handles (PLAN item 68) ------------------------------------------------
+    def set_handles(self, on: bool) -> None:
+        """Show drag handles on the picked body or faces (or hide them)."""
+        self.handles_on = bool(on)
+        self.refresh_handles()
+
+    @property
+    def handles(self):
+        return self._hd
+
+    def refresh_handles(self) -> None:
+        from ..gui import drag_handles as dh
+
+        self._hd = None
+        if self.handles_on:
+            try:
+                hd = dh.Handles.for_model(self.model, self.handle_step, self.handle_angle)
+            except Exception:  # noqa: BLE001 - no handles rather than a broken view
+                traceback.print_exc()
+                hd = None
+            self._hd = hd if hd is not None and hd.mode else None
+        if self._initialized:
+            self._draw_handles()
+
+    def _draw_handles(self) -> None:
+        from OCP.Aspect import Aspect_TypeOfMarker
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeVertex
+        from OCP.gp import gp_Pnt
+        from OCP.Prs3d import Prs3d_PointAspect
+        from OCP.TopoDS import TopoDS_Compound
+
+        from ..gui import drag_handles as dh
+
+        ctx = self.context
+        for ais in self._hd_ais:
+            ctx.Remove(ais, False)
+        self._hd_ais = []
+        hd = self._hd
+        if hd is None:
+            ctx.UpdateCurrentViewer()
+            return
+        active = hd.drag.handle if hd.drag is not None else None
+        for h in hd.items:
+            comp, b = TopoDS_Compound(), BRep_Builder()
+            b.MakeCompound(comp)
+            for a, c in h.segments():
+                if sum((x - y) ** 2 for x, y in zip(a, c)) > 1e-18:
+                    b.Add(comp, BRepBuilderAPI_MakeEdge(gp_Pnt(*a), gp_Pnt(*c)).Edge())
+            if h.kind != "TURN":
+                b.Add(comp, BRepBuilderAPI_MakeVertex(gp_Pnt(*h.tip)).Vertex())
+            ais = AIS_Shape(comp)
+            colour = (1.0, 1.0, 0.3) if h is active else dh.COLOURS[h.name]
+            ais.SetColor(_rgb(*colour))
+            ais.SetWidth(4.0 if h is active else (3.0 if h.kind in ("MOVE", "PULL") else 2.0))
+            ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_BALL, _rgb(*colour), 3.0))
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._hd_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
+    def _handle_preview(self) -> None:
+        """Show the dragged body where the drag takes it, or a ghost of the pulled faces."""
+        from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+        from OCP.TopLoc import TopLoc_Location
+
+        hd = self._hd
+        ctx = self.context
+        if self._hd_ghost is not None:
+            ctx.Remove(self._hd_ghost, False)
+            self._hd_ghost = None
+        if hd is None:
+            return
+        pv = hd.preview()
+        t = gp_Trsf()
+        if pv is not None and pv[0] == "TURN":
+            deg, o, n = pv[1]
+            t.SetRotation(gp_Ax1(gp_Pnt(*o), gp_Dir(*n)), math.radians(deg))
+        elif pv is not None:
+            t.SetTranslation(gp_Vec(*pv[1]))
+        if hd.mode == "BODY":
+            ais = self._ais.get(hd.body)
+            if ais is not None:
+                ctx.SetLocation(ais, TopLoc_Location(t))
+        elif pv is not None and hd.faces:
+            from OCP.BRep import BRep_Builder
+            from OCP.TopoDS import TopoDS_Compound
+
+            comp, b = TopoDS_Compound(), BRep_Builder()
+            b.MakeCompound(comp)
+            for g in hd.faces:
+                b.Add(comp, self.model.entity_shape("FACE", g).Moved(TopLoc_Location(t)))
+            ghost = AIS_Shape(comp)
+            ghost.SetColor(_rgb(1.0, 0.7, 0.1))
+            ctx.Display(ghost, 1, -1, False)
+            ctx.SetTransparency(ghost, 0.4, False)
+            ctx.Deactivate(ghost)
+            self._hd_ghost = ghost
+        self._show_handle_label()
+        ctx.UpdateCurrentViewer()
+
+    def _end_handle_preview(self) -> None:
+        from OCP.TopLoc import TopLoc_Location
+
+        hd = self._hd
+        if hd is not None and hd.mode == "BODY":
+            ais = self._ais.get(hd.body)
+            if ais is not None:
+                self.context.SetLocation(ais, TopLoc_Location())
+        if self._hd_ghost is not None:
+            self.context.Remove(self._hd_ghost, False)
+            self._hd_ghost = None
+        if self._hd_label is not None:
+            self._hd_label.hide()
+
+    def _show_handle_label(self) -> None:
+        from PySide6.QtWidgets import QLabel
+
+        if self._hd is None or self._hd.drag is None:
+            return
+        if self._hd_label is None:
+            self._hd_label = QLabel(self)
+            self._hd_label.setStyleSheet("QLabel { background: rgba(30,30,30,200); color: white; "
+                                         "padding: 2px 6px; border-radius: 3px; }")
+        self._hd_label.setText(self._hd.readout() + "   (type a value, Enter; Esc cancels)")
+        self._hd_label.adjustSize()
+        pos = self.mapFromGlobal(self.cursor().pos())
+        self._hd_label.move(pos.x() + 16, pos.y() + 16)
+        self._hd_label.show()
+
     def _ray(self, x: int, y: int):
         X, Y, Z, vx, vy, vz = self.view.ConvertWithProj(x, y)
         return (X, Y, Z), (vx, vy, vz)
@@ -1737,6 +1877,12 @@ class OccViewport(QWidget):
             self._drag = "sculpt"
             self._sculpt_start(x, y, e.modifiers())
             return
+        if (self._hd is not None and e.button() == Qt.LeftButton
+                and self._hd.press(x, y, lambda q: self.view.Convert(*q), self._ray)):
+            self._drag = "handle"
+            self._draw_handles()
+            self._handle_preview()
+            return
         if (self._cp is not None and e.button() == Qt.LeftButton
                 and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
             self._drag = "point"
@@ -1772,6 +1918,11 @@ class OccViewport(QWidget):
         if self.sculpt_on and self._press is None and not self._sketching():
             self._brush_hover(x, y)
             return  # no hover highlight while sculpting: the brush circle shows where it acts
+        if self._drag == "handle":
+            if moved and self._hd is not None:
+                self._hd.move(self._ray(x, y), free=bool(e.modifiers() & Qt.ShiftModifier))
+                self._handle_preview()
+            return
         if self._drag == "point":
             if moved:
                 self._cp.move(self._ray(x, y))
@@ -1828,6 +1979,9 @@ class OccViewport(QWidget):
             self._knife_px.append((x, y))
             self._sculpt_done()
             return
+        if drag == "handle":
+            self.finish_handle_drag(cancel=not moved and not (self._hd and self._hd.drag and self._hd.drag.typed))
+            return
         if drag == "point":
             if not moved:
                 self._cp.cancel()
@@ -1853,7 +2007,33 @@ class OccViewport(QWidget):
         if name and name.startswith("C") and name[1:].isdigit():
             self.edit_dimension.emit(name)
 
+    def finish_handle_drag(self, cancel: bool = False) -> str | None:
+        """End a handle drag: write its step (or nothing, with cancel)."""
+        hd = self._hd
+        self._drag, self._press = "", None
+        self._end_handle_preview()
+        text = None
+        if hd is not None:
+            if cancel:
+                hd.cancel()
+            else:
+                text = hd.release()
+        self._draw_handles()
+        if text:
+            self.command.emit(text)
+        return text
+
     def keyPressEvent(self, e) -> None:
+        if self._drag == "handle" and self._hd is not None:
+            if e.key() == Qt.Key_Escape:
+                self.finish_handle_drag(cancel=True)
+                return
+            if e.key() in (Qt.Key_Return, Qt.Key_Enter):
+                self.finish_handle_drag()
+                return
+            if self._hd.type_key("\b" if e.key() == Qt.Key_Backspace else e.text()):
+                self._handle_preview()
+                return
         if self._drag == "sculpt" and e.key() == Qt.Key_Escape and self._live is not None:
             live, self._live = self._live, None
             self._end_live(live)
