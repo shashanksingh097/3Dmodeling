@@ -1202,6 +1202,7 @@ done.
 82. **Parts that share faces** (P2): `IMPRINT` and `SHARE, a, b` split
     touching faces of neighbouring parts so they share the same face where
     they touch, written to STEP so the separate app meshes them as one
-    connected piece; `SHARECHECK` already lists what is still apart. Small
+    connected piece; `SHARE, ALL, CHECK` lists the touching pairs that are
+    still apart. Small
     faces, slivers and short edges that would trouble a mesher are listed by
     `CHECK, b, FLAWS` and can be merged away (`MERGEFACES`).
