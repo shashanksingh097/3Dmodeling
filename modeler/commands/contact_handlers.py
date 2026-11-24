@@ -181,6 +181,8 @@ def relate_cmd(p: Processor, a, b, fmt):
     help=(
         "Rule checks on a body, each problem with IDs: broken or open, not a solid, loose pieces, tiny edges, "
         "sliver faces, faces cutting through each other, and with minwall thin walls: DESIGNCHECK, housing, 2. "
+        "Each problem has a severity (ERROR or WARNING), the value measured and the limit it breaks, and a "
+        "fix, tried on a copy of the model to say whether it works. "
         "PROBLEMS(b) counts them: ASSERT, PROBLEMS(housing), EQ, 0"
     ),
 )
@@ -200,11 +202,19 @@ def designcheck_cmd(p: Processor, b, minwall, minedge, fmt):
     if out["ok"]:
         return head + "no problems (" + ", ".join(out["checked"]) + ")"
     n = len(out["problems"])
-    lines = [head + f"{n} problem{'s' if n != 1 else ''}"]
+    lines = [head + f"{n} problem{'s' if n != 1 else ''} ({out['errors']} error{'s' if out['errors'] != 1 else ''}, "
+             f"{out['warnings']} warning{'s' if out['warnings'] != 1 else ''})"]
     for pr in out["problems"]:
         ids = pr.get("edges") or pr.get("faces")
-        lines.append(f"  {pr['rule']}: {pr['message']}" + (f" ({'edges' if 'edges' in pr else 'faces'} {ids})" if ids else ""))
+        lines.append(f"  {pr['severity'].upper()} {pr['rule']}: {pr['message']}"
+                     + (f" ({'edges' if 'edges' in pr else 'faces'} {ids})" if ids else ""))
+        lines.append(f"      measured {_v(pr['measured'])}, limit {_v(pr['limit'])}; fix: {pr['fix']}"
+                     + (f" ({pr['fix_checked']} on a copy)" if pr["fix_checked"] != "not tried" else ""))
     return "\n".join(lines)
+
+
+def _v(x) -> str:
+    return f"{x:g}" if isinstance(x, float) else str(x)
 
 
 @command(

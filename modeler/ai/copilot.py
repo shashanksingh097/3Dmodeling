@@ -64,8 +64,9 @@ How to work:
   nothing. Keep pictures small.
 - Before you suggest a script, try it: sandbox, then run (and check with expectations such as
   'VOL(b), BETWEEN, 900, 1100' or 'VALID(b)'). Fix what fails.
-- When a script works, call propose_commands with the script and a one-line summary. The user
-  sees it with a Run button. You cannot change the user's model yourself, so never say that you
+- When a script works, call propose_commands with the script, a one-line summary and the plan
+  (the steps in plain words). The user sees it with its effect, worked out on a copy, and a Run
+  button; one Undo takes the whole proposal back. One proposal per answer. You cannot change the user's model yourself, so never say that you
   did; say what the proposal will do.
 - To change what is already there (a size, a step that fails, a hole in the wrong place), read the
   history and call propose_edits to change those steps, rather than adding steps on top. Sizes are
@@ -192,6 +193,14 @@ class Proposal:
     script: str
     summary: str
     edits: list[dict[str, Any]] = field(default_factory=list)
+    plan: str = ""  # the assistant's steps in plain words
+    # what running it does, worked out on a copy of the model (safeguards.effect): "text" to show,
+    # "broad" the reasons it needs a confirm (empty: none)
+    effect: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def broad(self) -> list[str]:
+        return list(self.effect.get("broad", []))
 
     def commands(self) -> list[str]:
         """The lines to run, one command line each (history edits are HIST commands)."""
@@ -476,7 +485,7 @@ class CopilotAssistant:
                 self.on_event("tool", name)
                 if self._reply is not None:
                     self._reply.tools.append(name)
-                self._log("tool_call", name=name, args=args)
+                self._log("tool_call", name=name, tool_kind=_kind(name), args=args)
                 t0 = time.perf_counter()
                 try:
                     if name == "propose_commands":
@@ -536,11 +545,19 @@ class CopilotAssistant:
         problems = [x for x in lint.get("issues", []) if x.get("level") == "error"] if isinstance(lint, dict) else []
         if problems:
             return {"error": "the script does not pass LINT", "problems": problems[:5]}
-        prop = Proposal(script, str(args.get("summary", "")).strip())
+        from . import safeguards as sg
+
+        eff = self.run_on_model(lambda: sg.plan_script(self.toolbox.real, script))
+        if "error" in eff:
+            return {"error": "the script fails on a copy of the model: " + eff["error"],
+                    "hint": "try it with sandbox and run, then propose what works"}
+        prop = Proposal(script, str(args.get("summary", "")).strip(), plan=str(args.get("plan", "")).strip(),
+                        effect=eff)
         if self._reply is not None:
             self._reply.proposals.append(prop)
         self.on_event("proposal", prop)
-        return {"shown_to_user": True, "lines": len(script.splitlines())}
+        return {"shown_to_user": True, "lines": len(script.splitlines()), "effect": eff["text"],
+                "needs_confirm": eff["broad"]}
 
     def _propose_edits(self, args: dict[str, Any]) -> dict[str, Any]:
         """Try history edits on a sandbox copy; show them when every step still works."""
@@ -585,11 +602,16 @@ class CopilotAssistant:
                   for i, e in enumerate(p.history[: p.cursor], 1) if not e.ok]
         if len(failed) > before:
             return {"error": "after these edits some steps fail; fix them first", "failed": failed[:5]}
-        prop = Proposal("", str(args.get("summary", "")).strip(), edits)
+        from . import safeguards as sg
+
+        eff = sg.effect(self.toolbox.real, p, edits=edits)
+        prop = Proposal("", str(args.get("summary", "")).strip(), edits, plan=str(args.get("plan", "")).strip(),
+                        effect=eff)
         if self._reply is not None:
             self._reply.proposals.append(prop)
         self.on_event("proposal", prop)
-        return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies)}
+        return {"shown_to_user": True, "edits": len(edits), "bodies_after": len(p.model.bodies),
+                "effect": eff["text"], "needs_confirm": eff["broad"]}
 
     # ---- pointing: the user clicks for Copilot, Copilot marks for the user ---------------
     async def _ask_pick(self, args: dict[str, Any], timeout: float = 300.0) -> dict[str, Any]:
@@ -889,9 +911,15 @@ class CopilotAssistant:
 _PROPOSE = {
     "name": "propose_commands",
     "description": "Show the user a script with a Run button, after it worked in the sandbox. The script is "
-                   "checked with LINT first. summary: one line on what running it does.",
-    "input_schema": {"type": "object", "properties": {"script": {"type": "string"}, "summary": {"type": "string"}},
-                     "required": ["script"]},
+                   "checked with LINT first, then run on a copy of the model to work out its effect (bodies "
+                   "added, changed, removed), which the user sees with it. summary: one line on what running it "
+                   "does. plan: the steps in order and what each should do, in plain words. Put the whole change "
+                   "for one answer in one proposal: the user runs it, and one Undo takes it all back. A broad "
+                   "change (removing bodies, changing several, re-running much of the history, using files) "
+                   "needs the user's extra confirm.",
+    "input_schema": {"type": "object", "properties": {"script": {"type": "string"}, "summary": {"type": "string"},
+                                                      "plan": {"type": "string"}},
+                     "required": ["script", "summary"]},
 }
 
 
@@ -901,12 +929,14 @@ _PROPOSE_EDITS = {
                    "('edit'), add a step before entry n ('insert'), or remove one ('delete'). Applied in order, "
                    "each entry number as the history stands after the edits before it. They are tried on a "
                    "sandbox copy first and refused if a step then fails. Use this to change sizes or fix steps "
-                   "instead of adding new steps on top. summary: one line on what changes.",
+                   "instead of adding new steps on top. summary: one line on what changes; plan: why each edit, in "
+                   "plain words. The user sees the expected effect (bodies changed, steps re-run) before Run, "
+                   "and one Undo takes all the edits back.",
     "input_schema": {"type": "object", "properties": {
         "edits": {"type": "array", "items": {"type": "object", "properties": {
             "action": {"type": "string", "enum": ["edit", "insert", "delete"]},
             "entry": {"type": "integer"}, "text": {"type": "string"}}, "required": ["entry"]}},
-        "summary": {"type": "string"}}, "required": ["edits"]},
+        "summary": {"type": "string"}, "plan": {"type": "string"}}, "required": ["edits", "summary"]},
 }
 
 
@@ -987,6 +1017,15 @@ _READ_FILE = {
 }
 
 
+_KIND_WORDS = {"try": "on a copy", "view": "view", "propose": "proposes a change", "change": "changes the model"}
+
+
+def _kind(name: str) -> str:
+    from .safeguards import kind_of
+
+    return kind_of(name)
+
+
 def _pretty(value: Any) -> str:
     """Indented JSON, but lists of plain numbers or words stay on one line ([20.0, 15.0, 0.0])."""
     text = json.dumps(value, indent=2, ensure_ascii=False, default=str)
@@ -1006,7 +1045,8 @@ def format_log(log: list[dict[str, Any]]) -> str:
         elif k == "prompt":
             out.append(f"[{t}] YOU\n{e.get('text', '')}")
         elif k == "tool_call":
-            out.append(f"[{t}] TOOL CALL {e.get('name')} "
+            tk = e.get("tool_kind", "read")
+            out.append(f"[{t}] TOOL CALL {e.get('name')} " + (f"({_KIND_WORDS.get(tk, tk)}) " if tk != "read" else "") +
                        f"{json.dumps(e.get('args', {}), ensure_ascii=False, default=str)}")
         elif k == "tool_result":
             res = str(e.get("result", ""))

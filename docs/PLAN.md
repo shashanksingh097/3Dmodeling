@@ -1106,6 +1106,11 @@ three per pull request.
 66. **Assistant safeguards and reports** (P3): a plan before any change, a
     confirm step for broad changes, one undo per assistant turn, fuller
     `DESIGNCHECK` rows.
+    *Done: tool kinds with a check that reading tools change nothing, the
+    effect worked out on a copy and shown with every proposal, a tick for
+    broad changes (`confirm` for MCP `apply`), `Processor.undo_group`,
+    DESIGNCHECK severity/measured/limit/fix/checked. See
+    `docs/assistant-safeguards.md`.*
 67. **Scope and release 0.6.0**: known limitations, a written scope list,
     then the release.
 

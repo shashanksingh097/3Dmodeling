@@ -64,8 +64,42 @@ def test_run_a_proposal(win, app):
     assert len(win.processor.history) == n + 2
     assert len(win.processor.model.bodies) == 2
     assert not panel.proposal_box.isVisibleTo(panel)
+    win.execute("UNDO")  # one Undo takes the whole proposal back
+    assert len(win.processor.model.bodies) == 0 and win.processor.cursor == n
+    win.execute("REDO")
+    assert len(win.processor.model.bodies) == 2 and win.processor.cursor == n + 2
+
+
+def test_a_proposal_shows_its_effect_and_a_broad_one_needs_a_tick(win, app):
+    from modeler.ai import safeguards as sg
+
+    p = win.processor
+    for line in ("BLOCK, 0,0,0, 10,10,10", "BLOCK, 20,0,0, 30,10,10", "BLOCK, 40,0,0, 50,10,10"):
+        win.execute(line)
+    script = "SPHERE, 5,5,5, 2"
+    panel = win.assistant_panel
+    panel.show_proposal(cp.Proposal(script, "a ball", plan="one sphere in the first block",
+                                    effect=sg.plan_script(p, script)))
+    pump(app)
+    assert "Adds 1 body" in panel.effect_label.toPlainText() and "Plan:" in panel.proposal_label.text()
+    assert panel.run_button.isEnabled() and not panel.confirm_box.isVisibleTo(panel)
+    panel.clear_proposal()
+
+    script = "DELETE, 1\nDELETE, 2"
+    eff = sg.plan_script(p, script)
+    assert eff["broad"] and "removes 2 bodies" in eff["broad"][0]
+    panel.show_proposal(cp.Proposal(script, "remove two blocks", effect=eff))
+    pump(app)
+    assert panel.confirm_box.isVisibleTo(panel) and not panel.run_button.isEnabled()
+    panel.run_proposal()  # without the tick nothing runs
+    assert len(p.model.bodies) == 3
+    panel.confirm_box.setChecked(True)
+    assert panel.run_button.isEnabled()
+    panel.run_proposal()
+    pump(app)
+    assert len(p.model.bodies) == 1
     win.execute("UNDO")
-    assert len(win.processor.model.bodies) == 1
+    assert len(p.model.bodies) == 3
 
 
 def test_dismiss_a_proposal(win, app):

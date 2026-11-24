@@ -2198,6 +2198,25 @@ sliver faces, and faces cutting through each other. `DESIGNCHECK, housing, 2`
 also reports walls thinner than 2. `PROBLEMS(b)` counts the problems:
 `ASSERT, PROBLEMS(housing, 2), EQ, 0`.
 
+Each problem is a report row: its **severity** (ERROR for a broken, open,
+inside-out or self-cutting body or one that is not a solid; WARNING for loose
+pieces, tiny edges, slivers and thin walls), the value **measured** and the
+**limit** it breaks, a suggested **fix** (a command such as `HEAL, housing`,
+`EXPLODE, housing` or `CLEAN, housing`, or advice where no one command
+fixes it) and whether the fix was **checked**: the fix is run on a copy of
+the model and the rule tested again, so the row says "fixes it on a copy",
+"does not fix it on a copy", or nothing when it is advice. The model itself
+is not changed.
+
+```
+body 3 (a): 1 problem (0 errors, 1 warning)
+  WARNING pieces: 2 separate pieces in one body
+      measured 2, limit 1; fix: EXPLODE, a (fixes it on a copy)
+```
+
+`DESIGNCHECK, housing, 0, 0, JSON` gives the same rows as data (`severity`,
+`measured`, `limit`, `fix`, `fix_is_command`, `fix_checked`).
+
 ### The same, for the AI assistant
 
 `modeler/ai/tools.py` wraps these (and a sandbox to try scripts in) as a

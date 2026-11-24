@@ -157,11 +157,24 @@ def _area(shape) -> float:
     return g.Mass()
 
 
+# what each DESIGNCHECK rule means for the part: errors stop export, booleans or manufacture;
+# warnings are worth a look
+SEVERITY = {"valid": "error", "closed": "error", "solid": "error", "inside_out": "error",
+            "self_intersection": "error", "pieces": "warning", "small_edges": "warning",
+            "slivers": "warning", "min_wall": "warning"}
+
+
 def design_check(p: "Processor", body, min_wall: float = 0.0, min_edge: float = 0.0,
-                 limit: int = 20) -> dict[str, Any]:
+                 limit: int = 20, try_fixes: bool = True) -> dict[str, Any]:
     """Rule checks on one body, each problem with IDs: broken (not valid, open edges, inside out),
     in loose pieces, not a solid, edges shorter than ``min_edge``, narrow sliver faces, walls
-    thinner than ``min_wall`` (when given) and faces that cut through each other."""
+    thinner than ``min_wall`` (when given) and faces that cut through each other.
+
+    Each problem is a report row: ``severity`` (error or warning), ``measured`` and ``limit``
+    (the value found and the one it breaks, in model units or as counts), a suggested ``fix``
+    (a command line, or advice when no one command fixes it) and ``fix_checked``: with
+    ``try_fixes`` the fix is run on a copy of the model and the check repeated, giving
+    "fixes it", "does not fix it" (the rule still breaks, or the fix fails) or "not tried" (advice)."""
     bid = find_body(p, body)
     b = p.model.bodies[bid]
     shape = b.shape
@@ -170,17 +183,24 @@ def design_check(p: "Processor", body, min_wall: float = 0.0, min_edge: float = 
     problems: list[dict[str, Any]] = []
     rep = robust.report(shape)
     checked = ["valid", "closed", "pieces", "small_edges", "slivers"]
+    ref = b.name or str(bid)
+
+    def row(rule: str, message: str, measured, lim, fix: str = "", advice: str = "", **extra) -> None:
+        problems.append({"rule": rule, "severity": SEVERITY[rule], "message": message, "measured": measured,
+                         "limit": lim, "fix": fix or advice, "fix_is_command": bool(fix), **extra})
+
     if not rep["valid"]:
-        problems.append({"rule": "valid", "message": "the kernel finds the shape broken; try HEAL"})
+        row("valid", "the kernel finds the shape broken; try HEAL", "broken", "valid", f"HEAL, {ref}")
     if rep["open_edges"]:
-        problems.append({"rule": "closed", "message": f"{rep['open_edges']} edges have a face on one side only "
-                                                      "(an open shell, not a closed solid)"})
+        row("closed", f"{rep['open_edges']} edges have a face on one side only (an open shell, not a closed "
+                      "solid)", rep["open_edges"], 0, f"HEAL, {ref}")
     if rep["solids"] == 0:
-        problems.append({"rule": "solid", "message": "not a solid (a surface, a curve or an open shell)"})
+        row("solid", "not a solid (a surface, a curve or an open shell)", 0, 1,
+            advice="close it into a solid (HEAL sews a closed skin; THICK gives a surface a thickness)")
     elif rep["solids"] > 1:
-        problems.append({"rule": "pieces", "message": f"{rep['solids']} separate pieces in one body"})
+        row("pieces", f"{rep['solids']} separate pieces in one body", rep["solids"], 1, f"EXPLODE, {ref}")
     if rep["solids"] and rep["volume"] <= 0:
-        problems.append({"rule": "inside_out", "message": "the volume is not positive (turned inside out)"})
+        row("inside_out", "the volume is not positive (turned inside out)", num(rep["volume"]), 0, f"HEAL, {ref}")
     em = b.maps.get("EDGE")
     if em is not None:
         short = []
@@ -190,9 +210,8 @@ def design_check(p: "Processor", body, min_wall: float = 0.0, min_edge: float = 
                 short.append((ln, b.entity_ids["EDGE"][k - 1]))
         if short:
             short.sort()
-            problems.append({"rule": "small_edges", "message": f"{len(short)} edges shorter than {num(small):g}",
-                             "edges": [i for _, i in short[:limit]],
-                             "shortest": num(short[0][0])})
+            row("small_edges", f"{len(short)} edges shorter than {num(small):g}", num(short[0][0]), num(small),
+                f"HEAL, {ref}, {num(small):g}", edges=[i for _, i in short[:limit]], shortest=num(short[0][0]))
     fm = b.maps.get("FACE")
     if fm is not None:
         slivers = []
@@ -205,24 +224,53 @@ def design_check(p: "Processor", body, min_wall: float = 0.0, min_edge: float = 
                 slivers.append((width, b.entity_ids["FACE"][k - 1]))
         if slivers:
             slivers.sort()
-            problems.append({"rule": "slivers", "message": f"{len(slivers)} faces narrower than about "
-                                                           f"{num(small):g} (slivers)",
-                             "faces": [i for _, i in slivers[:limit]]})
+            row("slivers", f"{len(slivers)} faces narrower than about {num(small):g} (slivers)",
+                num(slivers[0][0]), num(small / 2), f"CLEAN, {ref}", faces=[i for _, i in slivers[:limit]])
     if min_wall and min_wall > 0 and rep["solids"]:
         from .probe import wall_thickness
 
         checked.append("min_wall")
         thin = wall_thickness(p, bid, float(min_wall), limit)
         if thin["thinnest"]:
-            problems.append({"rule": "min_wall", "message": f"walls thinner than {num(min_wall):g}: thinnest "
-                                                            f"{thin['min']:g}",
-                             "spots": thin["thinnest"][:limit]})
+            row("min_wall", f"walls thinner than {num(min_wall):g}: thinnest {thin['min']:g}", thin["min"],
+                num(min_wall), advice=f"make these walls at least {num(min_wall):g} thick: edit the size or "
+                                      "SHELL thickness that made them, or OFFSET the faces (the spots say where)",
+                spots=thin["thinnest"][:limit])
     if rep["faces"] <= 400:
         checked.append("self_intersection")
         if robust.self_intersects(shape):
-            problems.append({"rule": "self_intersection", "message": "faces of the body cut through each other"})
+            row("self_intersection", "faces of the body cut through each other", "faces cross", "none",
+                f"HEAL, {ref}")
+    for pr in problems:
+        pr["fix_checked"] = _try_fix(p, bid, pr, min_wall, min_edge) if try_fixes else "not tried"
     return {"rev": p.model.revision, "unit": p.model.units.lower(), "body": _label(p, bid),
-            "ok": not problems, "problems": problems, "checked": checked, "small": num(small)}
+            "ok": not problems, "problems": problems, "checked": checked, "small": num(small),
+            "errors": sum(1 for x in problems if x["severity"] == "error"),
+            "warnings": sum(1 for x in problems if x["severity"] == "warning")}
+
+
+def _try_fix(p: "Processor", bid: int, problem: dict[str, Any], min_wall: float, min_edge: float) -> str:
+    """Run the suggested fix on a copy of the model and check the rule again."""
+    if not problem.get("fix_is_command"):
+        return "not tried"
+    from .sandbox import Sandbox
+
+    try:
+        box = Sandbox(p)
+        q = box.p
+        before = set(q.model.bodies)
+        if not q.run(problem["fix"]).ok:
+            return "does not fix it"  # the fix itself fails (HEAL with nothing to join, say)
+        targets = [bid] if bid in q.model.bodies else sorted(set(q.model.bodies) - before)
+        if not targets:
+            return "does not fix it"
+        for t in targets:
+            again = design_check(q, t, min_wall, min_edge, try_fixes=False)
+            if any(x["rule"] == problem["rule"] for x in again["problems"]):
+                return "does not fix it"
+        return "fixes it"
+    except Exception:  # noqa: BLE001 - a fix that cannot even be tried is reported as not tried
+        return "not tried"
 
 
 def _edges(face):

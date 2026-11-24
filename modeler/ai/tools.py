@@ -85,6 +85,23 @@ class Toolbox:
         missing = [k for k in tool.required if k not in args]
         if missing:
             return {"error": f"{name} needs {', '.join(missing)}"}
+        from . import safeguards as sg
+
+        real = self.real
+        mark = sg.fingerprint(real)
+        backup, undo, redo = real.history_backup(), list(real._undo), list(real._redo)
+        try:
+            answer = self._call(tool, args)
+        finally:
+            if sg.fingerprint(real) != mark:  # a tool that reads or tries must never change the model
+                real.history_restore(backup)
+                real._undo, real._redo = undo, redo
+                real.model.selection = list(backup["state"]["model"]["selection"])
+                answer = {"error": f"{name} changed the user's model, which tools may not do; it was put back. "
+                                   "This is a bug: please report it."}
+        return answer
+
+    def _call(self, tool: Tool, args: dict[str, Any]) -> dict[str, Any]:
         try:
             return tool.fn(**args)
         except ToolError as exc:
