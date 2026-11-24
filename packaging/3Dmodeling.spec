@@ -18,6 +18,7 @@ from modeler import __version__  # noqa: E402
 hidden = [m for m in collect_submodules("OCP") if ".IVtk" not in m] + collect_submodules("modeler")
 hidden += collect_submodules("meshio")  # mesh file readers, imported when a mesh is read
 hidden += ["scipy.sparse.linalg", "scipy.spatial"]  # STRESS, imported when it runs
+hidden += ["PySide6.QtTest"]  # the desktop check moves the mouse with it (modeler/desktop_check.py)
 hidden += ["manifold3d"]  # mesh booleans, imported when a mesh body is combined
 try:  # the assistant (pip install ".[ai]"); its Copilot runtime downloads on first use
     hidden += collect_submodules("copilot")

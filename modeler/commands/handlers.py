@@ -674,6 +674,7 @@ def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
     """Coordinate systems on a body (CSYS) go where the body goes."""
     from ..core.datum import Datum
 
+    moved = False
     for name, owner in m.frames.items():
         d = m.datums.get(name)
         if owner != bid or d is None:
@@ -682,6 +683,9 @@ def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
         z, x = gp_Dir(*d.z).Transformed(trsf), gp_Dir(*d.x).Transformed(trsf)
         m.datums = {**m.datums, name: Datum(d.kind, d.name, (o.X(), o.Y(), o.Z()), (z.X(), z.Y(), z.Z()),
                                                (x.X(), x.Y(), x.Z()))}
+        moved = True
+    if moved:
+        m.datums_changed()  # the view draws them where they are now
 
 
 @command("MOVE", Arg("b", BodyRef), Arg("dx", float, 0.0), Arg("dy", float, 0.0), Arg("dz", float, 0.0),

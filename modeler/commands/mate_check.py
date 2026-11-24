@@ -437,6 +437,7 @@ def csys(p: Processor, name, on, **raws):
         how = f"on body {bid}" if bid else "fixed in space"
     msg = _add(p, d, how)
     m.frames = {**m.frames, name.upper(): bid}
+    m.datums_changed()  # drawn as a coordinate system now, not a plane
     return msg.replace("plane ", "coordinate system ", 1) + f", x {_vec(_clean(d.x))}"
 
 

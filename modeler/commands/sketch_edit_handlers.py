@@ -146,6 +146,8 @@ def spattern(p: Processor, kind, **raws):
     if n != int(n) or n < 2:
         raise CommandError("SPATTERN: the count is a whole number, 2 or more (the original counts)")
     n = int(n)
+    if n > 1000:
+        raise CommandError(f"SPATTERN: {n} copies is more than a sketch can hold in a sensible time; at most 1000")
     with _sketch_error("SPATTERN"):
         if kind == "LINEAR":
             step = (r.num("du"), r.num("dv"))

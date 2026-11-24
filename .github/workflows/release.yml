@@ -124,6 +124,21 @@ jobs:
           out=$("$dir/3Dmodeling-cli" copilot status 2>&1 || true)
           echo "$out"
           echo "$out" | grep -q "not signed in"
+      # the built app in a real window (docs/site/desktop-check.md); hosted runners have no real
+      # GPU, so this is best effort: the report is kept to read either way
+      - name: Desktop check (best effort)
+        if: runner.os != 'Linux'
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then dir=dist/3Dmodeling.app/Contents/MacOS; else dir=dist/3Dmodeling; fi
+          "$dir/3Dmodeling-cli" desktop-check --out "$RUNNER_TEMP/desktop-check"
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os != 'Linux'
+        continue-on-error: true
+        with:
+          name: desktop-check-${{ runner.os }}
+          path: ${{ runner.temp }}/desktop-check
       - name: Pack
         shell: bash
         env:

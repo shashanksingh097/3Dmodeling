@@ -510,6 +510,7 @@ class Model:
     # entities whose input is checked for what it made: more than this and the parents are
     # left out (a boolean on a 300-hole plate should not pay for them)
     PARENT_LIMIT = 4000
+    SKIP_UNTOUCHED = True
 
     def _note_parents(self, body: Body, made_from, fresh: dict[str, set[int]],
                       split_from: dict[str, dict[int, tuple[str, int]]]) -> None:
@@ -528,11 +529,17 @@ class Model:
         if sum(len(b.entity_ids[k]) for b in inputs for k in ENTITY_KINDS) > self.PARENT_LIMIT:
             return
         kind_of = {_TOPABS[k]: k for k in ENTITY_KINDS}
+        # a boolean passes most entities through untouched, and one that is still in the result
+        # as it was cannot have made anything new (anything made on it would have split it):
+        # asking the kernel about those only costs time (a quarter second a cut on a 300-hole part)
+        untouched = type(maker).__name__.startswith("BRepAlgoAPI_") and self.SKIP_UNTOUCHED
         for pk in ("EDGE", "FACE", "VERTEX"):
             for b in inputs:
                 old_map = b.maps[pk]
                 for i, pgid in enumerate(b.entity_ids[pk]):
                     old = old_map.FindKey(i + 1)
+                    if untouched and body.maps[pk].Contains(old):
+                        continue
                     try:
                         made = list(maker.Generated(old))
                     except Exception:  # noqa: BLE001  (not every maker tracks every kind)
@@ -936,6 +943,10 @@ class Model:
             self._emit(Event("selection"))
 
     # ---- datums ------------------------------------------------------------
+    def datums_changed(self) -> None:
+        """Tell the view that datums moved or changed how they are drawn."""
+        self._emit(Event("datums"))
+
     def add_datum(self, d: Datum) -> None:
         key = d.name.upper()
         if self.body_by_name(d.name) is not None:

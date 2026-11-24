@@ -680,6 +680,72 @@ def _shown_path(path: str) -> str:
         return path
 
 
+# ----------------------------------------------------------------- demonstrations
+
+DEMOS = os.path.join(DOCS, "demos")
+DEMO_ORDER = ("machined_bracket", "freeform_mouse", "assembly_hinge", "scan_to_cad", "sheet_metal_cover")
+
+
+def demo_scripts() -> list[str]:
+    """The demonstration projects (docs/demos/*.cmd), in the order the website shows them."""
+    names = [n[:-4] for n in os.listdir(DEMOS) if n.endswith(".cmd")] if os.path.isdir(DEMOS) else []
+    return sorted(names, key=lambda n: (DEMO_ORDER.index(n) if n in DEMO_ORDER else 99, n))
+
+
+def demo_page(name: str) -> tuple[str, str]:
+    """(title, Markdown) for one demonstration: '! # title' and the '!' lines under it are the
+    introduction, each '! ## heading' starts a part, other '!' lines are its text, and the
+    commands between are shown as they are."""
+    with open(os.path.join(DEMOS, name + ".cmd"), encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    title, out, code = name, [], []
+
+    def flush():
+        if code:
+            out.extend(["", "```text", *code, "```", ""])
+            code.clear()
+
+    for line in lines:
+        text = line.strip()
+        if text.startswith("! # "):
+            title = text[4:].strip()
+        elif text.startswith("! ## "):
+            flush()
+            out.extend(["", "## " + text[5:].strip(), ""])
+        elif text.startswith("!"):
+            flush()
+            out.append(text[1:].strip())
+        elif text or code:
+            code.append(line)
+    flush()
+    head = [f"# {title}", "",
+            f"![{title}]({name}.png)", "",
+            f"Download the whole script: [{name}.cmd]({REPO}/blob/main/docs/demos/{name}.cmd). "
+            "Run it with **File > Run script**, or `python -m modeler run " + name + ".cmd`.", ""]
+    tail = ["", "## Kept working", "",
+            "This project is one of the app's tests (tests/test_demos.py): on every change it is built from an "
+            "empty model, its first parameter is changed and the model rebuilt, it is saved and opened again, "
+            "and every file it writes is read back and compared with the model.", ""]
+    return title, "\n".join(head + out + tail).replace("\n\n\n", "\n\n")
+
+
+def demo_pages() -> tuple[dict[str, str], list]:
+    pages, nav = {}, []
+    rows = ["# Demonstrations", "",
+            "Five complete projects, each from an empty model to files for the workshop. Every one is "
+            "built again by the tests on every change to the app, so what you see here works.", "",
+            "| | Project | What it shows |", "|-|---------|---------------|"]
+    for name in demo_scripts():
+        title, md = demo_page(name)
+        pages[f"demos/{name}.md"] = md
+        nav.append({title: f"demos/{name}.md"})
+        intro = md.split("\n\n")[3].replace("\n", " ") if md.count("\n\n") > 3 else ""
+        intro = intro.split(": ")[0].split(". ")[0].rstrip(".") + "."
+        rows.append(f"| ![]({name}.png){{ width=160 }} | [{title}]({name}.md) | {intro} |")
+    pages["demos/index.md"] = "\n".join(rows) + "\n"
+    return pages, [{"Overview": "demos/index.md"}] + nav
+
+
 def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
     """Write the site's source (Markdown pages and mkdocs.yml) to out. Returns the failing examples."""
     examples = read_examples()
@@ -691,6 +757,8 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
     add_pictures(pages, examples)
     link_commands_in_pages(pages)
     pages.update(reference_pages(examples, said))
+    dp, demo_nav = demo_pages()
+    pages.update(dp)
     if os.path.isdir(out):
         shutil.rmtree(out)
     docs_out = os.path.join(out, "docs")
@@ -705,12 +773,16 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
             dst = os.path.join(docs_out, rel, n)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copy(os.path.join(dirpath, n), dst)
+    os.makedirs(os.path.join(docs_out, "demos"), exist_ok=True)
+    for n in os.listdir(DEMOS) if os.path.isdir(DEMOS) else []:
+        if n.endswith(".png"):
+            shutil.copy(os.path.join(DEMOS, n), os.path.join(docs_out, "demos", n))
     os.makedirs(os.path.join(docs_out, "examples"), exist_ok=True)
     for n in os.listdir(os.path.join(DOCS, "examples")):
         if n.endswith(".png"):
             shutil.copy(os.path.join(DOCS, "examples", n), os.path.join(docs_out, "examples", n))
     hand = {}
-    for path in ("index.md", "quick-start.md"):
+    for path in ("index.md", "quick-start.md", "desktop-check.md"):
         with open(os.path.join(SITE_SRC, path), encoding="utf-8") as f:
             hand[path] = f.read()
     link_commands_in_pages(hand)
@@ -729,6 +801,8 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
         {"Command language": [{"Overview": "language/index.md"}] + lang_nav},
         {"Command reference": ref_nav},
         {"Examples": "examples.md"},
+        {"Demonstrations": demo_nav},
+        {"Desktop check": "desktop-check.md"},
     ]
     with open(os.path.join(SITE_SRC, "mkdocs.yml"), encoding="utf-8") as f:
         base = f.read()

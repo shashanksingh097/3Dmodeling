@@ -1,0 +1,23 @@
+{
+  "about": "Most seconds (and MB the process may hold) for each case of python -m modeler perf; CI fails above them. About five times what a CI runner takes, so only a change that makes something several times slower trips them. Measured 2026-11-19 on a 4-core Linux machine (full): build plate 0.30, import STEP 0.15, pick faces 0.01, drawing 0.24, save 0.001, open 0.28, long history 5.2, rebuild after edit 5.2.",
+  "full": {
+    "build plate": {"seconds": 3},
+    "import STEP": {"seconds": 2},
+    "pick faces": {"seconds": 1},
+    "drawing": {"seconds": 3},
+    "save": {"seconds": 1},
+    "open": {"seconds": 3},
+    "long history": {"seconds": 30, "memory_mb": 1500},
+    "rebuild after edit": {"seconds": 30, "memory_mb": 1500}
+  },
+  "quick": {
+    "build plate": {"seconds": 2},
+    "import STEP": {"seconds": 2},
+    "pick faces": {"seconds": 1},
+    "drawing": {"seconds": 2},
+    "save": {"seconds": 1},
+    "open": {"seconds": 2},
+    "long history": {"seconds": 6},
+    "rebuild after edit": {"seconds": 6}
+  }
+}

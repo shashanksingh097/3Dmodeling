@@ -5,6 +5,15 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ## [Unreleased]
 
 ### Added
+- `python -m modeler desktop-check` (`3Dmodeling-cli desktop-check` in the downloaded app): opens
+  the window and checks the 3D view, mouse picking at the screen's scaling, turning and zooming,
+  files in folders with non-English names, fonts, themes and closing, and writes a report to
+  attach to a problem report. The checks by hand are on the website's Desktop check page; CI and
+  the release builds run it on Windows and macOS and keep the report.
+- `python -m modeler perf`: a speed and memory benchmark (import, picking, drawing, save/open,
+  a long history and its rebuild); CI runs it on every push against `docs/perf-budgets.json`.
+- Clear messages for kernel failures: the command, what the failure usually means, what to try,
+  and the kernel's own words in brackets; a bug says it is one and how to report it.
 - `REFS`: every pick the history holds (PICK, and SEL by IDs) and whether it still points at
   what was picked: ok, repaired or broken, with the reason.
 - **Pick again** on a pick step in History (and `HIST, REPICK, n, "FACE, 12"`): pick again with
@@ -40,8 +49,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - Project safety: every `SAVE` keeps the version it replaces (`BACKUPS`), saving cannot spoil the last
   save, a damaged project names its newest backup, `FILES` and `RELINK` for outside files that moved,
   `SHARECHECK` before sending a project. Projects saved by v0.1 to v0.5 are opened by the tests.
+- Five demonstration projects (`docs/demos/`, a page each on the website under Demonstrations): a
+  machined bracket, a freeform mouse, a hinge assembly, scan to CAD and a sheet metal cover. The tests
+  build each from an empty model, read every file it exports back, save and open it and change its
+  first value.
+- Coordinate systems (`CSYS`) are drawn as small red, green and blue axes instead of large planes.
+- Unfolded sheet metal writes true circles and arcs to DXF, not short lines.
 
 ### Changed
+- Cuts on bodies with many faces are much faster again (300 holes one at a time: 94 s to 17 s;
+  a 243-step history: 21 s to 5 s), and a long history keeps one copy of each state, not two.
+- Counts that would take hours (a million gear teeth, helix turns, polygon sides, smoothing
+  steps, sketch pattern copies) are refused before they start, saying the most allowed.
 - `SEL` by IDs remembers what it picked, like `PICK`, and finds it again when IDs move.
 - Faces and edges that get a new ID remember what they were made from (a fillet face the edge it
   rounds, the smaller piece of a split face that face); a pick uses it to tell look-alikes apart
@@ -59,6 +78,9 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   sharp edges and frozen points stay put while the triangles are evened out and joined, and every
   stroke is checked where it went (folds it made are smoothed flat, anything else is a warning).
   A test runs 2,000 strokes on a growing mesh and finds it clean at the end.
+
+### Fixed
+- `RELINK` with a Windows path such as `C:\Users\...` no longer fails to read the line.
 
 ## [0.5.0] - 2026-11-19
 
