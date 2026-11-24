@@ -47,8 +47,14 @@ def rss_mb() -> float:
 
         c = Counters()
         c.cb = ctypes.sizeof(c)
-        proc = ctypes.windll.kernel32.GetCurrentProcess()
-        if ctypes.windll.psapi.GetProcessMemoryInfo(proc, ctypes.byref(c), c.cb):
+        # the handle is pointer sized: without these types ctypes passes it as a 32-bit int and the
+        # call fails on 64-bit Windows
+        k32, psapi = ctypes.WinDLL("kernel32"), ctypes.WinDLL("psapi")
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+        proc = k32.GetCurrentProcess()
+        if psapi.GetProcessMemoryInfo(proc, ctypes.byref(c), c.cb):
             return c.WorkingSetSize / 2**20
         return 0.0
     import resource
