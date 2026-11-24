@@ -31,6 +31,9 @@ def test_kernel_failures_are_explained():
     assert "points in a line" in msg and msg.endswith("(kernel: Standard_ConstructionError)")
     # an OCCT class this table does not know still reads as the kernel's failure
     assert "the geometry kernel failed on these values" in explain("X", _kernel_error("Foo_Bar")("x"))
+    # macOS builds raise the base class for "not done": it reads the same
+    msg = explain("ARC", _kernel_error("Standard_Failure")("GC_MakeArcOfCircle::Value() - no result"))
+    assert msg.startswith("ARC: the geometry kernel could not make the shape")
 
 
 def test_other_failures_are_explained():
