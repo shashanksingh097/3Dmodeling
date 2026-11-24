@@ -667,7 +667,12 @@ def _transform(p: Processor, bid: int, trsf: gp_Trsf, what: str, copy: bool) -> 
     if inst:
         m.instances[body.id] = inst
     _move_frames(m, bid, trsf)
-    return f"{what} body {bid}" + ("" if body.name == f"body{bid}" else f" '{body.name}'")
+    out = f"{what} body {bid}" + ("" if body.name == f"body{bid}" else f" '{body.name}'")
+    if m.joints:
+        from .joint_handlers import after_move
+
+        out += after_move(p, bid)
+    return out
 
 
 def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
@@ -686,6 +691,10 @@ def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
         moved = True
     if moved:
         m.datums_changed()  # the view draws them where they are now
+    if m.joints:
+        from .joint_handlers import move_joint_frames
+
+        move_joint_frames(m, bid, trsf)
 
 
 @command("MOVE", Arg("b", BodyRef), Arg("dx", float, 0.0), Arg("dy", float, 0.0), Arg("dz", float, 0.0),
@@ -891,14 +900,15 @@ def pick(p: Processor, kind, id, mode):
     return _describe_selection(p)
 
 
-CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS", "OF", "SET", "LAYER", "MAT")
+CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS", "OF", "SET", "LAYER", "MAT",
+            "LIKE", "FEATURE")
 
 
 @command(
     "SEL",
     Arg("mode", str, help="S new, R reselect, A add, U unselect, ALL, NONE, INVE"),
     Arg("kind", str, "", help="BODY, FACE, EDGE or VERTEX"),
-    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET, LAYER, MAT"),
+    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET, LAYER, MAT, LIKE, FEATURE"),
     *[Arg(f"v{i}", Raw, "") for i in range(1, 7)],
     help=(
         "Select by criterion. SEL, S, FACE, ID, 3, 6 (IDs 3..6; 'ID' may be left out) · "
@@ -906,6 +916,8 @@ CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS"
         "SEL, S, FACE, BOX, x0,y0,z0, x1,y1,z1 · SEL, S, FACE, AT, x,y,z · SEL, S, FACE, TYPE, CYLINDER · "
         "SEL, S, EDGE, RADIUS, EQ, 4 · SEL, S, EDGE, OF, FACE (edges of the selected faces) · "
         "SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, S, BODY, LAYER, pipes · SEL, S, BODY, MAT, STEEL · "
+        "SEL, S, FACE, LIKE, 12 [, ALL] (faces like face 12: every hole or round of its size) · "
+        "SEL, S, FACE, FEATURE, FILLET, LT, 2 · "
         "SEL, NONE · SEL, ALL, FACE · SEL, INVE"
     ),
 )
@@ -1112,6 +1124,28 @@ def _match(p: Processor, kind: str, crit: str, vals: list[str]) -> list[int]:
         if not ids:
             raise CommandError(f"SEL: no {kind} with ID {lo}" + (f" to {hi}" if hi != lo else ""))
         return ids
+    if crit == "LIKE":
+        from . import found_handlers as fh
+
+        gid = int(_num(p, vals[0], "the ID to match"))
+        scope = (vals[1] or "BODY").strip().upper()
+        if scope not in ("BODY", "ALL"):
+            raise CommandError("SEL: LIKE, id [, BODY|ALL]: BODY (default) looks in the same body, ALL in all")
+        try:
+            return fh.like(p, kind, gid, scope)
+        except ModelError as exc:
+            raise CommandError(f"SEL: {exc}") from None
+    if crit == "FEATURE":
+        from . import found_handlers as fh
+
+        if kind != "FACE":
+            raise CommandError("SEL: FEATURE picks faces: SEL, S, FACE, FEATURE, HOLE [, LT, 6]")
+        fk = fh._kind("SEL", vals[0] or "", ("HOLE", "FILLET", "CHAMFER", "PATTERN"))
+        op = (vals[1] or "ALL").strip().upper()
+        if op not in fh.OPS:
+            raise CommandError(f"SEL: {op!r} is not one of {', '.join(fh.OPS)}")
+        v = _num(p, vals[2], "the size") if vals[2] else 0.0
+        return fh.feature_faces(p, fk, op, v)
     if crit == "BODY":
         if kind == "BODY":
             raise CommandError("SEL: use SEL, S, BODY, ID, n for bodies")

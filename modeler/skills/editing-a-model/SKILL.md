@@ -1,7 +1,7 @@
 ---
 name: editing-a-model
 description: Change a model that already exists - a size, a hole position, a failing step - by editing its history (parameter lines first) instead of adding patches on top. Use for "make it wider", "move the holes", "change the bolt size".
-commands: HIST, STEPS, UNDO, DIFF, ASSERT
+commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES
 ---
 # Editing a model
 
@@ -21,7 +21,12 @@ Adding a `MOVE` or a `SUBTRACT` on top works once and breaks the next edit.
    `HIST, DELETE, n`, `HIST, SUPPRESS, n` / `RESUME`, `HIST, MOVE, n, to`.
 4. **Look at what changed**: `DIFF` (or the `diff` tool), and run the
    script's `ASSERT` checks again (`check` tool).
-5. In the assistant: try the edit with `round_trip` or in the sandbox,
+5. **Drags in the view** write ordinary steps: an arrow on a body is
+   `MOVE`, a ring `ROTATE` (about the body's middle), the pull arrow on
+   faces `PUSHPULL`, a small arrow `MOVEFACE`. `HANDLES` (after a `PICK`)
+   lists them, so you can write the same step a person's drag would. A drag
+   on a body held by a `JOINT` moves the rest of the linkage too.
+6. In the assistant: try the edit with `round_trip` or in the sandbox,
    then hand it over with `propose_edits` (not `propose_commands`), so the
    user sees old and new text per step.
 

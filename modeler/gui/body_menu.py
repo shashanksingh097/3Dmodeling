@@ -147,8 +147,56 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
             items.append(MenuItem(f"Explode (instance of {part})", [f"EXPLODE, {bid}"]))
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))
+        items += feature_items(model, bid)
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
+    return items
+
+
+def picked_feature(model, bid: int):
+    """(face ID, the found feature it belongs to or None) when one face of body bid is picked."""
+    if model.selection_kind != "FACE" or len(model.selection) != 1:
+        return None
+    gid = next(iter(model.selection))
+    try:
+        owner, idx = model.entity_owner("FACE", gid)
+    except Exception:  # noqa: BLE001 - a stale pick
+        return None
+    if owner != bid:
+        return None
+    from ..geometry import found, robust
+
+    shape = model.body(bid).shape
+    if not robust.solids(shape):
+        return gid, None
+    try:
+        feats = found.find(shape, ("HOLE", "FILLET", "CHAMFER"))
+    except Exception:  # noqa: BLE001 - the menu must open whatever the shape
+        feats = []
+    return gid, next((f for f in feats if idx in f.faces), None)
+
+
+def feature_items(model, bid: int) -> list[MenuItem]:
+    """Features of a solid (PLAN item 70): list them, and for a picked face select the ones
+    like it, change their size or remove them, all in one go."""
+    from ..geometry import robust
+    from ..lang.expr import fmt_num
+
+    if not robust.solids(model.body(bid).shape):
+        return []
+    items = [SEPARATOR, MenuItem("List its holes, rounds and chamfers", [f"FEATURES, {bid}"])]
+    got = picked_feature(model, bid)
+    if got is None:
+        return items
+    gid, feat = got
+    items.append(MenuItem("Select similar", [f"SEL, S, FACE, LIKE, {gid}"]))
+    items.append(MenuItem("Select similar in every body", [f"SEL, S, FACE, LIKE, {gid}, ALL"]))
+    if feat is not None:
+        word = {"HOLE": "holes", "FILLET": "rounds", "CHAMFER": "chamfers"}[feat.kind]
+        size = fmt_num(round(feat.size, 6))
+        items.append(MenuItem(f"Change the size of every {size} {word[:-1]}…",
+                              [f"RESIZE, {bid}, {feat.kind}, EQ, {size}, {size}"], form="RESIZE"))
+        items.append(MenuItem(f"Remove every {size} {word[:-1]}", [f"DEFEATURE, {bid}, {feat.kind}, EQ, {size}"]))
     return items
 
 

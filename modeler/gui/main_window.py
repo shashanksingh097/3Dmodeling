@@ -686,6 +686,13 @@ class MainWindow(QMainWindow):
             group.addAction(act)
             self._mode_actions[kind] = act
         self._mode_actions["FACE"].setChecked(True)
+        handles = tbs.action(self, tb, "Drag handles", "handles",
+                             "Arrows and rings on the picked body, a pull arrow on picked faces: drag one to move, "
+                             "turn or pull (snaps to the grid, Shift drags freely, type a value while dragging, "
+                             "Esc cancels)\nEach drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE",
+                             checkable=True)
+        handles.toggled.connect(self.viewport.set_handles)
+        self.handles_action = handles
 
         tb = tbs.group(self, "View", "view", "Home")
         for name in ("ISO", "TOP", "FRONT", "RIGHT"):

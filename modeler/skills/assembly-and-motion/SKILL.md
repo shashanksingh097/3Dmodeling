@@ -1,7 +1,7 @@
 ---
 name: assembly-and-motion
 description: Assemblies - reusable parts placed as copies, parts mated against each other, a mechanism moved by a parameter (DRIVE, MOTION), clash, contact and gravity checks, and the parts list. Use for anything with more than one part, hinges, linkages, mechanisms.
-commands: *PART, INST, MATE, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL
+commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL
 ---
 # Assemblies and motion
 
@@ -18,9 +18,14 @@ commands: *PART, INST, MATE, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME,
 3. **Place parts** by coordinates from the same parameters, or with
    `MATE, kind, fixed item, moving item [, value] [, FLIP]` (COINCIDENT,
    CONCENTRIC, DISTANCE, ANGLE between FACE, EDGE, VERTEX or DATUM items).
-4. **Motion**: one parameter per joint (`A = 30`), used by the step that
-   places the moving part: `ROTATE, lid, -A, x,y,z, dx,dy,dz` about the
-   hinge line (or a `MATE, ANGLE` with A). `DRIVE, A, 75` holds a value
+4. **Motion**: joints that stay solved. `JOINT, REVOLUTE, EDGE, 2, EDGE,
+   16, A [, LIMITS, 0, 110]` hinges the second item's body on the first
+   (also FIXED, SLIDER, CYLINDRICAL, BALL, PLANAR; couplings `JOINT, GEAR,
+   J1, J2, ratio`, BELT, RACK, SCREW). A positive value moves the part away
+   from the fixed one (REVERSE turns that round). Chains and closed loops
+   (four-bar linkages) are solved together; `JOINTS` lists each joint, its
+   value now, what it leaves free and any that fight, as data. Hold a joint
+   with one parameter per motion (`A = 30`). `DRIVE, A, 75` holds a value
    without touching the history; `MOTION, A, 0, 120, 12` checks every pair
    of parts at each position and puts A back.
 5. **Will it stand up**: `GRAVITY, ground [, "fastened parts"]`: floating
@@ -49,8 +54,10 @@ ASSERT, OVERLAP(lid, base), EQ, 0
 
 ## Mistakes to avoid
 
-* Rotating about the origin instead of the hinge line: give the point
-  and direction of the axis in ROTATE.
+* Rotating about the origin instead of the hinge line: use a JOINT, or
+  give the point and direction of the axis in ROTATE.
+* A joint that fights (JOINTS says FIGHTS): two joints that want different
+  places, or a held value outside its limits. Remove one or free a value.
 * Parts that stick through each other at some angles only: a check at one
   position is not enough; run MOTION over the whole range.
 * Using body numbers for copies (`4`, `5`): name them.

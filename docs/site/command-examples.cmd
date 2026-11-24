@@ -726,6 +726,49 @@ HOLE, 1, 20, 15, 10, 8
 SEL, S, FACE, TYPE, CYLINDER
 DELFACE
 
+@ FEATURES pic
+! The holes, rounds, chamfers and rows of holes on a part, found from its faces
+! alone, so it works on imported STEP parts too.
+BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
+SEL, S, EDGE, LOC, Z, 10
+SEL, R, EDGE, LOC, X, 0
+FILLET, 3
+SEL, S, FACE, LOC, Z, 10
+HOLE, plate, 20,20,10, 6
+HOLE, plate, 40,20,10, 6
+HOLE, plate, 60,20,10, 6
+FEATURES, plate
+
+@ DEFEATURE
+! Remove every round under 4 and every 6 hole in one step each.
+BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
+SEL, S, EDGE, LOC, Z, 10
+FILLET, 2
+SEL, S, FACE, LOC, Z, 10
+HOLE, plate, 20,20,10, 6
+DEFEATURE, plate, FILLET, LT, 4
+DEFEATURE, plate, HOLE, EQ, 6
+
+@ RESIZE
+! Every 6 hole becomes 8, in place, keeping its depth.
+BLOCK, 0,0,0, 80,40,10
+NAME, LAST, plate
+SEL, S, FACE, LOC, Z, 10
+HOLE, plate, 20,20,10, 6
+HOLE, plate, 60,20,10, 6, 5
+RESIZE, plate, HOLE, EQ, 6, 8
+FEATURES, plate, HOLE
+
+@ HANDLES
+! The drag handles the 3D view shows for a pick, and the step a drag of each
+! writes (turn on Home > Drag handles to drag them with the mouse).
+BLOCK, 0,0,0, 40,20,10
+NAME, LAST, plate
+PICK, BODY, plate
+HANDLES
+
 @ MOVEFACE
 ! Move the +X side face of a block 6 in -X.
 BLOCK, 0,0,0, 40, 30, 10
@@ -1400,6 +1443,26 @@ MILL, plate, POCKET, floor, 6, 4, , plate.nc
 INST, bolt, 0, 0, 0
 INST, bolt, 30, 0, 0
 INST, bolt, 60, 0, 0, D=12, L=40
+
+@ JOINT pic
+! A lid on a hinge along the back edge of a box, held open at A degrees.
+! DRIVE, A, 90 or MOTION, A, 0, 110, 11 moves it; the joint stays true.
+A = 60
+BLOCK, 0,0,0, 40,30,10
+NAME, LAST, box
+BLOCK, 0,0,10, 40,30,2
+NAME, LAST, lid
+JOINT, REVOLUTE, EDGE, 2, EDGE, 16, A, LIMITS, 0, 110
+JOINTS
+
+@ JOINTS
+! Every joint, its value now, what it leaves free and any that fight.
+BLOCK, -50,-2,-2, 100, 4, 1
+NAME, LAST, rail
+BLOCK, -5,-2,0, 10, 4, 3
+NAME, LAST, car
+JOINT, SLIDER, FACE, 6, FACE, 11, 12
+JOINTS
 
 @ MATE
 ! Put a bolt in a hole by its faces: first the axes in line, then the head on the plate.
