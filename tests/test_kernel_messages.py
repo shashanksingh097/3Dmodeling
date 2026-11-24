@@ -92,9 +92,10 @@ def test_a_sketch_pattern_of_a_million_is_refused():
     assert "at most 1000" in p.run("SPATTERN, POLAR, 1e6, 360, O, 1").message
 
 
-def test_every_command_answers_in_plain_words():
+def test_every_command_answers_in_plain_words(tmp_path, monkeypatch):
     """Every command, with no arguments, a zero, ones and minus ones, in an empty model and
     with a body picked: whatever it says, it is never a bare exception or a bug."""
+    monkeypatch.chdir(tmp_path)  # SAVE, 0 and the like write files: not into the checkout
     skip = {"QUIT", "EXIT", "NEW", "MCP"}
     bad = []
     for setup in ("", "BLOCK, 0,0,0, 10,10,10\nPICK, FACE, 1"):
