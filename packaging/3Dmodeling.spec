@@ -30,6 +30,7 @@ SKILLS = os.path.join(ROOT, "modeler", "skills")  # the assistant's skill files 
 examples += [(os.path.join(SKILLS, d, f), os.path.join("modeler", "skills", d))
              for d in sorted(os.listdir(SKILLS)) if os.path.isdir(os.path.join(SKILLS, d))
              for f in ("SKILL.md", "example.cmd") if os.path.isfile(os.path.join(SKILLS, d, f))]
+examples += [(os.path.join(ROOT, "modeler", "plugin_examples", "bolt_ring.py"), "modeler/plugin_examples")]  # plugins.py
 examples += [(os.path.join(ROOT, "docs", n), "modeler/docs")  # the assistant's search_docs (ai/knowledge.py)
              for n in ("LANGUAGE.md", "USER-GUIDE.md")]
 
