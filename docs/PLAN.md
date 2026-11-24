@@ -1219,3 +1219,96 @@ done.
     still apart. Small
     faces, slivers and short edges that would trouble a mesher are listed by
     `CHECK, b, FLAWS` and can be merged away (`MERGEFACES`).
+
+### Easier everyday work (M15)
+
+From a second comparison (2026-11-24), this time of how other modellers make
+everyday work quicker for people: picking, previews, menus, numbers, help.
+Same rule as M14: each item works **by mouse**, **by command** (one
+ordinary step or view command, with a form) and **for the assistant** (a
+reading tool that returns data, a skill note, benchmark tasks). Not part of
+M14 items 68-82 (item 75 already covers mouse styles and custom shortcuts).
+Built in this order, about three per pull request.
+
+83. **Live 3D preview in every form** (P0): while a form is open, the result
+    is drawn as a see-through ghost in the 3D view and follows each change of
+    a field (fillet sizes, extrude lengths, holes, patterns, shells). A step
+    that would fail shows its reason in the form and the faces or edges at
+    fault in red, before OK. Built on a copy of the model, cancelled by Esc,
+    nothing written to history until OK. Command: `PREVIEW, "step text"`
+    (and `PREVIEW, OFF`). Assistant: `preview_step` returns what the step
+    would make (bodies, volume change, faces made or removed, problems) as
+    data, so it can check a step before running it.
+84. **Smarter picking** (P0): an automatic pick mode that takes the vertex,
+    edge or face nearest the cursor (the toolbar modes stay as filters);
+    drag a box (left to right: fully inside, right to left: touching) or a
+    lasso to pick many; double-click an edge for its loop, again for the
+    tangent chain; double-click a face for the faces tangent to it; a key
+    (Tab) steps to the face or edge behind the one under the cursor.
+    Commands: `SEL, S, EDGE, LOOP|CHAIN, id`, `SEL, S, FACE, TANGENT, id`,
+    `SEL, S, kind, SCREEN, x0,y0,x1,y1, INSIDE|CROSS` written by the box.
+    Assistant: `pick_candidates` lists what lies under a screen point or in
+    a box, nearest first.
+85. **Modelling tools next to the pick** (P0): the right-click menu (and a
+    small toolbar that appears beside a fresh pick) offers what fits it: on a
+    flat face Sketch here, Extrude/Pull, Hole, Shell, Offset, Work plane; on
+    a round face Hole, Thread, Fillet edges; on edges Fillet, Chamfer, Rail
+    sweep; on two faces Measure, Mate, Joint; each opens its form filled in
+    from the pick. The list comes from one table (`body_menu.py`) so it is
+    tested headless. Command: `TOOLS` lists the tools for the current pick.
+    Assistant: `suggest_tools` returns the same list for a selection.
+86. **What is picked, in numbers** (P1): a line at the bottom of the window
+    (and a tool tip on hover) gives the picked item with its size: face area
+    and type, edge length or radius, body volume and mass, and for two picks
+    the distance and angle between them; a click copies the numbers. Command:
+    `SELINFO` prints the same. Assistant: `user_context` and `describe_entities`
+    already return this; add the two-pick distance and angle.
+87. **Typed values while sketching** (P1): while drawing a line, arc, circle
+    or rectangle, boxes next to the cursor show its length and angle (or
+    radius, width and height); typing a number fixes it, Tab moves to the
+    next box, and fixed values become sizes on the sketch, as the drag
+    handles already do (item 68). Command: the sketch steps and size
+    constraints written are the ordinary ones. Assistant: nothing new to
+    learn; the skill note says the typed values become sizes.
+88. **A start page and templates** (P1): on start (and File > New), a page
+    with New part, New assembly, New sheet metal part and New drawing, each
+    from a template (units, planes, layers, materials, parameters, sheet
+    size); recent projects with small pictures; the examples; the quick
+    start. People can save their own project as a template. Commands:
+    `NEW, template` and `TEMPLATE, SAVE, name`. Assistant: `templates` lists
+    them with what each sets.
+89. **Errors that point at the problem** (P1): a failed step lights up the
+    faces, edges or sketch items involved in the 3D view, its history row
+    turns red with the reason as a tool tip, and the usual fixes from Why?
+    are offered as buttons in the message. A misspelt command or name on the
+    command line gets "did you mean ..." (as the assistant's checker does
+    now). Command: `WHY, n` prints the reason and the fixes. Assistant:
+    `diagnose` returns the entity IDs at fault as well.
+90. **Repeat and keep going** (P2): Enter on an empty command line (or a
+    right click > Repeat) runs the last command again with the new pick; a
+    tool can stay on (a pin on its form), so Hole, Fillet or Pull can be
+    used on pick after pick until Esc. Command: `REPEAT` (with an optional
+    new selection). Assistant: the skill note explains `REPEAT` with `SEL`.
+91. **A properties panel** (P2): one table for the picked body, step or part:
+    name, position and turn, size values of the step that made it, colour,
+    layer, material, mass; changing a cell writes the ordinary step (`MOVE`,
+    `HIST, EDIT`, `COLOR` ...). Command: `PROPS, b` prints the table and
+    `PROPS, b, key, value` changes one. Assistant: `properties` returns it
+    as data.
+92. **Numbers with units in any field** (P2): every number in a form, the
+    command line or a parameter takes a unit (`1/4 in`, `25 mm + 2`,
+    `30 deg`, `0.5 m`), turned into the project units; fields show the unit
+    they use; `/UNITS` changes how numbers are shown, not only how new ones
+    are read. Assistant: the skill note says units are allowed.
+93. **A clickable view cube** (P3): a cube in a corner of the 3D view whose
+    faces, edges and corners turn the view to that side (with arrows to turn
+    by 90 degrees and a home button), next to the axes. Commands: the
+    ordinary `VIEW` commands it writes. Assistant: `view_state` returns the
+    view direction and what is visible.
+94. **Learning inside the app** (P3): short tutorials in the Help browser
+    that tell you the next step and check your model as you go (built on
+    the ASSERT queries); tool tips with a small picture of what each
+    command does; layouts for each kind of work (modelling, sketch,
+    assembly, drawing, sculpt) that show the panels that fit, saved per
+    user. Commands: `TUTORIAL, name` and `LAYOUT, name`. Assistant: a
+    `tutor` skill that walks a person through a tutorial in the chat.
