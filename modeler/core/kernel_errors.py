@@ -62,7 +62,11 @@ def explain(command: str, exc: BaseException) -> str:
         # the program's own geometry errors (GearError, SheetError ...) already say what is wrong
         return raw if command and raw.upper().startswith(command.upper()) else head + raw
     if is_kernel(exc):
-        meaning = KERNEL.get(name, KERNEL["Standard_Failure"])
+        kind = name
+        if name == "Standard_Failure" and re.search(r"no result|not ?done", raw, re.I):
+            # some OCP builds (macOS) raise the base class for StdFail_NotDone: same meaning
+            kind = "StdFail_NotDone"
+        meaning = KERNEL.get(kind, KERNEL["Standard_Failure"])
         return f"{head}{meaning}. {HINT}. (kernel: {detail})"
     for kind, meaning in PYTHON.items():
         if isinstance(exc, kind):
