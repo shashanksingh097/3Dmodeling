@@ -54,7 +54,7 @@ The language (parameters, expressions, loops, conditions, macros, selection
 by criteria, the editable history) is described in
 [docs/LANGUAGE.md](docs/LANGUAGE.md).
 
-## What it can do (0.5)
+## What it can do (0.6)
 
 - **Model by mouse or by text.** Ribbon tabs with icons, a fill-in form for every command, picking faces and edges in the 3D view, or a command line with completion and argument hints. Scripts with parameters, loops, conditions and your own commands.
 - **Edit any step later.** The history panel holds every step; edit, insert, suppress or delete one and the model rebuilds. Picks follow the faces they meant. A **model tree** shows parts, bodies, sketches and datums, with the steps that made the picked item, each one editable.
@@ -71,8 +71,9 @@ by criteria, the editable history) is described in
 - **Layers, colours, materials**, right-click menus (hide, fade the others, isolate), mass properties, distances, angles, clash checks, section views, and assembly checks: do parts touch, how much clearance a shaft has in its hole.
 - **Results you can trust:** every operation is checked, and a broken result is refused with a reason.
 - **Files:** projects (`.m3d`) with autosave and recovery; import STEP, IGES, BREP, STL, OBJ, 3MF, glTF, PLY, OFF, VTK and simulation meshes; export STEP, IGES, BREP, STL, OBJ, 3MF, glTF; 2D drawings as PDF sheets with a title block, sections and details, or SVG and DXF; ray-traced pictures and turntables.
-- **Assistant:** chat with GitHub Copilot (Copilot Free works) or your own key (OpenAI, Anthropic, Azure, a local Ollama model); it reads the model with exact tools, can ask you to click what you mean, tests scripts in a sandbox and proposes them with a Run button. It follows 17 step-by-step guides (also in **Help > Guides**), and **Why did it fail?** tries the usual fixes for a failed step. Other assistants can drive the app through its MCP server.
-- **Light and dark themes**, and a [user guide website](https://shashanksingh097.github.io/3Dmodeling/) with a tested example for every command.
+- **Assistant:** chat with GitHub Copilot (Copilot Free works) or your own key (OpenAI, Anthropic, Azure, a local Ollama model); it reads the model with exact tools, can ask you to click what you mean, tests scripts in a sandbox and proposes them with what they will do and a Run button (broad changes need a tick, one Undo takes a proposal back). It follows 17 step-by-step guides (also in **Help > Guides**), and **Why did it fail?** tries the usual fixes for a failed step. Other assistants can drive the app through its MCP server.
+- **Dependable:** references that follow upstream edits or say why not, backups of every save and a relink step for moved files, a speed benchmark with budgets in CI, a desktop check for new computers, and five demonstration projects tested from an empty model to exported files.
+- **Light and dark themes**, and a [user guide website](https://shashanksingh097.github.io/3Dmodeling/) with a tested example for every command. See also [scope and limitations](https://shashanksingh097.github.io/3Dmodeling/scope/).
 
 ## Install from source
 

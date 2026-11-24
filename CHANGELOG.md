@@ -4,7 +4,16 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
+This release makes what is there dependable (PLAN items 50-67): stable references, saved
+projects that keep working, speed and long-session checks, desktop checks, five demonstration
+projects and safeguards for the assistant. See the website's Scope and limitations page.
+
 ### Added
+- A Scope and limitations page on the website: what the app is for, what stays out on purpose
+  (meshing for analysis, full FEA, production CAM, native files of other CAD programs) and the
+  known limitations.
 - `python -m modeler desktop-check` (`3Dmodeling-cli desktop-check` in the downloaded app): opens
   the window and checks the 3D view, mouse picking at the screen's scaling, turning and zooming,
   files in folders with non-English names, fonts, themes and closing, and writes a report to
@@ -55,7 +64,14 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   first value.
 - Coordinate systems (`CSYS`) are drawn as small red, green and blue axes instead of large planes.
 - Unfolded sheet metal writes true circles and arcs to DXF, not short lines.
-
+- Assistant safeguards: every assistant tool is a reading, trying (on a copy), view, proposing or (MCP
+  only) changing tool, and reading tools are checked to leave the model as it was. A proposal shows the
+  assistant's plan and what it will do, worked out on a copy (bodies added, changed with their volumes,
+  removed; steps added, edited, re-run). A broad change (removing bodies, changing three or more, a volume
+  by more than half, many steps, files) runs only after a tick, and through MCP `apply` needs
+  `confirm: true`. One Undo takes a whole proposal back.
+- `DESIGNCHECK` rows give severity (ERROR or WARNING), the value measured, the limit, a fix, and whether
+  the fix works, tried on a copy of the model.
 ### Changed
 - Cuts on bodies with many faces are much faster again (300 holes one at a time: 94 s to 17 s;
   a 243-step history: 21 s to 5 s), and a long history keeps one copy of each state, not two.

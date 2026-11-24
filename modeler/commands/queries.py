@@ -290,7 +290,7 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         from ..ai.describe import DescribeError
 
         try:
-            return len(rl.design_check(p, body_id(b, "PROBLEMS"), float(min_wall))["problems"])
+            return len(rl.design_check(p, body_id(b, "PROBLEMS"), float(min_wall), try_fixes=False)["problems"])
         except DescribeError as exc:
             raise ExprError(f"PROBLEMS(): {exc}") from None
 

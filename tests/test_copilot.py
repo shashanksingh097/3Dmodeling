@@ -77,7 +77,8 @@ def test_proposals_must_pass_lint(plate):
     res = run(propose.handler(ToolInvocation(arguments={"script": "CYL, 0,0,0, 1, 2", "summary": "a pin"})))
     assert res.result_type == "success"
     props = [d for k, d in seen if k == "proposal"]
-    assert props == [cp.Proposal("CYL, 0,0,0, 1, 2", "a pin")]
+    assert [(x.script, x.summary) for x in props] == [("CYL, 0,0,0, 1, 2", "a pin")]
+    assert props[0].effect["steps_added"] == 1 and len(props[0].effect["added"]) == 1  # worked out on a copy
     assert len(plate.model.bodies) == 1  # proposing never changes the model
 
 

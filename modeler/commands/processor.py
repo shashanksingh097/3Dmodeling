@@ -24,6 +24,7 @@ are instant and editing entry *k* only re-runs entries *k* onwards.
 
 from __future__ import annotations
 
+import contextlib
 import math
 import time
 from collections.abc import Callable
@@ -574,6 +575,21 @@ class Processor:
         hist = [i for i, a in enumerate(self._undo) if a["kind"] == "hist"]
         if len(hist) > self.MAX_HIST_UNDO:
             del self._undo[: hist[0] + 1]
+
+    @contextlib.contextmanager
+    def undo_group(self, label: str):
+        """Everything run inside is one UNDO step (and one REDO): an assistant proposal of many
+        lines or history edits is taken back at once. Nothing changed: nothing is recorded."""
+        before = self.history_backup()
+        texts = [(e.uid, e.text) for e in self.history]
+        mark = len(self._undo)
+        try:
+            yield
+        finally:
+            if len(self._undo) > mark or self.cursor != before["cursor"] \
+                    or [(e.uid, e.text) for e in self.history] != texts:
+                del self._undo[mark:]
+                self._push_undo({"kind": "hist", "label": label, "before": before, "after": self.history_backup()})
 
     def record_hist_edit(self, label: str, before: dict) -> None:
         """Make a history edit undoable: ``before`` is history_backup() from before it."""

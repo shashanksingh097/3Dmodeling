@@ -782,7 +782,7 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
         if n.endswith(".png"):
             shutil.copy(os.path.join(DOCS, "examples", n), os.path.join(docs_out, "examples", n))
     hand = {}
-    for path in ("index.md", "quick-start.md", "desktop-check.md"):
+    for path in ("index.md", "quick-start.md", "desktop-check.md", "scope.md"):
         with open(os.path.join(SITE_SRC, path), encoding="utf-8") as f:
             hand[path] = f.read()
     link_commands_in_pages(hand)
@@ -803,6 +803,7 @@ def build(out: str = OUT, run: bool = True, log=print) -> dict[str, str]:
         {"Examples": "examples.md"},
         {"Demonstrations": demo_nav},
         {"Desktop check": "desktop-check.md"},
+        {"Scope and limitations": "scope.md"},
     ]
     with open(os.path.join(SITE_SRC, "mkdocs.yml"), encoding="utf-8") as f:
         base = f.read()

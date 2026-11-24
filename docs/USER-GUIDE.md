@@ -5,7 +5,7 @@ is turned into a short line of text, a **command**, and kept in the
 **History**. So every model is also a script: you can edit any step later,
 change a number and watch the part rebuild, or write the whole part as text.
 
-This guide covers version 0.5. It is also on the
+This guide covers version 0.6. It is also on the
 [user guide website](https://shashanksingh097.github.io/3Dmodeling/), with a
 tested example for every command. The full command language is in
 [LANGUAGE.md](LANGUAGE.md), and inside the app under **Help > Command reference**
@@ -665,8 +665,16 @@ the model itself and the monthly allowance is small.
 **It never changes your model by itself.** Copilot reads your model with
 exact text tools (sizes, holes, sections, wall thickness), tries its
 scripts in a sandbox copy, and then shows a **Proposal** with a **Run**
-button. Running it puts the commands in the History like anything you
-type, and **Undo** takes them back. Copilot's own coding tools (shell,
+button. Above the button the proposal shows Copilot's plan and **what it
+will do**, worked out on a copy of your model: the bodies it adds, changes
+(with their volumes before and after) and removes, the parameters it sets
+and the history steps it adds, edits or re-runs. A **broad change** (one
+that removes bodies, changes three or more, changes a volume by more than
+half, re-runs ten or more steps, edits three or more steps or uses files)
+says why it is broad, and **Run** works only after you tick the box that
+names it. Running it puts the commands in the History like anything you
+type, and **one Undo takes the whole proposal back**, however many lines
+or step edits it has. Copilot's own coding tools (shell,
 files, web) are switched off in this app; it reads files only as described
 below, when you allow it.
 

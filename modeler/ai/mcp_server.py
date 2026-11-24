@@ -42,8 +42,13 @@ INSTRUCTIONS = (
 # tools only this server has: the app's assistant hands its script to the person instead
 EXTRA_TOOLS = [
     {"name": "apply", "description": "Make the working copy the model: its new history steps are run on the "
-                                     "model and the working copy is closed. Then save_project or export.",
-     "inputSchema": {"type": "object", "properties": {}, "required": []}},
+                                     "model and the working copy is closed. Then save_project or export. The "
+                                     "answer says what changed (effect). A broad change (removing bodies, changing "
+                                     "several, a volume by more than half) is not applied until called again with "
+                                     "confirm true, after telling the user what it does. One undo takes it back.",
+     "inputSchema": {"type": "object", "properties": {
+         "confirm": {"type": "boolean", "description": "apply a broad change the first call refused"}},
+         "required": []}},
     {"name": "save_project", "description": "Save the model (after apply) as a project file (.m3d).",
      "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "description": "file path"}},
                      "required": ["path"]}},
@@ -169,9 +174,19 @@ class Server:
         return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": s.text()}]}
 
     def _tool_list(self) -> list[dict]:
-        out = [dict(t) for t in EXTRA_TOOLS]
+        """Every tool with MCP annotations: reading and trying tools are read-only (they never change the
+        model, which Toolbox.call checks); only apply, save_project and export change anything."""
+        from .safeguards import kind_of
+
+        out = []
+        for t in EXTRA_TOOLS:
+            out.append({**t, "annotations": {"readOnlyHint": False, "destructiveHint": t["name"] != "apply",
+                                             "idempotentHint": t["name"] != "apply", "openWorldHint": False}})
         for d in self.box.definitions():
-            out.append({"name": d["name"], "description": d["description"], "inputSchema": d["input_schema"]})
+            out.append({"name": d["name"], "description": d["description"], "inputSchema": d["input_schema"],
+                        "annotations": {"readOnlyHint": True, "openWorldHint": False,
+                                        "title": d["name"].replace("_", " ") + (" (on the working copy)"
+                                                                                if kind_of(d["name"]) == "try" else "")}})
         return out
 
     def _call(self, params: dict) -> dict:
@@ -186,12 +201,19 @@ class Server:
             raise _BadParams("arguments must be an object")
         with contextlib.redirect_stdout(sys.stderr):  # nothing but answers on stdout
             if name in extra:
+                unknown = set(args) - ({"confirm"} if name == "apply" else {"path", "body"})
+                if unknown:
+                    return self._answer({"error": f"{name} has no argument {', '.join(sorted(unknown))}"})
                 answer = self._extra(name, args)
             else:
                 tool = self.box.tools[name]
                 if "where" in tool.params and "where" not in args and self.box.box is not None:
                     args = {**args, "where": "sandbox"}  # look at the working copy while it is open
                 answer = self.box.call(name, args)
+        return self._answer(answer)
+
+    @staticmethod
+    def _answer(answer: dict) -> dict:
         text = json.dumps(answer, separators=(",", ":"), default=str)
         res = {"content": [{"type": "text", "text": text}], "isError": "error" in answer}
         if isinstance(answer, dict):
@@ -203,21 +225,27 @@ class Server:
         if name == "apply":
             if self.box.box is None:
                 return {"applied": 0, "msg": "no working copy open: the model is as it is"}
+            from .safeguards import effect
+
             script = self.box.box.script()
-            self.box.box = None
             if not script.strip():
+                self.box.box = None
                 return {"applied": 0, "msg": "the working copy added nothing"}
-            results = p.run_script(script)
+            eff = effect(p, self.box.box.p, steps_added=self.box.box.p.cursor - self.box.box.base)
+            if eff["broad"] and args.get("confirm") is not True:
+                return {"applied": 0, "needs_confirm": eff["broad"], "effect": eff["text"],
+                        "msg": "a broad change: tell the user what it does, then call apply with confirm true"}
+            self.box.box = None
+            with p.undo_group("the applied working copy"):
+                results = p.run_script(script)
             bad = [r for r in results if not r.ok]
             if bad:
                 return {"error": f"{bad[0].line}: {bad[0].message}", "applied": len(results) - len(bad)}
-            return {"applied": len(results), "history": p.cursor, "bodies": len(p.model.bodies)}
+            return {"applied": len(results), "history": p.cursor, "bodies": len(p.model.bodies),
+                    "effect": eff["text"]}
         path = args.get("path")
         if not isinstance(path, str) or not path.strip():
             return {"error": f"{name} needs a path"}
-        unknown = set(args) - {"path", "body"}
-        if unknown:
-            return {"error": f"{name} has no argument {', '.join(sorted(unknown))}"}
         quoted = '"' + path.replace('"', "") + '"'
         if name == "save_project":
             line = f"SAVE, {quoted}"

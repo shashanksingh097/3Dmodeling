@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from PySide6.QtCore import QObject, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QActionGroup, QDesktopServices, QFontDatabase, QGuiApplication, QTextCursor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -167,6 +168,14 @@ class AssistantPanel(QWidget):
         self.proposal_text.setReadOnly(True)
         self.proposal_text.setMaximumHeight(120)
         pl.addWidget(self.proposal_text)
+        # what it will do, worked out on a copy of the model, and a confirm for broad changes
+        self.effect_label = QTextBrowser()  # scrolls when long; a label would be cut off in a short panel
+        self.effect_label.setMaximumHeight(110)
+        self.effect_label.setOpenLinks(False)
+        pl.addWidget(self.effect_label)
+        self.confirm_box = QCheckBox()
+        self.confirm_box.toggled.connect(self._confirm_toggled)
+        pl.addWidget(self.confirm_box)
         row = QHBoxLayout()
         self.run_button = QPushButton("Run")
         self.run_button.setToolTip("Run these commands; they go into the history and Undo takes them back")
@@ -717,15 +726,33 @@ class AssistantPanel(QWidget):
                 else:
                     lines.append(f"Remove step {e['entry']}:  {e['old']}")
             self.proposal_text.setPlainText("\n".join(lines))
-            self.run_button.setToolTip("Change these steps; the model rebuilds. To go back, edit the steps back "
-                                       "(the old text is shown here and stays in the conversation).")
+            self.run_button.setToolTip("Change these steps; the model rebuilds. One Undo takes all the changes "
+                                       "back (the old text is also kept in the conversation).")
         else:
             n = len(prop.script.splitlines())
             what = f"{n} command{'s' if n != 1 else ''}"
             self.proposal_text.setPlainText(prop.script)
-            self.run_button.setToolTip("Run these commands; they go into the history and Undo takes them back")
-        self.proposal_label.setText(f"<b>Proposal</b> ({what}): {html.escape(prop.summary or 'run these commands')}")
+            self.run_button.setToolTip("Run these commands; they go into the history and one Undo takes them all "
+                                       "back")
+        self.proposal_label.setText(f"<b>Proposal</b> ({what}): {html.escape(prop.summary or 'run these commands')}"
+                                    + (f"<br><i>Plan:</i> {html.escape(prop.plan)}" if prop.plan else ""))
+        eff = prop.effect.get("text", "")
+        broad = prop.broad
+        # the reasons a change is broad come first, where they cannot be scrolled out of sight
+        self.effect_label.setHtml((f"<b>A broad change:</b> {html.escape('; '.join(broad))}.<br>" if broad else "")
+                                  + (("<b>What it will do</b> (tried on a copy of the model):<br>"
+                                      + html.escape(eff).replace("\n", "<br>")) if eff else ""))
+        self.effect_label.setVisible(bool(eff or broad))
+        self.confirm_box.blockSignals(True)
+        self.confirm_box.setChecked(False)
+        self.confirm_box.blockSignals(False)
+        self.confirm_box.setText("I have read what this broad change does: allow Run")
+        self.confirm_box.setVisible(bool(broad))
+        self.run_button.setEnabled(not broad)
         self.proposal_box.show()
+
+    def _confirm_toggled(self, on: bool) -> None:
+        self.run_button.setEnabled(self.proposal is not None and (on or not self.proposal.broad))
 
     def clear_proposal(self) -> None:
         self.proposal = None
@@ -735,13 +762,16 @@ class AssistantPanel(QWidget):
         if self.proposal is None:
             return
         prop = self.proposal
+        if prop.broad and not self.confirm_box.isChecked():
+            return  # a broad change runs only after the tick
         res = None
-        for line in prop.commands():
-            res = self.win.execute(line)
-            if not res.ok:
-                break
+        with self.win.processor.undo_group("the assistant's proposal"):
+            for line in prop.commands():
+                res = self.win.execute(line)
+                if not res.ok:
+                    break
         if res is not None and res.ok:
-            self._say("system", "Ran the proposal.")
+            self._say("system", "Ran the proposal. One Undo takes it all back.")
         elif res is not None:
             self._say("error", "The proposal stopped with an error: " + html.escape(res.message.splitlines()[-1]))
         if prop.edits:
