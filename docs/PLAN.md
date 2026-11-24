@@ -1189,3 +1189,19 @@ done.
 79. **Fixing clashes** (P3): from a `CLASH` result, one click (or
     `CLASHFIX, a, b, CUT|MOVE`) cuts the overlap out of one part or moves it
     clear, with a preview first.
+80. **Getting a part ready for analysis** (P2): geometry only, for export to
+    the separate meshing and solver app; no meshing or solving here.
+    `MIDSURFACE, b` makes the middle surface of a thin part with the
+    thickness kept on each face (for shell models), and `BEAMS, b` the centre
+    lines of frame members with their profiles (for beam models).
+81. **Flow and enclosure volumes** (P2): `FLUIDVOLUME, b, caps` fills the
+    inside of a pipe, valve or housing up to picked openings as a new solid,
+    and `ENCLOSURE, b|ALL, margins` puts a box, cylinder or sphere round the
+    model with the model cut out (for air around a part). Both list the
+    openings and faces they used, as data.
+82. **Parts that share faces** (P2): `IMPRINT` and `SHARE, a, b` split
+    touching faces of neighbouring parts so they share the same face where
+    they touch, written to STEP so the separate app meshes them as one
+    connected piece; `SHARECHECK` already lists what is still apart. Small
+    faces, slivers and short edges that would trouble a mesher are listed by
+    `CHECK, b, FLAWS` and can be merged away (`MERGEFACES`).
