@@ -163,6 +163,13 @@ class AppShell:
         if self.confirm_discard("start a new model"):
             self.win.execute("NEW")
 
+    def show_start_page(self):
+        """The start page: new from a template, recent projects, examples (PLAN item 88)."""
+        from . import start_page
+
+        self.start_page = start_page.show(self.win)
+        return self.start_page
+
     def open(self, path: str | None = None) -> None:
         if not self.confirm_discard("open another project"):
             return
@@ -357,6 +364,9 @@ class AppShell:
         if name in ("SAVE", "NEW", "NEWPART", "OPENPART", "SAVEPART"):
             if name == "SAVE" and self.p.project_path:
                 self._remember_recent(self.p.project_path)
+                from . import start_page
+
+                start_page.save_thumb(self.win, self.p.project_path)  # its picture on the start page
             self.mark_saved()
         elif name == "OPEN" and len(words) > 1:
             if words[1].upper().strip('"') == "AUTOSAVE":
@@ -382,7 +392,10 @@ class AppShell:
         m = self.win.menuBar().addMenu("&File")
         self.file_menu = m
         a = self._action
-        self.new_action = a(m, "&New", self.new, QKeySequence.New, "Start an empty model. Runs: NEW")
+        self.new_action = a(m, "&New…", self.show_start_page, QKeySequence.New,
+                            "Start a new project from a template (part, assembly, sheet metal, drawing, your own) "
+                            "or empty; open a recent project or an example. Runs: NEW, template")
+        self.new_empty_action = a(m, "New &empty project", self.new, None, "Start an empty model. Runs: NEW")
         self.open_action = a(m, "&Open…", self.open, QKeySequence.Open, "Open a project (.m3d). Runs: OPEN, file")
         self.new_part_action = a(m, "New &part…", self.new_part, None,
                                  "Design one part on its own; Save writes it as a part file. Runs: NEWPART, name")

@@ -1673,6 +1673,12 @@ HIST
 ! Start an empty session (UNDO cannot bring the old one back).
 BLOCK, 0,0,0, 40, 20, 5
 NEW
+NEW, sheet_metal
+! a new project from a template: units, T, R and K, layers, the title block
+! and the sketch "base" are set up as its first history entries
+SRECT, 0, 0, 60, 40
+ENDSKETCH
+SHEET, base, T, R, K
 
 @ OPEN
 ! Save a project and open it again: the history is replayed.
@@ -1807,6 +1813,20 @@ PREVIEW, OFF
 BLOCK, 0,0,0, 40, 20, 10
 PICK, FACE, 6
 TOOLS
+
+@ SELINFO
+! The numbers of what is picked, as the status bar shows them: here two faces,
+! their areas, the total, and the distance and angle between them.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, FACE, 1 2
+SELINFO
+SELINFO, BODY, 1
+
+@ TEMPLATE
+! The templates new projects start from (the start page shows them);
+! TEMPLATE, SAVE, name keeps this project's steps as your own.
+TEMPLATE
+TEMPLATE, SHOW, part
 
 @ VIEW
 ! Look from a standard direction.

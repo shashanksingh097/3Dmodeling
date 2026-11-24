@@ -67,4 +67,5 @@ for _name, _limits in {
 }.items():
     REGISTRY[_name].limits.update(_limits)
 from . import preview_handlers  # noqa: F401  (PREVIEW: what a step would make, on a copy)
-from . import easy_handlers  # noqa: F401  (TOOLS: what fits the pick; M15 everyday commands)
+from . import easy_handlers  # noqa: F401  (TOOLS, SELINFO: what fits the pick, its numbers; M15 everyday commands)
+from . import template_handlers  # noqa: F401  (TEMPLATE, and NEW, template: projects start from templates)

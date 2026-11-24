@@ -34,7 +34,9 @@ def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale,
     from ..geometry import sheets as sh
     from .handlers import _compound
 
-    paper = (sheet or ("AUTO" if ext == ".pdf" else "NONE")).upper()
+    paper = (sheet or p.model.properties.get("SHEET", "") or ("AUTO" if ext == ".pdf" else "NONE")).upper()
+    if not sheet and ext == ".dxf":
+        paper = "NONE"  # a DXF is always at true size; a template's paper is for the PDF and SVG sheets
     if paper not in ("NONE", "AUTO", *sh.PAPER):
         raise CommandError(f"{what}: the sheet is one of {', '.join(sh.PAPER)}, AUTO or NONE")
     if ext == ".pdf" and paper == "NONE":

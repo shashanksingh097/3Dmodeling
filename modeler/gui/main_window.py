@@ -504,6 +504,10 @@ class MainWindow(QMainWindow):
         self.pick_bar = PickBar(self)  # the tools beside a fresh pick (PLAN item 85)
         self.viewport.picked_at.connect(self.pick_bar.show_for_pick)
         self.viewport.pressed.connect(self.pick_bar.hide)
+        from .value_boxes import ValueBoxes
+
+        self.value_boxes = ValueBoxes(self)  # typed sizes while sketching (PLAN item 87)
+        self.viewport.sketch_values.connect(self.value_boxes.show_fields)
         self.viewport.pick_note.connect(lambda t: self.statusBar().showMessage(t, 6000))
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
@@ -598,6 +602,11 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
         )
+        from .sel_numbers import HoverNumbers, SelectionNumbers
+
+        self.sel_numbers = SelectionNumbers(self)  # the numbers of the pick, always in view (PLAN item 86)
+        self.statusBar().addPermanentWidget(self.sel_numbers)
+        self.hover_numbers = HoverNumbers(self)
         self._setup_autosave(autosave)
         from .link_watch import LinkWatcher
 
@@ -623,6 +632,8 @@ class MainWindow(QMainWindow):
             for dlg in self.findChildren(FormDialog):  # while the 3D view still draws: they clear their previews
                 dlg.close()
             self.model_preview_off()
+            self.viewport.closing = True
+            self.viewport._rest.stop()
             self.offload.close()
 
     def model_preview_off(self) -> None:

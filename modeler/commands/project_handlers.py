@@ -470,8 +470,22 @@ def open_(p: Processor, file):
     return msg
 
 
-@command("NEW", session=True, help="Start an empty session (unsaved work is lost; UNDO cannot bring it back).")
-def new(p: Processor):
-    p.reset()
-    p.project_path = None
-    return "new session"
+@command("NEW", Arg("template", Text, "", "a template to start from: part, assembly, sheet_metal, drawing, or "
+                                          "one of your own (TEMPLATE lists them)"), session=True,
+         help="Start an empty session (unsaved work is lost; UNDO cannot bring it back). NEW, part starts from "
+              "a template instead: its steps (units, layers, parameters, title block ...) become the first "
+              "history entries.")
+def new(p: Processor, template=""):
+    name = (template or "").strip().strip('"')
+    if not name:
+        p.reset()
+        p.project_path = None
+        return "new session"
+    from . import template_handlers as th
+
+    try:
+        t = th.find(name)
+    except CommandError as exc:
+        raise CommandError(f"NEW: {exc}") from None
+    results = th.start_from(p, t)
+    return f"new {t.title.lower().removeprefix('new ')} from the template {t.name}: {len(results)} steps ({th._setup_text(t.sets())})"

@@ -157,6 +157,18 @@ class PreferencesDialog(QDialog):
         self.form_preview.setChecked(_setting(win, PREVIEW_SETTING, True))
         self.form_preview.toggled.connect(lambda on: _set_setting(win, PREVIEW_SETTING, on))
         form.addRow("Preview in forms:", self.form_preview)
+        from . import sel_numbers
+
+        self.hover_numbers = QCheckBox("Show the size of what the mouse rests on in the 3D view")
+        self.hover_numbers.setChecked(sel_numbers.hover_enabled(win))
+        self.hover_numbers.toggled.connect(lambda on: sel_numbers.set_hover_enabled(win, on))
+        form.addRow("Numbers on hover:", self.hover_numbers)
+        from . import start_page
+
+        self.start_page = QCheckBox("Show the start page (templates, recent projects) when the app starts")
+        self.start_page.setChecked(start_page.enabled(win))
+        self.start_page.toggled.connect(lambda on: start_page.set_enabled(win, on))
+        form.addRow("Start page:", self.start_page)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)
