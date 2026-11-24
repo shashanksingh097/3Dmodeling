@@ -190,7 +190,8 @@ def test_body_menu_rename_find_step_and_instances(p):
 
 
 def test_empty_space_and_history_row_menus(p):
-    assert labels(bm.empty_items(p.model)) == ["Show everything", "Fit all"]
+    # (then the drawing sheet items, tested in test_sheet_tables.py)
+    assert labels(bm.empty_items(p.model))[:2] == ["Show everything", "Fit all"]
     ok(p, "FADE, 1")
     assert "Make all solid" in labels(bm.empty_items(p.model))
     assert bm.entry_bodies(p, 1) == [2]

@@ -1346,7 +1346,9 @@ def _compound(shapes):
     Arg("b", BodyRef, 0, "body to export (default: all bodies)"),
     logged=False,
     help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. STEP, IGES and BREP keep the exact "
-         "shape; STL, OBJ, 3MF and GLTF (.glb or .gltf) write triangles. Runs when given; not kept in the history.",
+         "shape; STL, OBJ, 3MF and GLTF (.glb or .gltf) write triangles. STEP also carries the sizes, hole "
+         "diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations "
+         "that other programs read. Runs when given; not kept in the history.",
 )
 def export(p: Processor, format, file, b):
     if format not in _FORMATS:
@@ -1357,6 +1359,7 @@ def export(p: Processor, format, file, b):
         raise CommandError("EXPORT: there are no bodies")
     from ..geometry import meshbody
 
+    extra = ""
     meshes = [x.id for x in bodies if meshbody.is_mesh(x.shape)]
     if meshes and format in ("STEP", "IGES", "BREP"):
         raise CommandError(f"EXPORT: {format} holds exact faces, and bod{'y' if len(meshes) == 1 else 'ies'} "
@@ -1372,8 +1375,16 @@ def export(p: Processor, format, file, b):
 
         # each body a named part in its own colour
         parts = [stepdoc.Part(x.shape, "" if x.name == f"body{x.id}" else x.name, m.display_color(x.id)) for x in bodies]
-        if not stepdoc.write(path, parts, m.units):
+        from .pmi_notes import notes_to_records
+
+        # sizes, tolerances and datums pinned to the bodies go in too, as AP242 annotations
+        pmi = notes_to_records(p, bodies)
+        if not stepdoc.write(path, parts, m.units, pmi, UNITS[m.units]):
             raise CommandError(f"EXPORT: could not write {file}")
+        if pmi:
+            from ..geometry import step_pmi
+
+            extra = f", AP242 with {step_pmi.summary(pmi)}"
     elif format == "IGES":
         from OCP.IGESControl import IGESControl_Controller, IGESControl_Writer
 
@@ -1404,7 +1415,7 @@ def export(p: Processor, format, file, b):
                 meshfiles.write_gltf(path, meshes, UNITS[m.units] / 1000.0)
         except OSError as exc:
             raise CommandError(f"EXPORT: could not write {file}: {exc.strerror}") from None
-    return f"wrote {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file} ({format}, {m.units})"
+    return f"wrote {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file} ({format}, {m.units}{extra})"
 
 
 @command("RUN", Arg("file", Path), session=True,

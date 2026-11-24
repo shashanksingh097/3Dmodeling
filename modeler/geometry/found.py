@@ -273,6 +273,8 @@ def _hole_features(b: _Body) -> list[Feature]:
                 "axis": [round(c, 9) for c in h.axis], "mouth": [round(c, 6) for c in h.mouth]}
         if h.counterbore:
             info["counterbore"] = [round(h.counterbore[0], 6), round(h.counterbore[1], 6)]
+            if h.cb_top is not None:
+                info["top"] = [round(c, 6) for c in h.cb_top]
         out.append(Feature("HOLE", h.d, sorted(faces), h.centre, info))
     return out
 

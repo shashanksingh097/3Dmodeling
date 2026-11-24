@@ -39,6 +39,8 @@ def _sheets_text(p: Processor) -> list[str]:
             bits.append(f"detail {s['detail']}")
         if s.get("template"):
             bits.append(f"template {os.path.basename(s['template'])}")
+        if s.get("tables"):
+            bits.append(f"tables {s['tables'].lower()}")
         out.append(f"  sheet {i} {s['name']}: " + ", ".join(bits))
     return out
 
@@ -54,11 +56,15 @@ def _sheets_text(p: Processor) -> list[str]:
     Arg("section", Text, "", "section views, like \"X 30\""),
     Arg("detail", Text, "", "detail views, like \"FRONT 20 0 5 8 3\""),
     Arg("template", Path, "", "a title block template file (see LANGUAGE.md)"),
+    Arg("tables", Text, "", "tables on the sheet: BALLOONS, PARTS, HOLES, REVISIONS joined with +, or ALL"),
     help="A drawing sheet kept with the model: DRAWSHEET, front, TOP+FRONT, 0, ALL, A3. The views are made from "
          "the model each time DRAWINGS writes the sheets, so they follow every change. Several sheets make one "
-         "PDF with a page each. DRAWSHEET, DELETE, name removes one.",
+         "PDF with a page each. Tables (last argument, or SHEETTABLE): PARTS (a parts list with balloons), "
+         "HOLES (a hole table with tags), REVISIONS, or ALL. DRAWSHEET, DELETE, name removes one.",
 )
-def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail, template):
+def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail, template, tables=""):
+    from .sheet_table_handlers import parse_tables
+
     from ..geometry import drawing as dr
     from ..geometry import sheets as sh
 
@@ -83,6 +89,9 @@ def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail
         [sh.parse_detail(c) for c in detail.strip().strip('"').split(";") if c.strip()]
         if template:
             sh.read_template(template)
+        words = parse_tables(tables)
+    except CommandError as exc:
+        raise CommandError(f"DRAWSHEET: {exc}") from None
     except (ValueError, sh.SheetError) as exc:
         raise CommandError(f"DRAWSHEET: {exc}") from None
     if b:
@@ -91,7 +100,8 @@ def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail
     new = key not in m.drawsheets
     m.drawsheets = {**m.drawsheets, key: {"name": name, "views": views, "b": b, "sizes": sizes, "paper": paper,
                                           "scale": scale, "section": section, "detail": detail,
-                                          "template": os.path.abspath(template) if template else ""}}
+                                          "template": os.path.abspath(template) if template else "",
+                                          "tables": "+".join(words)}}
     n = list(m.drawsheets).index(key) + 1
     return f"sheet {n} {name} " + ("added" if new else "changed") + "\n" + "\n".join(_sheets_text(p)[n - 1:n])
 
@@ -119,8 +129,11 @@ def write_all(p: Processor, path: str) -> list[str]:
             raise CommandError(f"DRAWINGS: sheet {s['name']} draws body {b}, which no longer exists")
         out, _bounds, page, _bodies, nsizes, _nn = make_sheet(
             p, f"DRAWINGS, sheet {s['name']}", ".pdf", s["views"], b, s["sizes"], paper, s["scale"], s["section"],
-            s["detail"], extra={"SHEET": f"{i} of {total}", "SHEETNAME": s["name"]}, template=tpl)
+            s["detail"], extra={"SHEET": f"{i} of {total}", "SHEETNAME": s["name"]}, template=tpl,
+            tables=s.get("tables", ""))
         pages.append(page)
+        for w in page.warnings:
+            p.warn(f"DRAWINGS, sheet {s['name']}: {w}")
         lines.append(f"  sheet {i} {s['name']}: {', '.join(v.title.lower() for v in out)}, {nsizes} "
                      f"size{'s' if nsizes != 1 else ''}, {page.paper} at {sh.scale_text(page.scale)}")
     full = os.path.abspath(path)

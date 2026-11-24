@@ -26,7 +26,7 @@ def _exact_extent(bodies) -> dict[str, float] | None:
 
 
 def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale, section, detail,
-               extra: dict | None = None, template=None):
+               extra: dict | None = None, template=None, tables: str = ""):
     """The views of one sheet, laid out (and on paper when there is one): (views, bounds, page or None,
     bodies, sizes written, notes placed)."""
     from ..geometry import drawing as dr
@@ -116,12 +116,19 @@ def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale,
     nnotes = dr.add_notes(out, m.notes, size) if getattr(m, "notes", None) else 0
     bounds = dr.layout(out)
     page = None
+    sheet_tables, marks = [], []
+    if tables and paper != "NONE":
+        from ..geometry import sheet_tables as stb
+        from .sheet_table_handlers import build, parse_tables
+
+        sheet_tables, marks, _data = build(p, parse_tables(tables), bodies, m.units)
     if paper != "NONE":
         if m.units.upper() != "MM" and not factor:
             p.warn(f"{what}: the model is in {m.units.lower()}; the sheet takes 1 {m.units.lower()} as 1 mm "
                    f"before scaling")
         try:
-            paper, factor = sh.fit(bounds, paper, factor)
+            paper, factor = sh.fit(bounds, paper, factor,
+                                   stb.side_width(sheet_tables, sh.TITLE_W) if sheet_tables else 0.0)
         except sh.SheetError as exc:
             raise CommandError(f"{what}: {exc}") from None
         props = dict(m.properties)
@@ -131,9 +138,11 @@ def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale,
                 props["MATERIAL"] = ", ".join(mats)
         if "TITLE" not in {k.upper() for k in props} and len(bodies) == 1 and bodies[0].name:
             props["TITLE"] = bodies[0].name
+        if "REVISION" not in {k.upper() for k in props} and getattr(m, "revisions", None):
+            props["REVISION"] = m.revisions[-1]["rev"]
         if extra:
             props.update(extra)
-        page = sh.compose(out, bounds, paper, factor, props, m.units, template)
+        page = sh.compose(out, bounds, paper, factor, props, m.units, template, sheet_tables, marks)
     return out, bounds, page, bodies, nsizes, nnotes
 
 
