@@ -4,6 +4,18 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Added
+- Forms show what their step would make before OK: a see-through ghost in the 3D view and a line
+  saying what changes, or why it would fail with the faces or edges at fault in red (`PREVIEW`,
+  and the assistant's `preview_step`).
+- Picking: the new default `PICKMODE, AUTO` picks the vertex, edge or face nearest the cursor;
+  Tab picks the one behind; Box and Lasso picks (`PICKREGION`, or Ctrl+drag) write one
+  `PICK, FACE, 3 5 7`; double-click picks an edge loop, then the tangent chain, or a face and the
+  faces that meet it smoothly (`SEL ... LOOP`, `CHAIN`, `TANGENT`).
+- The tools that fit a pick: a small toolbar beside a fresh pick and the start of the right-click
+  menu (Sketch on this face, Pull, Hole, Fillet, Loop, Mate ...); `TOOLS` and the assistant's
+  `suggest_tools` list the same.
+
 ## [0.6.0] - 2026-11-24
 
 This release makes what is there dependable (PLAN items 50-67): stable references, saved

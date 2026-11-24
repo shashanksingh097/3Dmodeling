@@ -239,6 +239,10 @@ class Model:
     def __init__(self) -> None:
         self._listeners: list[Callable[[Event], None]] = []
         self.revision = 0  # bumps on every change event
+        # what a fill-in form or PREVIEW would make: (shape, kind) ghosts the view draws
+        # see-through (commands/preview_handlers.py); not saved, not undone, no revision bump
+        self.preview: list = []
+        self.preview_bodies: list[int] = []
         self.pins: IdPins | None = None
         # while a history entry runs: which bodies it reads, makes, uses up
         # and restyles (see Lineage); None otherwise
@@ -335,6 +339,16 @@ class Model:
         finally:
             for t in tracks:
                 t.on = True
+
+    def set_preview(self, ghosts: list, bodies=()) -> None:
+        """Show (or with [] clear) the ghosts of a step being previewed; ``bodies``
+        are the bodies it changes or removes, drawn faint meanwhile."""
+        if not ghosts and not self.preview and not self.preview_bodies:
+            return
+        self.preview = list(ghosts)
+        self.preview_bodies = [b for b in bodies if b in self.bodies]
+        for fn in list(self._listeners):
+            fn(Event("preview"))
 
     def tracks(self) -> list:
         """The read-tracking tables in use (core/track.py), if an entry is running."""

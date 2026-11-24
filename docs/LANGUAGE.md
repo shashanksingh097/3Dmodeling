@@ -228,6 +228,9 @@ SEL, S, FACE, AT, x,y,z                    ! the face through a point
 SEL, S, EDGE, OF, FACE                     ! edges of the selected faces
 SEL, S, FACE, BODY, 3                      ! all faces of body 3
 SEL, S, FACE, ID, 3, 6                     ! IDs 3 to 6 (ID may be left out)
+SEL, S, EDGE, LOOP, 7 [, face]             ! the edges round the face edge 7 is on (default: the flat face with the longer outline)
+SEL, S, EDGE, CHAIN, 7 [, deg]             ! edges joined to 7 without a corner (tangent within deg, default 5)
+SEL, S, FACE, TANGENT, 3 [, deg]           ! face 3 and every face that meets it smoothly, and so on
 SEL, U, ...   SEL, ALL, FACE   SEL, NONE   SEL, INVE
 CM, top, FACE                              ! save the selection as a named set
 CMSEL, S, top    SEL, S, FACE, SET, top    CMDEL, top
@@ -316,7 +319,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
 | Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` · `ISOLATE [, b/SEL/layer]` |
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
-| Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
+| Selection | `PICK, kind, id [, S/A/U]` (several: `PICK, FACE, 3 5 7`) · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, AUTO/BODY/FACE/EDGE/VERTEX` · `PICKREGION, BOX/LASSO/OFF` · `TOOLS [, JSON]` (section 46) |
+| Previews | `PREVIEW, "step"` · `PREVIEW, OFF` (section 46) |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `BACKUPS [, n]` · `FILES` · `RELINK, name, file` · `SHARECHECK` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
@@ -3672,3 +3676,69 @@ hidden. It is a suggestion to model a real part after on a coarse grid with
 one load case: check the part you make with `STRESS`.
 
 Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.
+
+## 46. Everyday work: previews, picking and the tools beside a pick
+
+### See a step before it runs: PREVIEW
+
+Every fill-in form draws what its step would make before you press OK: new
+and changed bodies see-through in blue (the bodies they replace drawn faint),
+bodies it would remove in red. When the step would fail, the form says why in
+red and the faces or edges it was given are drawn in red in the 3D view. The
+preview is worked out on a copy of the model 0.3 s after you stop typing, and
+again when you pick something else while the form is open; nothing reaches
+the history until OK. A step that takes longer than 1.5 s to work out switches
+the form to an **Update preview** button. **Show in 3D** on the form (or
+Preferences > Preview in forms) turns it off.
+
+```text
+PREVIEW, "FILLET, 2"          ! draws the result and says: changes plate, volume 8,000 -> 7,770.36 (-229.64)
+PREVIEW, "FILLET, 30"         ! Would fail: FILLET: radius 30 is too large ... (shown in red: edges 1, 2)
+PREVIEW, OFF                  ! clears the ghost
+```
+
+`PREVIEW` is not a history step. The assistant's `preview_step` tool gives
+the same answer as data (bodies added, changed with their volumes, removed,
+or the reason and the faces or edges at fault), also for a changed history
+entry (`entry`).
+
+### Picking
+
+`PICKMODE, AUTO` (the default) picks whatever is nearest the cursor: a
+vertex near a corner, an edge near an edge, else the face. `PICKMODE, FACE`
+(or BODY, EDGE, VERTEX) picks only that kind, as before.
+
+* **Tab** in the 3D view picks the next thing under the cursor, further
+  back each time: the face behind the one in front, then round again.
+* **Double-click** an edge: the loop of edges round the face that faces
+  you (`SEL, S, EDGE, LOOP, e, f`); double-click it again: the tangent chain
+  (`SEL, S, EDGE, CHAIN, e`). Double-click a face: it and the faces that meet
+  it smoothly (`SEL, S, FACE, TANGENT, f`). Ctrl adds to the pick.
+* **Box** (Pick group, or `PICKREGION, BOX`): drag left to right to pick
+  what lies wholly inside, right to left to pick what the box touches.
+  **Lasso** (`PICKREGION, LASSO`): draw a loop round what you want. Hidden
+  faces behind are picked too, as in a wireframe. **Ctrl+drag** makes a box
+  any time, adding to the pick. Esc ends the tool. A box or lasso writes one
+  step, `PICK, FACE, 3 5 7` (several IDs separated by spaces), which keeps
+  pointing at the same faces when the history changes, like a single pick.
+
+### The tools beside a pick: TOOLS
+
+After a click picks something, a small toolbar beside the cursor offers the
+tools that fit it, and the right-click menu starts with the full list:
+
+| Picked | Tools |
+| --- | --- |
+| a flat face | Sketch on this face, Pull, Hole, Fillet its edges, Shell (open this face), Move face, Work plane on it, Faces that meet it smoothly, Delete face |
+| a round face | Pull, Thread, Fillet its edges, Shell, Move face, Axis through it ... |
+| two faces | Pull, Fillet their edges, Shell, Move faces, Distance and angle, Mate, Joint ... |
+| an edge | Fillet, Chamfer, Loop round its face, Tangent chain, Axis along it |
+| two edges | Fillet, Chamfer, Distance and angle, Joint |
+| vertices | Distance (two), Work plane through the three (three) |
+| bodies | Move, Rotate, Mirror, Array, Union, Subtract the others, Intersect, Distance, Check, Mass and volume |
+
+Each tool opens its form filled in from the pick, or runs its commands.
+`TOOLS` lists the same for the current pick (`TOOLS, JSON` as data), and the
+assistant's `suggest_tools` tool returns it. The toolbar goes when the mouse
+moves away, after a few seconds, on Esc or with the next pick;
+Preferences > Tools beside a pick turns it off.

@@ -66,3 +66,5 @@ for _name, _limits in {
     "SMOOTH": {"steps": 1000},
 }.items():
     REGISTRY[_name].limits.update(_limits)
+from . import preview_handlers  # noqa: F401  (PREVIEW: what a step would make, on a copy)
+from . import easy_handlers  # noqa: F401  (TOOLS: what fits the pick; M15 everyday commands)
