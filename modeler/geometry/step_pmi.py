@@ -252,7 +252,7 @@ def read(doc) -> list[dict]:
             if not a:
                 continue
             out.append({"kind": "DIAMETER", "point": a[0], **rec})
-        elif XCAFDimTolObjects_DimensionObject.IsDimensionalLocation_s(typ) or obj.HasPoint():
+        elif typ == XCAFDimTolObjects_DimensionType_Location_LinearDistance or obj.HasPoint():
             pa = _xyz(obj.GetPoint()) if obj.HasPoint() else (a[0] if a else None)
             pb = _xyz(obj.GetPoint2()) if obj.HasPoint2() else (b[0] if b else None)
             if pa is None or pb is None:
