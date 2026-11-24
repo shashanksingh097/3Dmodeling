@@ -306,6 +306,7 @@ class Model:
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
         self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
+        self.joints: list = []  # JOINT steps (core/joints.py Joint), kept true by the joint solver
         self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
         self.drawsheets: dict[str, dict] = {}  # DRAWSHEET: drawing sheets kept with the model, in order
         self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
@@ -380,6 +381,7 @@ class Model:
             "properties": dict(self.properties),
             "notes": list(self.notes),
             "mates": list(self.mates),
+            "joints": list(self.joints),
             "frames": dict(self.frames),
             "drawsheets": dict(self.drawsheets),
             "welds": dict(self.welds),
@@ -417,6 +419,7 @@ class Model:
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
         self.mates = list(snap.get("mates", []))
+        self.joints = list(snap.get("joints", []))
         self.frames = dict(snap.get("frames", {}))
         self.drawsheets = dict(snap.get("drawsheets", {}))
         self.welds = dict(snap.get("welds", {}))

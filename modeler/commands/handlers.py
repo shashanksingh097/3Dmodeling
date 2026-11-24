@@ -667,7 +667,12 @@ def _transform(p: Processor, bid: int, trsf: gp_Trsf, what: str, copy: bool) -> 
     if inst:
         m.instances[body.id] = inst
     _move_frames(m, bid, trsf)
-    return f"{what} body {bid}" + ("" if body.name == f"body{bid}" else f" '{body.name}'")
+    out = f"{what} body {bid}" + ("" if body.name == f"body{bid}" else f" '{body.name}'")
+    if m.joints:
+        from .joint_handlers import after_move
+
+        out += after_move(p, bid)
+    return out
 
 
 def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
@@ -686,6 +691,10 @@ def _move_frames(m, bid: int, trsf: gp_Trsf) -> None:
         moved = True
     if moved:
         m.datums_changed()  # the view draws them where they are now
+    if m.joints:
+        from .joint_handlers import move_joint_frames
+
+        move_joint_frames(m, bid, trsf)
 
 
 @command("MOVE", Arg("b", BodyRef), Arg("dx", float, 0.0), Arg("dy", float, 0.0), Arg("dz", float, 0.0),

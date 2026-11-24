@@ -1433,6 +1433,26 @@ INST, bolt, 0, 0, 0
 INST, bolt, 30, 0, 0
 INST, bolt, 60, 0, 0, D=12, L=40
 
+@ JOINT pic
+! A lid on a hinge along the back edge of a box, held open at A degrees.
+! DRIVE, A, 90 or MOTION, A, 0, 110, 11 moves it; the joint stays true.
+A = 60
+BLOCK, 0,0,0, 40,30,10
+NAME, LAST, box
+BLOCK, 0,0,10, 40,30,2
+NAME, LAST, lid
+JOINT, REVOLUTE, EDGE, 2, EDGE, 16, A, LIMITS, 0, 110
+JOINTS
+
+@ JOINTS
+! Every joint, its value now, what it leaves free and any that fight.
+BLOCK, -50,-2,-2, 100, 4, 1
+NAME, LAST, rail
+BLOCK, -5,-2,0, 10, 4, 3
+NAME, LAST, car
+JOINT, SLIDER, FACE, 6, FACE, 11, 12
+JOINTS
+
 @ MATE
 ! Put a bolt in a hole by its faces: first the axes in line, then the head on the plate.
 *PART, bolt, D=8, L=30
