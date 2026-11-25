@@ -83,6 +83,7 @@ Every numeric argument of every command is an expression.
 | `COUNT("FACE")` | how many faces (bodies, edges ...) exist |
 | `BODY("name")`, `OWNER(f, "FACE")` | body ID by name, body that owns an entity |
 | `EXISTS(id, "FACE")`, `PARAM("W", default)` | 1/0, a parameter with a fallback |
+| `SETSIZE("inlet")`, `SETAREA("inlet")` | how many a named set (CM) holds (0: no such set); the area of a face set |
 | `ORIGIN("top")`, `DIR("top")` | a datum's origin, and its normal (plane) or direction (axis), as points |
 | `GAP(a, b)` | shortest distance between two bodies (0 when they touch or overlap) |
 | `VALID(b)`, `PIECES(b)` | 1 if the body passes `CHECK`, else 0; how many separate solids it is made of |
@@ -3893,3 +3894,48 @@ the ones left at their defaults (a change adds `L=25`).
 
 The assistant's `properties` tool gives the same table as data.
 
+
+## 47. Face sets for the analysis app, editing in a section, more patterns
+
+### Named sets go to STEP
+
+A named set of faces, edges or points (`CM`) is written to STEP files under
+its name, so the analysis app finds the inlet, the fixed face and the
+loaded face without picking them again. IMPORT reads the names back as
+sets. A face in two sets gets both names ("fixed; outside").
+
+    SEL, S, FACE, NORMAL, 0,0,1
+    CM, inlet, FACE
+    CMRENAME, inlet, water_in      ! rename a set (the model tree: right click a set)
+    EXPORT, STEP, "pipe.step"      ! the face is named water_in in the file
+
+FLUIDVOLUME names the faces that close each opening (`pipe_fluid_opening_1`
+...) and ENCLOSURE its sides (`enclosure_xmin` ... `enclosure_walls`).
+`SETSIZE("inlet")` and `SETAREA("inlet")` check a set.
+
+### Editing in a cross-section: SECTIONEDIT
+
+    SECTIONEDIT, XY, 5             ! cut at 5 above XY: the lines of the cut, each with its face
+    PICK, FACE, 2                  ! (a click on a line in the 3D view does this)
+    PUSHPULL, 5                    ! (dragging the line's arrow does this)
+    SECTIONEDIT, OFF
+
+Each line lists its face, its kind (line, arc, curve), its length and
+`push`, the way the face moves when pulled out. "Draw on the cut" (Section
+window) starts a sketch on the plane (`PLANE` first when it is moved), to
+add or remove material with `EXTRUDE, sketch, d, ADD` or `CUT`.
+SECTIONEDIT is a view, like SECTION: it is not kept in the history; the
+changes are ordinary steps.
+
+### More kinds of pattern
+
+    PATTERN, CURVE, plate, 1, path, 6 [, TURN]       ! spread along a curve (turned with it)
+    PATTERN, POINTS, plate, 1, s                     ! at a sketch's points (or circle centres)
+    PATTERN, POINTS, plate, 1, (10,10,5), (30,10,5)  ! the first point is where the feature is
+    PATTERN, FILL, lid, 1, 6, 8, 2 [, HEX]           ! over flat face 6 at spacing 8, 2 off its edges
+    PATTERN, MIRROR, plate, 1, mid                   ! mirrored in a plane
+    PATTERN, LINEAR, plate, 1, 5, 15,0,0, SKIP, 2, 4 ! copies 2 and 4 left out
+
+The PATTERN report lists every copy with its number and middle. Pick a
+face of a copy and right click: "Leave out copy n of the pattern" edits the
+PATTERN step to add it to SKIP.

@@ -203,7 +203,8 @@ class OccViewport(QWidget):
     hover_left = Signal()  # the mouse moved on, or left the view: the hover numbers go
     sketch_values = Signal(object, object, str)  # typed-value boxes while drawing: (fields, global QPoint, error)
     sculpt_changed = Signal(bool)  # sculpting went on or off
-    handles_wanted = Signal(bool)  # the view turned the drag handles on (SECTIONEDIT): the toolbar follows
+    handles_wanted = Signal(bool)
+    section_edit_changed = Signal(bool)  # SECTIONEDIT went on or off (the Section window follows)  # the view turned the drag handles on (SECTIONEDIT): the toolbar follows
     sculpt_stroke = Signal(int, object, object)  # (mesh body, N x 3 hit points, keyboard modifiers)
 
     background = "grey"
@@ -1389,6 +1390,7 @@ class OccViewport(QWidget):
         """Show the cut lines of SECTIONEDIT (None: stop). A click on a line picks its face and the
         drag handles pull it."""
         self._se = state
+        self.section_edit_changed.emit(state is not None)
         if state is not None and not self.handles_on:
             self.set_handles(True)
             self.handles_wanted.emit(True)

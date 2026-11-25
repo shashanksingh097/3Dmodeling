@@ -142,6 +142,7 @@ class SectionDialog(QDialog):
         self.slider.valueChanged.connect(self._slid)
         self.add_btn.clicked.connect(self.add_plane)
         self.edit.toggled.connect(self._edit_toggled)
+        win.viewport.section_edit_changed.connect(self._edit_changed_elsewhere)
         self.draw_btn.clicked.connect(self.draw)
         off_btn.clicked.connect(self.off)
         close_btn.clicked.connect(self.close)
@@ -174,6 +175,14 @@ class SectionDialog(QDialog):
             r = self.win.execute("SECTIONEDIT, OFF")
             self.report.setPlainText(r.message)
             self._debounce.start()
+
+    def _edit_changed_elsewhere(self, on: bool) -> None:
+        """SECTIONEDIT was typed (or ended) outside this window: follow it."""
+        if on != self.edit.isChecked():
+            self.edit.blockSignals(True)
+            self.edit.setChecked(on)
+            self.edit.blockSignals(False)
+            self._edit_toggled_view(on)
 
     def draw(self) -> list[str]:
         """Start a sketch on the section plane (the steps SECTIONEDIT lists under "draw")."""

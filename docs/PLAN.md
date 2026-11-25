@@ -1407,12 +1407,16 @@ Built about three items per pull request, in this order.
     typed value, like the drag handles of item 68) moves the face behind
     it; drawing in the section adds or removes material. Finishing writes
     ordinary MOVEFACE / PUSHPULL steps. The assistant reads the cut as a
-    list of lines with their face IDs.
+    list of lines with their face IDs. Done: a click on a cut line picks its
+    face and the drag handles pull it (PICK + PUSHPULL); "Draw on the cut"
+    starts a sketch on the plane.
 97. **More kinds of pattern** (P1): PATTERN gets CURVE (along a curve, with
     or without turning), POINTS (at sketch points or a list), FILL (inside
     a face's region at a spacing, for vents and perforations) and MIRROR,
     and a SKIP list of copies left out. The copies are previewed first; a
-    right click on a copy skips it.
+    right click on a copy skips it. Done: the form previews them (Show in
+    3D), the PATTERN report lists every copy, and a picked face of a copy
+    gives "Leave out copy n" on a right click.
 98. **More standard parts** (P1): countersunk and button-head screws, set
     screws, dowel and spring pins, threaded inserts, ball bearings,
     circlips and parallel keys, and inch sizes, from the standard tables.

@@ -165,6 +165,14 @@ TASKS: list[Task] = [
          setup="BLOCK, 0, 0, 0, 100, 50, 2\nNAME, LAST, bracket\nBLOCK, 0, 0, 0, 2, 50, 40\nUNION, bracket, LAST",
          reference="MIDSURFACE, bracket",
          area="analysis-prep"),
+    Task("name_inlet",
+         "The analysis app needs to know where the water comes in: name the pipe's top end face inlet and its "
+         "bottom end face outlet, so the STEP file carries them.",
+         ["SETSIZE(\"inlet\"), EQ, 1", "SETSIZE(\"outlet\"), EQ, 1",
+          "SETAREA(\"inlet\"), BETWEEN, 112.9, 113.2", "SETAREA(\"outlet\"), BETWEEN, 112.9, 113.2"],
+         setup="CYL, 0, 0, 0, 10, 80\nNAME, LAST, pipe\nCYL, 0, 0, 0, 8, 80\nSUBTRACT, pipe, LAST",
+         reference="SEL, S, FACE, NORMAL, 0, 0, 1\nCM, inlet, FACE\nSEL, S, FACE, NORMAL, 0, 0, -1\nCM, outlet, FACE",
+         area="analysis-prep"),
     Task("strength",
          "The aluminium bracket carries 400 N straight down on its tip face (set tip) with the wall face (set "
          "wall) fixed. Make its plates thick enough for a safety factor of at least 2, keeping its 60 x 40 x 50 "
@@ -198,6 +206,13 @@ TASKS: list[Task] = [
           "CENT(plate)[1], BETWEEN, 29.99, 30.01", "VALID(plate)"],
          setup="BLOCK, 0, 0, 0, 80, 60, 6\nNAME, LAST, plate",
          reference="*DO, i, 0, 3\n*DO, j, 0, 2\nHOLE, plate, 17.5 + 15*i, 15 + 15*j, 6, 5\n*ENDDO\n*ENDDO",
+         area="holes-and-patterns"),
+    Task("vent_holes",
+         "The lid has one 3 mm vent hole in its corner. Cover the whole top with holes like it, 6 mm apart in "
+         "staggered rows, keeping at least 4 mm of solid lid round the edge.",
+         ["HOLES(lid, 3, 1), GE, 60", "HOLES(lid, 3, 1), LE, 140", "VALID(lid)", "PIECES(lid), EQ, 1"],
+         setup="BLOCK, 0, 0, 0, 80, 50, 2\nNAME, LAST, lid\nHOLE, lid, 7, 7, 2, 3",
+         reference="PATTERN, FILL, lid, 1, 6, 6, 4, HEX",
          area="holes-and-patterns"),
     Task("rounded_plate",
          "Sketch a 50 x 30 mm rectangle with 5 mm rounded corners and extrude it 8 mm.",

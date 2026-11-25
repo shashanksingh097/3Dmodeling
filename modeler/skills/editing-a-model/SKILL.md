@@ -1,7 +1,7 @@
 ---
 name: editing-a-model
 description: Change a model that already exists - a size, a hole position, a failing step - by editing its history (parameter lines first) instead of adding patches on top. Use for "make it wider", "move the holes", "change the bolt size".
-commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES
+commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES, SECTIONEDIT, PUSHPULL
 ---
 # Editing a model
 
@@ -26,7 +26,15 @@ Adding a `MOVE` or a `SUBTRACT` on top works once and breaks the next edit.
    faces `PUSHPULL`, a small arrow `MOVEFACE`. `HANDLES` (after a `PICK`)
    lists them, so you can write the same step a person's drag would. A drag
    on a body held by a `JOINT` moves the rest of the linkage too.
-6. In the assistant: try the edit with `round_trip` or in the sandbox,
+6. **Editing in a section**: `SECTIONEDIT, XY, 5` (a plane and an offset)
+   lists the lines where the plane cuts the part, each with the `face`
+   behind it and `push` (which way that face moves when pulled out). A
+   person clicks a line and drags its arrow; you write the same steps:
+   `PICK, FACE, id` then `PUSHPULL, d` (d > 0 moves the line along push).
+   The report's `draw` gives the steps that start a sketch on the plane,
+   to add or remove material with `EXTRUDE, sketch, d, ADD` or `CUT`.
+   `SECTIONEDIT, OFF` ends it; it is not kept in the history.
+7. In the assistant: try the edit with `round_trip` or in the sandbox,
    then hand it over with `propose_edits` (not `propose_commands`), so the
    user sees old and new text per step.
 
