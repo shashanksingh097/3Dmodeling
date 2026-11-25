@@ -43,6 +43,19 @@ def _file(p: Processor, file: str, what: str) -> str:
     return path
 
 
+def _repair_hint(sk) -> str:
+    """"; SREPAIR would ..." when the drawing came in with gaps, specks or chains of short lines."""
+    from ..sketch import repair as rp
+
+    try:
+        fix = rp.survey(sk)
+    except SketchError:
+        return ""
+    if not (fix["gaps_closed"] or fix["splines"] or fix["tiny_removed"] or fix["duplicates"]):
+        return ""
+    return f"; SREPAIR would help: {rp.as_text(fix, doing=False)}"
+
+
 def _place(p: Processor, sk, ents, scale: float, du: float, dv: float, what: str):
     """Put DXF-style entities (geometry/dxfread.Entity) into the open sketch, scaled and moved, with
     ends that meet tied together. Returns (curves made, count per kind)."""
@@ -158,7 +171,7 @@ def sdxf(p: Processor, file, scale, du, dv, layer):
     made, counts = _place(p, sk, ents, scale, du, dv, "SDXF")
     said = (f"read {len(made)} curves from {os.path.basename(path)} ("
             + ", ".join(f"{v} {k.lower()}{'s' if v != 1 else ''}" for k, v in sorted(counts.items())) + ")"
-            + (f"; left out: {', '.join(notes)}" if notes else ""))
+            + (f"; left out: {', '.join(notes)}" if notes else "") + _repair_hint(sk))
     return _store(p, sk, said)
 
 
@@ -210,7 +223,7 @@ def ssvg(p: Processor, file, scale, du, dv, layer):
     size = f"{fmt_num(round(info['width'] * k, 3))} x {fmt_num(round(info['height'] * k, 3))}"
     said = (f"read {len(made)} curves from {os.path.basename(path)}, {size} ("
             + ", ".join(f"{v} {kind.lower()}{'s' if v != 1 else ''}" for kind, v in sorted(counts.items())) + ")"
-            + (f"; left out: {', '.join(notes)}" if notes else ""))
+            + (f"; left out: {', '.join(notes)}" if notes else "") + _repair_hint(sk))
     return _store(p, sk, said)
 
 

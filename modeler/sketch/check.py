@@ -97,6 +97,17 @@ def check(sk: Sketch) -> dict[str, Any]:
     except SketchError as exc:
         out["profile"] = str(exc)
     out["select"] = list(dict.fromkeys(out["select"]))
+    # what SREPAIR would do (gaps, specks, chains of short lines)
+    from . import repair as rp
+
+    try:
+        fix = rp.survey(sk)
+    except SketchError:
+        fix = None
+    if fix is not None and (fix["gaps_closed"] or fix["splines"] or fix["tiny_removed"]):
+        out["repair"] = {"gaps": fix["gaps_closed"], "tiny": len(fix["tiny_removed"]),
+                         "duplicates": len(fix["duplicates"]), "lines_refit": fix["lines_refit"],
+                         "splines": len(fix["splines"]), "text": rp.as_text(fix, doing=False)}
     return out
 
 
@@ -127,4 +138,6 @@ def as_text(res: dict[str, Any]) -> str:
             what = f"{f['kind']} {f['geo']}" + (" (construction)" if f["construction"] else "")
             lines.append(f"    {what}: {'; '.join(f['how'])}")
     lines.append(f"  profile: {res['profile']}")
+    if res.get("repair"):
+        lines.append(f"  SREPAIR would help: {res['repair']['text']}")
     return "\n".join(lines)
