@@ -36,7 +36,7 @@ from OCP.StdSelect import StdSelect_BRepOwner
 from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHAPE, TopAbs_VERTEX
 from OCP.V3d import V3d_TypeOfOrientation, V3d_Viewer, V3d_ZBUFFER
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtWidgets import QWidget
 
 from ..core.model import Event, Model, ModelError
@@ -44,6 +44,7 @@ from ..geometry import meshbody as mb
 from . import mouse_styles as ms
 
 _TOPABS = {"BODY": TopAbs_SHAPE, "FACE": TopAbs_FACE, "EDGE": TopAbs_EDGE, "VERTEX": TopAbs_VERTEX}
+_KIND_OF = {TopAbs_FACE: "FACE", TopAbs_EDGE: "EDGE", TopAbs_VERTEX: "VERTEX"}  # AUTO picks: shape type -> kind
 
 _O = V3d_TypeOfOrientation
 _VIEWS = {
@@ -184,6 +185,9 @@ BACKGROUNDS = {
 }
 
 
+HOVER_REST_MS = 600  # the mouse still this long over something: show its numbers
+
+
 class OccViewport(QWidget):
     command = Signal(str)  # command text for the processor
     ready = Signal()
@@ -191,6 +195,13 @@ class OccViewport(QWidget):
     sketch_hover = Signal(str)  # status text while sketching (where the mouse is)
     body_menu = Signal(int, object)  # right click without dragging: (body under the cursor or 0, global QPoint)
     knife_changed = Signal(bool)  # the Knife tool went on or off
+    region_changed = Signal(str)  # the box or lasso pick tool: "BOX", "LASSO" or "" (off)
+    pick_note = Signal(str)  # a line for the status bar about a pick (Tab through what is under the cursor ...)
+    pressed = Signal()  # any mouse press in the view (the tools beside a pick go away)
+    picked_at = Signal(object)  # a plain click picked something: the global QPoint (for the tools beside it)
+    hovered = Signal(str, int, object)  # the mouse rested on (kind, id) at the global QPoint (its numbers, item 86)
+    hover_left = Signal()  # the mouse moved on, or left the view: the hover numbers go
+    sketch_values = Signal(object, object, str)  # typed-value boxes while drawing: (fields, global QPoint, error)
     sculpt_changed = Signal(bool)  # sculpting went on or off
     sculpt_stroke = Signal(int, object, object)  # (mesh body, N x 3 hit points, keyboard modifiers)
 
@@ -220,7 +231,7 @@ class OccViewport(QWidget):
     def __init__(self, model: Model, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.model = model
-        self.pick_mode = "FACE"
+        self.pick_mode = "AUTO"  # whatever is nearest the cursor (PICKMODE changes it)
         self._ais: dict[int, AIS_Shape] = {}
         self._drawn_color: dict[int, tuple | None] = {}  # body ID -> colour it was drawn in
         self._datum_ais: list = []  # datum planes, axes, points and their labels (never pickable)
@@ -231,6 +242,8 @@ class OccViewport(QWidget):
         self._path_ais = None  # MILL's milling path (show_toolpath)
         self._note_ais: list = []  # NOTE: notes pinned to the model
         self._picture_ais: list = []  # IMAGE: pictures to sketch over
+        self._step_faint: set = set()  # bodies drawn faint while their preview shows
+        self._step_ais: list = []  # model.preview: what a form's step would make (draw_step_preview)
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
         self.handles_on = False  # drag handles on the picked body or faces (gui/drag_handles.py)
@@ -246,6 +259,19 @@ class OccViewport(QWidget):
         self._shown_active: str | None = None  # the open sketch the view last turned to
         self._mode_pending = False
         self.sketcher = None  # gui.sketch_tools.SketchController, set by the main window
+        self.region_tool = ""  # "BOX" or "LASSO": a left drag picks what is in the region (PLAN item 84)
+        self._region_px: list[tuple[int, int]] = []
+        self._region_ais = None
+        self._region_mods = Qt.NoModifier
+        self._hover_px: tuple[int, int] | None = None  # where the mouse is (for Tab: pick the one behind)
+        self._behind: tuple[tuple[int, int], list, int] | None = None  # (pixel, candidates, index) for Tab
+        self._rest = QTimer(self)  # the mouse resting still: say what is under it (PLAN item 86)
+        self._rest.setSingleShot(True)
+        self._rest.setInterval(HOVER_REST_MS)
+        self._rest.timeout.connect(self._rested)
+        self._rest_shown = False
+        self.closing = False  # set when the window closes: late timers must not touch the GL view
+        self._sketch_pos: QPoint | None = None  # the mouse in the view while sketching (the value boxes go beside it)
         self.knife = False  # the Knife tool is on: a left drag draws a stroke to cut along
         self.knife_width = 0.0  # 0: split; more: cut a slot this wide
         self._knife_px: list[tuple[int, int]] = []
@@ -412,7 +438,11 @@ class OccViewport(QWidget):
 
     def _activate(self, ais: AIS_Shape) -> None:
         self.context.Deactivate(ais)
-        self.context.Activate(ais, AIS_Shape.SelectionMode_s(_TOPABS[self.pick_mode]))
+        if self.pick_mode == "AUTO":  # whatever is nearest the cursor: vertex, edge or face
+            for k in ("FACE", "EDGE", "VERTEX"):
+                self.context.Activate(ais, AIS_Shape.SelectionMode_s(_TOPABS[k]))
+        else:
+            self.context.Activate(ais, AIS_Shape.SelectionMode_s(_TOPABS[self.pick_mode]))
 
     # ---- model -> display ---------------------------------------------
     def _on_model_event(self, ev: Event) -> None:
@@ -424,6 +454,9 @@ class OccViewport(QWidget):
             traceback.print_exc()
 
     def _apply_event(self, ev: Event) -> None:
+        if ev.kind == "preview":  # a form or PREVIEW shows what a step would make
+            self.draw_step_preview()
+            return
         self._apply_body_event(ev)
         if self._cp is not None and ev.kind not in ("selection", "sketch_selection"):
             # (an edit removes the body and adds it back under the same ID: keep the editor)
@@ -758,10 +791,14 @@ class OccViewport(QWidget):
 
     def _sketch_mode_changed(self) -> None:
         self._mode_pending = False
+        if self.closing:
+            return  # the window closed before this ran: the GL view is going
         m = self.model
         if m.active_sketch == self._shown_active:
             return
         self._shown_active = m.active_sketch
+        if not m.active_sketch:
+            self.sketch_values.emit([], QPoint(), "")  # the typed-value boxes go with the sketch
         active = m.sketches.get(m.active_sketch) if m.active_sketch else None
         self._dim_bodies(active is not None)
         if active is not None:
@@ -1154,6 +1191,54 @@ class OccViewport(QWidget):
                 ctx.SetTransparency(ais, 0.55, False)
             ctx.Deactivate(ais)
             self._ghost_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
+    def draw_step_preview(self) -> None:
+        """Draw ``model.preview``: what a step being filled in would make
+        (commands/preview_handlers.py). Blue see-through for new and changed
+        bodies, red see-through for bodies it removes, bright red on top for
+        the faces or edges a failing step was given. Never pickable."""
+        if not self._initialized:
+            return
+        ctx = self.context
+        for ais in self._step_ais:
+            ctx.Remove(ais, False)
+        self._step_ais = []
+        # bodies the step changes or removes are drawn faint, so the ghost of the result reads
+        faint = {bid for bid in getattr(self.model, "preview_bodies", ()) if bid in self._ais}
+        for bid in self._step_faint | faint:
+            ais = self._ais.get(bid)
+            if ais is None or bid not in self.model.bodies:
+                continue
+            back = 0.8 if self.model.active_sketch else self.model.display_transparency(bid)
+            ctx.SetTransparency(ais, 0.88 if bid in faint else back, False)
+        self._step_faint = faint
+        for shape, kind in self.model.preview:
+            if shape is None or shape.IsNull():
+                continue
+            ais = AIS_Shape(shape)
+            if kind == "fault":
+                ais.SetColor(_rgb(0.95, 0.1, 0.1))
+                ais.SetWidth(5.0)
+                ctx.Display(ais, 1, 0, False)
+                ctx.SetTransparency(ais, 0.25, False)
+                _on_top(ctx, ais)
+            elif kind == "curve":
+                ais.SetColor(_rgb(1.0, 0.25, 0.85))
+                ais.SetWidth(4.0)
+                ctx.Display(ais, 0, 0, False)
+                _on_top(ctx, ais)
+            elif kind == "removed":
+                ais.SetColor(_rgb(0.95, 0.3, 0.3))
+                ctx.Display(ais, 1, 0, False)
+                ctx.SetTransparency(ais, 0.6, False)
+            else:
+                ais.SetColor(_rgb(0.25, 0.75, 1.0))
+                ais.SetWidth(2.0)
+                ctx.Display(ais, 1, 0, False)
+                ctx.SetTransparency(ais, 0.45, False)
+            ctx.Deactivate(ais)
+            self._step_ais.append(ais)
         ctx.UpdateCurrentViewer()
 
     # ---- control points (CPOINTS) ----------------------------------------------
@@ -1797,7 +1882,8 @@ class OccViewport(QWidget):
         kind = m.selection_kind
         # bodies picked in the model tree show whatever a click picks; faces,
         # edges and vertices only in their own pick mode
-        if m.selection and (kind == self.pick_mode or kind == "BODY") and not m.active_sketch:
+        if m.selection and (kind == self.pick_mode or kind == "BODY" or self.pick_mode == "AUTO") \
+                and not m.active_sketch:
             for gid in m.selection:
                 if kind == "BODY":
                     bid, shape = gid, m.bodies[gid].shape
@@ -1824,11 +1910,261 @@ class OccViewport(QWidget):
                 continue
             if self.pick_mode == "BODY":
                 return "BODY", bid
+            kind = self.pick_mode if self.pick_mode != "AUTO" else _KIND_OF.get(shape.ShapeType())
+            if kind is None:
+                return None
             try:
-                return self.pick_mode, self.model.find_entity(bid, self.pick_mode, shape)
+                return kind, self.model.find_entity(bid, kind, shape)
             except ModelError:
                 return None
         return None
+
+    def emit_typed(self) -> None:
+        """Tell the value boxes what to show (PLAN item 87)."""
+        sk = self.sketcher
+        if sk is None or not self._sketching():
+            self.sketch_values.emit([], QPoint(), "")
+            return
+        at = self._sketch_pos
+        if at is None:
+            from PySide6.QtGui import QCursor
+
+            g = QCursor.pos()
+        else:
+            g = self.mapToGlobal(at)
+        self.sketch_values.emit(list(sk.fields), g, sk.typed_error)
+
+    def _typed_key(self, e) -> bool:
+        """Keys for the typed-value boxes while drawing; True when used."""
+        sk = self.sketcher
+        if sk is None or not self._sketching() or not sk.typing_fields():
+            return False
+        k = e.key()
+        if k in (Qt.Key_Return, Qt.Key_Enter):
+            x, y = self._hover_px or (self.width() // 2, self.height() // 2)
+            cmds = sk.enter(self._tol(x, y))
+            self._sketch_commands(cmds)
+            if self.sketcher.tool != "SELECT" and self._hover_px is not None:
+                uv = self.plane_point(*self._hover_px)
+                self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if uv is not None else None)
+            self.emit_typed()
+            return True
+        if k == Qt.Key_Escape and sk.type_escape():
+            self._typed_refresh()
+            return True
+        if k == Qt.Key_Backspace:
+            used = sk.type_key("\b")
+        else:
+            used = sk.type_key(e.text())
+        if used:
+            self._typed_refresh()
+        return used
+
+    def _typed_refresh(self) -> None:
+        sk = self.sketcher
+        if self._hover_px is not None:
+            x, y = self._hover_px
+            uv = self.plane_point(x, y)
+            if uv is not None:
+                self.set_preview(sk.move(*uv, self._tol(x, y)))
+        self.emit_typed()
+
+    def _hover_gone(self) -> None:
+        self._rest.stop()
+        if self._rest_shown:
+            self._rest_shown = False
+            self.hover_left.emit()
+
+    def hover_hit(self) -> tuple[str, int] | None:
+        """What the mouse rests on now (kind, id), as a click would pick it, or None."""
+        if self._hover_px is None or not self._initialized:
+            return None
+        hits = self.candidates_at(*self._hover_px)
+        return hits[0] if hits else None
+
+    def _rested(self) -> None:
+        if (self.closing or self._press is not None or self._drag or self._sketching() or self.sculpt_on or self.knife
+                or self.region_tool or not self.underMouse()):
+            return
+        hit = self.hover_hit()
+        if hit is None:
+            self._hover_gone()
+            return
+        from PySide6.QtGui import QCursor
+
+        self._rest_shown = True
+        self.hovered.emit(hit[0], int(hit[1]), QCursor.pos())
+
+    def leaveEvent(self, e) -> None:
+        self._hover_gone()
+        super().leaveEvent(e)
+
+    def candidates_at(self, x: int, y: int) -> list[tuple[str, int]]:
+        """Everything that can be picked under device pixel (x, y), nearest first
+        (what Tab steps through: the face behind the one in front ...)."""
+        self.context.MoveTo(x, y, self.view, False)
+        sel = self.context.MainSelector()
+        out: list[tuple[str, int]] = []
+        by_ais = {id(a): b for b, a in self._ais.items()}
+        for i in range(1, sel.NbPicked() + 1):
+            owner = sel.Picked(i)
+            try:
+                shape = owner.Shape()
+                bid = by_ais.get(id(owner.Selectable()))
+            except Exception:  # noqa: BLE001 - not a shape owner (a datum, a label)
+                continue
+            if bid is None:
+                for b, a in self._ais.items():
+                    if a is owner.Selectable() or a == owner.Selectable():
+                        bid = b
+                        break
+            if bid is None:
+                continue
+            if self.pick_mode == "BODY":
+                hit = ("BODY", bid)
+            else:
+                kind = self.pick_mode if self.pick_mode != "AUTO" else _KIND_OF.get(shape.ShapeType())
+                if kind is None:
+                    continue
+                try:
+                    hit = (kind, self.model.find_entity(bid, kind, shape))
+                except ModelError:
+                    continue
+            if hit not in out:
+                out.append(hit)
+        return out
+
+    def pick_behind(self, modifiers=Qt.NoModifier) -> str | None:
+        """Tab: pick the next thing under the cursor, further back each time."""
+        if self._hover_px is None:
+            return None
+        x, y = self._hover_px
+        if self._behind is not None and self._behind[0] == (x, y) and self._behind[1]:
+            px, cands, i = self._behind
+            i = (i + 1) % len(cands)
+        else:
+            cands, i = self.candidates_at(x, y), 0
+            cur = self.pick_at(x, y)
+            if cur in cands and len(cands) > 1:  # the first Tab goes past what a click picks
+                i = (cands.index(cur) + 1) % len(cands)
+        if not cands:
+            self.pick_note.emit("Nothing under the cursor to step through")
+            return None
+        self._behind = ((x, y), cands, i)
+        kind, gid = cands[i]
+        mode = ", A" if modifiers & (Qt.ControlModifier | Qt.ShiftModifier) else ""
+        text = f"PICK, {kind}, {gid}{mode}"
+        self.command.emit(text)
+        self.pick_note.emit(f"{i + 1} of {len(cands)} under the cursor: {kind.lower()} {gid}. "
+                            "Tab picks the next one behind it")
+        return text
+
+    # ---- box and lasso picks (PLAN item 84) ----------------------------------------
+    def set_region_tool(self, kind: str) -> None:
+        """BOX or LASSO: a left drag picks what is in the region; "" turns it off (Esc too)."""
+        kind = (kind or "").upper()
+        if kind not in ("", "BOX", "LASSO"):
+            raise ValueError(kind)
+        if kind and self.knife:
+            self.set_knife(False)
+        self.region_tool = kind
+        self._region_px = []
+        self._draw_region()
+        self.setCursor(Qt.CrossCursor if kind else Qt.ArrowCursor)
+        self.region_changed.emit(kind)
+
+    def _region_kind(self) -> str:
+        return "FACE" if self.pick_mode == "AUTO" else self.pick_mode
+
+    def region_text(self, pts: list, modifiers=Qt.NoModifier, lasso: bool = False) -> str | None:
+        """The PICK a finished box (two corners) or lasso (a loop) writes, or None."""
+        from ..gui import region_pick as rp
+
+        if len(pts) < 2:
+            return None
+        if lasso:
+            poly, mode = list(pts), rp.INSIDE
+        else:
+            poly, mode = rp.box_polygon(pts[0], pts[-1]), rp.box_mode(pts[0], pts[-1])
+        if len(poly) < 3:
+            return None
+        shown = [b for b, a in self._ais.items() if self.context.IsDisplayed(a)
+                 and self.model.display_transparency(b) < 0.9]
+        kind = self._region_kind()
+        ids = rp.pick_region(self.model, kind, poly, mode, lambda q: self.view.Convert(*q), shown)
+        if modifiers & Qt.AltModifier:
+            how = ", U"
+        elif modifiers & (Qt.ControlModifier | Qt.ShiftModifier):
+            how = ", A"
+        else:
+            how = ""
+        word = "inside" if mode == rp.INSIDE else "touching"
+        if not ids:
+            self.pick_note.emit(f"No {kind.lower()}s {word} the {'lasso' if lasso else 'box'}")
+            return "SEL, NONE" if not how and self.model.selection else None
+        self.pick_note.emit(f"{len(ids)} {kind.lower()}{'s' if len(ids) != 1 else ''} {word} the "
+                            f"{'lasso' if lasso else 'box'} (hidden ones too)")
+        return f"PICK, {kind}, {rp.ids_text(ids)}{how}"
+
+    def _draw_region(self) -> None:
+        if not self._initialized:
+            return
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon
+        from OCP.gp import gp_Pnt
+
+        ctx = self.context
+        if self._region_ais is not None:
+            ctx.Remove(self._region_ais, False)
+            self._region_ais = None
+        pts = list(self._region_px)
+        if self._drag == "region" and len(pts) >= 2:
+            from ..gui import region_pick as rp
+
+            if self.region_tool != "LASSO":
+                pts = rp.box_polygon(pts[0], pts[-1])
+            poly = BRepBuilderAPI_MakePolygon()
+            last = None
+            for x, y in pts + [pts[0]]:
+                if (x, y) == last:
+                    continue
+                last = (x, y)
+                poly.Add(gp_Pnt(*self._ray(int(x), int(y))[0]))
+            if poly.IsDone():
+                ais = AIS_Shape(poly.Shape())
+                crossing = self.region_tool != "LASSO" and pts[2][0] < pts[0][0]
+                ais.SetColor(_rgb(0.2, 0.75, 0.3) if crossing else _rgb(0.2, 0.5, 1.0))
+                ais.SetWidth(2.0)
+                ctx.Display(ais, False)
+                ctx.Deactivate(ais)
+                _on_top(ctx, ais)
+                self._region_ais = ais
+        ctx.UpdateCurrentViewer()
+
+    def loop_text(self, kind: str, gid: int, modifiers=Qt.NoModifier) -> str | None:
+        """A double click: an edge picks the loop round the face facing you (again: the
+        tangent chain); a face picks itself and the faces that meet it smoothly."""
+        m = self.model
+        add = "A" if modifiers & (Qt.ControlModifier | Qt.ShiftModifier) else "S"
+        if kind == "FACE":
+            return f"SEL, {add}, FACE, TANGENT, {gid}"
+        if kind != "EDGE":
+            return None
+        from ..geometry import topo_select as ts
+
+        try:
+            bid = m.entity_owner("EDGE", gid)[0]
+            d = self.view.Proj()  # from the eye towards the model is the opposite of Proj
+            face = ts.facing_face(m.bodies[bid].shape, m.entity_shape("EDGE", gid), (-d[0], -d[1], -d[2]))
+            fid = m.find_entity(bid, "FACE", face) if face is not None else None
+        except Exception:  # noqa: BLE001 - a stale pick: pick the loop the plain way
+            fid = None
+        loop_cmd = f"SEL, {add}, EDGE, LOOP, {gid}" + (f", {fid}" if fid else "")
+        last = getattr(self, "_last_loop", None)
+        self._last_loop = (gid, loop_cmd)
+        if last and last[0] == gid and m.selection_kind == "EDGE" and len(m.selection) > 1:
+            self._last_loop = None
+            return f"SEL, {add}, EDGE, CHAIN, {gid}"  # the second double click: the tangent chain
+        return loop_cmd
 
     def body_at(self, x: int, y: int) -> int | None:
         """The body under device pixel (x, y), whatever is being picked."""
@@ -1863,6 +2199,8 @@ class OccViewport(QWidget):
     def mousePressEvent(self, e) -> None:
         if not self._initialized:
             return
+        self.pressed.emit()
+        self._hover_gone()
         self._press = e.position().toPoint()
         self._last = self._press
         x, y = self._px(self._press)
@@ -1885,6 +2223,13 @@ class OccViewport(QWidget):
             self._sculpt_mods = e.modifiers()
             self._drag = "sculpt"
             self._sculpt_start(x, y, e.modifiers())
+            return
+        if e.button() == Qt.LeftButton and (self.region_tool or (e.modifiers() & Qt.ControlModifier
+                                                                 and not (e.modifiers() & Qt.ShiftModifier))):
+            # the box or lasso tool, or Ctrl+drag (a box that adds): a region pick
+            self._drag = "region_maybe" if not self.region_tool else "region"
+            self._region_px = [(x, y)]
+            self._region_mods = e.modifiers()
             return
         if (self._hd is not None and e.button() == Qt.LeftButton
                 and self._hd.press(x, y, lambda q: self.view.Convert(*q), self._ray)):
@@ -1926,6 +2271,18 @@ class OccViewport(QWidget):
                     pv = self.sketcher.move(*uv, self._tol(x, y))
                     self.set_preview(pv)
                 self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
+                self._sketch_pos = QPoint(pos)
+                self.emit_typed()
+            return
+        if self._drag in ("region", "region_maybe"):
+            if self._drag == "region_maybe" and moved:
+                self._drag = "region"
+            if self._drag == "region":
+                if self.region_tool == "LASSO":
+                    self._region_px.append((x, y))
+                else:
+                    self._region_px = [self._region_px[0], (x, y)]
+                self._draw_region()
             return
         if self._drag in ("knife", "sculpt"):
             self._knife_px.append((x, y))
@@ -1959,7 +2316,11 @@ class OccViewport(QWidget):
                 self.view.ZoomAtPoint(px, py, px + (ly - y), py + (ly - y))
             self._last = pos
         elif self._press is None:
+            if self._hover_px is not None and abs(self._hover_px[0] - x) + abs(self._hover_px[1] - y) > 3:
+                self._hover_gone()
+            self._hover_px = (x, y)
             self.context.MoveTo(x, y, self.view, True)  # hover highlight
+            self._rest.start()
 
     def mouseReleaseEvent(self, e) -> None:
         if not self._initialized or self._press is None:
@@ -1994,6 +2355,24 @@ class OccViewport(QWidget):
                 self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
                 self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
             return
+        if drag == "region_maybe":  # a Ctrl+click, not a drag: add what is under the cursor
+            self._region_px = []
+            self.click(x, y, e.modifiers())
+            return
+        if drag == "region":
+            pts = list(self._region_px)
+            if self.region_tool != "LASSO":
+                pts = [pts[0], (x, y)]
+            else:
+                pts.append((x, y))
+            self._region_px = []
+            self._draw_region()
+            text = self.region_text(pts, self._region_mods, lasso=self.region_tool == "LASSO") if moved else None
+            if not moved:
+                self.click(x, y, e.modifiers())
+            elif text:
+                self.command.emit(text)
+            return
         if drag == "knife":
             self._knife_px.append((x, y))
             self._knife_cut()
@@ -2014,12 +2393,22 @@ class OccViewport(QWidget):
                 self.command.emit(text)
             return
         if not moved and e.button() == Qt.LeftButton:
-            self.click(x, y, e.modifiers())
+            if self.click(x, y, e.modifiers()) and self.model.selection:
+                self.picked_at.emit(e.globalPosition().toPoint())
         elif not moved and e.button() == Qt.RightButton:  # a right drag pans; a right click opens the menu
             bid = self.body_at(x, y)
             self.body_menu.emit(bid or 0, e.globalPosition().toPoint())
 
     def mouseDoubleClickEvent(self, e) -> None:
+        if (self._initialized and not self._sketching() and e.button() == Qt.LeftButton
+                and not self.knife and not self.sculpt_on and not self.region_tool):
+            x, y = self._px(e.position().toPoint())
+            hit = self.pick_at(x, y)
+            if hit is not None:
+                text = self.loop_text(*hit, e.modifiers())
+                if text:
+                    self.command.emit(text)
+            return
         if not (self._initialized and self._sketching() and self.sketcher.tool == "SELECT"):
             return
         x, y = self._px(e.position().toPoint())
@@ -2046,7 +2435,29 @@ class OccViewport(QWidget):
             self.command.emit(text)
         return text
 
+    def event(self, e) -> bool:
+        # Tab would move the keyboard focus on: in the 3D view it picks the thing behind
+        from PySide6.QtCore import QEvent
+
+        if (e.type() == QEvent.KeyPress and e.key() == Qt.Key_Tab and self._initialized
+                and not self._sketching() and self._drag == ""):
+            self.pick_behind(e.modifiers())
+            return True
+        if (e.type() == QEvent.ShortcutOverride and self._sketching() and self.sketcher is not None
+                and self.sketcher.typed.focus >= 0 and e.text() and e.text().isprintable()):
+            e.accept()  # typing a size (a parameter name): letters are not tool shortcuts now
+            return True
+        if (e.type() == QEvent.KeyPress and e.key() in (Qt.Key_Tab, Qt.Key_Backtab) and self._initialized
+                and self._sketching() and self.sketcher is not None and self.sketcher.typing_fields()):
+            self.sketcher.type_tab()  # the next typed-value box (PLAN item 87)
+            self._typed_refresh()
+            return True
+        return super().event(e)
+
     def keyPressEvent(self, e) -> None:
+        if self.region_tool and e.key() == Qt.Key_Escape:
+            self.set_region_tool("")
+            return
         if self._drag == "handle" and self._hd is not None:
             if e.key() == Qt.Key_Escape:
                 self.finish_handle_drag(cancel=True)
@@ -2075,13 +2486,17 @@ class OccViewport(QWidget):
             self._drag, self._press = "", None
             self._draw_control_points()
             return
+        if self._typed_key(e):
+            return
         if self._sketching() and e.key() == Qt.Key_Escape:
             self.sketcher.finish()
             self.set_preview(None)
+            self.emit_typed()
             return
         super().keyPressEvent(e)
 
     def wheelEvent(self, e) -> None:
+        self._hover_gone()
         if not self._initialized:
             return
         x, y = self._px(e.position().toPoint())

@@ -1715,6 +1715,12 @@ HIST
 ! Start an empty session (UNDO cannot bring the old one back).
 BLOCK, 0,0,0, 40, 20, 5
 NEW
+NEW, sheet_metal
+! a new project from a template: units, T, R and K, layers, the title block
+! and the sketch "base" are set up as its first history entries
+SRECT, 0, 0, 60, 40
+ENDSKETCH
+SHEET, base, T, R, K
 
 @ OPEN
 ! Save a project and open it again: the history is replayed.
@@ -1822,8 +1828,75 @@ PICK, FACE, 6
 PICK, FACE, 1, A
 
 @ PICKMODE
-! What a click in the view picks: here edges.
+! What a click in the view picks: here edges only; AUTO (the default) takes
+! whatever is nearest the cursor.
 PICKMODE, EDGE
+PICKMODE, AUTO
+
+@ PICKREGION
+! Pick by dragging a box (or drawing a lasso) in the 3D view; the pick is one
+! PICK with several IDs, here the faces the box caught.
+PICKREGION, BOX
+BLOCK, 0,0,0, 40, 20, 5
+PICK, FACE, 1 3 6
+PICKREGION, OFF
+
+@ PREVIEW
+! See what a step would make before running it: a see-through ghost and a line
+! saying what changes (or why it would fail). Nothing is added to the history.
+BLOCK, 0,0,0, 40, 20, 10
+NAME, LAST, plate
+SEL, S, EDGE, BODY, plate
+PREVIEW, "FILLET, 2"
+PREVIEW, OFF
+
+@ TOOLS
+! The modelling tools that fit the pick, as the right-click menu lists them.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, FACE, 6
+TOOLS
+
+@ SELINFO
+! The numbers of what is picked, as the status bar shows them: here two faces,
+! their areas, the total, and the distance and angle between them.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, FACE, 1 2
+SELINFO
+SELINFO, BODY, 1
+
+@ TEMPLATE
+! The templates new projects start from (the start page shows them);
+! TEMPLATE, SAVE, name keeps this project's steps as your own.
+TEMPLATE
+TEMPLATE, SHOW, part
+
+@ WHY
+! Why a step failed: here the block is made smaller, so the fillet of step 3
+! no longer fits. WHY, 3 gives the reason, the usual fixes (each tried on a
+! copy of the model, with the line that runs it) and the edge at fault, in red.
+BLOCK, 0,0,0, 20, 20, 20
+PICK, EDGE, 1
+FILLET, 5
+HIST, EDIT, 1, "BLOCK, 0,0,0, 4, 4, 4"
+WHY, 3
+
+@ REPEAT
+! The last step again on a new pick: a fillet on edge 1, then on edges 3 and 5.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, EDGE, 1
+FILLET, 2
+REPEAT, EDGE, 3
+REPEAT, SHOW
+
+@ PROPS
+! One table of a body's properties; each value can be changed with the
+! ordinary step (here a MOVE and a HIST, EDIT of the BLOCK).
+BLOCK, 0,0,0, 40, 20, 10
+NAME, LAST, plate
+PROPS, plate
+PROPS, plate, x, 50
+PROPS, plate, 1.dz, 15
+PROPS, STEP 1
 
 @ VIEW
 ! Look from a standard direction.

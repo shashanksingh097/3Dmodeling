@@ -221,6 +221,29 @@ class PreferencesDialog(QDialog):
         self.language.setToolTip("The window's words; commands, scripts and the log stay in English")
         self.language.currentIndexChanged.connect(self._language_changed)
         form.addRow("Language:", self.language)
+        from . import pick_bar
+        from .form_dialog import PREVIEW_SETTING, _set_setting, _setting
+
+        self.pick_tools = QCheckBox("Show the tools that fit next to what you pick")
+        self.pick_tools.setChecked(pick_bar.enabled(win))
+        self.pick_tools.toggled.connect(lambda on: pick_bar.set_enabled(win, on))
+        form.addRow("Tools beside a pick:", self.pick_tools)
+        self.form_preview = QCheckBox("Draw what a form's step would make before OK")
+        self.form_preview.setChecked(_setting(win, PREVIEW_SETTING, True))
+        self.form_preview.toggled.connect(lambda on: _set_setting(win, PREVIEW_SETTING, on))
+        form.addRow("Preview in forms:", self.form_preview)
+        from . import sel_numbers
+
+        self.hover_numbers = QCheckBox("Show the size of what the mouse rests on in the 3D view")
+        self.hover_numbers.setChecked(sel_numbers.hover_enabled(win))
+        self.hover_numbers.toggled.connect(lambda on: sel_numbers.set_hover_enabled(win, on))
+        form.addRow("Numbers on hover:", self.hover_numbers)
+        from . import start_page
+
+        self.start_page = QCheckBox("Show the start page (templates, recent projects) when the app starts")
+        self.start_page.setChecked(start_page.enabled(win))
+        self.start_page.toggled.connect(lambda on: start_page.set_enabled(win, on))
+        form.addRow("Start page:", self.start_page)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)

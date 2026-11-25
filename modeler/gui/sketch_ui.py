@@ -206,7 +206,12 @@ class SketchUI:
         self.controller.set_tool(tool)
         self.tool_actions[tool].setChecked(True)
         self.win.viewport.set_preview(None)
-        self.win.statusBar().showMessage(st.HINTS[tool])
+        from . import sketch_typed
+
+        hint = st.HINTS[tool]
+        if tool in sketch_typed.TOOLS:
+            hint += " · Type a size after the first click (Tab: next box, Enter: place it)"
+        self.win.statusBar().showMessage(hint)
 
     def run(self, build) -> None:
         try:
