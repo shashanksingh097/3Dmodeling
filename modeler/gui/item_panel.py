@@ -74,8 +74,11 @@ class ItemPanel(QWidget):
         lay.addWidget(self.note)
         lay.addWidget(self.steps, 3)
         lay.addLayout(buttons)
-        lay.addWidget(QLabel("Parameters these steps use"))
+        self.params_label = QLabel("Parameters these steps use")
+        lay.addWidget(self.params_label)
         lay.addWidget(self.params, 1)
+        # with nothing picked only the one line shows, so the tree has the room (PLAN item 121)
+        self._body_widgets = [self.steps, self.edit_button, self.show_button, self.params_label, self.params]
 
         self._pending = False
         window.processor.model.subscribe(self._on_model)
@@ -102,6 +105,9 @@ class ItemPanel(QWidget):
         self.info = im.item_info(p, bid) if bid is not None else None
         self._filling = True
         try:
+            for w in self._body_widgets:
+                w.setVisible(self.info is not None)
+            self.setMaximumHeight(16777215 if self.info is not None else 60)
             if self.info is None:
                 self.title.setText(i18n.tr("Pick one body in the tree or the view to see the steps that made it."))
                 self.note.setText("")

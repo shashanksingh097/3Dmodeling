@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 APP_NAME = "3Dmodeling"
 MAX_RECENT = 8
+ROOMY_KEY = "layout/roomy"  # set once the window opened with the roomier panels (PLAN item 120)
 
 IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.scad *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
                  "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf *.xyz *.pts *.e57 *.kicad_pcb *.emn *.idf);;"
@@ -613,14 +614,18 @@ class AppShell:
 
     # ---- window layout and closing ---------------------------------------------------------
     def restore_layout(self) -> None:
+        """The window's size and panels as the last session left them."""
         if not self.keep_layout:
             return
         geo = self.settings.value("geometry")
         state = self.settings.value("windowState")
         if geo is not None:
             self.win.restoreGeometry(geo)
-        if state is not None:
+        # a window state saved before the roomier layout (PLAN item 120) is not brought back once:
+        # the new arrangement shows instead, and is kept from then on
+        if state is not None and self.settings.value(ROOMY_KEY):
             self.win.restoreState(state)
+        self.settings.setValue(ROOMY_KEY, 1)
 
     def show_assistant(self) -> None:
         dock = getattr(self.win, "assistant_dock", None)

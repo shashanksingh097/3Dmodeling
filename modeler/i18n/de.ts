@@ -72,6 +72,10 @@
             <translation>&amp;Teiledatei verknüpfen…</translation>
         </message>
         <message>
+            <source>&amp;Look from</source>
+            <translation>&amp;Ansicht von</translation>
+        </message>
+        <message>
             <source>&amp;Materials…</source>
             <translation>&amp;Werkstoffe…</translation>
         </message>
@@ -82,6 +86,10 @@
         <message>
             <source>&amp;Open…</source>
             <translation>&amp;Öffnen…</translation>
+        </message>
+        <message>
+            <source>&amp;Panels</source>
+            <translation>&amp;Bereiche</translation>
         </message>
         <message>
             <source>&amp;Preferences…</source>
@@ -1397,6 +1405,10 @@ Runs: CHAMFER, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Bottom</source>
+            <translation>Unten</translation>
+        </message>
+        <message>
             <source>Box</source>
             <translation>Rechteck</translation>
         </message>
@@ -2548,11 +2560,6 @@ Runs: PLANE, P1, FACE, id</source>
             <translation>Gespeichertes Layout löschen</translation>
         </message>
         <message>
-            <source>Delete every body
-Runs: CLEAR</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>Delete every body and restart IDs</source>
             <translation type="unfinished" />
         </message>
@@ -2937,8 +2944,8 @@ Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>drawing sketches: history and properties beside a big view (LAYOUT, sketch)</source>
-            <translation type="unfinished" />
+            <source>drawing sketches: properties beside a big view (LAYOUT, sketch)</source>
+            <translation>Skizzen zeichnen: Eigenschaften neben einer großen Ansicht (LAYOUT, sketch)</translation>
         </message>
         <message>
             <source>Drawings</source>
@@ -3755,11 +3762,6 @@ Runs: SREPAIR [, gap, tiny, refit]</source>
             <translation>Vorne</translation>
         </message>
         <message>
-            <source>Front view
-Runs: VIEW, FRONT</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>Fuse bodies into one new body: UNION, a, b [, c ...] (up to 8; IDs or names)</source>
             <translation type="unfinished" />
         </message>
@@ -4014,6 +4016,10 @@ Runs: VIEW, FRONT</source>
         <message>
             <source>history position to compare to; default: now</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>History: 0 steps</source>
+            <translation>Verlauf: 0 Schritte</translation>
         </message>
         <message>
             <source>Hold the left button and draw; let go to finish. End where you started for a closed shape to extrude
@@ -4366,11 +4372,6 @@ Runs: FITS, H7/g6 [, size]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Iso view
-Runs: VIEW, ISO</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>ISO, FRONT, TOP ... or a direction dx,dy,dz in quotes (default: as the view shows it)</source>
             <translation type="unfinished" />
         </message>
@@ -4662,6 +4663,10 @@ Runs: ENDSKETCH</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Left</source>
+            <translation>Links</translation>
+        </message>
+        <message>
             <source>Left drag</source>
             <translation>Links ziehen</translation>
         </message>
@@ -4853,6 +4858,10 @@ Runs: STRIM, n, u, v, AXES</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Look from</source>
+            <translation>Ansicht von</translation>
+        </message>
+        <message>
             <source>Loop back to the first</source>
             <translation>Zurück zum ersten schließen</translation>
         </message>
@@ -4938,8 +4947,8 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>making parts: the model tree, history, properties and parameters (LAYOUT, modelling)</source>
-            <translation type="unfinished" />
+            <source>making parts: the model tree with properties and parameters, and a big view (LAYOUT, modelling)</source>
+            <translation>Teile erstellen: der Modellbaum mit Eigenschaften und Parametern und eine große Ansicht (LAYOUT, modelling)</translation>
         </message>
         <message>
             <source>margin</source>
@@ -5844,6 +5853,10 @@ Runs: MASK, body, PAINT, ..., stroke</source>
         <message>
             <source>pan</source>
             <translation>verschieben</translation>
+        </message>
+        <message>
+            <source>Panels</source>
+            <translation>Bereiche</translation>
         </message>
         <message>
             <source>Parallel</source>
@@ -6823,11 +6836,6 @@ Runs: PATTERN, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Right view
-Runs: VIEW, RIGHT</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>ring radius</source>
             <translation type="unfinished" />
         </message>
@@ -6917,11 +6925,6 @@ Runs: FILLET, ...</source>
             <translation>&amp;Skript ausführen…</translation>
         </message>
         <message>
-            <source>Run a .cmd script
-Runs: RUN, file</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>Run a .cmd script. Runs: RUN, file</source>
             <translation type="unfinished" />
         </message>
@@ -6956,10 +6959,6 @@ Runs: RUN, file</source>
         <message>
             <source>Run script</source>
             <translation>Skript ausführen</translation>
-        </message>
-        <message>
-            <source>Run script…</source>
-            <translation>Skript ausführen…</translation>
         </message>
         <message>
             <source>Run the guide's example script in a new model</source>
@@ -7041,10 +7040,6 @@ Runs: SCON, EQUAL, a, b</source>
         <message>
             <source>Save log</source>
             <translation>Protokoll speichern</translation>
-        </message>
-        <message>
-            <source>Save log…</source>
-            <translation>Protokoll speichern…</translation>
         </message>
         <message>
             <source>Save part to library</source>
@@ -7167,8 +7162,8 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>sculpting: everything put away but the output, for the most room (LAYOUT, sculpt)</source>
-            <translation type="unfinished" />
+            <source>sculpting: everything put away, for the most room (LAYOUT, sculpt)</source>
+            <translation>Modellieren: alles weggeräumt, für den meisten Platz (LAYOUT, sculpt)</translation>
         </message>
         <message>
             <source>Sculpt…</source>
@@ -7497,6 +7492,18 @@ Runs: IMAGE, file, plane, width</source>
             <source>Show only this layer's bodies (SHOW, ALL brings the rest back)
 Runs: ISOLATE, name</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Show or hide the Assistant</source>
+            <translation>Assistent zeigen oder ausblenden</translation>
+        </message>
+        <message>
+            <source>Show or hide the History: every step, to change, reorder or roll back (Ctrl+H)</source>
+            <translation>Verlauf zeigen oder ausblenden: jeder Schritt, zum Ändern, Umordnen oder Zurückrollen (Strg+H)</translation>
+        </message>
+        <message>
+            <source>Show or hide the Output: what each command answered</source>
+            <translation>Ausgabe zeigen oder ausblenden: was jeder Befehl geantwortet hat</translation>
         </message>
         <message>
             <source>Show the control points of the picked curve or surface; drag one to move it (press again to hide them)
@@ -9348,11 +9355,6 @@ Runs: DRAFT, angle</source>
         </message>
         <message>
             <source>top length along X (0 = sharp ridge)</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
-            <source>Top view
-Runs: VIEW, TOP</source>
             <translation type="unfinished" />
         </message>
         <message>

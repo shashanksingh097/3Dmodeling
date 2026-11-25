@@ -198,7 +198,7 @@ def test_toolbar_groups_have_icons_and_names_and_one_style_setting(app, win):
         assert any(img.pixelColor(x, y).alpha() > 0 for x in range(0, img.width(), 2)
                    for y in range(0, img.height(), 2)), name
     titles = [tb.windowTitle() for tb in tbs.groups(win)]
-    for t in ("File", "Edit", "Shapes", "Booleans", "Patterns", "Pick", "View", "Sketch", "Features", "Measure",
+    for t in ("File", "Edit", "Shapes", "Booleans", "Patterns", "Pick", "Sketch", "Features", "Measure",
               "Sketch draw", "Sketch edit", "Constraints", "Sizes"):
         assert t in titles, t
     for tb in tbs.groups(win):

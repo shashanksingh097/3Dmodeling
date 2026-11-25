@@ -27,20 +27,24 @@ from .processor import Arg, CommandError, Processor, Raw, command
 PANELS = ("model", "history", "properties", "parameters", "layers", "assistant", "output")
 
 BUILT_IN: dict[str, dict] = {
-    "modelling": {"about": "making parts: the model tree, history, properties and parameters",
-                  "show": ("model", "history", "properties", "parameters", "output"),
+    # the History and Output panels stay closed in every layout but drawing (PLAN item 120): the status
+    # bar's buttons and Ctrl+H open them when wanted, and the history is kept all the same
+    "modelling": {"about": "making parts: the model tree with properties and parameters, and a big view",
+                  "show": ("model", "properties", "parameters"),
                   "front": ("properties",), "tab": "Model"},
-    "sketch": {"about": "drawing sketches: history and properties beside a big view",
-               "show": ("history", "properties", "output"), "front": ("properties",),
+    "sketch": {"about": "drawing sketches: properties beside a big view",
+               "show": ("model", "properties"), "front": ("properties",),
                "tab": "Sketch", "tab_else": "Features"},
     "assembly": {"about": "putting parts together: the model tree, properties and parameters",
-                 "show": ("model", "history", "properties", "parameters", "output"),
+                 "show": ("model", "properties", "parameters"),
                  "front": ("parameters",), "tab": "Model"},
     "drawing": {"about": "drawings and checks: history, parameters and the output",
                 "show": ("history", "parameters", "output"), "front": ("parameters",), "tab": "Inspect"},
-    "sculpt": {"about": "sculpting: everything put away but the output, for the most room",
-               "show": ("output",), "front": (), "tab": "Sculpt"},
+    "sculpt": {"about": "sculpting: everything put away, for the most room",
+               "show": (), "front": (), "tab": "Sculpt"},
 }
+# the panels a new window shows, and LAYOUT, RESET brings back
+DEFAULT_SHOWN = ("model", "properties", "parameters")
 NAMES = {"MODELING": "modelling", "MODEL": "modelling", "SKETCHING": "sketch", "ASSEMBLE": "assembly",
          "DRAWINGS": "drawing", "SCULPTING": "sculpt"}
 ACTIONS = ("LIST", "SAVE", "RESET", "DELETE", "JSON")

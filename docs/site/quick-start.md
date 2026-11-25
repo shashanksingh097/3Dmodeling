@@ -28,10 +28,14 @@ More ways, and what to do about the first-start warning, are in
 * The **3D view** in the middle: left drag turns it, middle or right drag
   moves it, the wheel zooms, **F** fits everything in view.
 * The **command line** under the view: type any command and press Enter.
-* The **History** on the right lists every step, as text. Double-click one to
-  change it. **Parameters** (named numbers) are under it.
 * The **Model** tree on the left lists bodies, sketches and datums; under it
-  are the steps that made the picked body.
+  are the steps that made the picked body, then **Properties** (the values of
+  what you picked, to change) and **Parameters** (named numbers).
+* The **History** lists every step, as text; double-click one to change it.
+  It is kept all the time, but its panel opens only when you want it: the
+  **History** button at the bottom right (it says how many steps, and turns
+  red when one failed) or **Ctrl+H**. **Output** and **Assistant** have
+  buttons there too, and View > Panels lists every panel.
 
 The full tour is in [The window](app/the-window.md).
 
@@ -46,10 +50,9 @@ The full tour is in [The window](app/the-window.md).
 
     ![The hole form, filled from the picked face](img/app/form.png){ .m3d-shot }
 
-4. Pick **Edge** (Home tab), Ctrl+click the top edges, then **Fillet…**
-   with a radius of 2.
+4. Ctrl+click the top edges, then **Fillet…** with a radius of 2.
 
-Look at the History: every step is a line of text, for example
+Open the History (Ctrl+H): every step is a line of text, for example
 `HOLE, 1, 40, 20, 8, 8`. Double-click the `BLOCK` line, change 80 to
 120 and press OK. The hole and the rounds are made again on the longer
 plate.
