@@ -58,6 +58,7 @@ def test_spacemouse_command():
     assert not p.history  # settings of the app, not steps of the project
 
 
+@pytest.mark.skipif(not hasattr(__import__("socket"), "AF_UNIX"), reason="spacenavd's socket is a Unix socket (Linux)")
 def test_spnav_packets(tmp_path, monkeypatch):
     import socket
     import struct
