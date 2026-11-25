@@ -39,12 +39,14 @@ APP_NAME = "3Dmodeling"
 MAX_RECENT = 8
 
 IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.scad *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
-                 "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf *.xyz *.pts *.e57);;"
+                 "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf *.xyz *.pts *.e57 *.kicad_pcb *.emn *.idf);;"
+                 "Circuit boards: KiCad, IDF (*.kicad_pcb *.emn *.idf);;"
                  "Exact shapes (*.step *.stp *.iges *.igs *.brep);;"
                  "OpenSCAD (*.scad);;"
                  "Meshes (*.stl *.obj *.3mf *.glb *.gltf *.ply *.off);;"
                  "Point clouds (*.xyz *.pts *.e57 *.ply *.txt *.csv);;"
                  "Simulation meshes (*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;All files (*)")
+BOARD_EXTS = (".kicad_pcb", ".emn", ".idf")
 EXPORT_FILTERS = {
     "STEP (*.step *.stp)": "STEP",
     "IGES (*.iges *.igs)": "IGES",
@@ -259,6 +261,9 @@ class AppShell:
     def import_file(self, path: str | None = None) -> None:
         if path is None:
             path, _ = QFileDialog.getOpenFileName(self.win, "Import", self._start_dir(), IMPORT_FILTER)
+        if path and os.path.splitext(path)[1].lower() in BOARD_EXTS:  # a circuit board: BOARD (PLAN 103)
+            self.win.execute(f"BOARD, {_quote(path)}")
+            return
         if path:
             # any other file goes to meshio by its extension (Gmsh, Abaqus, Nastran, ...)
             fmt = _EXT_FORMAT.get(os.path.splitext(path)[1].lower(), "MESH")

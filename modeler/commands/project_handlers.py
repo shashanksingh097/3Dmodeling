@@ -408,6 +408,14 @@ def _imports_in(p: Processor) -> list[str]:
                     raw = raw[1:-1]
                 if raw not in files:
                     files.append(raw)
+            elif name == "BOARD" and args:  # the board file, and its IDF library (given, or the one next to it)
+                for raw in [args[0].strip(), *([args[4].strip()] if len(args) > 4 and args[4].strip() else
+                                               [os.path.splitext(args[0].strip().strip("\"'"))[0] + ".emp"])]:
+                    if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
+                        raw = raw[1:-1]
+                    if raw and raw not in files and (raw == args[0].strip().strip("\"'") or
+                                                     os.path.isfile(p.file_map.get(raw, raw))):
+                        files.append(raw)
             elif (name == "IMPORT" and len(args) >= 2) or (name == "LIB" and len(args) >= 2
                                                             and args[0].strip().upper() in ("LOAD", "LINK")):
                 raw = st.args[1].strip()

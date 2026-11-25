@@ -57,6 +57,7 @@ from . import handle_handlers  # noqa: F401  (HANDLES: the drag handles, as data
 from . import sheet_table_handlers  # noqa: F401  (SHEETTABLE, REVISION, SHEETDATA: tables on drawing sheets)
 from . import sheet_note_handlers  # noqa: F401  (SHEETNOTE: centre marks, threads, finish/weld symbols, leaders)
 from . import matlib_handlers  # noqa: F401  (MATLIB: the material library every project shares)
+from . import board_handlers  # noqa: F401  (BOARD: circuit boards from IDF or KiCad files)
 from . import plugin_handlers  # noqa: F401  (PLUGINS: the plug-ins found)
 from . import pointcloud_handlers  # noqa: F401  (TOPOINTS, FITPOINTS: point clouds)
 from . import wrap_handlers  # noqa: F401  (WRAPSKIN: shrinkwrap)
