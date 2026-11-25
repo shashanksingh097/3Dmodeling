@@ -583,6 +583,9 @@ def sheet_detail_items(model, kind: str, sel: list[int]) -> list[MenuItem]:
     if kind == "FACE":
         out.append(MenuItem(f"Surface finish on sheet {name}…", [f"SHEETNOTE, {name}, FINISH, {g}, 1.6"],
                             form="SHEETNOTE", short="Finish", icon="pick_face"))
+    if kind == "EDGE":
+        out.append(MenuItem(f"Size on sheet {name}", [f"SHEETNOTE, {name}, SIZE, EDGE {g}"],
+                            short="Sheet size", icon="pick_edge"))
     if kind in ("FACE", "EDGE", "VERTEX"):
         on = str(g) if kind == "FACE" else f"{kind} {g}"
         out.append(MenuItem(f"Note on sheet {name}…", [f'SHEETNOTE, {name}, LEADER, {on}, "note"'],

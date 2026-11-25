@@ -98,6 +98,14 @@ def history_script(steps: int) -> str:
 
 # ---- the cases ------------------------------------------------------------------------------------
 
+def big_assembly_script(n: int) -> str:
+    """n copies of a bolt in rows of 20."""
+    return ("*PART, bolt, D=8, L=30\n  POLYGON, 0, 0, 0, D*0.9, 6\n  POLYGON, 0, 0, 0.7*D, D*0.9, 6\n"
+            "  LOFT, 1, 2, RULED\n  CYL, 0, 0, -L, D/2, L\n  UNION, 3, 4\n  CYL, 0, 0, 0.7*D, D*0.3, 2\n"
+            "  UNION, 5, 6\n*ENDPART\n"
+            f"*DO, i, 1, {n}\nINST, bolt, (i-1-20*FLOOR((i-1)/20))*20, FLOOR((i-1)/20)*20, 0\n*ENDDO\n")
+
+
 def _ok(p, text: str):
     res = p.run_script(text)
     bad = [r for r in res if not r.ok]
@@ -156,6 +164,19 @@ def run(quick: bool = False, out=print) -> dict:
         h = Processor()
         note("long history", _timed(lambda: _ok(h, history_script(steps))), f"{len(h.history)} steps")
         note("rebuild after edit", _timed(lambda: _ok(h, 'HIST, EDIT, 1, "T = 2.5"')), "from step 1")
+
+        # a big assembly: copies of a part, and meshing every one for the 3D view (PLAN item 112;
+        # the copies share one shape, so the mesh is made once)
+        a = Processor()
+        copies = 300 if quick else 1000
+
+        def assembly():
+            _ok(a, big_assembly_script(copies))
+            from OCP.BRepMesh import BRepMesh_IncrementalMesh
+
+            for b in a.model.bodies.values():
+                BRepMesh_IncrementalMesh(b.shape, 0.05, False, 0.5, False)
+        note("big assembly", _timed(assembly), f"{len(a.model.bodies)} copies built and meshed")
     out(f"memory at the end {rss_mb():.1f} MB")
     return {"quick": quick, "python": sys.version.split()[0], "platform": sys.platform, "cases": rows}
 
