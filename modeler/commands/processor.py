@@ -390,12 +390,13 @@ class Processor:
         self.model.id_floor.update(floor)
         results = []
         k = 0
+        typed_tool = self.last_tool  # a script's own steps are repeated only inside it
         try:
             for unit in units:
                 seed = None
                 if k < len(saved) and code_key(saved[k].get("text", "")) == code_key(unit):
                     seed, k = saved[k], k + 1
-                r = self._finish(self.run_unit(unit, seed))
+                r = self._finish(self._note_tool(self.run_unit(unit, seed)))  # REPEAT inside the script
                 if r.line:
                     results.append(r)
                     if not r.ok:
@@ -403,6 +404,7 @@ class Processor:
         finally:
             for kind in floor:
                 self.model.id_floor[kind] = 1
+            self.last_tool = typed_tool
         return results
 
     def run_unit(self, text: str, seed: dict | None = None) -> Result:

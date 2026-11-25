@@ -111,6 +111,14 @@ def test_units_and_lessons_are_not_repeated():
     assert p.last_tool == "BLOCK, 0,0,0, 1,1,1"
 
 
+def test_repeat_works_in_a_script():
+    """The REPEAT command example runs as a script (the user guide builds it so)."""
+    p = Processor()
+    rs = p.run_script("BLOCK, 0,0,0, 40, 20, 10\nPICK, EDGE, 1\nFILLET, 2\nREPEAT, EDGE, 3\nREPEAT, SHOW")
+    assert all(r.ok for r in rs), [r.message for r in rs if not r.ok]
+    assert "FILLET, 2" in rs[-1].message
+
+
 def test_show_units_go_with_undo_and_snapshots():
     p = Processor()
     run(p, "BLOCK, 0,0,0, 1,1,1\n/UNITS, IN, SHOW")
