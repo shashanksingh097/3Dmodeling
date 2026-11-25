@@ -1788,6 +1788,7 @@ EXPORT, STEP, "part.step"
 CLEAR
 IMPORT, STEP, "part.step", part
 IMPORT, SCAD, bracket.scad    ! an OpenSCAD file, as exact bodies (it comes with the example files)
+! IMPORT, FCSTD, "gearbox.FCStd" reads a FreeCAD document the same way (its shown shapes, names, colours)
 
 @ BOARD pic
 ! A circuit board to design a case around: the outline becomes a plate with its mounting holes, each
@@ -1800,6 +1801,7 @@ BLOCK, 0,0,0, 40, 20, 10
 EXPORT, STEP, "plate.step"
 EXPORT, STL, "plate.stl"
 EXPORT, VRML, "plate.wrl"    ! also AMF, 3MF, OBJ, glTF, IGES ...
+EXPORT, HTML, "plate.html"   ! one web page with a 3D viewer anyone can open
 
 @ DRAWING
 ! A 2D drawing with front, top, right and iso views and the main sizes.
@@ -1854,6 +1856,18 @@ SPACEMOUSE, SPEED, 0.5
 SPACEMOUSE, ROTATE, OFF
 SPACEMOUSE, BUTTON, 1, FIT
 SPACEMOUSE, RESET
+
+@ PIN
+! Keep the gap between a base and a post in view (at least 8), then make the base longer: the pin
+! is measured again and shows 5, in red.
+W = 40
+BLOCK, 0, 0, 0, W, 30, 10
+NAME, LAST, base
+BLOCK, 50, 0, 0, 20, 30, 25
+NAME, LAST, post
+PIN, gap, DIST, BODY, base, BODY, post, 8
+HIST, EDIT, 1, "W = 45"
+PIN
 
 @ DETAIL
 ! A hundred copies of a pin share one mesh; FAST leaves out bodies under 4 pixels while drawing.

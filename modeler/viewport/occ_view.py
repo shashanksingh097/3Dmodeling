@@ -979,17 +979,27 @@ class OccViewport(QWidget):
             start = len(self._note_ais)
             at = None
             if r["a"] is not None and r["b"] is not None:
-                line(r["a"], r["b"])
+                if pin["kind"] == "DIST":  # an angle's things often touch: only its value is shown
+                    line(r["a"], r["b"])
                 at = tuple((x + y) / 2 for x, y in zip(r["a"], r["b"]))
                 for ais in self._note_ais[start:]:
                     ais.SetColor(col)
             if at is None:
                 continue
             label = AIS_TextLabel()
-            label.SetText(TCollection_ExtendedString("  " + r["text"], True))
+            label.SetText(TCollection_ExtendedString(" " + r["text"] + " ", True))
             label.SetPosition(gp_Pnt(*at))
             label.SetColor(col)
-            label.SetHeight(15)
+            label.SetHeight(16)
+            try:  # on a white box, so it reads on any body
+                from OCP.Aspect import Aspect_TypeOfDisplayText
+                from OCP.Font import Font_FontAspect
+
+                label.SetDisplayType(Aspect_TypeOfDisplayText.Aspect_TODT_SUBTITLE)
+                label.SetColorSubTitle(_rgb(1.0, 1.0, 1.0))
+                label.SetFontAspect(Font_FontAspect.Font_FA_Bold)
+            except Exception:  # noqa: BLE001 - plain text on an older kernel
+                pass
             ctx.Display(label, False)
             ctx.Deactivate(label)
             ctx.SetZLayer(label, Graphic3d_ZLayerId_Topmost)

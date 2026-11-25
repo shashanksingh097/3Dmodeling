@@ -195,4 +195,4 @@ def pin(p: Processor, name, kind, k1, i1, k2, i2, lo, hi):
     replaced = len(pins) != len(m.measure_pins)
     m.set_pins(pins + [new])
     p.give_report("pins", {"pins": report(m)})
-    return ("changed" if replaced else "pinned") + _line(m, new)[1:].replace(f"{word} (", f" {word} (", 1)
+    return ("changed " if replaced else "pinned ") + _line(m, new).strip()

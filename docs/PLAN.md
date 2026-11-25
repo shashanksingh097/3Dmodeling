@@ -1524,13 +1524,24 @@ read and a skill). Built about three items per pull request, in this order.
      assembly" case builds and meshes 1000 copies (0.9 s, 3.3 s before).
      Loading a linked part's shape only when shown is left for later.
 113. **Open FreeCAD files** (P2): `IMPORT` of .FCStd: shapes, names,
-     colours and the part tree.
+     colours and the part tree. Done: `IMPORT, FCSTD, file [, name, ALL]`
+     reads the zip without FreeCAD: the shapes it showed (exact BREP), their
+     labels as names, ShapeColor colours, App::Part placements, and the
+     parts and groups they sat in as layers; ALL also brings hidden shapes.
+     Checked against files built like FreeCAD's; still to try on real ones.
 114. **Share a model as one web page** (P2): `EXPORT, HTML` writes one file
      with a 3D viewer (turn, hide parts, measure, read notes) for people
-     who don't have the app.
+     who don't have the app. Done: `EXPORT, HTML, file [, body]` writes one
+     file with a WebGL 2 viewer of its own (no library, nothing fetched):
+     turn, pan, zoom, views, parts list to hide and show, Measure between two
+     clicked points, notes as labels; works on a phone.
 115. **Pinned measurements** (P3): pin a measurement so it stays in the view
      and updates as the model changes; saved with the project; the
-     assistant reads them as data.
+     assistant reads them as data. Done: `PIN, name, DIST | ANGLE, k1, i1,
+     k2, i2 [, least, most]` (or the two picked; "Pin this distance" on a
+     right click); drawn as a line with its value, green in range, red out;
+     measured again after every change; `PIN` lists them (report "pins") and
+     the assistant's user_context has them.
 116. **Textures and decals** (P3): textures on materials and decals (a logo
      on a face) shown live in the view and used by RENDER.
 117. **Update check and What's new** (P3): an opt-in check for a new release
