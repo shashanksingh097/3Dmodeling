@@ -136,6 +136,7 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(MenuItem("Zoom to", [f"FIT, {t}"]))
     if mate_ready(model):
         items.append(MenuItem("Mate the two picked…", form="MATE"))
+    items += clash_items(model, ids, bid)
     if one:
         items.append(MenuItem("Rename…", [f"NAME, {bid}, {{}}"], ask=f"New name for {_name(model, bid)}:"))
     sel = "SEL" if not one else str(bid)
@@ -156,6 +157,20 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
     return items
+
+
+def clash_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
+    """Two bodies picked (PLAN item 79): fix a clash between them, seen first, then done. The body
+    clicked is the one that changes."""
+    if len(ids) != 2:
+        return []
+    a = clicked if clicked in ids else ids[0]
+    b = ids[1] if ids[0] == a else ids[0]
+    na, nb = _name(model, a), _name(model, b)
+    return [MenuItem(f"Clash: see {nb} cut out of {na}", [f"CLASHFIX, {a}, {b}, CUT, 0, AUTO, PREVIEW"]),
+            MenuItem(f"Clash: cut {nb} out of {na}", [f"CLASHFIX, {a}, {b}, CUT"]),
+            MenuItem(f"Clash: see {na} moved clear of {nb}", [f"CLASHFIX, {a}, {b}, MOVE, 0, AUTO, PREVIEW"]),
+            MenuItem(f"Clash: move {na} clear of {nb}", [f"CLASHFIX, {a}, {b}, MOVE"])]
 
 
 def point_items(model, bid: int) -> list[MenuItem]:

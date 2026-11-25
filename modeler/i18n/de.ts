@@ -385,6 +385,10 @@ Runs: STRESS, body, fixed faces, loaded faces, FORCE, fx, fy, fz</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a gap to leave between them (0: they may touch)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>A grille of slots cut through the wall under the picked flat face
 Runs: VENT, count, length, width [, pitch, angle]</source>
             <translation type="unfinished" />
@@ -1558,6 +1562,14 @@ Runs: CLASH</source>
             <translation>Kollision</translation>
         </message>
         <message>
+            <source>Clashfix</source>
+            <translation>Clashfix</translation>
+        </message>
+        <message>
+            <source>Clashfix…</source>
+            <translation>Clashfix…</translation>
+        </message>
+        <message>
             <source>Clash…</source>
             <translation>Kollision…</translation>
         </message>
@@ -2197,6 +2209,10 @@ Runs: SECTION, plane, side, offset / SECTION, OFF</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>CUT: cut b's shape out of a; MOVE: move a the shortest way clear of b</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Cutlist</source>
             <translation>Zuschnittliste</translation>
         </message>
@@ -2610,6 +2626,10 @@ Runs: SDEL, ...</source>
         </message>
         <message>
             <source>Do parts touch? CONTACT, a, b says apart (the gap and where), touching (on faces with the area, along a line, or at a point) or overlapping (the volume in common) · CONTACT, bolt checks one body against all others · CONTACT alone checks every pair and lists the groups of bodies that hold together and the ones touching nothing · CONTACT, , , 0, 0.5 also lists gaps up to 0.5. In expressions: TOUCH(a, b), OVERLAP(a, b), CONTACTAREA(a, b), GROUPS()</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>DO, or PREVIEW to only show and say what it would do (not kept)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3214,6 +3234,14 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation>Fixieren</translation>
         </message>
         <message>
+            <source>Fix a clash: CLASHFIX, a, b, CUT cuts the overlap out of a (b stays); CLASHFIX, a, b, MOVE moves a the shortest way clear of b</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fix a clash: CLASHFIX, a, b, CUT cuts the overlap out of a (b stays); CLASHFIX, a, b, MOVE moves a the shortest way clear of b. Add PREVIEW at the end to see it first: the cut-away piece or the moved part is marked in the view and nothing changes. CLASH lists the clashes</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>FIXED, REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR, or GEAR, BELT, RACK, SCREW</source>
             <translation type="unfinished" />
         </message>
@@ -3303,6 +3331,10 @@ Runs: FITSURF, b, region, tolerance</source>
         </message>
         <message>
             <source>for FLAWS: TEXT or JSON</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>for MOVE: X, -X, Y, -Y, Z, -Z, or AUTO (the shortest of those and straight away)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7898,11 +7930,19 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the part it clashes with (it stays as it is)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the part to add the boss to</source>
             <translation type="unfinished" />
         </message>
         <message>
             <source>the part to add the hook to</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the part to change</source>
             <translation type="unfinished" />
         </message>
         <message>

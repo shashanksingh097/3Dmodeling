@@ -1260,6 +1260,16 @@ BLOCK, 0,0,0, 20, 20, 20
 SPHERE, 20,10,10, 5
 CLASH, 1, 2
 
+@ CLASHFIX pic
+! A pin pushed into a box: see the fix first (marked, nothing changes), then cut the pin's shape out of the box with 0.5 clearance.
+BLOCK, 0,0,0, 40, 30, 20
+NAME, LAST, box
+CYL, 35, 15, 5, 8, 30
+NAME, LAST, pin
+CLASHFIX, box, pin, CUT, 0.5, AUTO, PREVIEW
+CLASHFIX, box, pin, CUT, 0.5
+FADE, box
+
 @ SECTION
 ! Cut the view open along a plane to look inside (the model is not changed).
 BLOCK, 0,0,0, 40, 40, 20

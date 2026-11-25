@@ -1250,6 +1250,12 @@ done.
 79. **Fixing clashes** (P3): from a `CLASH` result, one click (or
     `CLASHFIX, a, b, CUT|MOVE`) cuts the overlap out of one part or moves it
     clear, with a preview first.
+    *Done (`CLASHFIX`, right click with two bodies picked): CUT takes the
+    other part's shape (grown by a clearance when asked) out of the first;
+    MOVE finds the shortest move along the axes or straight away that
+    clears it (to a round number when one works). `PREVIEW` as the last
+    word marks the cut-away piece or the moved part and changes nothing (not
+    kept in the history). `CLASH` says how to fix what it finds.*
 80. **Getting a part ready for analysis** (P2): geometry only, for export to
     the separate meshing and solver app; no meshing or solving here.
     `MIDSURFACE, b` makes the middle surface of a thin part with the
