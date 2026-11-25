@@ -376,14 +376,14 @@ def pick_tools(p) -> list[MenuItem]:
             name = _next_name(p, "SKETCH") or "s1"
             add(MenuItem("Sketch on this face", short="Sketch", commands=[f"SKETCH, {name}, FACE, {sel[0]}"], icon="sketch"))
         add(MenuItem("Pull…" if n == 1 else f"Pull {n} faces…", short="Pull", form="PUSHPULL", icon="pushpull"))
-        if flat:
-            add(MenuItem("Pull up to…", short="Up to", form="UPTO", commands=[f"UPTO, FACES {' '.join(map(str, sel))}, FACE, "], icon="upto"))
         if flat and n == 1:
             add(MenuItem("Hole…", short="Hole", form="HOLE", icon="hole"))
         if round_:
             add(MenuItem("Thread…", short="Thread", form="THREAD", icon="thread"))
         add(MenuItem("Fillet its edges…" if n == 1 else "Fillet their edges…", short="Fillet edges", form="FILLET",
                      first=["SEL, S, EDGE, OF, FACE"], icon="fillet"))
+        if flat:
+            add(MenuItem("Pull up to…", short="Up to", form="UPTO", commands=[f"UPTO, FACES {' '.join(map(str, sel))}, FACE, "], icon="upto"))
         add(MenuItem("Shell (open this face)…" if n == 1 else f"Shell (open {n} faces)…", short="Shell", form="SHELL",
                      icon="shell"))
         add(MenuItem("Move face…" if n == 1 else "Move faces…", short="Move face", form="MOVEFACE", icon="moveface"))
@@ -437,6 +437,14 @@ def pick_tools(p) -> list[MenuItem]:
     elif kind == "BODY":
         names = " ".join(str(b) for b in sel)
         add(MenuItem("Move…" if n == 1 else f"Move {n} bodies…", short="Move", form="MOVE", icon="move"))
+        add(MenuItem("Rotate…", short="Rotate", form="ROTATE", icon="rotate"))
+        add(MenuItem("Mirror…", short="Mirror", form="MIRROR", icon="mirror"))
+        add(MenuItem("Array…", short="Array", form="ARRAY", icon="array"))
+        if n >= 2:
+            add(MenuItem(f"Union of the {n}", short="Union", commands=[f"UNION, {sel[0]}, SEL"], icon="union"))
+            add(MenuItem(f"Subtract the others from body {sel[0]}", short="Subtract",
+                         commands=["SEL, U, BODY, ID, " + str(sel[0]), f"SUBTRACT, {sel[0]}, SEL"], icon="subtract"))
+            add(MenuItem(f"Intersect the {n}", short="Intersect", commands=[f"INTERSECT, {', '.join(map(str, sel[:9]))}"], icon="intersect"))
         if n == 1:
             add(MenuItem("Move up to…", short="Up to", form="UPTO", commands=[f"UPTO, {sel[0]}, FACE, "], icon="upto"))
         try:
@@ -446,14 +454,6 @@ def pick_tools(p) -> list[MenuItem]:
             add(MenuItem("Duplicate (Ctrl+D)", short="Duplicate", commands=dup, icon="duplicate"))
         except Exception:  # noqa: BLE001 - no Duplicate rather than no menu
             pass
-        add(MenuItem("Rotate…", short="Rotate", form="ROTATE", icon="rotate"))
-        add(MenuItem("Mirror…", short="Mirror", form="MIRROR", icon="mirror"))
-        add(MenuItem("Array…", short="Array", form="ARRAY", icon="array"))
-        if n >= 2:
-            add(MenuItem(f"Union of the {n}", short="Union", commands=[f"UNION, {sel[0]}, SEL"], icon="union"))
-            add(MenuItem(f"Subtract the others from body {sel[0]}", short="Subtract",
-                         commands=["SEL, U, BODY, ID, " + str(sel[0]), f"SUBTRACT, {sel[0]}, SEL"], icon="subtract"))
-            add(MenuItem(f"Intersect the {n}", short="Intersect", commands=[f"INTERSECT, {', '.join(map(str, sel[:9]))}"], icon="intersect"))
         if n == 2:
             add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
