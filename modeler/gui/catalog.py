@@ -13,9 +13,9 @@ OTHER = "Other"
 # an empty tuple takes the sketch commands (S..., ENDSKETCH)
 EXTRA: list[tuple[str, tuple[str, ...]]] = [
     ("Files and history", ("NEW", "TEMPLATE", "OPEN", "SAVE", "RUN", "NEWPART", "OPENPART", "SAVEPART", "RELOAD",
-                           "UNDO", "REDO", "HIST", "STEPS")),
+                           "UNDO", "REDO", "HIST", "STEPS", "REPEAT", "WHY")),
     ("View and picking", ("VIEW", "FIT", "PICK", "PICKMODE", "PICKREGION", "PREVIEW", "TOOLS",
-                          "SELINFO", "CPOINTS", "HELP")),
+                          "SELINFO", "PROPS", "CPOINTS", "HELP")),
     ("Inside a sketch", ()),
 ]
 MAX_EXAMPLES = 4

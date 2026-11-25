@@ -309,6 +309,12 @@ def diagnose(p: Processor, step: int | None = None, line: str | None = None, run
     hint = _hint(t["message"] or "")
     if hint:
         out["hint"] = hint
+    from ..commands import why_handlers as wh
+
+    fault = (wh.step_fault(p, t["n"]) if t["kind"] == "step"
+             else wh.fault_for(p, t["text"], t["message"] or "", typed=True))
+    if fault:
+        out["fault"] = fault
     split = _split_cmd(t["text"])
     if split:
         word = split[1].upper()
