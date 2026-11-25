@@ -442,6 +442,11 @@ class OccViewport(QWidget):
             self._activate(ais)
         self._sync_selection()
 
+    def _few_points(self, bid: int) -> bool:
+        """A body of a few loose points (spot welds), not a scanned cloud: drawn as big dots on top."""
+        ids = self.model.bodies[bid].entity_ids
+        return not ids["FACE"] and not ids["EDGE"] and 0 < len(ids["VERTEX"]) <= 500
+
     def _activate(self, ais: AIS_Shape) -> None:
         self.context.Deactivate(ais)
         if self.pick_mode == "AUTO":  # whatever is nearest the cursor: vertex, edge or face
@@ -577,12 +582,21 @@ class OccViewport(QWidget):
             from OCP.Aspect import Aspect_TypeOfMarker
             from OCP.Prs3d import Prs3d_PointAspect
 
-            dots = _rgb(*col) if col else _rgb(0.15, 0.35, 0.75)
-            ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_POINT, dots, 1.0))
+            if self._few_points(bid):  # a handful of points (spot welds, SPOTWELD): big dots that show
+                dots = _rgb(*col) if col else _rgb(0.85, 0.2, 0.15)
+                ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_BALL, dots, 3.0))
+            else:
+                dots = _rgb(*col) if col else _rgb(0.15, 0.35, 0.75)
+                ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_POINT, dots, 1.0))
         else:  # a curve (path or profile): draw it bright and a little thicker
             ais.SetColor(_rgb(*col) if col else _rgb(1.0, 0.62, 0.15))
             ais.SetWidth(2.5)
         self.context.Display(ais, 1, 0, False)
+        if not self.model.bodies[bid].entity_ids["EDGE"] and self._few_points(bid):
+            # weld points lie on the faces they join: drawn on top, or the faces hide them
+            from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
+
+            self.context.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
         self._activate(ais)
         self._ais[bid] = ais
         if self.model.active_sketch:

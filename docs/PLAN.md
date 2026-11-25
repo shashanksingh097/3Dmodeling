@@ -1421,14 +1421,20 @@ Built about three items per pull request, in this order.
     screws, dowel and spring pins, threaded inserts, ball bearings,
     circlips and parallel keys, and inch sizes, from the standard tables.
     `FASTENER, ..., HOLE` also cuts the matching clearance, tapped or
-    countersunk hole in the part it sits on. The BOM lists them.
+    countersunk hole in the part it sits on. The BOM lists them. Done: the
+    hole is FASTENER's `hole` body with CLEAR, TAP, CBORE or FIT; the BOM
+    counts the same standard parts as one row.
 99. **Middle surfaces without gaps, and spot welds** (P2): where the
     thickness changes, MIDSURFACE extends the middle faces until they meet.
     `SPOTWELD, a, b, edge, pitch` puts weld points along an edge, written
-    to STEP as named points for the analysis app.
+    to STEP as named points for the analysis app. Done: flat middle faces
+    are carried on or cut back to meet (L and T joins) and steps are
+    bridged; a picked edge offers spot welds when another part laps it.
 100. **Drawing details** (P2): centre marks and centre lines on holes,
     cosmetic threads (the thin circle), surface finish and weld symbols, and
-    leader notes placed on the sheet, all kept on DRAWSHEET sheets.
+    leader notes placed on the sheet, all kept on DRAWSHEET sheets. Done:
+    `SHEETNOTE, sheet, CENTRES / THREADS / FINISH / WELD / LEADER`; the sheet
+    menu and a picked face, edge or weld bead offer them.
 101. **More file formats** (P2): SVG paths into a sketch, OpenSCAD `.scad`
     files (CSG) as bodies, and VRML and AMF export.
 102. **A material library** (P2): a library file of materials (stiffness,

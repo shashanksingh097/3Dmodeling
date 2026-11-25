@@ -173,6 +173,13 @@ TASKS: list[Task] = [
          setup="CYL, 0, 0, 0, 10, 80\nNAME, LAST, pipe\nCYL, 0, 0, 0, 8, 80\nSUBTRACT, pipe, LAST",
          reference="SEL, S, FACE, NORMAL, 0, 0, 1\nCM, inlet, FACE\nSEL, S, FACE, NORMAL, 0, 0, -1\nCM, outlet, FACE",
          area="analysis-prep"),
+    Task("spot_welds",
+         "The lid laps over the tray along one long edge. Spot weld them along that edge, a weld every 25 mm, "
+         "so the analysis app gets the weld points.",
+         ["SETSIZE(\"spotwelds\"), EQ, 4"],
+         setup="BLOCK, 0, 0, 0, 100, 40, 2\nNAME, LAST, tray\nBLOCK, 0, 20, 2, 100, 40, 2\nNAME, LAST, lid",
+         reference="SPOTWELD, lid, tray, 21, 25",
+         area="analysis-prep"),
     Task("strength",
          "The aluminium bracket carries 400 N straight down on its tip face (set tip) with the wall face (set "
          "wall) fixed. Make its plates thick enough for a safety factor of at least 2, keeping its 60 x 40 x 50 "

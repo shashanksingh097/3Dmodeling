@@ -3939,3 +3939,46 @@ changes are ordinary steps.
 The PATTERN report lists every copy with its number and middle. Pick a
 face of a copy and right click: "Leave out copy n of the pattern" edits the
 PATTERN step to add it to SKIP.
+
+## 48. Standard parts with their holes, spot welds, drawing details
+
+### More standard parts
+
+`FASTENER` takes countersunk (CSK) and button-head (BUTTON) screws, set
+screws (SET), dowel and spring pins (DOWEL, SPRINGPIN), threaded inserts
+(INSERT), ball bearings (BEARING, by number: 608, 6001 ...), circlips
+(CIRCLIP), parallel keys (KEY) and inch sizes (`#10-24`, `1/4-20` ...).
+Given a body after dx, dy, dz, it also cuts the matching hole in it:
+
+    FASTENER, CSK, M5, 40,-10,10, 16, , , , , plate          ! countersunk hole
+    FASTENER, CAP, M6, 40,10,10, 20, , , , , plate, CBORE    ! the head sinks in
+    FASTENER, CAP, M6, 40,10,10, 20, , , , , plate, TAP      ! a tap drill as deep as the screw
+    FASTENER, BEARING, 6001, 90,0,10, , , , , , housing      ! a press-fit seat
+
+The BOM counts the same standard parts as one row.
+
+### Middle surfaces without gaps
+
+With walls of several thicknesses, `MIDSURFACE` offsets each face on its own
+and carries the flat ones on (or cuts them back) until they meet, so an L,
+a T or a step stays one closed sheet. The report gives `gaps_closed` and
+`free_edges`.
+
+### Spot welds
+
+    SPOTWELD, lid, tray, 21, 25 [, margin] [, dia]
+
+(`SPOTWELD`) puts a weld every 25 along edge 21, centred, halfway between the two
+parts, as a body of points (`spotwelds`) and a named set. EXPORT, STEP
+names each point ("spot weld 2; joins lid + tray; nugget 5").
+
+### Drawing details on sheets
+
+    SHEETNOTE, s1, CENTRES                       ! centre marks and centre lines on the holes
+    SHEETNOTE, s1, THREADS                       ! cosmetic threads (holes with a thread NOTE)
+    SHEETNOTE, s1, FINISH, 6, 1.6, ground        ! surface finish on face 6
+    SHEETNOTE, s1, WELD, weld_1                  ! the weld symbol of a WELD bead
+    SHEETNOTE, s1, LEADER, EDGE 3, "Break edges" ! a note on a leader (FACE n, EDGE n, VERTEX n)
+    SHEETNOTE, s1                                ! list them; SHEETNOTE, s1, DELETE, 2 removes one
+
+`SHEETNOTE` details are drawn from the model each time `DRAWINGS` writes the sheets.

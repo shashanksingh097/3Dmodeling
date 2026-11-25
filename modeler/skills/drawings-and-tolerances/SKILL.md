@@ -1,7 +1,7 @@
 ---
 name: drawings-and-tolerances
 description: 2D drawings and sheets (views, sections, details, sizes, title block) as SVG, DXF or PDF, notes and sizes pinned to the 3D model, ISO 286 fits, geometric tolerances with datums, and tolerance stack-ups. Use for "make a drawing", "add tolerances", "will these parts always fit".
-commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETDATA, REVISION, PROPERTY, NOTE, FITS, STACKUP, SECTION
+commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETNOTE, SHEETDATA, REVISION, PROPERTY, NOTE, FITS, STACKUP, SECTION
 ---
 # Drawings and tolerances
 
@@ -38,6 +38,14 @@ commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETDATA, REVISION, PROPERTY, NOTE, F
    each time the sheets are written. `REVISION, B, "Hole moved"` adds a
    revision (the newest is the title block's REV). Check the rows with
    `SHEETDATA, front` (data, writes nothing).
+   Drawing details go on with `SHEETNOTE`: `SHEETNOTE, front, CENTRES`
+   (centre marks on holes seen end on, centre lines on holes seen from the
+   side), `THREADS` (cosmetic threads on holes with a thread NOTE, such as
+   a 6.8 hole noted "M8"), `FINISH, 12, 1.6, ground` (surface finish on
+   face 12), `WELD, weld_1` (weld symbol with size and length) and
+   `LEADER, EDGE 5, "Break sharp edges"`. `SHEETNOTE, front` lists them,
+   `SHEETNOTE, front, DELETE, 2` removes one. After DRAWINGS, the report
+   `drawings` has `details`: what was placed on which view.
 7. **Sizes and tolerances to other programs**: `EXPORT, STEP, "part.step"`
    writes the NOTE sizes, hole diameters and fits, GD&T frames and datums
    on the exported bodies as AP242 annotations (the reply says how many).

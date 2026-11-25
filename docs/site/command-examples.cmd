@@ -960,6 +960,16 @@ UNION, bracket, LAST
 MIDSURFACE, bracket
 FADE, bracket
 
+@ SPOTWELD pic
+! Spot welds every 25 along the edge where a lid laps a tray, halfway between the two; each point
+! is named in STEP with the two parts and the nugget size, for the analysis app.
+BLOCK, 0,0,0, 100, 40, 2
+NAME, LAST, tray
+BLOCK, 0,20,2, 100, 40, 2
+NAME, LAST, lid
+SPOTWELD, lid, tray, 21, 25
+FADE, lid
+
 @ BEAMS pic
 ! Centre lines of a welded frame for a beam model, joined where the members meet, with each section's area and stiffness in the answer.
 POLYLINE, (0,0,0), (400,0,0), (400,0,300), (0,0,300)
@@ -1765,6 +1775,20 @@ HOLE, 2, 45, 20, 10, 6
 DRAWSHEET, plate, STANDARD, 0, ALL, A3
 REVISION, A, "First issue"
 SHEETTABLE, plate, PARTS+HOLES+REVISIONS
+
+@ SHEETNOTE
+! Drawing details on a sheet: centre marks on the holes, a cosmetic thread on the tapped one
+! (its NOTE says M8), a surface finish on the top and a note on a leader.
+BLOCK, 0,0,0, 100, 60, 10
+NAME, LAST, plate
+HOLE, plate, 20, 20, 10, 8
+HOLE, plate, 80, 20, 10, 6.8
+NOTE, "M8", 90, 30, 15, 80, 20, 10
+DRAWSHEET, s1, STANDARD, 0, ALL, A3
+SHEETNOTE, s1, CENTRES
+SHEETNOTE, s1, THREADS
+SHEETNOTE, s1, FINISH, 6, 1.6, ground
+SHEETNOTE, s1, LEADER, EDGE 3, "Break sharp edges"
 
 @ REVISION
 ! Rows of the sheets' revision table; the newest is the title block's REV.
