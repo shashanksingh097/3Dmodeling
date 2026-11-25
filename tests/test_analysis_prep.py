@@ -64,9 +64,31 @@ CYL, 200,0,0, 8, 80
 SUBTRACT, tube, LAST""")
     r = run(p, "MIDSURFACE, step")
     assert sorted(r.report["thickness"]) == [2, 4] and not r.report["joined"]
-    assert sorted(x["thickness"] for x in r.report["faces"]) == [2, 4]
+    assert sorted(x["thickness"] for x in r.report["faces"]) == [2, 2, 4]  # the step strip is 2
+    assert r.report["gaps_closed"] == 1 and "1 gap closed" in r.message
+    assert area(p, body(p, "step_mid")) == pytest.approx(2 * 2500 + 50)
+    assert r.report["free_edges"] == 8  # the outline only: the two levels and the step are one sheet
     r = run(p, "MIDSURFACE, tube")
     assert area(p, body(p, "tube_mid")) == pytest.approx(2 * math.pi * 9 * 80, rel=1e-6)
+
+
+def test_midsurface_joins_walls_of_two_thicknesses(p):
+    run(p, """BLOCK, 0,0,0, 100,50,3
+NAME, LAST, ell
+BLOCK, 0,0,0, 5,50,40
+UNION, ell, LAST
+BLOCK, 0,100,0, 100,50,4
+NAME, LAST, tee
+BLOCK, 48,100,4, 3,50,30
+UNION, tee, LAST""")
+    r = run(p, "MIDSURFACE, ell")  # the middles cross near the corner: the ends past it are cut off
+    assert area(p, body(p, "ell_mid")) == pytest.approx(97.5 * 50 + 38.5 * 50)
+    assert r.report["free_edges"] == 6
+    r = run(p, "MIDSURFACE, tee")  # the plate's two halves and the rib carried on to one line
+    assert area(p, body(p, "tee_mid")) == pytest.approx(100 * 50 + 32 * 50)
+    assert r.report["gaps_closed"] == 3 and r.report["free_edges"] == 15
+    ts = sorted(x["thickness"] for x in r.report["faces"])
+    assert ts.count(3) == 2 and ts.count(4) == 4
 
 
 def test_midsurface_refuses_a_block(p):
@@ -192,3 +214,66 @@ def test_menu_offers_middle_surface_only_for_walls(p):
     assert "Analysis: middle surface" in labels(body(p, "bracket").id)
     cube = labels(body(p, "cube").id)
     assert "Analysis: middle surface" not in cube and "Analysis: merge faces on one surface" in cube
+
+
+LAP = """BLOCK, 0,0,0, 100,40,2
+NAME, LAST, lower
+BLOCK, 0,20,2, 100,40,2
+NAME, LAST, upper"""
+
+
+def _edge_at(p, name, x, y, z):
+    from modeler.commands.queries import centre
+
+    b = body(p, name)
+    for g in b.entity_ids["EDGE"]:
+        c = centre("EDGE", p.model.entity_shape("EDGE", g))
+        if max(abs(c[0] - x), abs(c[1] - y), abs(c[2] - z)) < 1e-6:
+            return g
+    raise AssertionError("no such edge")
+
+
+def test_spot_places_are_centred_on_the_edge():
+    from modeler.geometry import analysis_prep as ap
+
+    assert ap.spot_places(100, 25, 12.5) == [12.5, 37.5, 62.5, 87.5]
+    assert ap.spot_places(100, 30, 10) == [20, 50, 80]  # a fourth would come within 10 of an end
+    assert ap.spot_places(10, 25, 5) == [5]  # one in the middle of a short edge
+    with pytest.raises(ap.PrepError):
+        ap.spot_places(10, 25, 6)
+
+
+def test_spotweld_along_a_lap(p, tmp_path):
+    run(p, LAP)
+    e = _edge_at(p, "upper", 50, 20, 2)
+    r = run(p, f"SPOTWELD, upper, lower, {e}, 25")
+    d = r.report
+    assert d["count"] == 4 and "4 welds joining upper and lower" in r.message
+    assert [w["at"] for w in d["welds"]] == [[12.5, 20, 2], [37.5, 20, 2], [62.5, 20, 2], [87.5, 20, 2]]
+    pts = body(p, "spotwelds")
+    assert len(pts.entity_ids["VERTEX"]) == 4 and p.model.named_set("spotwelds")[1] == pts.entity_ids["VERTEX"]
+    f = tmp_path / "welds.step"
+    run(p, f'EXPORT, STEP, "{f}"')
+    text = f.read_text()
+    assert text.count("spot weld ") == 4 and "'spotwelds; spot weld 2; joins upper + lower; nugget 5'" in text
+    # the far edge of the upper plate is not over the lower one
+    far = _edge_at(p, "upper", 50, 60, 2)
+    bad = p.run(f"SPOTWELD, upper, lower, {far}, 25")
+    assert not bad.ok and "not close" in bad.message
+    assert p.run("UNDO").ok and not p.model.spotwelds
+
+
+def test_spotweld_from_the_edge_menu_and_form(p):
+    from modeler.gui import body_menu as bm
+    from modeler.gui import forms
+
+    run(p, LAP)
+    e = _edge_at(p, "upper", 50, 20, 2)
+    p.model.select("EDGE", [e])
+    items = [i for i in bm.pick_tools(p) if i.form == "SPOTWELD"]
+    assert items and items[0].label == "Spot welds along it to lower (body 1)…"
+    assert items[0].commands == [f"SPOTWELD, 2, 1, {e}, 25"]
+    sp = forms.spec("SPOTWELD")
+    assert [f.key for f in sp.variants[0].fields][:4] == ["a", "b", "edge", "pitch"]
+    vals = forms.initial(p, sp)
+    assert vals["a"] == "upper" and vals["b"] == "lower" and vals["edge"] == str(e)

@@ -1447,6 +1447,11 @@ def _named_faces(m, body) -> list:
     for gid, t in sorted(m.thickness.get(body.id, {}).items()):
         if gid in body.entity_ids["FACE"]:
             names.setdefault(("FACE", gid), []).append(f"thickness {fmt_num(round(t, 6))}")
+    sw = m.spotwelds.get(body.id)
+    if sw:
+        for k, gid in enumerate(body.entity_ids["VERTEX"]):
+            names.setdefault(("VERTEX", gid), []).append(
+                f"spot weld {k + 1}; joins {sw['a_name']} + {sw['b_name']}; nugget {fmt_num(round(sw['diameter'], 6))}")
     return [(m.entity_shape(kind, gid), "; ".join(text)) for (kind, gid), text in sorted(names.items())]
 
 

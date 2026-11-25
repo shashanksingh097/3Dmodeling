@@ -134,7 +134,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
-    ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES")),
+    ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES", "SPOTWELD")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
                             "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
@@ -406,10 +406,17 @@ def _generic(name: str) -> list[Field]:
                 kind = "word"
             else:
                 kind = "num"
+        pick = _PICKS.get((name, a.name), "BODY" if kind == "body" else "")
+        if pick and kind == "num":
+            kind = "ids"
         out.append(Field(a.name, _label(a.name, name), kind, _default_text(a.default), required=a.default is None,
-                         choices=choices, help=a.help, pick="BODY" if kind == "body" else ""))
+                         choices=choices, help=a.help, pick=pick))
         i += 1
     return out
+
+
+# whole-number arguments that are an ID picked in the view
+_PICKS = {("SPOTWELD", "edge"): "EDGE"}
 
 
 # ---- hand-written forms ----------------------------------------------------------
@@ -951,6 +958,16 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
     if sp.command in ("COLOR", "MATERIAL", "ISOLATE") and m.selection and len(m.selection) > 1 or (
             sp.command in ("COLOR", "MATERIAL", "ISOLATE") and m.selection and m.selection_kind != "BODY"):
         vals["target"] = "SEL"
+    # SPOTWELD: a picked edge, its body and the body that laps it there
+    if sp.command == "SPOTWELD" and m.selection_kind == "EDGE" and len(m.selection) == 1:
+        from .body_menu import lap_partner
+
+        e = m.selection[0]
+        a = m.entity_owner("EDGE", e)[0]
+        b = lap_partner(m, e, a)
+        vals.update(a=body_label(p, a), edge=str(e))
+        if b:
+            vals["b"] = body_label(p, b)
     # HOLE: drill where the picked face is
     if sp.command == "HOLE" and m.selection and m.selection_kind in ("FACE", "VERTEX"):
         vals["x"] = _centre_of_selection(p)

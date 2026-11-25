@@ -218,6 +218,35 @@ def _thin_walled(shape) -> bool:
     return 2 * v / a < 0.25 * sides[1]
 
 
+def lap_partner(model, edge: int, owner: int) -> int:
+    """Another body that lies against an edge (within a wall's thickness of its middle): the part a
+    flange is spot welded to. 0 when there is none."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    from ..geometry import meshbody as mb
+    from ..geometry import robust
+
+    es = model.entity_shape("EDGE", edge)
+    eb = Bnd_Box()
+    BRepBndLib.Add_s(es, eb)
+    reach = max(1.0, 0.02 * robust.diagonal(model.bodies[owner].shape))
+    eb.Enlarge(reach)
+    best = (reach, 0)
+    for bid, body in model.bodies.items():
+        if bid == owner or not model.is_shown(bid) or mb.is_mesh(body.shape) or not body.entity_ids["FACE"]:
+            continue
+        bb = Bnd_Box()
+        BRepBndLib.Add_s(body.shape, bb)
+        if eb.IsOut(bb):
+            continue
+        d = BRepExtrema_DistShapeShape(es, body.shape)
+        if d.IsDone() and d.Value() <= best[0]:
+            best = (d.Value(), bid)
+    return best[1]
+
+
 def analysis_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
     """Getting parts ready for the analysis app (PLAN items 80-82): only for solids."""
     from ..geometry import meshbody as mb
@@ -382,6 +411,14 @@ def pick_tools(p) -> list[MenuItem]:
                 name = _next_name(p, "AXIS") or "A1"
                 add(MenuItem("Axis along it" if ctype == "LINE" else "Axis through its centre", short="Axis",
                              commands=[f"AXIS, {name}, EDGE, {sel[0]}"], icon="axis"))
+            try:
+                a = m.entity_owner("EDGE", sel[0])[0]
+                b = lap_partner(m, sel[0], a)
+            except Exception:  # noqa: BLE001 - a stale pick
+                b = 0
+            if b:
+                add(MenuItem(f"Spot welds along it to {_name(m, b)}…", short="Spot welds",
+                             commands=[f"SPOTWELD, {a}, {b}, {sel[0]}, 25"], form="SPOTWELD", icon="pick_edge"))
         if n == 2:
             add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"], icon="measure"))
             add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))

@@ -62,7 +62,8 @@ def _t(x: float) -> str:
     help="The middle surface of a thin part, for a shell model in the analysis app: MIDSURFACE, bracket. Each "
          "wall's two sides are paired, one side is pulled half the thickness into the wall, and the thickness is "
          "kept on each face of the new surface body (in the answer, and on the faces in STEP). With one "
-         "thickness the walls meet at their corners; with several, each face is its own piece",
+         "thickness the walls meet at their corners; with several, each face is offset on its own and the "
+         "flat ones are carried on (or cut back) until they meet, so steps, L and T joins stay closed",
 )
 def midsurface(p: Processor, b, max):  # the argument's name in the command
     from .handlers import _added
@@ -87,13 +88,18 @@ def midsurface(p: Processor, b, max):  # the argument's name in the command
              for w in mid.walls for g, o in zip(_gids(body, "FACE", [w.face]), _gids(body, "FACE", [w.other]))]
     d = {"body": b, "new_body": new.id, "thickness": ts[0] if len(ts) == 1 else ts, "joined": mid.joined,
          "faces": [{"face": g, "thickness": t} for g, t in sorted(per.items())], "walls": walls,
+         "gaps_closed": mid.closed, "free_edges": robust.open_edges(mid.shape),
          "rims": _gids(body, "FACE", mid.rims), "left_out": _gids(body, "FACE", mid.unpaired),
          "area": round(ap.area(mid.shape), 6)}
     p.give_report("MIDSURFACE", d)
     tt = _t(ts[0]) if len(ts) == 1 else ", ".join(map(_t, ts))
     notes = [f"thickness {tt}", f"{len(mid.walls)} wall face{'s' if len(mid.walls) != 1 else ''}"]
-    notes.append("walls meet at their corners" if mid.joined else
-                 "faces offset one by one (several thicknesses): close the gaps between them in the analysis app")
+    if mid.joined:
+        notes.append("walls meet at their corners")
+    else:
+        notes.append("faces offset one by one (several thicknesses)"
+                     + (f", {mid.closed} gap{'s' if mid.closed != 1 else ''} closed where the thickness changes"
+                        if mid.closed else ""))
     if d["left_out"]:
         notes.append(f"faces {', '.join(map(str, d['left_out']))} have no wall across them (too thick; left out)")
     return _added(p, new, f"MIDSURFACE of body {b} ({'; '.join(notes)})")
@@ -491,3 +497,70 @@ def mergefaces(p: Processor, b, what, size):
     if kept:
         msg += f"; slivers {', '.join(map(str, kept))} are left (DELFACE them, or HEAL)"
     return _added(p, body, msg)
+
+
+# ---- item 99 ---------------------------------------------------------------------------------
+
+
+@command(
+    "SPOTWELD",
+    Arg("a", BodyRef, help="one part (a sheet metal part, a plate, or a middle surface)"),
+    Arg("b", BodyRef, help="the part it is welded to"),
+    Arg("edge", int, help="the edge the welds run along (a flange's edge, or the line where the parts lap)"),
+    Arg("pitch", float, help="the distance from one weld to the next"),
+    Arg("margin", float, 0.0, "the least distance from the ends of the edge (0: half the pitch)"),
+    Arg("dia", float, 5.0, "the weld nugget's diameter, kept with the points for the analysis app"),
+    help="Spot welds along an edge: SPOTWELD, lid, box, 12, 25. Points are laid out every pitch along the edge, "
+         "centred on it, and each is moved halfway between the two parts there. They become one body of points "
+         "(spotwelds) and a named set; EXPORT, STEP writes each point with its name, the two parts and the "
+         "nugget size, for the analysis app to make its connectors.",
+)
+def spotweld(p: Processor, a, b, edge, pitch, margin, dia):
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.gp import gp_Pnt
+
+    from .handlers import _added
+
+    m = p.model
+    if a == b:
+        raise CommandError("SPOTWELD: give two different parts")
+    if pitch <= 0 or dia <= 0 or margin < 0:
+        raise CommandError("SPOTWELD: the pitch and the diameter must be more than 0, and the end distance not "
+                           "below 0")
+    try:
+        es = m.entity_shape("EDGE", edge)
+    except Exception:  # noqa: BLE001 - an unknown ID
+        raise CommandError(f"SPOTWELD: there is no edge {edge}") from None
+    ba, bb = m.body(a), m.body(b)
+    for x in (ba, bb):
+        if mb.is_mesh(x.shape):
+            raise CommandError(f"SPOTWELD: body {x.id} is a mesh body; TOSOLID, {x.id} makes a solid of it first")
+    try:
+        spots = ap.spot_welds(es, ba.shape, bb.shape, pitch, margin or pitch / 2)
+    except ap.PrepError as exc:
+        raise CommandError(f"SPOTWELD: {exc}") from None
+    reach = max(dia, 0.02 * min(robust.diagonal(ba.shape), robust.diagonal(bb.shape)))
+    if all(s.gap > reach for s in spots):
+        raise CommandError(f"SPOTWELD: bodies {a} and {b} are not close along edge {edge} (they are "
+                           f"{_t(min(s.gap for s in spots))} apart at best); pick an edge where they lap")
+    far = [k + 1 for k, s in enumerate(spots) if s.gap > reach]
+    if far:
+        p.warn(f"SPOTWELD: at weld{'s' if len(far) != 1 else ''} {', '.join(map(str, far))} the parts are more "
+               f"than {_t(reach)} apart")
+    shape = ap._compound([BRepBuilderAPI_MakeVertex(gp_Pnt(*s.at)).Vertex() for s in spots])
+    new = m.add_body(shape, name=_free(m, "spotwelds"))
+    na = ba.name if ba.name != f"body{a}" else f"body {a}"
+    nb = bb.name if bb.name != f"body{b}" else f"body {b}"
+    m.spotwelds[new.id] = {"a": a, "b": b, "a_name": na, "b_name": nb, "edge": edge, "pitch": pitch,
+                           "diameter": dia}
+    set_name = new.name
+    ids = list(new.entity_ids["VERTEX"])
+    m.save_set(set_name, "VERTEX", ids)
+    r6 = lambda v: [round(c, 6) + 0.0 for c in v]  # noqa: E731
+    d = {"a": a, "b": b, "edge": edge, "pitch": pitch, "diameter": dia, "new_body": new.id, "set": set_name,
+         "count": len(spots),
+         "welds": [{"n": k + 1, "point": gid, "at": r6(s.at), "gap": round(s.gap, 6)}
+                   for k, (gid, s) in enumerate(zip(ids, spots))]}
+    p.give_report("SPOTWELD", d)
+    return _added(p, new, f"SPOTWELD: {len(spots)} weld{'s' if len(spots) != 1 else ''} joining {na} and {nb} "
+                          f"along edge {edge}, {_t(pitch)} apart, nugget {_t(dia)} (set {set_name})")
