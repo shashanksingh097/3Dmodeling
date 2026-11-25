@@ -88,3 +88,4 @@ from . import clip_handlers  # noqa: F401  (PASTE: copy and paste between projec
 from . import upto_handlers  # noqa: F401  (UPTO: move or pull up to a face, edge or vertex)
 from . import spacemouse_handlers  # noqa: F401  (SPACEMOUSE: the 3D mouse's settings)
 from . import detail_handlers  # noqa: F401  (DETAIL: how much the 3D view draws)
+from . import pin_handlers  # noqa: F401  (PIN: measurements kept in the view)
