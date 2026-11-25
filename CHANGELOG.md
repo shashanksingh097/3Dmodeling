@@ -29,6 +29,19 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   paper), recent projects with a picture of each, the examples and the quick start. `NEW, part`
   starts from a template; `TEMPLATE, SAVE, name` keeps a project's steps as your own; the
   assistant's `templates` lists them. A `PROPERTY, SHEET, A3` sets the paper `DRAWING` uses.
+- Errors that point at the problem: when a line or a step fails, a bar above the command line
+  gives the reason and lights up the faces, edges or bodies at fault in red; "Find fixes" tries
+  the usual fixes on a copy of the model and offers each one that works as a button, "Why?"
+  opens the whole answer. Failed history rows are tinted red; a click shows them in the bar.
+  A misspelt command or name gets "did you mean ..." with a button that puts the fixed line back
+  on the command line. `WHY, n` prints the same; the assistant's `diagnose` gives the IDs at fault.
+- Repeat: Enter on an empty command line (or right click > Repeat) runs the last step that
+  changed the model again on the new pick; `REPEAT` (`REPEAT, EDGE, 5 9` picks first). A form's
+  "Keep open" pin keeps it open after OK, taking each new pick, until Esc.
+- A Properties panel: the picked body's name, where it is, colour, layer, material, size, volume,
+  area and mass, and the values of the steps that made it (a part copy's values too), or the
+  values of the history step clicked. Changing a value writes the ordinary step (`MOVE`, `COLOR`,
+  `HIST, EDIT` ...). `PROPS, b [, key, value]` and the assistant's `properties` give the same.
 
 ## [0.6.0] - 2026-11-24
 

@@ -1,7 +1,7 @@
 ---
 name: modeling-basics
 description: How to write any model as a script that stays editable - parameters first, names instead of IDs, SEL criteria instead of picks, ASSERT checks at the end. Use for every new part.
-commands: BLOCK, CYL, NAME, SEL, UNION, SUBTRACT, FILLET, ASSERT, CHECK, PREVIEW, TOOLS
+commands: BLOCK, CYL, NAME, SEL, UNION, SUBTRACT, FILLET, ASSERT, CHECK, PREVIEW, TOOLS, REPEAT, PROPS
 ---
 # Modelling basics
 
@@ -66,6 +66,15 @@ ASSERT, BBOX(plate).dz, EQ, T, 0.01
 * A new project: `templates` lists what the start page offers (part,
   assembly, sheet metal, drawing, the user's own) and what each sets.
   `NEW, name` clears the model, so suggest it rather than run it.
+* The same step on several picks: `REPEAT` runs the last step that changed
+  the model again on the current pick (`REPEAT, EDGE, 5 9` picks first).
+  With a rule: `SEL, S, EDGE, RADIUS, EQ, 4` then `REPEAT`. People get it
+  from Enter on an empty command line or right click > Repeat.
+* "What is this body?", "make it 30 long": `properties` gives the table the
+  user's Properties panel shows (name, where, colour, layer, material,
+  numbers, the values of the steps that made it, key `5.dx` = argument dx
+  of step 5). `PROPS, b, key, value` changes one value with the ordinary
+  step (MOVE, COLOR, HIST, EDIT ...).
 
 ## Mistakes to avoid
 

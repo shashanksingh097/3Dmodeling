@@ -1828,6 +1828,34 @@ SELINFO, BODY, 1
 TEMPLATE
 TEMPLATE, SHOW, part
 
+@ WHY
+! Why a step failed: here the block is made smaller, so the fillet of step 3
+! no longer fits. WHY, 3 gives the reason, the usual fixes (each tried on a
+! copy of the model, with the line that runs it) and the edge at fault, in red.
+BLOCK, 0,0,0, 20, 20, 20
+PICK, EDGE, 1
+FILLET, 5
+HIST, EDIT, 1, "BLOCK, 0,0,0, 4, 4, 4"
+WHY, 3
+
+@ REPEAT
+! The last step again on a new pick: a fillet on edge 1, then on edges 3 and 5.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, EDGE, 1
+FILLET, 2
+REPEAT, EDGE, 3
+REPEAT, SHOW
+
+@ PROPS
+! One table of a body's properties; each value can be changed with the
+! ordinary step (here a MOVE and a HIST, EDIT of the BLOCK).
+BLOCK, 0,0,0, 40, 20, 10
+NAME, LAST, plate
+PROPS, plate
+PROPS, plate, x, 50
+PROPS, plate, 1.dz, 15
+PROPS, STEP 1
+
 @ VIEW
 ! Look from a standard direction.
 BLOCK, 0,0,0, 40, 20, 5

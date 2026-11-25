@@ -159,7 +159,8 @@ class Toolbox:
             Tool("diagnose", "Why a step failed and which usual fixes work: tries them on a copy of the model "
                  "(a size under the limit the message gives, smaller numbers, a fillet moved before the shell, HEAL "
                  "before a boolean, the nearest name) and gives the exact line to run for each one that passes. "
-                 "No step and no line: the first failed history step, else the last failed line typed.",
+                 "No step and no line: the first failed history step, else the last failed line typed. fault: the "
+                 "faces, edges or bodies at fault (kind + ids), the ones the user sees in red.",
                  {"step": {"type": "integer", "description": "history step number"},
                   "line": {"type": "string", "description": "a command line to look at instead"},
                   "where": _WHERE}, (), self.diagnose),
@@ -216,6 +217,14 @@ class Toolbox:
                  "status bar shows (status_line). Use it for 'how big is this', 'how far apart are these'.",
                  {"kind": {"type": "string", "enum": KINDS}, "ids": {"type": "array", "items": {"type": "integer"}},
                   "where": _WHERE}, (), self.selection_numbers),
+            Tool("properties", "One table of a body's properties (default: the user's pick), or of a history step's "
+                 "values (step): name, where (x, y, z of its centre), colour, layer, material, size, volume, area, "
+                 "mass, and the values of the steps that made it (key 5.dx: argument dx of step 5; a part copy's "
+                 "values too). Rows with edit set can be changed with PROPS, b, key, value, which writes the "
+                 "ordinary step (MOVE, COLOR, HIST, EDIT ...): the same table as the user's Properties panel.",
+                 {"body": {"type": "string", "description": "a body name or ID (default: the pick)"},
+                  "step": {"type": "integer", "description": "a history step instead of a body"},
+                  "where": _WHERE}, (), self.properties),
             Tool("preview_selection", "What SEL lines would select, without changing the selection.",
                  {"lines": {"type": "array", "items": {"type": "string"}}, "where": _WHERE}, ("lines",),
                  self.preview_selection),
@@ -493,6 +502,23 @@ class Toolbox:
             raise ToolError("kind is BODY, FACE, EDGE or VERTEX") from None
         info["status_line"] = si.line(info, pretty=False)
         return info
+
+    def properties(self, body: str | None = None, step: int | None = None, where: str = "model") -> dict[str, Any]:
+        from ..commands import props_handlers as ph
+        from ..commands.processor import CommandError
+
+        p = self._p(where)
+        try:
+            if step is not None:
+                if not 1 <= int(step) <= p.cursor:
+                    raise ToolError(f"there are {p.cursor} history steps; give 1 to {p.cursor}")
+                d = ph.step_properties(p, int(step))
+            else:
+                d = ph.properties(p, ph.body_of(p, str(body) if body not in (None, "") else "SEL"))
+        except CommandError as exc:
+            raise ToolError(str(exc)) from None
+        d["change"] = "PROPS, b, key, value (b: the body, or STEP n): one ordinary step, Undo takes it back"
+        return d
 
     def preview_selection(self, lines: list[str], where: str = "model"):
         return sl.preview_selection(self._p(where), lines)

@@ -1,7 +1,7 @@
 ---
 name: fixing-failed-steps
 description: What to do when a step fails or warns - read the message and hint, the usual fixes for fillets, shells, booleans, sweeps and lofts, CHECK and HEAL for broken bodies. Use when run, a history rebuild or the user reports an error.
-commands: CHECK, HEAL, CLEAN, FILLET, SHELL, UNION, SUBTRACT, INTERSECT, PIPE, LOFT, HIST
+commands: CHECK, HEAL, CLEAN, FILLET, SHELL, UNION, SUBTRACT, INTERSECT, PIPE, LOFT, HIST, WHY
 ---
 # Fixing failed steps
 
@@ -16,8 +16,12 @@ trying anything else.
    marked failed, and are skipped: `history` lists them.
    **Call `diagnose` first** (with the step number, or the failed line): it
    tries the usual fixes below on a copy of the model and gives the exact
-   line for each one that works. People get the same from **Why?** on a
-   failed step in the History panel.
+   line for each one that works, and `fault`: the faces, edges or bodies
+   at fault, which the user sees in red. People get the same from **Why?**
+   on a failed step in the History panel, the error bar above their command
+   line (its "Find fixes" button), or `WHY, n` typed.
+   A misspelt command or name already says "did you mean ..." in the
+   message: use the name it gives.
 2. **Find the cause in the model**, not by guessing: `describe_body` on the
    body, `describe_entities` on the faces or edges the step used,
    `section_profile` or `probe_ray` near the place the message names.

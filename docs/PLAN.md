@@ -1278,19 +1278,19 @@ Built in this order, about three per pull request.
     start. People can save their own project as a template. Commands:
     `NEW, template` and `TEMPLATE, SAVE, name`. Assistant: `templates` lists
     them with what each sets.
-89. **Errors that point at the problem** (P1): a failed step lights up the
+89. **Errors that point at the problem** (P1, done: the error bar with the faults in red, "Use ..." for a misspelling, Find fixes and Why?; tinted failed history rows; `WHY` and `WHY, OFF`; `fault` in `diagnose`): a failed step lights up the
     faces, edges or sketch items involved in the 3D view, its history row
     turns red with the reason as a tool tip, and the usual fixes from Why?
     are offered as buttons in the message. A misspelt command or name on the
     command line gets "did you mean ..." (as the assistant's checker does
     now). Command: `WHY, n` prints the reason and the fixes. Assistant:
     `diagnose` returns the entity IDs at fault as well.
-90. **Repeat and keep going** (P2): Enter on an empty command line (or a
+90. **Repeat and keep going** (P2, done: `REPEAT` and `REPEAT, kind, ids`, Enter on an empty line, right click > Repeat, the "Keep open" pin on forms, the skill note): Enter on an empty command line (or a
     right click > Repeat) runs the last command again with the new pick; a
     tool can stay on (a pin on its form), so Hole, Fillet or Pull can be
     used on pick after pick until Esc. Command: `REPEAT` (with an optional
     new selection). Assistant: the skill note explains `REPEAT` with `SEL`.
-91. **A properties panel** (P2): one table for the picked body, step or part:
+91. **A properties panel** (P2, done: the Properties panel for a picked body or a clicked step, part copies' values, `PROPS` with `STEP n`, the `properties` tool): one table for the picked body, step or part:
     name, position and turn, size values of the step that made it, colour,
     layer, material, mass; changing a cell writes the ordinary step (`MOVE`,
     `HIST, EDIT`, `COLOR` ...). Command: `PROPS, b` prints the table and

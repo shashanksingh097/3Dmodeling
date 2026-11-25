@@ -3677,7 +3677,7 @@ one load case: check the part you make with `STRESS`.
 
 Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.
 
-## 46. Everyday work: previews, picking, the numbers of a pick, typed sizes and templates
+## 46. Everyday work: previews, picking, numbers, typed sizes, templates, errors, repeat and properties
 
 ### See a step before it runs: PREVIEW
 
@@ -3818,3 +3818,77 @@ A template's steps are ordinary history entries, so each can be edited later.
 per-user app data folder (`MODELER_TEMPLATES` names another folder); one of
 yours with a built-in name is used instead of it, until you delete it. The
 assistant's `templates` tool lists them all with what each sets.
+
+### When a step fails: the error bar and WHY
+
+A line or step that fails changes nothing. The bar above the command line
+says why and lights up the faces, edges or bodies at fault in red: the ones
+its message names, else the pick it used, else the bodies it names.
+
+* A misspelt command or name gets "did you mean ..." in the message
+  (`BLOK` gives BLOCK, `plaet` gives plate). A "Use BLOCK" button puts the
+  fixed line back on the command line, so Enter runs it.
+* "Find fixes" tries the usual fixes on a copy of the model (a radius under
+  the limit, the nearest name, HEAL before a boolean ...); each one that
+  works becomes a button. Undo takes a fix back.
+* "Why?" opens the whole answer. Esc in the command line (or the ✕) hides
+  the bar; the next line that works hides it too.
+* Failed history rows are tinted red, with the reason as a tool tip; a
+  click on one shows it in the bar.
+
+The same as commands:
+
+    WHY                    ! the first failed step, else the last line that failed
+    WHY, 5                 ! history step 5: the reason, the fixes, the IDs at fault (red in the view)
+    WHY, 5, JSON           ! as data
+    WHY, OFF               ! clears the red
+
+The assistant's `diagnose` gives the same, with `fault` (kind and IDs).
+
+### The same step again: REPEAT
+
+`REPEAT` runs the last step that changed the model again, on the current
+pick (picking, undo and history edits do not count):
+
+    PICK, EDGE, 1
+    FILLET, 2
+    REPEAT, EDGE, 3 7      ! picks edges 3 and 7, then FILLET, 2 again
+    SEL, S, EDGE, RADIUS, EQ, 4
+    REPEAT                 ! the same fillet on every edge the rule found
+    REPEAT, SHOW           ! what it would run
+
+In the window, Enter on an empty command line is `REPEAT` (the command
+line says what it would repeat), and so is right click > Repeat. A form's
+"Keep open" pin keeps it open after OK: pick the next faces or edges and
+press OK again, until Esc. The pin is remembered for each command.
+
+### One table of properties: PROPS and the Properties panel
+
+The Properties panel (beside Parameters) shows the picked body, or the
+history step clicked in History. White values can be changed; each change
+is the ordinary step, so Undo takes it back:
+
+| Row | Changing it writes |
+| --- | --- |
+| name | `NAME, b, new` |
+| x, y, z (the centre of its box) | `MOVE, b, dx, dy, dz` |
+| turn (`Z 90`) | `ROTATE, b, 90, centre, 0, 0, 1` |
+| colour | `COLOR, b, value` |
+| layer | `LAYER, name, ADD, b` (the layer is made if new) |
+| material | `MATERIAL, b, name` |
+| `5.dx` (argument dx of step 5) | `HIST, EDIT, 5, ...` |
+
+Size, volume, area, mass and the centre of mass are shown too. For a copy
+of a part (`INST`) the rows are its place and the part's values, including
+the ones left at their defaults (a change adds `L=25`).
+
+    PROPS, plate                 ! the table (PROPS alone: the pick)
+    PROPS, plate, x, 50          ! moves its centre to x = 50
+    PROPS, plate, 1.dz, 15       ! changes the BLOCK of step 1
+    PROPS, plate, colour, red
+    PROPS, STEP 1                ! the values of step 1 (or #1)
+    PROPS, STEP 1, dx, 60
+    PROPS, plate, JSON
+
+The assistant's `properties` tool gives the same table as data.
+

@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 _BAD = "border: 1px solid #c62828;"
 PREVIEW_SETTING = "forms/preview3d"  # Show in 3D on the fill-in forms (on unless turned off)
+PIN_SETTING = "forms/pin/"  # + the command: the form stays open after OK (PLAN item 90)
 PREVIEW_DELAY_MS = 300  # wait this long after the last key before working out the preview
 
 
@@ -340,6 +341,17 @@ class FormDialog(QDialog):
         win.processor.listeners.append(self._listener)
 
         buttons = QHBoxLayout()
+        # PLAN item 90: a pinned form stays open after OK and takes each new pick, so a FILLET or
+        # HOLE goes on pick after pick until Esc
+        self.pin_box = QCheckBox("📌 Keep open")
+        self.pin_box.setObjectName("pin")
+        self.pin_box.setToolTip("Keep this form open after OK: pick the next faces or edges in the view, press "
+                                "OK again, and so on. Esc closes it. (Enter on an empty command line repeats "
+                                "the last step too.)")
+        self.pin_box.setChecked(_setting(win, PIN_SETTING + spec.command, False))
+        self.pin_box.toggled.connect(lambda on: _set_setting(win, PIN_SETTING + spec.command, on))
+        if edit_row is None:
+            buttons.addWidget(self.pin_box)
         buttons.addStretch(1)
         self.run_button = QPushButton("Run")
         self.run_button.setToolTip("Run it and keep the form open for another")
@@ -512,8 +524,27 @@ class FormDialog(QDialog):
         if not res.ok or not res.line or not self.preview_box.isChecked():
             return
         word = res.line.split(",", 1)[0].strip().upper()
+        if word in ("PICK", "SEL", "CMSEL") and self.pinned:
+            self.take_pick()
         if word in ("PICK", "SEL", "CMSEL") and getattr(self, "_pending_text", ""):
             self._schedule_preview(self._pending_text)
+
+    @property
+    def pinned(self) -> bool:
+        return self.edit_row is None and self.pin_box.isChecked()
+
+    def take_pick(self) -> list[str]:
+        """Pinned: put a new pick into the fields that are filled from the pick."""
+        took = []
+        for name, w in self.fields.items():
+            if w.f.kind in ("ids", "bodies"):  # a single-body field (SUBTRACT's a, b) is left as typed
+                try:
+                    got = F.from_selection(self.win.processor, w.f)
+                except (F.FormError, Exception):  # noqa: BLE001 - a pick of another kind: leave the field
+                    continue
+                w.set_value(got)
+                took.append(name)
+        return took
 
     def _unlisten(self) -> None:
         try:
@@ -556,9 +587,13 @@ class FormDialog(QDialog):
         if not res.ok:
             self.show_error(res.message or "the command failed")
             return False
-        if close:
+        if close and not self.pinned:
             self.accept()
         else:
+            if self.pinned:
+                self.win.statusBar().showMessage(
+                    f"{self.spec.title}: done. Pick the next ones and press OK again (Esc closes the form)", 6000)
+                self.error.setText("")
             self._refresh_options()
             self.update_preview()
         return True

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer
+from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QActionGroup, QBrush, QColor, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -75,6 +75,8 @@ class CommandLine(QLineEdit):
     at the start of a line, keywords for the argument being typed, and
     parameter and body names. Tab or Enter in the list takes a word.
     """
+
+    escaped = Signal()  # Esc with no completion list open (hides the error bar)
 
     def __init__(self, processor: Processor | None = None, parent=None) -> None:
         super().__init__(parent)
@@ -141,6 +143,9 @@ class CommandLine(QLineEdit):
             if e.key() == Qt.Key_Escape:
                 popup.hide()
                 return
+        if e.key() == Qt.Key_Escape:
+            self.escaped.emit()
+            return
         if e.key() == Qt.Key_Up and self.history:
             self._pos = max(0, self._pos - 1)
             self.setText(self.history[self._pos])
@@ -197,6 +202,13 @@ class HistoryPanel(QTableWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._menu)
         self.cellDoubleClicked.connect(lambda row, _c: self.edit_row(row))
+        self.cellClicked.connect(self._clicked)
+
+    def _clicked(self, row: int, _col: int = 0) -> None:
+        """A click on a row: its failure in the error bar, its values in Properties."""
+        self.win.error_bar.show_step(row)
+        if 0 <= row < self.win.processor.cursor:
+            self.win.props_panel.show_step(row + 1)
 
     def refresh(self) -> None:
         p = self.win.processor
@@ -204,6 +216,7 @@ class HistoryPanel(QTableWidget):
         grey = QBrush(QColor(140, 140, 140))
         red = QBrush(QColor(200, 40, 40))
         amber = QBrush(QColor(176, 108, 0))
+        red_bg = QBrush(QColor(253, 236, 236))
         inside = False
         for i, e in enumerate(p.history):
             label = e.label + ("  …" if "\n" in e.text.strip() and not e.text.strip().startswith("!") else "")
@@ -226,6 +239,10 @@ class HistoryPanel(QTableWidget):
                     item.setForeground(grey)
                 elif not e.ok:
                     item.setForeground(red)
+                    item.setBackground(red_bg)
+                    if c != 1:
+                        item.setToolTip((e.message or "") + "\n\nClick: show it in the error bar, with the "
+                                        "faces at fault in red · right-click: Why did it fail?")
                 elif e.warning:
                     item.setForeground(amber)
                 self.setItem(i, c, item)
@@ -538,6 +555,11 @@ class MainWindow(QMainWindow):
         self.form_button.setShortcut(QKeySequence("F2"))
         self.form_button.clicked.connect(self.form_for_typed)
         row.addWidget(self.form_button)
+        from .error_bar import ErrorBar
+
+        self.error_bar = ErrorBar(self)  # what failed, the faces at fault, the fixes (PLAN item 89)
+        self.cmdline.escaped.connect(self.error_bar.dismiss)
+        lay.addWidget(self.error_bar)
         lay.addWidget(self.cmdline.hint)  # above the line, so the completion list never covers it
         lay.addLayout(row)
         self.setCentralWidget(central)
@@ -565,6 +587,11 @@ class MainWindow(QMainWindow):
         assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
         self.tabifyDockWidget(params, assistant)
         self.assistant_dock = assistant
+        from .props_panel import PropsPanel
+
+        self.props_panel = PropsPanel(self)  # the picked body's or step's values, changeable (PLAN item 91)
+        self.props_dock = self._dock("Properties", self.props_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(params, self.props_dock)
         params.raise_()
         self.layers_dock = layers
         from .model_tree import ModelTree
@@ -587,6 +614,7 @@ class MainWindow(QMainWindow):
         self.resizeDocks([out], [170], Qt.Vertical)
 
         self.processor.listeners.append(self._on_result)
+        self.processor.listeners.append(self.error_bar.on_result)
         self.processor.history_listeners.append(self._on_history)
         from .app_shell import AppShell
 
@@ -998,6 +1026,23 @@ class MainWindow(QMainWindow):
                  else bm.empty_items(m))
         menu = QMenu(self)
         self.fill_menu(menu, items)
+        last = self.processor.last_tool
+        if last:  # PLAN item 90: after the tools for the pick (they come first), else at the top
+            short = last if len(last) <= 40 else last[:39] + "…"
+            acts = menu.actions()
+            first = acts[0] if acts else None
+            picked = first is not None and not first.isEnabled() and first.text().startswith("The picked")
+            sep = next((a for a in acts if a.isSeparator()), None) if picked else first
+            act = QAction(f"Repeat {short}", menu)
+            act.triggered.connect(self.repeat_last)
+            act.setToolTip("Run it again on the current pick (Enter on an empty command line does the same)")
+            act.setObjectName("repeat")
+            if sep is None:
+                menu.addAction(act)
+            else:
+                menu.insertAction(sep, act)
+                if not picked:
+                    menu.insertSeparator(sep)
         self._body_menu = menu  # tests read it
         menu.popup(global_pos)
 
@@ -1236,6 +1281,16 @@ class MainWindow(QMainWindow):
         self.cmdline.clear()
         if text.strip() or self.processor.pending:
             self.execute(text)
+        elif self.processor.last_tool:
+            self.repeat_last()  # Enter on an empty line: the last step again, on the new pick (PLAN item 90)
+
+    def repeat_last(self) -> Result:
+        """REPEAT: the last step that changed the model, run again on the current pick."""
+        line = self.processor.last_tool
+        res = self.execute("REPEAT")
+        if res.ok:
+            self.statusBar().showMessage(f"Repeated {line}: pick again and press Enter for another", 6000)
+        return res
 
     def _on_result(self, res: Result) -> None:
         if res.pending:
@@ -1244,7 +1299,12 @@ class MainWindow(QMainWindow):
             self.cmdline.setPlaceholderText("Block continues: type its lines, then the closing *END... line")
             return
         self.prompt.setText(">")
-        self.cmdline.setPlaceholderText("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP")
+        last = self.processor.last_tool
+        if last:
+            short = last if len(last) <= 40 else last[:39] + "…"
+            self.cmdline.setPlaceholderText(f"Enter repeats {short}   ·   or type a command")
+        else:
+            self.cmdline.setPlaceholderText("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP")
         if not res.line:
             return
         self.output.appendPlainText("> " + "\n  ".join(res.line.splitlines()))
