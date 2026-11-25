@@ -4211,7 +4211,7 @@ are there to read. Commands run through the console go into the history
 like typed ones. A line that changes the model directly is undone at once,
 so the history stays the whole story of the model.
 
-## 51. Copy and paste, up-to moves
+## 51. Copy and paste, up-to moves, projects in tabs
 
 ### Copy, paste and duplicate
 
@@ -4251,3 +4251,15 @@ round edge's centre) or a vertex. Round sides count exactly. Picked faces
 move along their own normals instead (a PUSHPULL with the distance worked
 out). `offset` stops short (negative: past). A right click on a body gives
 Move up to… and Duplicate; on flat faces, Pull up to….
+
+### Several projects in tabs
+
+File > New tab (Ctrl+T) and Open in new tab… (Ctrl+Shift+O) keep the
+project you have open and add another; a tab bar shows above the 3D view
+while more than one is open. Each tab keeps its own history, undo, file and
+view. Ctrl+Tab and Ctrl+Shift+Tab move between tabs and Ctrl+W closes one
+(asking to save its changes first). A body goes to another tab with Ctrl+C
+there and Ctrl+V here, or from its right-click menu, Copy to ▸ (a `PASTE`
+step in that tab, where the body stands). Closing the window asks about each
+tab with unsaved changes. The assistant works on the shown tab; its
+`user_context` names the open tabs.

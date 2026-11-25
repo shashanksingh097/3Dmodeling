@@ -1479,15 +1479,26 @@ read and a skill). Built about three items per pull request, in this order.
      bodies, picked faces and sketch geometry, also between projects. A
      paste becomes ordinary commands in the history (COPY, MOVE or the
      sketch commands), placed where the mouse is. The assistant gets a
-     `PASTE` command and the clipboard's contents as data.
+     `PASTE` command and the clipboard's contents as data. Done: Edit >
+     Copy, Paste, Duplicate; bodies paste as `COPY` in their own project and
+     as `PASTE, CLIP1, dx, dy, dz` elsewhere (the geometry, name, colour and
+     material kept with the project); faces paste as a sheet body; sketch
+     geometry as `STRANSFORM ... COPY` or drawing commands; `PASTE, LIST`.
 108. **Snapping to other parts; up-to moves** (P1): while dragging (drag
      handles, MOVE, PUSHPULL), snap to vertices, edge midpoints, circle
      centres and faces of any part, shown with a marker. MOVE and PUSHPULL
-     gain UPTO a picked face or point; ALIGN and CENTRE on a pick.
+     gain UPTO a picked face or point; ALIGN and CENTRE on a pick. Done:
+     drag handles snap (10 pixels, a ring marks the point, Shift drags
+     freely); `UPTO, body | SEL | FACES 6 7, FACE | EDGE | VERTEX, n [, axis]
+     [, offset]` (Move up to… and Pull up to… on a right click); aligning and
+     centring stay with MATE COINCIDENT and CONCENTRIC.
 109. **Several projects open at once** (P1): projects open in tabs; a part
      dragged from one tab to another is copied there (as an INST of a saved
      part or a COPY); each tab keeps its own history and undo. The
-     assistant names the project it works on.
+     assistant names the project it works on. Done: File > New tab, Open in
+     new tab…, Close tab, Ctrl+Tab; a body goes across with Ctrl+C / Ctrl+V
+     or Copy to ▸ on its right click (a PASTE step); the assistant's
+     user_context lists the open tabs.
 110. **A live drawing-sheet window** (P2): see a DRAWSHEET as it is built,
      drag views, click edges to add sizes, balloons and notes, with the
      sheet redrawn live; each change is one history step.

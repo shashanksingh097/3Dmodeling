@@ -1696,7 +1696,10 @@ class OccViewport(QWidget):
         self._hd_label.setText(self._hd.readout() + "   (type a value, Enter; Esc cancels)")
         self._hd_label.adjustSize()
         pos = self.mapFromGlobal(self.cursor().pos())
-        self._hd_label.move(pos.x() + 16, pos.y() + 16)
+        lw, lh = self._hd_label.width(), self._hd_label.height()
+        x = pos.x() + 16 if pos.x() + 16 + lw <= self.width() else max(0, pos.x() - 16 - lw)  # inside the view
+        y = min(max(0, pos.y() + 16), max(0, self.height() - lh))
+        self._hd_label.move(x, y)
         self._hd_label.show()
 
     def _ray(self, x: int, y: int):

@@ -408,6 +408,16 @@ class AppShell:
                             "or empty; open a recent project or an example. Runs: NEW, template")
         self.new_empty_action = a(m, "New &empty project", self.new, None, "Start an empty model. Runs: NEW")
         self.open_action = a(m, "&Open…", self.open, QKeySequence.Open, "Open a project (.m3d). Runs: OPEN, file")
+        tabs = lambda: self.win.project_tabs  # noqa: E731 - made after the menus' owner
+        self.new_tab_action = a(m, "New &tab", lambda: tabs().new_tab(), "Ctrl+T",
+                                "Another project in a new tab; each tab has its own history and undo")
+        self.open_tab_action = a(m, "Open in new ta&b…", lambda: tabs().open_in_new_tab(), "Ctrl+Shift+O",
+                                 "Open a project in a new tab, keeping this one open")
+        self.close_tab_action = a(m, "&Close tab", lambda: tabs().close_tab(), "Ctrl+W",
+                                  "Close the shown tab (asks to save its changes first)")
+        self.next_tab_action = a(m, "Next tab", lambda: tabs().next_tab(1), "Ctrl+Tab", "Show the next tab")
+        self.prev_tab_action = a(m, "Previous tab", lambda: tabs().next_tab(-1), "Ctrl+Shift+Tab",
+                                 "Show the previous tab")
         self.new_part_action = a(m, "New &part…", self.new_part, None,
                                  "Design one part on its own; Save writes it as a part file. Runs: NEWPART, name")
         self.open_part_action = a(m, "Open p&art…", self.open_part, None,
