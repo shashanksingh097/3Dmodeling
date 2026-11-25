@@ -8,3 +8,6 @@ import tempfile  # noqa: E402
 
 os.environ.setdefault("MODELER_SKILLS_HOME", os.path.join(tempfile.gettempdir(), "modeler-test-no-user-skills"))
 os.environ.pop("MODELER_SKILLS", None)
+
+# nor load the user's own plug-ins (modeler/plugins.py)
+os.environ.setdefault("MODELER_PLUGINS_HOME", os.path.join(tempfile.gettempdir(), "modeler-test-no-user-plugins"))

@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import i18n
 from ..commands import tutorial_handlers as th
 
 
@@ -113,7 +114,7 @@ class TutorialPanel(QWidget):
         self.back.setEnabled(lesson.index > 0)
         done = th._passed(lesson)
         self.next.setEnabled(done)
-        self.next.setText("Finish" if lesson.last else "Next")
+        self.next.setText(i18n.tr("Finish") if lesson.last else i18n.tr("Next"))
 
     def _checks_html(self, lesson) -> str:
         if not lesson.step.checks:
@@ -129,7 +130,7 @@ class TutorialPanel(QWidget):
         return "<br>".join(rows)
 
     def _show_list(self) -> None:
-        self.heading.setText("<b>Tutorials</b><br>Short lessons that check your model as you go.")
+        self.heading.setText(i18n.tr("<b>Tutorials</b><br>Short lessons that check your model as you go."))
         parts = []
         for t in th.available():
             parts.append(f"<p><a href='start:{html.escape(t.name)}'><b>{html.escape(t.title)}</b></a><br>"

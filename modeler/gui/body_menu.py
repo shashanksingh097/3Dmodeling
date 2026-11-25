@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
+
 
 @dataclass
 class MenuItem:
@@ -158,12 +160,14 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
     items.append(MenuItem("Zoom to", [f"FIT, {t}"]))
     if mate_ready(model):
         items.append(MenuItem("Mate the two picked…", form="MATE"))
+    items += clash_items(model, ids, bid)
     if one:
         items.append(MenuItem("Rename…", [f"NAME, {bid}, {{}}"], ask=f"New name for {_name(model, bid)}:"))
     sel = "SEL" if not one else str(bid)
     items.append(MenuItem("Colour…", [f"COLOR, {sel}, "], form="COLOR"))
     items.append(MenuItem("Layer…", [f"LAYER, , ADD, {sel}"], form="LAYER"))
     items.append(MenuItem("Material…", [f"MATERIAL, {sel}, "], form="MATERIAL"))
+    items.append(MenuItem("Wrap in one closed skin…", [f"WRAPSKIN, {sel}, 1"], form="WRAPSKIN"))
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]
@@ -172,9 +176,53 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))
         items += feature_items(model, bid)
+        items += point_items(model, bid)
     items += sheet_items(model)
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
+    return items
+
+
+def clash_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
+    """Two bodies picked (PLAN item 79): fix a clash between them, seen first, then done. The body
+    clicked is the one that changes."""
+    if len(ids) != 2:
+        return []
+    a = clicked if clicked in ids else ids[0]
+    b = ids[1] if ids[0] == a else ids[0]
+    na, nb = _name(model, a), _name(model, b)
+    return [MenuItem(f"Clash: see {nb} cut out of {na}", [f"CLASHFIX, {a}, {b}, CUT, 0, AUTO, PREVIEW"]),
+            MenuItem(f"Clash: cut {nb} out of {na}", [f"CLASHFIX, {a}, {b}, CUT"]),
+            MenuItem(f"Clash: see {na} moved clear of {nb}", [f"CLASHFIX, {a}, {b}, MOVE, 0, AUTO, PREVIEW"]),
+            MenuItem(f"Clash: move {na} clear of {nb}", [f"CLASHFIX, {a}, {b}, MOVE"])]
+
+
+def point_items(model, bid: int) -> list[MenuItem]:
+    """Point clouds (PLAN item 77): fit a shape to the points around a picked point, or to all."""
+    from ..geometry import pointcloud as pc
+
+    if not pc.is_points(model.bodies[bid].shape):
+        return []
+    items = [SEPARATOR]
+    if model.selection_kind == "VERTEX" and len(model.selection) == 1:
+        try:
+            owner = model.entity_owner("VERTEX", model.selection[0])[0]
+            v = model.entity_shape("VERTEX", model.selection[0])
+        except Exception:  # noqa: BLE001 - a stale pick
+            owner = None
+        if owner == bid:
+            from OCP.BRep import BRep_Tool
+            from OCP.TopoDS import TopoDS
+
+            as_vertex = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+            q = (getattr(BRep_Tool, "Pnt_s", None) or BRep_Tool.Pnt)(as_vertex(v))
+            pts = pc.arrays(model.bodies[bid].shape)
+            r = 0.1 * float(np.linalg.norm(np.ptp(pts, axis=0)))
+            at = ", ".join(f"{c:.6g}" for c in (q.X(), q.Y(), q.Z()))
+            items.append(MenuItem("Fit a shape to the points around the pick…",
+                                  [f"FITPOINTS, {bid}, AUTO, {at}, {r:.4g}"], form="FITPOINTS"))
+    items.append(MenuItem("Fit a shape to all the points…", [f"FITPOINTS, {bid}, AUTO"], form="FITPOINTS"))
+    items.append(MenuItem("Measure against a model…", [f"DEVIATION, {bid}, "], form="DEVIATION"))
     return items
 
 

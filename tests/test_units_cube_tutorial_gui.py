@@ -381,6 +381,33 @@ def test_ribbon_tooltips_have_pictures(win):
     assert "<img" in acts["Block…"].toolTip()
 
 
+def test_picture_tooltips_survive_a_language_switch(win):
+    from modeler import i18n
+    from modeler.gui import picture_tips as pt
+    from modeler.gui import prefs, toolbars
+
+    def block():
+        return next(a for tb in toolbars.groups(win) for a in tb.actions() if "Runs: BLOCK" in (a.property(pt.PLAIN) or ""))
+
+    try:
+        prefs.apply_language(win, "de", remember=False)
+        a = block()
+        assert "<img" in a.toolTip() and "block.png" in a.toolTip()
+        assert a.toolTip().count("<img") == 1  # not wrapped twice
+        assert win.tutorial_panel.next.text() == "Weiter"
+        win.execute("TUTORIAL, first_part, NEW")
+        assert win.tutorial_panel.next.text() == "Weiter"  # still German after the panel refreshes
+        win.execute("TUTORIAL, STOP")
+        pt.set_enabled(win, False)
+        assert "<img" not in a.toolTip()
+        pt.set_enabled(win, True)
+        prefs.apply_language(win, "en", remember=False)
+        assert a.toolTip().count("<img") == 1 and "Runs: BLOCK" in a.toolTip()
+    finally:
+        i18n.set_language("en")
+        pt.set_enabled(win, True)
+
+
 def test_preferences_has_the_new_settings(win):
     from modeler.gui import prefs
 

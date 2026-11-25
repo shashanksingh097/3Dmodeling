@@ -79,6 +79,12 @@ class Ribbon(QTabWidget):
         tb._ribbon_box = box
         return box
 
+    def title_of(self, i: int) -> str:
+        """A tab's English title (its name in code and settings), whatever language it shows."""
+        from .. import i18n
+
+        return i18n.english(self, f"tab{i}", self.tabText(i))
+
     def tab_index(self, title: str) -> int:
         page = self.pages.get(title)
         return self.indexOf(page) if page is not None else -1
@@ -97,10 +103,10 @@ class Ribbon(QTabWidget):
             self.setCurrentIndex(i)
 
     def current_title(self) -> str:
-        return self.tabText(self.currentIndex())
+        return self.title_of(self.currentIndex())
 
     def visible_titles(self) -> list[str]:
-        return [self.tabText(i) for i in range(self.count()) if self.isTabVisible(i)]
+        return [self.title_of(i) for i in range(self.count()) if self.isTabVisible(i)]
 
     # folding the ribbon to its tab names
     def set_collapsed(self, on: bool) -> None:
@@ -131,8 +137,8 @@ class Ribbon(QTabWidget):
 
     def _remember(self, i: int) -> None:
         settings = _settings(self.win)
-        if settings is not None and i >= 0 and self.tabText(i) and not self.widget(i).property("sketch"):
-            settings.setValue(TAB_SETTING, self.tabText(i))
+        if settings is not None and i >= 0 and self.title_of(i) and not self.widget(i).property("sketch"):
+            settings.setValue(TAB_SETTING, self.title_of(i))
 
 
 def ribbon(win) -> Ribbon:

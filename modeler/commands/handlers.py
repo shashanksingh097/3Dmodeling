@@ -61,6 +61,8 @@ VIEWS = ("ISO", "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT")
 def _added(p: Processor, body, what: str) -> str:
     n = {k: len(body.entity_ids[k]) for k in ENTITY_KINDS}
     name = "" if body.name == f"body{body.id}" else f" '{body.name}'"
+    if not n["FACE"] and not n["EDGE"] and n["VERTEX"] > 1:
+        return f"{what} -> body {body.id}{name} ({n['VERTEX']:,} points)"
     if n["FACE"] == 1 and not n["EDGE"]:
         from ..geometry import meshbody
 

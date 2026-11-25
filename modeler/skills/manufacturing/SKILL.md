@@ -1,7 +1,7 @@
 ---
 name: manufacturing
-description: Get a part ready to make - 3D printing checks (overhangs, thin walls, trapped hollows, the best build direction), 2.5D milling paths written as G-code, and moulding (draft, parting line, the two mould halves with shrink). Use for "can I print this", "make the toolpath", "make a mould for it".
-commands: PRINTCHECK, MILL, DRAFT, PARTING, MOLD, THICK, CM
+description: Get a part ready to make - one closed printable skin around messy meshes or an assembly (WRAPSKIN), 3D printing checks (overhangs, thin walls, trapped hollows, the best build direction), 2.5D milling paths written as G-code, and moulding (draft, parting line, the two mould halves with shrink). Use for "can I print this", "make the toolpath", "make a mould for it".
+commands: PRINTCHECK, MILL, DRAFT, PARTING, MOLD, THICK, CM, WRAPSKIN
 ---
 # Manufacturing
 
@@ -16,6 +16,11 @@ commands: PRINTCHECK, MILL, DRAFT, PARTING, MOLD, THICK, CM
 3. Keep it in the script: `ASSERT, OVERHANGS(part, 45, "+X"), EQ, 0, 1`
    (area in mm2 that needs support; the last number is the tolerance),
    `ASSERT, MINWALL(part), GE, 0.8`.
+4. A messy mesh (holes, overlaps, loose bits) or a whole assembly to print
+   as one piece: `WRAPSKIN, ALL, 1` (or a body, or SEL) makes one closed
+   mesh body around it, closing holes and gaps narrower than about twice
+   the gap; its report `WRAPSKIN` says the pieces, volume and whether it is
+   closed. A smaller cell (the last argument) is finer and slower.
 
 ## Milling (2.5D, along Z)
 

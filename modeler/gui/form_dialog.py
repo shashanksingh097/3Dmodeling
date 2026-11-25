@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import i18n
 from ..lang.script import ScriptError, split_args
 from .forms import replace_code_line as _replace_code_line
 from . import forms as F
@@ -406,7 +407,8 @@ class FormDialog(QDialog):
             if f.kind == "params":
                 w.show_part(vals.get("part", ""))
             w.set_value(vals.get(f.key, ""))
-            label = "" if f.kind == "flag" else (f.label + ("" if f.required else " (optional)") if f.label else "")
+            label = "" if f.kind == "flag" else (
+                i18n.tr(f.label) + ("" if f.required else " " + i18n.tr("(optional)")) if f.label else "")
             if f.kind == "choice" and len(f.choices) == 1:
                 w.setParent(self.body)
                 w.setVisible(False)  # a fixed word of this variant
@@ -416,6 +418,7 @@ class FormDialog(QDialog):
         self._filling = False
         self.variant_help.setText(v.help)
         self.variant_help.setVisible(bool(v.help))
+        i18n.retranslate(self.body)  # the new rows (check boxes, choices) in the language in use
         self.update_preview()
 
     def part_changed(self, name: str) -> None:
@@ -653,11 +656,12 @@ def open_form(win: "MainWindow", name: str, text: str = "", edit_row: int | None
 
 
 def command_menu(win: "MainWindow", menu) -> None:
-    """Fill a menu with every form, under the same headings as forms.CATEGORIES."""
+    """Fill a menu with every form, under the same headings as forms.CATEGORIES (and the plug-ins')."""
+    menu.clear()
     by_cat: dict[str, list[F.FormSpec]] = {}
     for sp in F.specs().values():
         by_cat.setdefault(sp.category, []).append(sp)
-    for cat, _names in F.CATEGORIES:
+    for cat, _names in F.categories():
         sub = menu.addMenu(cat)
         sub.setToolTipsVisible(True)
         for sp in by_cat.get(cat, []):

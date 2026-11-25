@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import i18n
 from . import body_menu as bm
 from . import item_model as im
 
@@ -102,7 +103,7 @@ class ItemPanel(QWidget):
         self._filling = True
         try:
             if self.info is None:
-                self.title.setText("Pick one body in the tree or the view to see the steps that made it.")
+                self.title.setText(i18n.tr("Pick one body in the tree or the view to see the steps that made it."))
                 self.note.setText("")
                 self.steps.setRowCount(0)
                 self.params.setRowCount(0)

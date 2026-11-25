@@ -16,6 +16,8 @@ import re
 DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tip_pictures")
 SETTING = "view/pictureTips"
 PLAIN = "plain_tip"  # the action property that keeps the tooltip as text
+PICTURE = "tip_picture"  # the action property with its picture's path ("" for none)
+ON = "tip_picture_on"  # the action property: is the picture shown now
 # buttons whose example picture says nothing about the button (files, undo, how the view looks)
 SKIP = {"OPEN", "SAVE", "IMPORT", "EXPORT", "RESUME", "UNDO", "REDO", "CLEAR", "PICKMODE", "PICKREGION",
         "VIEW", "FIT", "RUN", "INPUT", "HELP"}
@@ -64,13 +66,21 @@ def apply(win, on: bool | None = None) -> int:
             if plain is None:
                 plain = a.toolTip()
                 a.setProperty(PLAIN, plain)
-            pic = picture_for(command_of(plain))
-            if on and pic:
-                a.setToolTip(rich_tip(plain, pic))
-                n += 1
-            else:
-                a.setToolTip(plain)
+            pic = a.property(PICTURE)
+            if pic is None:  # looked up once, from the English "Runs: ..." line
+                pic = picture_for(command_of(plain))
+                a.setProperty(PICTURE, pic)
+            a.setProperty(ON, bool(on))
+            set_plain(a, plain)
+            n += bool(on and pic)
     return n
+
+
+def set_plain(a, text: str) -> None:
+    """Give a button new tooltip text (another language), keeping its picture."""
+    a.setProperty(PLAIN, text)
+    pic = a.property(PICTURE) or ""
+    a.setToolTip(rich_tip(text, pic) if pic and a.property(ON) else text)
 
 
 def set_enabled(win, on: bool) -> None:

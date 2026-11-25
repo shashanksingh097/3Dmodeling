@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import i18n
 from ..commands import Processor, Result
 from ..commands.handlers import is_pick_step
 from ..core.model import ModelError
@@ -646,15 +647,16 @@ class MainWindow(QMainWindow):
         self.shell = AppShell(self, settings, guard)
         self._build_toolbar()
         self.shell.build_file_menu()
-        fd.command_menu(self, self.menuBar().addMenu("&Commands"))
+        self.commands_menu = self.menuBar().addMenu("&Commands")
+        fd.command_menu(self, self.commands_menu)
         from .sketch_ui import SketchUI
 
         self.sketch_ui = SketchUI(self)
         self.build_view_menu()
         self.shell.build_help_menu()
-        self.statusBar().showMessage(
-            "Left drag: orbit · Middle/right drag: pan · Wheel: zoom · Click: pick (Ctrl adds, Alt removes)"
-        )
+        from ..viewport import mouse_styles as _ms
+
+        self.statusBar().showMessage(_ms.get(_ms.DEFAULT).status_text())  # Preferences may change the style
         from .sel_numbers import HoverNumbers, SelectionNumbers
 
         self.sel_numbers = SelectionNumbers(self)  # the numbers of the pick, always in view (PLAN item 86)
@@ -679,6 +681,7 @@ class MainWindow(QMainWindow):
         from . import prefs as _prefs
 
         _prefs.restore(self)
+        _prefs.load_plugins(self)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
@@ -1370,15 +1373,15 @@ class MainWindow(QMainWindow):
         if res.pending:
             self.output.appendPlainText(f"{self.prompt.text()} {res.line}")
             self.prompt.setText("…")
-            self.cmdline.setPlaceholderText("Block continues: type its lines, then the closing *END... line")
+            self.cmdline.setPlaceholderText(i18n.tr("Block continues: type its lines, then the closing *END... line"))
             return
         self.prompt.setText(">")
         last = self.processor.last_tool
         if last:
             short = last if len(last) <= 40 else last[:39] + "…"
-            self.cmdline.setPlaceholderText(f"Enter repeats {short}   ·   or type a command")
+            self.cmdline.setPlaceholderText(f"{i18n.tr('Enter repeats')} {short}   ·   {i18n.tr('or type a command')}")
         else:
-            self.cmdline.setPlaceholderText("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP")
+            self.cmdline.setPlaceholderText(i18n.tr("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP"))
         if not res.line:
             return
         self.output.appendPlainText("> " + "\n  ".join(res.line.splitlines()))
