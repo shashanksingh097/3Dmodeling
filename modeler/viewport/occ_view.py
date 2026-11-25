@@ -287,9 +287,12 @@ class OccViewport(QWidget):
         self._hover_at = 0.0
         self._initialized = False
         self._press: QPoint | None = None
-        self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point)
+        self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point), "cube"
         self.mouse_style = ms.get(ms.DEFAULT)  # which drags orbit, pan and zoom (set_mouse_style)
         self.wheel_sign = 1  # -1: the wheel zooms the other way
+        self.cube = None  # the view cube (view_cube.py), made with the GL view
+        self.cube_wanted = True  # Preferences > View cube
+        self._cube_side = ""
         self._last = QPoint()
 
         for attr in (
@@ -334,6 +337,13 @@ class OccViewport(QWidget):
         self.view.SetProj(_VIEWS["ISO"])
         self.view.MustBeResized()
         self._initialized = True
+        try:  # PLAN item 93: the view cube in the top right corner
+            from .view_cube import ViewCube
+
+            self.cube = ViewCube(self)
+            self.cube.show(self.cube_wanted)
+        except Exception:  # noqa: BLE001 - an OCCT build without it: no cube
+            self.cube = None
         if getattr(self, "_pending_section", None) is not None:
             self.set_section(self._pending_section)
 
@@ -387,6 +397,8 @@ class OccViewport(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if getattr(self, "cube", None) is not None:
+            self.cube.place()
         if self._initialized:
             self._sync_size()
             self.view.Redraw()
@@ -398,11 +410,83 @@ class OccViewport(QWidget):
 
     # ---- ViewHooks used by view commands ------------------------------
     def set_view(self, name: str) -> None:
+        """A standard view (TOP ...), or one from an edge or a corner of the view cube (TOP FRONT)."""
         if self._initialized:
+            from ..core import views as vw
+
             self._sync_size()
-            self.view.SetProj(_VIEWS[name])
+            if name in _VIEWS:
+                self.view.SetProj(_VIEWS[name])
+            else:
+                d = vw.direction(name)
+                if d is None:
+                    return
+                self.view.SetProj(*d)
+                self.view.SetUp(*vw.up_for(d))
             self.view.FitAll(0.1, False)
             self.view.Redraw()
+
+    def turn_view(self, how: str) -> None:
+        """Turn the view 90 degrees about the screen's up (LEFT, RIGHT), across (UP, DOWN) or the line
+        of sight (CW, CCW), keeping what is in sight."""
+        if not self._initialized:
+            return
+        from ..core import views as vw
+
+        cam = self.view.Camera()
+        d, u = cam.Direction(), cam.Up()
+        eye, up = vw.turned((-d.X(), -d.Y(), -d.Z()), (u.X(), u.Y(), u.Z()), how)
+        self.view.SetProj(*eye)
+        self.view.SetUp(*up)
+        self.view.Redraw()
+
+    def view_name(self) -> str:
+        """The view's name when it looks from a face, edge or corner of the cube (else "")."""
+        if not self._initialized:
+            return ""
+        from ..core import views as vw
+
+        d = self.view.Camera().Direction()
+        return vw.nearest_name((-d.X(), -d.Y(), -d.Z()))
+
+    def view_state(self) -> dict:
+        """Where the view looks from, which way is up, its name, and the bodies in sight (for the
+        assistant's view_state)."""
+        if not self._initialized:
+            return {}
+        cam = self.view.Camera()
+        d, u = cam.Direction(), cam.Up()
+        r = self.devicePixelRatioF()
+        w, h = self.width() * r, self.height() * r
+        shown, outside = [], []
+        from ..commands.queries import bbox
+
+        for bid, b in self.model.bodies.items():
+            if bid in self.model.hidden or b.shape is None:
+                continue
+            try:
+                bb = bbox(b.shape)
+            except Exception:  # noqa: BLE001
+                continue
+            corners = [(x, y, z) for x in (bb[0], bb[3]) for y in (bb[1], bb[4]) for z in (bb[2], bb[5])]
+            px = [self.view.Convert(*c) for c in corners]
+            inside = any(0 <= a <= w and 0 <= b2 <= h for a, b2 in px)
+            (shown if inside else outside).append(bid)
+        return {"looking_from": [round(-d.X(), 4), round(-d.Y(), 4), round(-d.Z(), 4)],
+                "up": [round(u.X(), 4), round(u.Y(), 4), round(u.Z(), 4)],
+                "name": self.view_name(), "in_sight": shown, "out_of_sight": outside,
+                "hidden": sorted(self.model.hidden), "view_cube": bool(self.cube and self.cube.visible)}
+
+    def _cube_back(self) -> None:
+        """RemoveAll took the view cube away too (NEW, undo, a replay): show it again."""
+        cube = getattr(self, "cube", None)
+        if cube is not None and cube.visible:
+            cube.visible = False
+            cube.show(True)
+
+    def show_view_cube(self, on: bool = True) -> None:
+        if self.cube is not None:
+            self.cube.show(on)
 
     def fit(self) -> None:
         if self._initialized:
@@ -482,6 +566,7 @@ class OccViewport(QWidget):
                 self.context.Remove(ais, False)
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
+            self._cube_back()
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
             self._brush_ais = self._mask_ais = self._patch_ais = None
@@ -495,6 +580,7 @@ class OccViewport(QWidget):
             self._picture_ais = []
         elif ev.kind == "restored":  # undo/redo or a history replay: show the model as it is now
             self.context.RemoveAll(False)
+            self._cube_back()
             self._cp_ais.clear()
             self._an_ais, self._an_hidden = None, None
             self._brush_ais = self._mask_ais = self._patch_ais = None
@@ -2210,6 +2296,12 @@ class OccViewport(QWidget):
         self._press = e.position().toPoint()
         self._last = self._press
         x, y = self._px(self._press)
+        if e.button() == Qt.LeftButton and self.cube is not None and self.cube.near(x, y):
+            side = self.cube.hit(x, y)
+            if side:  # a face, edge or corner of the view cube: VIEW on release
+                self._drag = "cube"
+                self._cube_side = side
+                return
         if self._sketching() and e.button() == Qt.LeftButton:
             uv = self.plane_point(x, y)
             if uv is not None and self.sketcher.tool in ("SELECT", "FREEHAND", "TRIM"):
@@ -2336,6 +2428,10 @@ class OccViewport(QWidget):
         self._press = None
         drag, self._drag = self._drag, ""
         x, y = self._px(pos)
+        if drag == "cube":
+            if not moved:
+                self.command.emit(f"VIEW, {self._cube_side}")
+            return
         if self._sketching():
             uv = self.plane_point(x, y)
             if drag == "sketch":

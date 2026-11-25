@@ -1622,9 +1622,13 @@ LIBSAVE, washer, washer_lib.cmd
 ! ===================================================================== Settings and files
 
 @ /UNITS
-! The model's length unit (MM by default).
+! The model's length unit (MM by default). Any number may carry its own unit
+! (25 mm, 1/4 in, 30 deg); SHOW changes only the units numbers are shown in.
 /UNITS, IN
 BLOCK, 0,0,0, 2, 1, 0.25
+CYL, 1, 0.5, 0, 6 mm, 1/2 in
+/UNITS, MM, SHOW
+/UNITS
 
 @ /TOL
 ! Extra tolerance for booleans and selecting by place.
@@ -1935,10 +1939,27 @@ PROPS, plate, 1.dz, 15
 PROPS, STEP 1
 
 @ VIEW
-! Look from a standard direction.
+! Look from a standard direction, an edge or a corner of the view cube, or
+! turn the view by 90 degrees.
 BLOCK, 0,0,0, 40, 20, 5
 VIEW, TOP
-VIEW, ISO
+VIEW, TOP FRONT
+VIEW, TURN, LEFT
+VIEW, HOME
+
+@ TUTORIAL
+! Lessons that check the model as you go: start one, let it show a step,
+! go on.
+TUTORIAL
+TUTORIAL, first_part
+TUTORIAL, SHOW
+TUTORIAL, NEXT
+TUTORIAL, CHECK
+
+@ LAYOUT
+! The panels for the job at hand (in the window): the list, and as data.
+LAYOUT
+LAYOUT, JSON
 
 ! ===================================================================== Inside a sketch
 

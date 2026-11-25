@@ -1350,17 +1350,17 @@ Built in this order, about three per pull request.
     `HIST, EDIT`, `COLOR` ...). Command: `PROPS, b` prints the table and
     `PROPS, b, key, value` changes one. Assistant: `properties` returns it
     as data.
-92. **Numbers with units in any field** (P2): every number in a form, the
+92. **Numbers with units in any field** (P2, done: units in every number, unit labels on form fields, `/UNITS, u, SHOW` for shown units, the skill note): every number in a form, the
     command line or a parameter takes a unit (`1/4 in`, `25 mm + 2`,
     `30 deg`, `0.5 m`), turned into the project units; fields show the unit
     they use; `/UNITS` changes how numbers are shown, not only how new ones
     are read. Assistant: the skill note says units are allowed.
-93. **A clickable view cube** (P3): a cube in a corner of the 3D view whose
+93. **A clickable view cube** (P3, done: the cube with arrows and home, `VIEW, TOP FRONT`, `VIEW, TURN, LEFT`, `VIEW, HOME`, the `view_state` tool): a cube in a corner of the 3D view whose
     faces, edges and corners turn the view to that side (with arrows to turn
     by 90 degrees and a home button), next to the axes. Commands: the
     ordinary `VIEW` commands it writes. Assistant: `view_state` returns the
     view direction and what is visible.
-94. **Learning inside the app** (P3): short tutorials in the Help browser
+94. **Learning inside the app** (P3, done: three tutorials in a Tutorial panel (Help > Tutorials) checked as you go, your own `.tut` files, picture tooltips on the ribbon, `LAYOUT` with five built-in layouts and saved ones, the `tutorial` tool and the `tutor` skill): short tutorials in the Help browser
     that tell you the next step and check your model as you go (built on
     the ASSERT queries); tool tips with a small picture of what each
     command does; layouts for each kind of work (modelling, sketch,

@@ -57,7 +57,12 @@ class SelectionNumbers(QLabel):
         self._timer.setInterval(UPDATE_MS)
         self._timer.timeout.connect(self.refresh)
         win.processor.model.subscribe(self._event)
+        win.processor.listeners.append(self._result)
         self.refresh()
+
+    def _result(self, res) -> None:
+        if res.ok and res.line.strip().upper().startswith("/UNITS"):
+            self._timer.start()  # shown in other units now
 
     def _event(self, ev) -> None:
         if ev.kind in ("selection", "cleared", "restored", "body_added", "body_removed", "style", "layers"):

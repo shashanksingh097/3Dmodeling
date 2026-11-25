@@ -1,0 +1,64 @@
+! tutorial: first_part
+! title: Your first part
+! about: A plate with two holes and rounded corners: make a shape, name it, change its size, add features. About 5 minutes.
+! order: 1
+
+## Make a block
+Every part starts with a shape. On the **Model** tab, click **Block…** (in
+the Shapes group) and press OK: the form has sizes filled in already. You can also type the
+command into the command line at the bottom and press Enter.
+
+Turn the view by dragging with the middle mouse button, or click a face of
+the small cube in the top right corner.
+hint: BLOCK, 0, 0, 0, 60, 40, 10
+check: COUNT("BODY"), GE, 1 ! a body in the model
+
+## Give it a name
+A name lets later steps find the body even when earlier steps change.
+Click the block in the 3D view, then in the **Properties** panel (right)
+double-click the **name** value and type `plate`.
+hint: NAME, LAST, plate
+check: EXISTS(plate) ! a body called plate
+
+## Change its size
+Click the **BLOCK** step in the **History** panel. The Properties panel now
+shows that step's numbers. Make the block **80 × 50 × 10**: change `dx` to
+80 and `dy` to 50. You may type units too, such as `80 mm`.
+
+Every later step is run again with the new sizes; nothing has to be redone.
+hint: PROPS, plate, 1.dx, 80
+hint: PROPS, plate, 1.dy, 50
+hint: PROPS, plate, 1.dz, 10
+check: BBOX(plate).dx, EQ, 80, 0.01 ! 80 long
+check: BBOX(plate).dy, EQ, 50, 0.01 ! 50 wide
+check: BBOX(plate).dz, EQ, 10, 0.01 ! 10 thick
+
+## Drill two holes
+On the **Features** tab, click **Hole…**. Put the first hole at x 15,
+y 25 on the top face (z 10) with a diameter of **8**, and press OK. Make the
+second one the same way at x 65.
+hint: HOLE, plate, 15, 25, 10, 8
+hint: HOLE, plate, 65, 25, 10, 8
+check: HOLES(plate, 8), GE, 2 ! two holes of 8 in the plate
+
+## Round the corners
+Click one of the four upright corner edges, hold **Ctrl** and click the
+other three, then right click on one of them and choose **Fillet…** with a
+radius of **5**.
+
+Tip: once one corner is done, **Enter on the empty command line** repeats
+the last tool on the next pick.
+hint: SEL, S, EDGE, AT, 0, 0, 5
+hint: SEL, A, EDGE, AT, 80, 0, 5
+hint: SEL, A, EDGE, AT, 80, 50, 5
+hint: SEL, A, EDGE, AT, 0, 50, 5
+hint: FILLET, 5
+hint: SEL, NONE
+check: STEPS("FILLET"), GE, 1 ! a FILLET step
+check: NFACES(plate, "cylinder"), GE, HOLES(plate) + 4 ! all four corners rounded
+check: FAILED(), EQ, 0 ! no failed steps
+
+## Done
+That is the whole way of working: shapes and features are steps in the
+History, and any number in any step can be changed later. Save the part with
+**File > Save** (or `SAVE, plate.m3d`).

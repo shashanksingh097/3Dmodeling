@@ -171,7 +171,12 @@ def _texts(obj):
     if isinstance(obj, QAction):
         yield "text", obj.text, obj.setText
         yield "icon", obj.iconText, obj.setIconText  # what toolbar buttons show (when set apart from text)
-        yield "tip", obj.toolTip, obj.setToolTip
+        if obj.property("plain_tip") is not None:  # a picture tooltip (gui/picture_tips.py): its text only
+            from ..gui import picture_tips
+
+            yield "tip", (lambda: str(obj.property("plain_tip"))), (lambda v: picture_tips.set_plain(obj, v))
+        else:
+            yield "tip", obj.toolTip, obj.setToolTip
         yield "status", obj.statusTip, obj.setStatusTip
         return
     if not isinstance(obj, QWidget):
@@ -186,7 +191,10 @@ def _texts(obj):
         yield "placeholder", obj.placeholderText, obj.setPlaceholderText
     if isinstance(obj, (QDockWidget, QToolBar)) or obj.isWindow():
         yield "window", obj.windowTitle, obj.setWindowTitle
-    if not isinstance(obj, QAction):
+    shown_by = obj.defaultAction() if isinstance(obj, QAbstractButton) and hasattr(obj, "defaultAction") else None
+    if shown_by is not None and shown_by.property("plain_tip") is not None:
+        pass  # a toolbar button showing a picture tooltip: its action's text is the one to translate
+    elif not isinstance(obj, QAction):
         yield "wtip", obj.toolTip, obj.setToolTip
     if isinstance(obj, QTabWidget):
         for i in range(obj.count()):
