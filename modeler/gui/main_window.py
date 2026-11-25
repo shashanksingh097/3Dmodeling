@@ -1023,12 +1023,24 @@ class MainWindow(QMainWindow):
         a.setToolTip("Theme (light, dark or the system's), the 3D view's background and the toolbar buttons")
         a.triggered.connect(self.open_preferences)
         self.preferences_action = a
+        a = m.addAction("Python &console")
+        a.setCheckable(True)
+        a.setToolTip("A Python prompt with the model at hand (off until you open it): run(\"...\") or "
+                     "c.COMMAND(...) runs commands, which go into the history")
+        a.toggled.connect(lambda on: self.toggle_console(on))
+        self.console_action = a
         a = m.addAction("&Materials…")
         a.setToolTip("The material library every project shares: density, stiffness, strength, heat values "
                      "and looks (MATLIB)")
         a.triggered.connect(self.open_materials)
         self.materials_action = a
         self.view_menu = m
+
+    def toggle_console(self, on: bool | None = None):
+        """View > Python console (gui/console.py)."""
+        from .console import toggle
+
+        return toggle(self, on)
 
     def open_materials(self):
         """View > Materials…: the material library (gui/materials_dialog.py)."""
