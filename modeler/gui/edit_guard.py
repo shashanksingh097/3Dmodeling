@@ -12,7 +12,8 @@ the window asks what to do:
   or the body moved), so nothing breaks,
 * or leave everything as it is.
 
-``choose`` is the question; tests replace it.
+``choose`` is the question; tests replace it. A ``HIST, EDIT`` typed in the command line runs as
+typed (``EDITCHECK`` asks the same question in words); MODELER_EDIT_QUESTION=0 turns it off.
 """
 
 from __future__ import annotations
@@ -52,8 +53,12 @@ def question_for(p, n: int, text: str) -> Question | None:
 def check(win, text: str) -> Result | None:
     """Run before ``text`` in the window: None lets it run as typed; a Result is what happened instead
     (already shown in the output)."""
+    import os
+
     from ..commands.edit_impact import edit_line
 
+    if os.environ.get("MODELER_EDIT_QUESTION") == "0" or getattr(win, "typing", False):
+        return None  # turned off, or HIST, EDIT typed in the command line: it runs as typed
     hit = edit_line(text)
     if hit is None:
         return None

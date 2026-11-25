@@ -31,7 +31,8 @@ def pump(app, n=10):
 
 
 @pytest.fixture
-def win(app, tmp_path):
+def win(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("MODELER_EDIT_QUESTION", "1")
     w = MainWindow(autosave="off", settings=QSettings(str(tmp_path / "s.ini"), QSettings.IniFormat))
     w.resize(1000, 700)
     w.show()
@@ -74,3 +75,12 @@ def test_a_breaking_change_asks_first(app, win, monkeypatch):
     win.execute('HIST, EDIT, 4, "EXTRUDE, s1, 2"')
     assert win.processor.history[3].text == "EXTRUDE, s1, 2"
     assert not win.processor.history[6].ok  # the fillet is red, as asked
+
+
+def test_typed_hist_edit_runs_as_typed(app, win, monkeypatch):
+    assert win.execute("PICK, EDGE, 14").ok
+    assert win.execute("FILLET, 3").ok
+    monkeypatch.setattr(eg, "choose", lambda w, q: pytest.fail("asked"))
+    win.cmdline.setText('HIST, EDIT, 4, "EXTRUDE, s1, 2"')
+    win._on_enter()
+    assert win.processor.history[3].text == "EXTRUDE, s1, 2"

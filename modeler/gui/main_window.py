@@ -1409,7 +1409,11 @@ class MainWindow(QMainWindow):
         text = self.cmdline.text()
         self.cmdline.clear()
         if text.strip() or self.processor.pending:
-            self.execute(text)
+            self.typing = True  # typed: a HIST, EDIT runs as typed, without the question (gui/edit_guard.py)
+            try:
+                self.execute(text)
+            finally:
+                self.typing = False
         elif self.processor.last_tool:
             self.repeat_last()  # Enter on an empty line: the last step again, on the new pick (PLAN item 90)
 

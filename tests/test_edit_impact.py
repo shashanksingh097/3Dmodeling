@@ -1,6 +1,8 @@
 """EDITCHECK and the direct change: what a change of a step breaks, and the same change made on the
 finished model instead (commands/edit_impact.py, gui/edit_guard.py)."""
 
+import pytest
+
 from modeler.commands import Processor
 from modeler.commands import edit_impact as ei
 from modeler.gui import edit_guard as eg
@@ -75,6 +77,11 @@ def test_edit_line_reads_hist_edit():
 class _Win:
     def __init__(self, p):
         self.processor = p
+
+
+@pytest.fixture(autouse=True)
+def _ask(monkeypatch):
+    monkeypatch.setenv("MODELER_EDIT_QUESTION", "1")
 
 
 def test_guard_asks_and_cancel_keeps_everything(monkeypatch):
