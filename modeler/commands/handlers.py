@@ -1444,7 +1444,7 @@ def tol(p: Processor, tol):
 # Files
 # =============================================================================
 
-_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "VRML", "AMF")
+_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "VRML", "AMF", "HTML")
 
 
 def _compound(shapes):
@@ -1480,14 +1480,16 @@ def _named_faces(m, body) -> list:
 
 @command(
     "EXPORT",
-    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML or AMF"),
+    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML, AMF or HTML"),
     Arg("file", Path),
     Arg("b", BodyRef, 0, "body to export (default: all bodies)"),
     logged=False,
     help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. STEP, IGES and BREP keep the exact "
          "shape; STL, OBJ, 3MF, GLTF (.glb or .gltf), VRML (.wrl) and AMF write triangles. STEP also carries the sizes, hole "
          "diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations "
-         "that other programs read. Runs when given; not kept in the history.",
+         "that other programs read. HTML writes one web page with the model in a 3D viewer (turn, hide parts, "
+         "measure between two points, read the notes) that opens in any browser, with nothing to install and "
+         "nothing fetched from the internet. Runs when given; not kept in the history.",
 )
 def export(p: Processor, format, file, b):
     if format not in _FORMATS:
@@ -1509,6 +1511,8 @@ def export(p: Processor, format, file, b):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     # triangle size for mesh formats: 0.1 mm, in the model's units
     deflection = 0.05 * UNITS["MM"] / UNITS[m.units] * 2
+    if format == "HTML":
+        return _export_html(p, bodies, file, path, deflection)
     if format == "STEP":
         from ..geometry import stepdoc
 
@@ -1560,6 +1564,39 @@ def export(p: Processor, format, file, b):
         except OSError as exc:
             raise CommandError(f"EXPORT: could not write {file}: {exc.strerror}") from None
     return f"wrote {len(bodies)} bod{'y' if len(bodies) == 1 else 'ies'} to {file} ({format}, {m.units}{extra})"
+
+
+def _export_html(p: Processor, bodies, file: str, path: str, deflection: float) -> str:
+    """One web page with the model in a viewer (PLAN item 114)."""
+    from ..geometry import webpage
+    from .queries import bbox
+
+    m = p.model
+    try:
+        x0, y0, z0, x1, y1, z1 = bbox(_compound([x.shape for x in bodies]))
+        size = max(x1 - x0, y1 - y0, z1 - z0)
+    except Exception:  # noqa: BLE001
+        size = 0.0
+    defl = max(deflection, size / 1500.0)  # a page that opens quickly: about 1500 steps across the model
+    parts = [webpage.part_of(x.shape, x.name or f"body{x.id}", m.display_color(x.id) or (0.62, 0.66, 0.72), defl,
+                             m.is_shown(x.id)) for x in bodies]
+    ntri = sum(len(pt.tris) for pt in parts)
+    if ntri > webpage.MAX_TRIANGLES:
+        raise CommandError(f"EXPORT: {ntri:,} triangles is too many for a web page (at most "
+                           f"{webpage.MAX_TRIANGLES:,}); export fewer bodies or SIMPLIFY the mesh bodies")
+    notes = [{"text": n.text, "at": [round(float(c), 6) for c in n.at]} for n in m.notes if n.text]
+    title = os.path.splitext(os.path.basename(p.project_path or file))[0] or "Model"
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(webpage.page(parts, notes, title, m.units))
+    except OSError as exc:
+        raise CommandError(f"EXPORT: could not write {file}: {exc.strerror}") from None
+    kb = os.path.getsize(path) // 1024
+    p.give_report("export", {"format": "HTML", "file": path, "parts": len(parts), "triangles": ntri,
+                             "notes": len(notes), "kb": kb})
+    return (f"wrote {len(parts)} bod{'y' if len(parts) == 1 else 'ies'} to {file} (a web page with a 3D viewer: "
+            f"{ntri:,} triangles, {len(notes)} note{'s' if len(notes) != 1 else ''}, {kb:,} KB; it opens in any "
+            "browser)")
 
 
 @command("RUN", Arg("file", Path), session=True,

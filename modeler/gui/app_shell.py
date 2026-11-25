@@ -59,14 +59,16 @@ EXPORT_FILTERS = {
     "BREP, Open CASCADE (*.brep)": "BREP",
     "VRML (*.wrl)": "VRML",
     "AMF for 3D printing (*.amf)": "AMF",
+    "Web page with a 3D viewer (*.html)": "HTML",
 }
 _EXT_FORMAT = {".step": "STEP", ".stp": "STEP", ".stl": "STL", ".brep": "BREP",
                ".iges": "IGES", ".igs": "IGES", ".obj": "OBJ", ".3mf": "3MF", ".glb": "GLTF",
                ".gltf": "GLTF", ".ply": "PLY", ".off": "OFF", ".vtk": "VTK", ".vtu": "VTK",
                ".xyz": "XYZ", ".pts": "PTS", ".e57": "E57", ".txt": "XYZ", ".csv": "XYZ",
-               ".scad": "SCAD", ".fcstd": "FCSTD", ".wrl": "VRML", ".vrml": "VRML", ".amf": "AMF"}
+               ".scad": "SCAD", ".fcstd": "FCSTD", ".wrl": "VRML", ".vrml": "VRML", ".amf": "AMF",
+               ".html": "HTML", ".htm": "HTML"}
 _DEFAULT_EXT = {"STEP": ".step", "IGES": ".igs", "STL": ".stl", "BREP": ".brep", "OBJ": ".obj",
-                "3MF": ".3mf", "GLTF": ".glb", "VRML": ".wrl", "AMF": ".amf"}
+                "3MF": ".3mf", "GLTF": ".glb", "VRML": ".wrl", "AMF": ".amf", "HTML": ".html"}
 
 
 def _quote(path: str) -> str:

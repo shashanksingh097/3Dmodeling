@@ -33,7 +33,7 @@ _COMMAND_CHOICES = {
     ("SEL", "mode"): ("S", "R", "A", "U", "ALL", "NONE", "INVE"),
     ("VIEW", "name"): ("ISO", "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT"),
     ("HIST", "action"): ("LIST", "EDIT", "INSERT", "DELETE", "SUPPRESS", "RESUME", "MOVE", "REPLAY", "PART"),
-    ("EXPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "VRML", "AMF"),
+    ("EXPORT", "format"): ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "VRML", "AMF", "HTML"),
     ("DRAWING", "views"): ("STANDARD", "FRONT", "TOP", "RIGHT", "ISO", "TOP+FRONT+RIGHT"),
     ("IMPORT", "format"): ("STEP", "IGES", "BREP", "SCAD", "FCSTD", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH",
                            "XYZ", "PTS", "E57"),
