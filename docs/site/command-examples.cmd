@@ -581,6 +581,21 @@ FLANGE, , 25
 SEL, S, EDGE, AT, 60, 20, 0
 FLANGE, , 15, 45
 
+@ TOSHEET
+! A bent bracket saved as STEP and read back has no sheet metal record;
+! TOSHEET finds its thickness and bends so UNFOLD lays it flat.
+SKETCH, base, XY
+SRECT, 0, 0, 60, 40
+ENDSKETCH
+SHEET, base, 2, 2
+SEL, S, EDGE, AT, 30, 0, 2
+FLANGE, , 25
+EXPORT, STEP, "tosheet_bracket.step", 1
+CLEAR
+IMPORT, STEP, "tosheet_bracket.step", bracket
+TOSHEET, bracket
+UNFOLD, bracket
+
 @ SBEND
 ! Bend a plate 90 degrees along a line sketched across it.
 SKETCH, base, XY
@@ -1606,6 +1621,29 @@ HOLE, 1, 30, 20, 10, 8
 DRAWSHEET, views, STANDARD
 DRAWSHEET, plan, TOP, 0, OVERALL, A3
 DRAWINGS
+
+@ SHEETTABLE
+! A parts list with balloons, a hole table and a revision table on a drawing sheet.
+BLOCK, 0,0,0, 60, 40, 10
+HOLE, 1, 15, 20, 10, 6
+HOLE, 2, 45, 20, 10, 6
+DRAWSHEET, plate, STANDARD, 0, ALL, A3
+REVISION, A, "First issue"
+SHEETTABLE, plate, PARTS+HOLES+REVISIONS
+
+@ REVISION
+! Rows of the sheets' revision table; the newest is the title block's REV.
+BLOCK, 0,0,0, 60, 40, 10
+REVISION, A, "First issue"
+REVISION, B, "Corner made bigger", 2026-11-24, Sam
+REVISION
+
+@ SHEETDATA
+! The rows a sheet's tables will show, as data.
+BLOCK, 0,0,0, 60, 40, 10
+HOLE, 1, 30, 20, 10, 8
+DRAWSHEET, plate, TOP, 0, ALL, A4, , , , , ALL
+SHEETDATA, plate
 
 @ DRAWINGS
 ! Write every sheet as one PDF, a page each, and keep it up to date after every rebuild and save.

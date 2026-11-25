@@ -309,6 +309,7 @@ class Model:
         self.joints: list = []  # JOINT steps (core/joints.py Joint), kept true by the joint solver
         self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
         self.drawsheets: dict[str, dict] = {}  # DRAWSHEET: drawing sheets kept with the model, in order
+        self.revisions: list[dict] = []  # REVISION: rev, text, date, by (the sheets' revision table)
         self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
         self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
@@ -384,6 +385,7 @@ class Model:
             "joints": list(self.joints),
             "frames": dict(self.frames),
             "drawsheets": dict(self.drawsheets),
+            "revisions": [dict(r) for r in self.revisions],
             "welds": dict(self.welds),
             "routes": dict(self.routes),
             "pictures": list(self.pictures),
@@ -422,6 +424,7 @@ class Model:
         self.joints = list(snap.get("joints", []))
         self.frames = dict(snap.get("frames", {}))
         self.drawsheets = dict(snap.get("drawsheets", {}))
+        self.revisions = [dict(r) for r in snap.get("revisions", [])]
         self.welds = dict(snap.get("welds", {}))
         self.routes = dict(snap.get("routes", {}))
         self.pictures = list(snap.get("pictures", []))

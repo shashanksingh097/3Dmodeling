@@ -55,7 +55,7 @@ def test_a_kernel_failure_names_the_command_and_leaves_the_model_alone():
     p.run("BLOCK, 0,0,0, 10,10,10")
     r = p.run("ARC, 0,0,0, 1e6,15,0, 50,0,0")  # all but in a line: the kernel finds no arc
     assert not r.ok and r.message.startswith("ARC: the geometry kernel could not make the shape")
-    assert "(kernel: StdFail_NotDone" in r.message
+    assert re.search(r"\(kernel: (StdFail_NotDone|Standard_Failure)", r.message)  # the class differs between builds
     assert len(p.history) == 1 and list(p.model.bodies) == [1]
 
 

@@ -301,17 +301,18 @@ class Page:
     texts: list = field(default_factory=list)  # (x, y, height, text, anchor "l"/"m"/"r", colour "k"/"b", angle)
     scale: float = 1.0
     paper: str = "A4"
+    warnings: list = field(default_factory=list)
 
 
-def fit(sheet_bounds, paper: str = "AUTO", scale: float = 0.0) -> tuple[str, float]:
+def fit(sheet_bounds, paper: str = "AUTO", scale: float = 0.0, side: float = 0.0) -> tuple[str, float]:
     """The paper and scale: the given ones; AUTO is A4 when the drawing fits it at 1:1 or bigger, else A3;
-    the scale is the largest usual one that fits."""
+    the scale is the largest usual one that fits. ``side`` is the width the tables take on the right."""
     x0, y0, x1, y1 = sheet_bounds
     W, H = max(x1 - x0, 1e-9), max(y1 - y0, 1e-9)
 
     def room(p):
         pw, ph = PAPER[p]
-        return pw - 2 * MARGIN - 10, ph - 2 * MARGIN - TITLE_H - 5
+        return pw - 2 * MARGIN - 10 - side, ph - 2 * MARGIN - TITLE_H - 5
 
     if paper == "AUTO":
         if scale:
@@ -340,13 +341,15 @@ def _best(w: float, h: float, W: float, H: float) -> float:
 
 
 def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props: dict, units: str,
-            template: Template | None = None) -> Page:
+            template: Template | None = None, tables: list | None = None, marks: list | None = None) -> Page:
+    from . import sheet_tables as st
+
     pw, ph = PAPER[paper]
     pg = Page(pw, ph, scale=scale, paper=paper)
     x0, y0, x1, y1 = sheet_bounds
-    # the drawing area: inside the frame, above the title block
+    # the drawing area: inside the frame, above the title block, left of the tables
     ax0, ay0 = MARGIN + 10, MARGIN + TITLE_H + 5
-    ax1, ay1 = pw - MARGIN, ph - MARGIN
+    ax1, ay1 = pw - MARGIN - st.side_width(tables or [], TITLE_W), ph - MARGIN
     ox = (ax0 + ax1) / 2 - (x0 + x1) / 2 * scale
     oy = (ay0 + ay1) / 2 - (y0 + y1) / 2 * scale
 
@@ -374,6 +377,8 @@ def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props:
         low = min(by0, e[1]) if e is not None else by0
         x, y = tr(((bx0 + bx1) / 2, low), v)
         pg.texts.append((x, y - label_h * 2, label_h, v.title, "m", "k", 0.0))
+    if marks:
+        _marks(pg, views, marks, tr, scale)
     # frame
     pg.thick.append([(MARGIN, MARGIN), (pw - MARGIN, MARGIN), (pw - MARGIN, ph - MARGIN), (MARGIN, ph - MARGIN),
                      (MARGIN, MARGIN)])
@@ -381,7 +386,44 @@ def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props:
         _template_block(pg, template, props, units)
     else:
         _title_block(pg, props, units)
+    pg.warnings = st.draw(pg, tables or [], MARGIN, TITLE_H)
     return pg
+
+
+def _marks(pg: Page, views: list[dr.View], marks: list[dict], tr, scale: float) -> None:
+    """Balloons (on the iso view, else the first flat one) and hole tags (on every flat view that looks
+    down the hole)."""
+    from OCP.gp import gp_Pnt, gp_Pnt2d
+
+    from . import sheet_tables as st
+
+    flat = [v for v in views if v.name in dr.VIEWS]
+    if not flat:
+        return
+
+    def at(v, q):
+        out = gp_Pnt2d()
+        dr._projector(v.name).Project(gp_Pnt(*map(float, q)), out)
+        return tr((out.X(), out.Y()), v)
+
+    def box(v):
+        bx0, by0, bx1, by1 = v.bounds()
+        a, b = tr((bx0, by0), v), tr((bx1, by1), v)
+        return a[0], a[1], b[0], b[1]
+
+    bal = [mk for mk in marks if mk["kind"] == "balloon"]
+    if bal:
+        v = next((v for v in flat if v.name == "ISO"), flat[0])
+        others = [box(o) for o in views if o is not v]
+        st.balloons(pg, [(mk["label"], at(v, mk["point"])) for mk in bal], box(v), others)
+    for mk in marks:
+        if mk["kind"] != "tag":
+            continue
+        axis = np.asarray(mk["axis"], float)
+        for v in flat:
+            if v.name == "ISO" or abs(abs(axis @ _axes(v.name)[2]) - 1) > 1e-6:
+                continue
+            st.tag(pg, at(v, mk["point"]), mk["r"] * scale, mk["label"])
 
 
 def _title_block(pg: Page, props: dict, units: str) -> None:
