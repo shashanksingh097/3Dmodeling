@@ -135,8 +135,17 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
-                            "BACKUPS", "FILES", "RELINK", "SHARECHECK")),
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
 ]
+
+PLUGIN_CATEGORY = "Plug-ins"
+
+
+def categories() -> list[tuple[str, tuple[str, ...]]]:
+    """CATEGORIES with the commands the loaded plug-ins add (modeler/plugins.py) at the end."""
+    added = tuple(sorted(n for n, c in REGISTRY.items() if getattr(c, "plugin", "")))
+    return CATEGORIES + ([(PLUGIN_CATEGORY, added)] if added else [])
+
 
 # Commands with no form, and why: the GUI already does them another way.
 NO_FORM = {
@@ -741,7 +750,13 @@ def specs() -> dict[str, FormSpec]:
                             f.start = STARTS[n][f.key]
                 out[n] = sp
         _SPECS = out
-    return _SPECS
+    plug = [n for n, c in REGISTRY.items() if getattr(c, "plugin", "")]
+    if not plug:
+        return _SPECS
+    out = dict(_SPECS)  # plug-ins come and go (Preferences > Plug-ins): never cached
+    for n in sorted(plug):
+        out[n] = FormSpec(n, n.title(), REGISTRY[n].help, PLUGIN_CATEGORY, [Variant("", "", _generic(n))])
+    return out
 
 
 def spec(name: str) -> FormSpec:

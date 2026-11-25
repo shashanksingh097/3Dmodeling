@@ -172,6 +172,13 @@ def discover(project_dir: str = "", include_disabled: bool = False) -> dict[str,
             except (OSError, UnicodeDecodeError, SkillError):
                 continue
             found[s.name] = s
+    try:  # a skill for each loaded plug-in, made from its commands (modeler/plugins.py)
+        from .. import plugins
+
+        for s in plugins.skills():
+            found.setdefault(s.name, s)
+    except Exception:  # noqa: BLE001 - a plug-in must never stop the skills from loading
+        pass
     if not include_disabled:
         found = {k: v for k, v in found.items() if v.enabled}
     return dict(sorted(found.items()))

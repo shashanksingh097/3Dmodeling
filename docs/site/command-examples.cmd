@@ -1653,6 +1653,10 @@ DRAWSHEET, views, STANDARD
 DRAWSHEET, plan, TOP, 0, OVERALL, A3
 DRAWINGS, "plate_sheets.pdf", AUTO
 
+@ PLUGINS
+! The plug-ins found in the plug-in folder, their commands, and why any did not load.
+PLUGINS
+
 @ BACKUPS
 ! Every SAVE over a project keeps the one it replaces; BACKUPS lists them.
 BLOCK, 0,0,0, 40, 20, 10
