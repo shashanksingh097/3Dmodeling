@@ -250,6 +250,10 @@ Runs: LIP, face, h, w [, GROOVE]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a body, several ("3 7" or names), SEL, or ALL (every shown body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a body; left out: every pair of shown bodies</source>
             <translation type="unfinished" />
         </message>
@@ -3653,6 +3657,10 @@ Runs: SSPLINE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>holes, slits and gaps narrower than about twice this are closed over; loose bits this close are joined</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Hole…</source>
             <translation>Bohrung…</translation>
         </message>
@@ -6777,6 +6785,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Shrinkwrap: one clean, closed skin around a messy mesh or a whole assembly: WRAPSKIN, ALL, 2 wraps every shown body with holes, overlaps, inner voids and gaps under about 4 closed over, for printing, a quick outside shape or a simplified look (a new mesh body; the bodies stay)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Side</source>
             <translation>Seite</translation>
         </message>
@@ -7755,6 +7767,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the grid a drag snaps to (lengths)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the grid step: smaller is finer and slower (0: half the gap, or what fits)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9083,6 +9099,14 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
         <message>
             <source>Wrap a sketch's profiles round a cylinder or a cone, raised or cut: WRAP, s3, 7, 1 (stands 1 out of face 7) · WRAP, s3, 7, 0.5, CUT. The sketch's direction across the axis becomes length round the cylinder, so shapes keep their size; it starts where the sketch plane faces the cylinder</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Wrapskin</source>
+            <translation>Wrapskin</translation>
+        </message>
+        <message>
+            <source>Wrapskin…</source>
+            <translation>Wrapskin…</translation>
         </message>
         <message>
             <source>Wrap…</source>

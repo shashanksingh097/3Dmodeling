@@ -1241,6 +1241,12 @@ done.
 78. **Shrinkwrap** (P3): `WRAPSKIN, b|ALL, gap` puts one clean closed skin
     around a messy mesh or a whole assembly (holes, overlaps and loose bits
     closed over), for printing and for quick outside shapes.
+    *Done (geometry/shrinkwrap.py, `WRAPSKIN`, right click > Wrap in one
+    closed skin): a grid of distances to the bodies' surfaces, the outside
+    found by flooding from the border, the skin pulled back to the surface
+    and meshed into one closed mesh body; holes and gaps under about twice
+    the gap close, far parts stay separate pieces. Works on meshes, exact
+    bodies and point clouds.*
 79. **Fixing clashes** (P3): from a `CLASH` result, one click (or
     `CLASHFIX, a, b, CUT|MOVE`) cuts the overlap out of one part or moves it
     clear, with a preview first.

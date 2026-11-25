@@ -934,6 +934,16 @@ NAME, LAST, scan
 HIDE, part
 FITPOINTS, scan, CYLINDER, 10, 0, 15, 8
 
+@ WRAPSKIN pic
+! One closed skin around a plate with a small hole and a block touching it: the hole is closed over.
+BLOCK, 0,0,0, 40, 30, 10
+CYL, 20, 15, -1, 1.5, 12
+SUBTRACT, 1, 2
+BLOCK, 38, 0, 0, 20, 30, 20
+WRAPSKIN, ALL, 2
+HIDE, 3
+HIDE, 4
+
 @ IMPLICIT pic
 ! Two balls blended smoothly into one shape, from an equation.
 IMPLICIT, blob, SMIN(BALL(0,0,0,10), BALL(14,0,0,7), 4), -12,-12,-12, 24,12,12

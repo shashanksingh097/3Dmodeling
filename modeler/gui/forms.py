@@ -122,7 +122,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Moulds", ("PARTING", "MOLD")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE", "FEATURES", "DEFEATURE", "RESIZE", "HANDLES")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
-    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "TOPOINTS", "FITPOINTS", "IMPLICIT", "LATTICE")),
+    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "TOPOINTS", "FITPOINTS", "WRAPSKIN", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "ROTATE", "SCALE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),

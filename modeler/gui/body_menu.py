@@ -142,6 +142,7 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(MenuItem("Colour…", [f"COLOR, {sel}, "], form="COLOR"))
     items.append(MenuItem("Layer…", [f"LAYER, , ADD, {sel}"], form="LAYER"))
     items.append(MenuItem("Material…", [f"MATERIAL, {sel}, "], form="MATERIAL"))
+    items.append(MenuItem("Wrap in one closed skin…", [f"WRAPSKIN, {sel}, 1"], form="WRAPSKIN"))
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]
