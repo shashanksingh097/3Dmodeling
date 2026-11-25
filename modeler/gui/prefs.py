@@ -11,6 +11,8 @@ palette the platform gave. The toolbar icons are drawn from the palette
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDia
                                QVBoxLayout, QWidget)
 
 from . import icons
+from .. import i18n
 from ..viewport import mouse_styles as ms
 from ..viewport.occ_view import BACKGROUNDS
 
@@ -123,12 +126,26 @@ def restore(win) -> None:
     from . import shortcuts
 
     shortcuts.apply(win)
+    lang = os.environ.get("MODELER_LANG") or current(win, i18n.SETTING, "en")
+    if lang != "en":
+        apply_language(win, lang, remember=False)
+
+
+def apply_language(win, lang: str, remember: bool = True) -> None:
+    """Show the window in a language (i18n.LANGUAGES); commands stay English."""
+    i18n.set_language(lang)
+    i18n.watch(QApplication.instance())
+    i18n.retranslate(win)
+    win.viewport.set_mouse_style(win.viewport.mouse_style.key, win.viewport.wheel_sign < 0)
+    win.statusBar().showMessage(win.viewport.mouse_style.status_text(i18n.tr if i18n.language() != "en" else None))
+    if remember and _settings(win) is not None:
+        _settings(win).setValue(i18n.SETTING, i18n.language())
 
 
 def apply_mouse(win, style: str, invert_wheel: bool = False, remember: bool = True) -> None:
     """Use a mouse style (viewport/mouse_styles.py) and say in the status bar what the drags do."""
     win.viewport.set_mouse_style(style, invert_wheel)
-    win.statusBar().showMessage(ms.get(style).status_text())
+    win.statusBar().showMessage(ms.get(style).status_text(i18n.tr if i18n.language() != "en" else None))
     if remember and _settings(win) is not None:
         _settings(win).setValue(MOUSE_SETTING, ms.get(style).key)
         _settings(win).setValue(WHEEL_SETTING, "true" if invert_wheel else "false")
@@ -197,6 +214,13 @@ class PreferencesDialog(QDialog):
         self.buttons.setCurrentIndex(list(icons.STYLE_LABELS).index(tbs.current_style(win)))
         self.buttons.currentIndexChanged.connect(lambda _: tbs.set_style(win, self.buttons.currentData()))
         form.addRow("Toolbar buttons:", self.buttons)
+        self.language = QComboBox()
+        for key, text in i18n.LANGUAGES.items():
+            self.language.addItem(text, key)
+        self.language.setCurrentIndex(max(0, self.language.findData(i18n.language())))
+        self.language.setToolTip("The window's words; commands, scripts and the log stay in English")
+        self.language.currentIndexChanged.connect(self._language_changed)
+        form.addRow("Language:", self.language)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)
@@ -209,6 +233,10 @@ class PreferencesDialog(QDialog):
         box.rejected.connect(self.accept)
         box.accepted.connect(self.accept)
         outer.addWidget(box)
+
+    def _language_changed(self, _i: int) -> None:
+        apply_language(self.win, self.language.currentData())
+        i18n.retranslate(self)
 
     # ---- mouse and keys ----
     def _mouse_tab(self) -> QWidget:

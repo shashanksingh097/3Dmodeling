@@ -1199,13 +1199,33 @@ done.
     (one file each, with a form, help and a skill made from their arguments),
     a plug-in list in Preferences to turn them on or off, and a check that a
     plug-in cannot change the model except through commands.
+    *Done (modeler/plugins.py, `PLUGINS`, Preferences > Plug-ins): one
+    Python file per plug-in with `plugin_command`; forms, help and an
+    assistant skill come from its arguments; a plug-in that changes the
+    model without commands is stopped and its change undone; errors name
+    the file and line; an example (`BOLTRING`) can be added from
+    Preferences.*
 75. **Mouse styles and shortcuts** (P1): orbit, pan and zoom styles that copy
     the common CAD programs, picked in Preferences, and a shortcut editor for
     every command and button, saved with the user's settings.
+    *Done (viewport/mouse_styles.py, gui/shortcuts.py, Preferences > Mouse
+    and keys): five styles (this app's, middle button orbits, middle
+    button pans, right button orbits, Blender-like) and an invert-wheel box;
+    the status bar says what each drag does. The shortcut editor lists every
+    menu item, toolbar button and command form, warns about keys used twice
+    and resets; keys are kept by English names, so they survive a language
+    change.*
 76. **The window in other languages** (P2): every menu, button, form label
     and message ready for translation (Qt translations), the first language
     files, and a test that no text is left out. Commands stay in English, so
     scripts work in every language.
+    *Done (modeler/i18n, Preferences > Look > Language): Qt Linguist files
+    for German and Spanish; every menu, button, tab, dialog and form label
+    is translated, and tooltips and help are in the files for translators
+    (English until translated). Windows and menus are translated as they
+    open, and switching language works at once. `python -m modeler.i18n
+    update` adds new texts; a test fails when a text is missing or a label
+    is untranslated. Commands, their output and the assistant stay English.*
 77. **Point clouds** (P2): import .ply, .xyz, .pts and .e57 points as a point
     body (thinned for speed), pick a patch of points and fit a plane,
     cylinder, sphere, cone or freeform surface to it (`FITPOINTS`), with the

@@ -4,6 +4,7 @@
 # The app ends up in dist/3Dmodeling/ (and dist/3Dmodeling.app on macOS), with
 # 3Dmodeling (the window) and 3Dmodeling-cli (for scripts, prints to the console).
 # See docs/RELEASING.md.
+import glob
 import os
 import sys
 
@@ -31,6 +32,7 @@ examples += [(os.path.join(SKILLS, d, f), os.path.join("modeler", "skills", d))
              for d in sorted(os.listdir(SKILLS)) if os.path.isdir(os.path.join(SKILLS, d))
              for f in ("SKILL.md", "example.cmd") if os.path.isfile(os.path.join(SKILLS, d, f))]
 examples += [(os.path.join(ROOT, "modeler", "plugin_examples", "bolt_ring.py"), "modeler/plugin_examples")]  # plugins.py
+examples += [(p, "modeler/i18n") for p in glob.glob(os.path.join(ROOT, "modeler", "i18n", "*.ts"))]  # i18n language files
 examples += [(os.path.join(ROOT, "docs", n), "modeler/docs")  # the assistant's search_docs (ai/knowledge.py)
              for n in ("LANGUAGE.md", "USER-GUIDE.md")]
 

@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QHB
                                QKeySequenceEdit, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
                                QVBoxLayout)
 
+from .. import i18n
+
 SETTING = "shortcuts"  # JSON: action id -> key sequence text ("" takes the key away)
 FORM_PREFIX = "Form / "
 
@@ -30,10 +32,10 @@ def _place(a: QAction) -> str:
     objs = a.associatedObjects()
     for w in objs:
         if isinstance(w, QMenu) and _clean(w.title()):
-            return _clean(w.title())
+            return _clean(i18n.english(w, "title", w.title()))
     for w in objs:
         if isinstance(w, QToolBar) and _clean(w.windowTitle()):
-            return _clean(w.windowTitle()) + " toolbar"
+            return _clean(i18n.english(w, "window", w.windowTitle())) + " toolbar"
     return "Window"
 
 
@@ -41,9 +43,10 @@ def actions(win) -> dict[str, QAction]:
     """Every action a shortcut can go on, by id ('Place / Text'), in a stable order."""
     out: dict[str, QAction] = {}
     for a in win.findChildren(QAction):
-        if a.isSeparator() or a.menu() is not None or not _clean(a.text()):
+        text = _clean(i18n.english(a, "text", a.text()))  # ids stay English in every language
+        if a.isSeparator() or a.menu() is not None or not text:
             continue
-        key = a.property("shortcut_id") or f"{_place(a)} / {_clean(a.text())}"
+        key = a.property("shortcut_id") or f"{_place(a)} / {text}"
         if key not in out:
             out[str(key)] = a
             if a.property("default_shortcut") is None:  # remember the app's own key once

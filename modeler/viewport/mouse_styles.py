@@ -30,15 +30,20 @@ class Style:
             hit = self.drags.get((button, ""))  # Ctrl and Alt are for picking: a drag still navigates
         return hit
 
-    def status_text(self) -> str:
-        """The status bar's hint: 'Left drag: orbit · Right drag: pan · Wheel: zoom'."""
+    def status_text(self, tr=None) -> str:
+        """The status bar's hint: 'Left drag: orbit · Right drag: pan · Wheel: zoom' (``tr``
+        puts each phrase in the window's language)."""
+        english = tr is None
+        tr = tr or (lambda s: s)
         words = {"ROTATE": "orbit", "PAN": "pan", "ZOOM": "zoom"}
         order = ("LEFT", "MIDDLE", "RIGHT")
         parts = []
         for (b, mod), what in sorted(self.drags.items(), key=lambda kv: (order.index(kv[0][0]), kv[0][1])):
-            head = (mod.title() + "+" if mod else "") + b.lower()
-            parts.append(f"{head[0].upper()}{head[1:]} drag: {words[what]}")
-        return " · ".join(parts + ["Wheel: zoom", "Click: pick (Ctrl adds, Alt removes)"])
+            head = tr(f"{b.title()} drag")
+            if mod:
+                head = f"{mod.title()}+" + (head[0].lower() + head[1:] if english else head)
+            parts.append(f"{head}: {tr(words[what])}")
+        return " · ".join(parts + [f"{tr('Wheel')}: {tr('zoom')}", tr("Click: pick (Ctrl adds, Alt removes)")])
 
 
 STYLES: dict[str, Style] = {s.key: s for s in (
@@ -59,6 +64,10 @@ STYLES: dict[str, Style] = {s.key: s for s in (
           "Middle drag orbits, Shift+middle pans, Ctrl+middle zooms."),
 )}
 DEFAULT = "default"
+
+# the phrases status_text puts together (for the language files)
+PHRASES = ("Left drag", "Middle drag", "Right drag", "orbit", "pan", "zoom", "Wheel",
+           "Click: pick (Ctrl adds, Alt removes)")
 
 
 def get(key: str) -> Style:
