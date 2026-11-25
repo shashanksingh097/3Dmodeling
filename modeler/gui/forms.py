@@ -128,7 +128,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
-    ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
+    ("Select", ("SEL", "CM", "CMSEL", "CMDEL", "CMRENAME")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "CLASHFIX", "SECTION", "ECHO", "LIST")),
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
@@ -328,6 +328,7 @@ _KINDS = {
     ("CM", "name"): "word",
     ("CMSEL", "name"): "word",
     ("CMDEL", "name"): "word",
+    ("CMRENAME", "name"): "word",
     ("DATUM", "name"): "datum",
 }
 

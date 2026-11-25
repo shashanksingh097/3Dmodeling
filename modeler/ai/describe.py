@@ -208,7 +208,9 @@ def model_summary(p: "Processor", limit: int = LIMIT) -> dict[str, Any]:
     if m.sketches:
         out["sketches"] = [sk.name for sk in m.sketches.values()]
     if m.named_sets:
-        out["sets"] = {k: {"kind": kind, "ids": ids} for k, (kind, ids) in m.named_sets.items()}
+        # named as typed; face, edge and point sets also go to STEP files by name (PLAN item 95)
+        out["sets"] = {m.set_label(k): {"kind": kind, "ids": ids}
+                       for k, (kind, ids) in m.named_sets.items()}
     if m.selection:
         out["selection"] = {"kind": m.selection_kind, "ids": list(m.selection)}
     hist = p.history[: p.cursor]

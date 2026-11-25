@@ -271,6 +271,7 @@ class Model:
         self.selection_kind: str = "FACE"
         self.selection: list[int] = []  # body IDs or entity IDs of selection_kind
         self.named_sets: dict[str, tuple[str, list[int]]] = {}  # NAME -> (kind, ids)
+        self.set_names: dict[str, str] = {}  # NAME -> the name as typed (Inlet_A), for STEP and the tree
         self.last_body: int = 0
         self.units: str = "MM"
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
@@ -378,6 +379,7 @@ class Model:
             "selection_kind": self.selection_kind,
             "selection": list(self.selection),
             "named_sets": copy.deepcopy(self.named_sets),
+            "set_names": dict(self.set_names),
             "last_body": self.last_body,
             "units": self.units,
             "tolerance": self.tolerance,
@@ -418,6 +420,7 @@ class Model:
         self.selection_kind = snap["selection_kind"]
         self.selection = list(snap["selection"])
         self.named_sets = copy.deepcopy(snap["named_sets"])
+        self.set_names = dict(snap.get("set_names", {}))
         self.last_body = snap["last_body"]
         self.units = snap["units"]
         self.tolerance = snap["tolerance"]
@@ -1033,6 +1036,15 @@ class Model:
     # ---- named sets --------------------------------------------------------
     def save_set(self, name: str, kind: str, ids: list[int]) -> None:
         self.named_sets[name.upper()] = (check_kind(kind, SELECT_KINDS), list(ids))
+        self.set_names[name.upper()] = name
+
+    def set_label(self, key: str) -> str:
+        """A named set's name as it was typed (the key is upper case)."""
+        return self.set_names.get(key.upper(), key.lower())
+
+    def drop_set(self, name: str) -> None:
+        self.named_sets.pop(name.upper(), None)
+        self.set_names.pop(name.upper(), None)
 
     def named_set(self, name: str) -> tuple[str, list[int]]:
         try:

@@ -112,8 +112,9 @@ def tree_nodes(p) -> list[Node]:
                 for n, d in sorted(m.datums.items())]
         out.append(Node("group:datums", f"Datums ({len(kids)})", "group", children=kids))
     if m.named_sets:
-        kids = [Node(f"set:{n}", f"{n.lower()}  ({kind.lower()}, {len(ids)})", "set",
-                     tip=f"named set {n.lower()}: {len(ids)} {kind.lower()}{'s' if len(ids) != 1 else ''}")
+        kids = [Node(f"set:{n}", f"{m.set_label(n)}  ({kind.lower()}, {len(ids)})", "set",
+                     tip=f"named set {m.set_label(n)}: {len(ids)} {kind.lower()}{'s' if len(ids) != 1 else ''}"
+                         + ("; written to STEP files by name" if kind in ("FACE", "EDGE", "VERTEX") else ""))
                 for n, (kind, ids) in sorted(m.named_sets.items())]
         out.append(Node("group:sets", f"Named sets ({len(kids)})", "group", children=kids))
     return out

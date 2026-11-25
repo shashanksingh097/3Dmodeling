@@ -36,6 +36,17 @@ def _swatch(color) -> QIcon:
     return QIcon(pm)
 
 
+def set_items(m, key: str) -> list:
+    """The right-click menu of a named set row (PLAN item 95): select it, rename it, delete it."""
+    name = m.set_label(key)
+    return [bm.MenuItem(f"Set {name}", enabled=False, title=True),
+            bm.MenuItem("Select", [f"CMSEL, S, {name}"]),
+            bm.MenuItem("Add to selection", [f"CMSEL, A, {name}"]),
+            bm.SEPARATOR,
+            bm.MenuItem("Rename…", [f"CMRENAME, {name}, {{}}"], ask=f"New name for set {name}:"),
+            bm.MenuItem("Delete", [f"CMDEL, {name}"])]
+
+
 class ModelTree(QTreeWidget):
     def __init__(self, window) -> None:
         super().__init__()
@@ -178,6 +189,8 @@ class ModelTree(QTreeWidget):
             return []
         if n.kind == "body":
             return bm.body_items(m, n.ids[0], self.win.processor.part_files, self.win.processor)
+        if n.kind == "set":
+            return set_items(m, n.key.split(":", 1)[1])
         if n.ids:
             head = [bm.MenuItem(n.label, enabled=False, title=True)]
             items = (head + bm.view_items(m, n.ids, "these" if n.kind == "group" else "all of them")

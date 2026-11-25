@@ -1398,8 +1398,10 @@ Built about three items per pull request, in this order.
     CM face set as named faces, so the analysis app gets the inlet, the
     fixed face and the loaded face without picking them again. FLUIDVOLUME
     and ENCLOSURE make their sets themselves (inlet_1, XMIN ...). The
-    Layers panel lists face sets with Rename and Delete on a right click;
-    `DESCRIBE` gives them to the assistant.
+    model tree lists the sets with Select, Rename and Delete on a right
+    click (`CMRENAME`); IMPORT reads the names back as sets; `DESCRIBE`
+    gives them to the assistant. Done: PR "STEP face sets, section editing,
+    pattern kinds".
 96. **Editing in a cross-section** (P1): `SECTIONEDIT, plane` shows the cut
     of the solids as lines linked to their faces. Dragging a line (with a
     typed value, like the drag handles of item 68) moves the face behind

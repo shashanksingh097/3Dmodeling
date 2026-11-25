@@ -1260,6 +1260,15 @@ SEL, S, FACE, NORMAL, 0,0,1
 CM, top_face, FACE
 CMDEL, top_face
 
+@ CMRENAME
+! Rename a named set. Face, edge and point sets go to STEP files under their names,
+! so the analysis app finds the inlet without picking it again.
+BLOCK, 0,0,0, 40, 20, 10
+SEL, S, FACE, NORMAL, 0,0,1
+CM, top_face, FACE
+CMRENAME, top_face, inlet
+EXPORT, STEP, "named.step"
+
 ! ===================================================================== Measure
 
 @ DIST

@@ -233,7 +233,8 @@ SEL, S, EDGE, CHAIN, 7 [, deg]             ! edges joined to 7 without a corner 
 SEL, S, FACE, TANGENT, 3 [, deg]           ! face 3 and every face that meets it smoothly, and so on
 SEL, U, ...   SEL, ALL, FACE   SEL, NONE   SEL, INVE
 CM, top, FACE                              ! save the selection as a named set
-CMSEL, S, top    SEL, S, FACE, SET, top    CMDEL, top
+CMSEL, S, top    SEL, S, FACE, SET, top    CMDEL, top    CMRENAME, top, inlet
+! face, edge and point sets are written to STEP files by name (EXPORT, STEP) and read back as sets (IMPORT)
 ```
 
 Modes: `S` new set, `R` reselect within the current set, `A` add, `U` remove.
@@ -319,7 +320,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
 | Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` · `ISOLATE [, b/SEL/layer]` |
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
-| Selection | `PICK, kind, id [, S/A/U]` (several: `PICK, FACE, 3 5 7`) · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, AUTO/BODY/FACE/EDGE/VERTEX` · `PICKREGION, BOX/LASSO/OFF` · `TOOLS [, JSON]` (section 46) |
+| Selection | `PICK, kind, id [, S/A/U]` (several: `PICK, FACE, 3 5 7`) · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `CMRENAME` · `PICKMODE, AUTO/BODY/FACE/EDGE/VERTEX` · `PICKREGION, BOX/LASSO/OFF` · `TOOLS [, JSON]` (section 46) |
 | Previews | `PREVIEW, "step"` · `PREVIEW, OFF` (section 46) |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
