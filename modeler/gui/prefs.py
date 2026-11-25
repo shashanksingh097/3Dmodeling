@@ -11,8 +11,8 @@ palette the platform gave. The toolbar icons are drawn from the palette
 from __future__ import annotations
 
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel,
-                               QVBoxLayout)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                               QLabel, QVBoxLayout)
 
 from . import icons
 from ..viewport.occ_view import BACKGROUNDS
@@ -146,6 +146,17 @@ class PreferencesDialog(QDialog):
         self.buttons.setCurrentIndex(list(icons.STYLE_LABELS).index(tbs.current_style(win)))
         self.buttons.currentIndexChanged.connect(lambda _: tbs.set_style(win, self.buttons.currentData()))
         form.addRow("Toolbar buttons:", self.buttons)
+        from . import pick_bar
+        from .form_dialog import PREVIEW_SETTING, _set_setting, _setting
+
+        self.pick_tools = QCheckBox("Show the tools that fit next to what you pick")
+        self.pick_tools.setChecked(pick_bar.enabled(win))
+        self.pick_tools.toggled.connect(lambda on: pick_bar.set_enabled(win, on))
+        form.addRow("Tools beside a pick:", self.pick_tools)
+        self.form_preview = QCheckBox("Draw what a form's step would make before OK")
+        self.form_preview.setChecked(_setting(win, PREVIEW_SETTING, True))
+        self.form_preview.toggled.connect(lambda on: _set_setting(win, PREVIEW_SETTING, on))
+        form.addRow("Preview in forms:", self.form_preview)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)

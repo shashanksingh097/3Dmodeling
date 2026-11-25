@@ -14,7 +14,8 @@ OTHER = "Other"
 EXTRA: list[tuple[str, tuple[str, ...]]] = [
     ("Files and history", ("NEW", "OPEN", "SAVE", "RUN", "NEWPART", "OPENPART", "SAVEPART", "RELOAD",
                            "UNDO", "REDO", "HIST", "STEPS")),
-    ("View and picking", ("VIEW", "FIT", "PICK", "PICKMODE", "CPOINTS", "HELP")),
+    ("View and picking", ("VIEW", "FIT", "PICK", "PICKMODE", "PICKREGION", "PREVIEW", "TOOLS",
+                          "CPOINTS", "HELP")),
     ("Inside a sketch", ()),
 ]
 MAX_EXAMPLES = 4

@@ -1244,7 +1244,7 @@ reading tool that returns data, a skill note, benchmark tasks). Not part of
 M14 items 68-82 (item 75 already covers mouse styles and custom shortcuts).
 Built in this order, about three per pull request.
 
-83. **Live 3D preview in every form** (P0): while a form is open, the result
+83. **Live 3D preview in every form** (P0, done: `PREVIEW`, Show in 3D on every form, `preview_step`; a step slower than 1.5 s waits for an Update preview button): while a form is open, the result
     is drawn as a see-through ghost in the 3D view and follows each change of
     a field (fillet sizes, extrude lengths, holes, patterns, shells). A step
     that would fail shows its reason in the form and the faces or edges at
@@ -1253,17 +1253,18 @@ Built in this order, about three per pull request.
     (and `PREVIEW, OFF`). Assistant: `preview_step` returns what the step
     would make (bodies, volume change, faces made or removed, problems) as
     data, so it can check a step before running it.
-84. **Smarter picking** (P0): an automatic pick mode that takes the vertex,
+84. **Smarter picking** (P0, done: `PICKMODE, AUTO` is the default, Tab, Box and Lasso with `PICKREGION`, double-click loops, chains and smooth faces): an automatic pick mode that takes the vertex,
     edge or face nearest the cursor (the toolbar modes stay as filters);
     drag a box (left to right: fully inside, right to left: touching) or a
     lasso to pick many; double-click an edge for its loop, again for the
     tangent chain; double-click a face for the faces tangent to it; a key
     (Tab) steps to the face or edge behind the one under the cursor.
-    Commands: `SEL, S, EDGE, LOOP|CHAIN, id`, `SEL, S, FACE, TANGENT, id`,
-    `SEL, S, kind, SCREEN, x0,y0,x1,y1, INSIDE|CROSS` written by the box.
-    Assistant: `pick_candidates` lists what lies under a screen point or in
-    a box, nearest first.
-85. **Modelling tools next to the pick** (P0): the right-click menu (and a
+    Commands: `SEL, S, EDGE, LOOP|CHAIN, id`, `SEL, S, FACE, TANGENT, id`;
+    a box or lasso writes one `PICK, kind, 3 5 7` (IDs, not screen
+    corners, so a script replays it without the view, and the picks follow
+    their faces when the history changes). Assistant: the new SEL words
+    with `preview_selection`, and `probe_ray` for what lies behind what.
+85. **Modelling tools next to the pick** (P0, done: `TOOLS`, `suggest_tools`, the small toolbar with Preferences > Tools beside a pick, and the right-click menu starting with the pick's tools): the right-click menu (and a
     small toolbar that appears beside a fresh pick) offers what fits it: on a
     flat face Sketch here, Extrude/Pull, Hole, Shell, Offset, Work plane; on
     a round face Hole, Thread, Fillet edges; on edges Fillet, Chamfer, Rail

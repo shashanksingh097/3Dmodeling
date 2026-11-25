@@ -1818,8 +1818,33 @@ PICK, FACE, 6
 PICK, FACE, 1, A
 
 @ PICKMODE
-! What a click in the view picks: here edges.
+! What a click in the view picks: here edges only; AUTO (the default) takes
+! whatever is nearest the cursor.
 PICKMODE, EDGE
+PICKMODE, AUTO
+
+@ PICKREGION
+! Pick by dragging a box (or drawing a lasso) in the 3D view; the pick is one
+! PICK with several IDs, here the faces the box caught.
+PICKREGION, BOX
+BLOCK, 0,0,0, 40, 20, 5
+PICK, FACE, 1 3 6
+PICKREGION, OFF
+
+@ PREVIEW
+! See what a step would make before running it: a see-through ghost and a line
+! saying what changes (or why it would fail). Nothing is added to the history.
+BLOCK, 0,0,0, 40, 20, 10
+NAME, LAST, plate
+SEL, S, EDGE, BODY, plate
+PREVIEW, "FILLET, 2"
+PREVIEW, OFF
+
+@ TOOLS
+! The modelling tools that fit the pick, as the right-click menu lists them.
+BLOCK, 0,0,0, 40, 20, 10
+PICK, FACE, 6
+TOOLS
 
 @ VIEW
 ! Look from a standard direction.

@@ -25,6 +25,9 @@ class MenuItem:
     edit_part: str = ""  # open this part's recipe in a part window (Edit part)
     enabled: bool = True
     title: bool = False  # a heading, not an action
+    first: list[str] = field(default_factory=list)  # run these, then open ``form`` (Fillet its edges: SEL, then FILLET)
+    icon: str = ""  # for the small toolbar beside a pick (gui/icons.py)
+    short: str = ""  # its name on that toolbar (a word or two)
 
 
 SEPARATOR = MenuItem("")
@@ -120,14 +123,35 @@ def mate_ready(model) -> bool:
     return a != b
 
 
-def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
+def _tools_for_menu(model, bid: int, processor) -> list[MenuItem]:
+    """The pick's tools, when the right click is on the picked thing (or its body)."""
+    if processor is None or not model.selection:
+        return []
+    if bid not in selected_bodies(model):
+        return []
+    try:
+        return pick_tools(processor)
+    except Exception:  # noqa: BLE001 - the menu must open whatever the pick
+        return []
+
+
+def body_items(model, bid: int, sources: dict | None = None, processor=None) -> list[MenuItem]:
     """The menu for a right click on body ``bid`` in the 3D view (or a tree row).
     ``sources`` is the processor's ``part_files``: which parts come from a file."""
     ids = menu_target(model, bid)
     one = len(ids) == 1
     t = target_text(ids)
     head = _name(model, bid) if one else f"{len(ids)} selected bodies"
-    items = [MenuItem(head, enabled=False, title=True)]
+    items = []
+    tools = _tools_for_menu(model, bid, processor)
+    if tools:
+        what = {"FACE": "face", "EDGE": "edge", "VERTEX": "vertex", "BODY": "body"}[model.selection_kind]
+        n = len(model.selection)
+        items.append(MenuItem(f"The picked {what}" if n == 1 else f"The {n} picked {what}s"
+                              if what != "body" else f"The {n} picked bodies", enabled=False, title=True))
+        items += tools
+        items.append(SEPARATOR)
+    items.append(MenuItem(head, enabled=False, title=True))
     items += view_items(model, ids)
     items += everything_items(model)
     items.append(SEPARATOR)
@@ -152,6 +176,146 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
     return items
+
+
+# ---- the tools that fit what is picked (PLAN item 85) ----------------------------------------
+PICK_TOOLS_SETTING = "view/pickTools"  # the small toolbar beside a fresh pick (on unless turned off)
+BAR_SIZE = 6  # how many tools the small toolbar shows (the rest are on the right-click menu)
+
+
+def _surface_type(shape) -> str:
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_SurfaceType as T
+    from OCP.TopoDS import TopoDS
+
+    cast = getattr(TopoDS, "Face_s", None) or TopoDS.Face
+    t = BRepAdaptor_Surface(cast(shape)).GetType()
+    return {T.GeomAbs_Plane: "PLANE", T.GeomAbs_Cylinder: "CYLINDER", T.GeomAbs_Cone: "CONE",
+            T.GeomAbs_Sphere: "SPHERE", T.GeomAbs_Torus: "TORUS"}.get(t, "FREEFORM")
+
+
+def _curve_type(shape) -> str:
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_CurveType as T
+    from OCP.TopoDS import TopoDS
+
+    cast = getattr(TopoDS, "Edge_s", None) or TopoDS.Edge
+    t = BRepAdaptor_Curve(cast(shape)).GetType()
+    return {T.GeomAbs_Line: "LINE", T.GeomAbs_Circle: "CIRCLE"}.get(t, "CURVE")
+
+
+def _next_name(p, command: str) -> str:
+    from . import forms as F
+
+    try:
+        return F.initial(p, F.spec(command)).get("name", "") or ""
+    except Exception:  # noqa: BLE001 - no form: let the command pick
+        return ""
+
+
+def pick_tools(p) -> list[MenuItem]:
+    """The modelling tools that fit the current pick, best first. The right-click
+    menu shows them all under a heading; the small toolbar beside a fresh pick
+    shows the first few. Every item only writes command text or opens a form."""
+    m = p.model
+    kind, sel = m.selection_kind, list(m.selection)
+    if not sel or m.active_sketch:
+        return []
+    n = len(sel)
+    items: list[MenuItem] = []
+    add = items.append
+    if kind == "FACE":
+        try:
+            types = [_surface_type(m.entity_shape("FACE", g)) for g in sel]
+        except Exception:  # noqa: BLE001 - a stale pick
+            return []
+        flat = all(t == "PLANE" for t in types)
+        round_ = all(t in ("CYLINDER", "CONE") for t in types)
+        if n == 1 and flat:
+            name = _next_name(p, "SKETCH") or "s1"
+            add(MenuItem("Sketch on this face", short="Sketch", commands=[f"SKETCH, {name}, FACE, {sel[0]}"], icon="sketch"))
+        add(MenuItem("Pull…" if n == 1 else f"Pull {n} faces…", short="Pull", form="PUSHPULL", icon="pushpull"))
+        if flat and n == 1:
+            add(MenuItem("Hole…", short="Hole", form="HOLE", icon="hole"))
+        if round_:
+            add(MenuItem("Thread…", short="Thread", form="THREAD", icon="thread"))
+        add(MenuItem("Fillet its edges…" if n == 1 else "Fillet their edges…", short="Fillet edges", form="FILLET",
+                     first=["SEL, S, EDGE, OF, FACE"], icon="fillet"))
+        add(MenuItem("Shell (open this face)…" if n == 1 else f"Shell (open {n} faces)…", short="Shell", form="SHELL",
+                     icon="shell"))
+        add(MenuItem("Move face…" if n == 1 else "Move faces…", short="Move face", form="MOVEFACE", icon="moveface"))
+        if n == 1 and flat:
+            name = _next_name(p, "PLANE") or "P1"
+            add(MenuItem("Work plane on it", short="Plane", commands=[f"PLANE, {name}, FACE, {sel[0]}"], icon="plane"))
+        if n == 1 and round_:
+            name = _next_name(p, "AXIS") or "A1"
+            add(MenuItem("Axis through it", short="Axis", commands=[f"AXIS, {name}, FACE, {sel[0]}"], icon="axis"))
+        if n == 2:
+            add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"] if flat else ["DIST"], icon="measure"))
+            add(MenuItem("Mate the two…", short="Mate", form="MATE", icon="mate"))
+            add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))
+        if n == 1:
+            add(MenuItem("Faces that meet it smoothly", short="Smooth faces", commands=[f"SEL, S, FACE, TANGENT, {sel[0]}"], icon="pick_face"))
+        add(MenuItem("Delete face (close the gap)" if n == 1 else f"Delete {n} faces (close the gap)", ["DELFACE"],
+                     short="Delete",
+                     icon="delface"))
+    elif kind == "EDGE":
+        add(MenuItem("Fillet…" if n == 1 else f"Fillet {n} edges…", short="Fillet", form="FILLET", icon="fillet"))
+        add(MenuItem("Chamfer…" if n == 1 else f"Chamfer {n} edges…", short="Chamfer", form="CHAMFER", icon="chamfer"))
+        if n == 1:
+            add(MenuItem("Loop round its face", short="Loop", commands=[f"SEL, S, EDGE, LOOP, {sel[0]}"], icon="pick_edge"))
+            add(MenuItem("Tangent chain", short="Chain", commands=[f"SEL, S, EDGE, CHAIN, {sel[0]}"], icon="pick_edge"))
+            try:
+                ctype = _curve_type(m.entity_shape("EDGE", sel[0]))
+            except Exception:  # noqa: BLE001
+                ctype = ""
+            if ctype in ("LINE", "CIRCLE"):
+                name = _next_name(p, "AXIS") or "A1"
+                add(MenuItem("Axis along it" if ctype == "LINE" else "Axis through its centre", short="Axis",
+                             commands=[f"AXIS, {name}, EDGE, {sel[0]}"], icon="axis"))
+        if n == 2:
+            add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"], icon="measure"))
+            add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))
+    elif kind == "VERTEX":
+        if n == 2:
+            add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
+        if n == 3:
+            name = _next_name(p, "PLANE") or "P1"
+            add(MenuItem("Work plane through the three", short="Plane", commands=[f"PLANE, {name}, 3P, " + ", ".join(f'CENT({v}, "VERTEX")' for v in sel)],
+                         icon="plane"))
+    elif kind == "BODY":
+        names = " ".join(str(b) for b in sel)
+        add(MenuItem("Move…" if n == 1 else f"Move {n} bodies…", short="Move", form="MOVE", icon="move"))
+        add(MenuItem("Rotate…", short="Rotate", form="ROTATE", icon="rotate"))
+        add(MenuItem("Mirror…", short="Mirror", form="MIRROR", icon="mirror"))
+        add(MenuItem("Array…", short="Array", form="ARRAY", icon="array"))
+        if n >= 2:
+            add(MenuItem(f"Union of the {n}", short="Union", commands=[f"UNION, {sel[0]}, SEL"], icon="union"))
+            add(MenuItem(f"Subtract the others from body {sel[0]}", short="Subtract",
+                         commands=["SEL, U, BODY, ID, " + str(sel[0]), f"SUBTRACT, {sel[0]}, SEL"], icon="subtract"))
+            add(MenuItem(f"Intersect the {n}", short="Intersect", commands=[f"INTERSECT, {', '.join(map(str, sel[:9]))}"], icon="intersect"))
+        if n == 2:
+            add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
+        add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
+        add(MenuItem("Mass and volume", short="Mass", commands=["MASSPROP"], icon="measure"))
+        _ = names
+    return items
+
+
+def tools_rows(p) -> list[dict]:
+    """The tools for the current pick as data (TOOLS, the assistant's suggest_tools)."""
+    rows = []
+    for it in pick_tools(p):
+        row = {"label": it.label}
+        if it.first:
+            row["first"] = list(it.first)
+        if it.form:
+            row["form"] = it.form
+            row["runs"] = f"{it.form}, ... (its form opens, filled in from the pick)"
+        else:
+            row["runs"] = " / ".join(it.commands)
+        rows.append(row)
+    return rows
 
 
 def picked_feature(model, bid: int):

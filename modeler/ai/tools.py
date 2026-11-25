@@ -195,6 +195,16 @@ class Toolbox:
                  "survive history edits. Says when only the ID works.",
                  {"kind": {"type": "string", "enum": KINDS}, "id": {"type": "integer"}, "where": _WHERE},
                  ("kind", "id"), self.selector_for),
+            Tool("preview_step", "What one step would do, worked out on a copy of the model (the same as the "
+                 "see-through preview the user's forms show): bodies added, changed (volume before and after) or "
+                 "removed; or why it would fail, with the faces or edges at fault. entry (1-based) previews a "
+                 "changed history entry instead (HIST, EDIT on a copy). Nothing changes.",
+                 {"step": {"type": "string"}, "entry": {"type": "integer"}, "where": _WHERE}, ("step",),
+                 self.preview_step),
+            Tool("suggest_tools", "The modelling tools that fit the user's pick (or the sandbox's), best first, "
+                 "each with what it runs: the list their right-click menu and the small toolbar beside a pick "
+                 "show (Sketch on this face, Pull, Hole, Fillet, Loop, Tangent chain, Mate ...).",
+                 {"where": _WHERE}, (), self.suggest_tools),
             Tool("preview_selection", "What SEL lines would select, without changing the selection.",
                  {"lines": {"type": "array", "items": {"type": "string"}}, "where": _WHERE}, ("lines",),
                  self.preview_selection),
@@ -424,6 +434,21 @@ class Toolbox:
 
     def selector_for(self, kind: str, id: int, where: str = "model"):
         return sl.selector_for(self._p(where), kind, int(id))
+
+    def preview_step(self, step: str, entry: int | None = None, where: str = "model") -> dict[str, Any]:
+        from ..commands import preview_handlers as ph
+
+        p = self._p(where)
+        if entry is not None and not 1 <= int(entry) <= p.cursor:
+            raise ToolError(f"entry is 1 to {p.cursor}")
+        return ph.preview_step(p, step, int(entry) - 1 if entry is not None else None).data()
+
+    def suggest_tools(self, where: str = "model") -> dict[str, Any]:
+        from ..gui import body_menu as bm
+
+        p = self._p(where)
+        return {"selection": {"kind": p.model.selection_kind, "ids": list(p.model.selection)},
+                "tools": bm.tools_rows(p)}
 
     def preview_selection(self, lines: list[str], where: str = "model"):
         return sl.preview_selection(self._p(where), lines)

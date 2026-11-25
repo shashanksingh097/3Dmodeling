@@ -498,6 +498,13 @@ class MainWindow(QMainWindow):
         self.repick_step: int | None = None  # set while a history pick step is being picked again
         self.viewport.command.connect(self._view_command)
         self.viewport.body_menu.connect(self.show_body_menu)
+        self.viewport.region_changed.connect(self._region_changed)
+        from .pick_bar import PickBar
+
+        self.pick_bar = PickBar(self)  # the tools beside a fresh pick (PLAN item 85)
+        self.viewport.picked_at.connect(self.pick_bar.show_for_pick)
+        self.viewport.pressed.connect(self.pick_bar.hide)
+        self.viewport.pick_note.connect(lambda t: self.statusBar().showMessage(t, 6000))
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
         self.processor.progress = self.rebuild_progress
@@ -611,7 +618,17 @@ class MainWindow(QMainWindow):
             self.offload.helper.cancel()
         self.shell.close_event(event)
         if event.isAccepted():
+            from .form_dialog import FormDialog
+
+            for dlg in self.findChildren(FormDialog):  # while the 3D view still draws: they clear their previews
+                dlg.close()
+            self.model_preview_off()
             self.offload.close()
+
+    def model_preview_off(self) -> None:
+        """No more preview drawing from this window's model (it is closing)."""
+        m = self.processor.model
+        m.preview, m.preview_bodies = [], []
 
     def _dock(self, title: str, widget: QWidget, area) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -680,12 +697,25 @@ class MainWindow(QMainWindow):
         group = QActionGroup(self)
         group.setExclusive(True)
         self._mode_actions: dict[str, QAction] = {}
-        for kind in ("BODY", "FACE", "EDGE", "VERTEX"):
-            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", f"Pick {kind.lower()}s")
+        tips = {"AUTO": "Pick whatever is nearest the cursor: a vertex, an edge or a face. Double-click an edge "
+                        "for the loop round its face (again for the tangent chain), a face for the faces that "
+                        "meet it smoothly; Tab picks the one behind",
+                "BODY": "Pick whole bodies", "FACE": "Pick faces only", "EDGE": "Pick edges only",
+                "VERTEX": "Pick vertices only"}
+        for kind in ("AUTO", "BODY", "FACE", "EDGE", "VERTEX"):
+            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", tips[kind])
             act.setCheckable(True)
             group.addAction(act)
             self._mode_actions[kind] = act
-        self._mode_actions["FACE"].setChecked(True)
+        self._mode_actions["AUTO"].setChecked(True)
+        self._region_actions: dict[str, QAction] = {}
+        for kind, tip in (("BOX", "Drag a box to pick: left to right picks what is wholly inside, right to left "
+                                  "what it touches (Ctrl+drag does this any time, adding to the pick; Esc ends)"),
+                          ("LASSO", "Draw a loop to pick what is wholly inside it (Esc ends)")):
+            act = tbs.action(self, tb, kind.title(), f"pick_{kind.lower()}", f"{tip}\nRuns: PICKREGION, {kind}",
+                             None, checkable=True)
+            act.toggled.connect(lambda on, k=kind: self._region_toggled(k, on))
+            self._region_actions[kind] = act
         handles = tbs.action(self, tb, "Drag handles", "handles",
                              "Arrows and rings on the picked body, a pull arrow on picked faces: drag one to move, "
                              "turn or pull (snaps to the grid, Shift drags freely, type a value while dragging, "
@@ -936,10 +966,25 @@ class MainWindow(QMainWindow):
         return open_editor(self, row)
 
     # ---- right-click menus on bodies (gui/body_menu.py says what they hold) ----
+    def _region_toggled(self, kind: str, on: bool) -> None:
+        current = getattr(self.viewport, "region_tool", "")
+        if on and current != kind:
+            self.execute(f"PICKREGION, {kind}")
+        elif not on and current == kind:
+            self.execute("PICKREGION, OFF")
+
+    def _region_changed(self, kind: str) -> None:
+        for k, act in getattr(self, "_region_actions", {}).items():
+            if act.isChecked() != (k == kind):
+                act.blockSignals(True)
+                act.setChecked(k == kind)
+                act.blockSignals(False)
+
     def show_body_menu(self, bid: int, global_pos) -> None:
         """The menu for a right click in the 3D view: on a body, or on empty space."""
         m = self.processor.model
-        items = bm.body_items(m, bid, self.processor.part_files) if bid in m.bodies else bm.empty_items(m)
+        items = (bm.body_items(m, bid, self.processor.part_files, self.processor) if bid in m.bodies
+                 else bm.empty_items(m))
         menu = QMenu(self)
         self.fill_menu(menu, items)
         self._body_menu = menu  # tests read it
@@ -1067,6 +1112,9 @@ class MainWindow(QMainWindow):
             if self.history_panel.select_entry(item.find_entry):
                 self.history_panel.setFocus()
             return
+        for c in getattr(item, "first", []) or []:
+            if not self.execute(c).ok:
+                return
         if item.form:
             self.open_form(item.form, item.commands[0] if item.commands else "")
             return
