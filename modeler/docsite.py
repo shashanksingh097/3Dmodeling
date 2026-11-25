@@ -107,10 +107,20 @@ def run_example(ex: Example, processor=None) -> list:
             for n in os.listdir(EXAMPLE_FILES):
                 shutil.copy(os.path.join(EXAMPLE_FILES, n), tmp)
         os.chdir(tmp)
+        old_lib = os.environ.get("MODELER_MATERIALS")
+        os.environ["MODELER_MATERIALS"] = os.path.join(tmp, "materials.json")  # never the user's own library
         try:
             return p.run_script(ex.code)
         finally:
             os.chdir(here)
+            _put_env("MODELER_MATERIALS", old_lib)
+
+
+def _put_env(key: str, value: str | None) -> None:
+    if value is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = value
 
 
 def uses_command(ex: Example) -> bool:
@@ -952,6 +962,7 @@ def render_pictures(names: list[str] | None = None, log=print) -> None:
         for n in os.listdir(EXAMPLE_FILES) if os.path.isdir(EXAMPLE_FILES) else []:
             shutil.copy(os.path.join(EXAMPLE_FILES, n), tmp)
         os.chdir(tmp)
+        os.environ["MODELER_MATERIALS"] = os.path.join(tmp, "materials.json")  # never the user's own library
         out = os.path.join(PICTURES, ex.picture)
         try:
             w.win.execute("NEW")

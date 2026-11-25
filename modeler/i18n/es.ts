@@ -72,6 +72,10 @@
             <translation>&amp;Vincular archivo de pieza…</translation>
         </message>
         <message>
+            <source>&amp;Materials…</source>
+            <translation>&amp;Materiales…</translation>
+        </message>
+        <message>
             <source>&amp;New…</source>
             <translation>&amp;Nuevo…</translation>
         </message>
@@ -190,7 +194,7 @@ Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down</source>
         </message>
         <message>
             <source>&lt;b&gt;Tutorials&lt;/b&gt;&lt;br&gt;Short lessons that check your model as you go.</source>
-            <translation>&lt;b&gt;Tutoriales&lt;/b&gt;&lt;br&gt;Lecciones cortas que comprueban su modelo mientras trabaja.</translation>
+            <translation>&lt;b&gt;Tutoriales&lt;/b&gt;&lt;br&gt;Lecciones cortas que comprueban su modelo sobre la marcha.</translation>
         </message>
         <message>
             <source>&lt;h2 style='margin:0'&gt;What would you like to make?&lt;/h2&gt;</source>
@@ -308,6 +312,14 @@ Runs: SNAP, body, x,y,z, length, width, thickness</source>
         </message>
         <message>
             <source>A check before sending the project to someone: unsaved changes, failing steps, missing files with no copy, broken links, part loops; and things to know: warnings, files linked from outside the project folder, the saved assistant conversation, names in the title block, full paths in your own folders.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A circuit board to design an enclosure around: BOARD, controller.kicad_pcb · BOARD, main.emn, pcb · BOARD, main.emn, pcb, ALL, 3</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A circuit board to design an enclosure around: BOARD, controller.kicad_pcb · BOARD, main.emn, pcb · BOARD, main.emn, pcb, ALL, 3. The outline becomes a plate from z 0 up to its thickness (cut-outs and mounting holes cut), each part a named body (R1, U3 ...) on its side, on layer NAME_parts. The report gives the size, the tallest part above and below, the mounting holes and every part. Saved projects keep a copy of the files.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -748,6 +760,10 @@ Runs: CYL, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Add a material to the library: its name and density, then fill in the rest</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Add a sphere: opens its form
 Runs: SPHERE, ...</source>
             <translation type="unfinished" />
@@ -905,6 +921,10 @@ Runs: FASTENER, kind, size, x,y,z [, length]</source>
         </message>
         <message>
             <source>an item on the copy that moves</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>an SVG drawing (from Inkscape, Illustrator, a laser cutter's software ...)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -1285,6 +1305,18 @@ Runs: CHAMFER, ...</source>
             <translation>Azul (si r, g, b)</translation>
         </message>
         <message>
+            <source>Board</source>
+            <translation>Placa de circuito</translation>
+        </message>
+        <message>
+            <source>Board file (.kicad_pcb, .emn)</source>
+            <translation>Archivo de placa (.kicad_pcb, .emn)</translation>
+        </message>
+        <message>
+            <source>Board…</source>
+            <translation>Placa de circuito…</translation>
+        </message>
+        <message>
             <source>Bodies</source>
             <translation>Cuerpos</translation>
         </message>
@@ -1387,6 +1419,11 @@ Runs: CHAMFER, ...</source>
         <message>
             <source>Bring a 2D DXF drawing's lines, arcs, circles, polylines and splines into this sketch, joined where they meet
 Runs: SDXF, file [, scale, du, dv, layer]</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Bring an SVG drawing's paths, rectangles, circles and ellipses into this sketch at their size in mm, joined where they meet
+Runs: SSVG, file [, scale, du, dv, layer]</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2110,6 +2147,10 @@ Runs: SPATTERN, LINEAR/POLAR, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Copy a material this project made (MATERIAL, NEW) into the library</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>copy numbers to leave out, like 3 5 (the original is copy 1); a right click on a copy in the 3D view does this too</source>
             <translation type="unfinished" />
         </message>
@@ -2500,6 +2541,10 @@ Runs: CLEAR</source>
             <translation>Eliminar caras</translation>
         </message>
         <message>
+            <source>Delete from library</source>
+            <translation>Borrar de la biblioteca</translation>
+        </message>
+        <message>
             <source>Delete the layer; its bodies move to DEFAULT
 Runs: LAYER, name, DELETE</source>
             <translation type="unfinished" />
@@ -2760,6 +2805,10 @@ Runs: SDEL, ...</source>
         <message>
             <source>Double-click a step to change it; the model rebuilds.</source>
             <translation>Haz doble clic en un paso para cambiarlo; el modelo se reconstruye.</translation>
+        </message>
+        <message>
+            <source>double-click to pick a colour</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Draft</source>
@@ -3376,7 +3425,7 @@ Runs: EXPORT, format, file</source>
         </message>
         <message>
             <source>Finish</source>
-            <translation>Terminar</translation>
+            <translation>Acabado</translation>
         </message>
         <message>
             <source>Finish and extrude this sketch
@@ -3665,6 +3714,14 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation>Desde ID</translation>
         </message>
         <message>
+            <source>From SVG</source>
+            <translation>Desde SVG</translation>
+        </message>
+        <message>
+            <source>From SVG…</source>
+            <translation>Desde SVG…</translation>
+        </message>
+        <message>
             <source>Front</source>
             <translation>Frontal</translation>
         </message>
@@ -3736,6 +3793,10 @@ Runs: VIEW, FRONT</source>
         <message>
             <source>Give the picked faces of a solid the shape of a surface: the solid is grown or cut back to it, and the faces around stretch to meet it: PICK, FACE, 7 then REPLACEFACE, dome. The surface is carried on past its edges as far as needed and stays as it is.</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Give to selection</source>
+            <translation>Asignar a la selección</translation>
         </message>
         <message>
             <source>Grab</source>
@@ -3866,6 +3927,10 @@ Runs: VIEW, FRONT</source>
             <translation>altura</translation>
         </message>
         <message>
+            <source>Height of parts the file has none for (0: guess)</source>
+            <translation>Altura de componentes sin dato (0: estimar)</translation>
+        </message>
+        <message>
             <source>Helix</source>
             <translation>Hélice</translation>
         </message>
@@ -3942,6 +4007,10 @@ Runs: SSPLINE</source>
         <message>
             <source>HOLE, FILLET or CHAMFER</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Holes to cut</source>
+            <translation>Agujeros a cortar</translation>
         </message>
         <message>
             <source>holes, slits and gaps narrower than about twice this are closed over; loose bits this close are joined</source>
@@ -4140,6 +4209,10 @@ Runs: SDIM, HDIST, ...</source>
         <message>
             <source>ID or name</source>
             <translation>ID o nombre</translation>
+        </message>
+        <message>
+            <source>IDF library (.emp), if not next to it</source>
+            <translation>Biblioteca IDF (.emp), si no está al lado</translation>
         </message>
         <message>
             <source>Image</source>
@@ -4350,6 +4423,10 @@ Runs: SCON, COINCIDENT/ON, ...</source>
         <message>
             <source>Keep</source>
             <translation>Conservar</translation>
+        </message>
+        <message>
+            <source>Keep in library</source>
+            <translation>Guardar en la biblioteca</translation>
         </message>
         <message>
             <source>Keep off the edge by</source>
@@ -4691,6 +4768,10 @@ Runs: STRIM, n, u, v, AXES</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>LIST, SHOW, SET, DELETE, KEEP or FILE</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>List…</source>
             <translation>Lista…</translation>
         </message>
@@ -4872,6 +4953,14 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
             <translation>Material</translation>
         </message>
         <message>
+            <source>MATERIAL, SEL, name: the selected bodies are made of this material</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Materials</source>
+            <translation>Materiales</translation>
+        </message>
+        <message>
             <source>Material…</source>
             <translation>Material…</translation>
         </message>
@@ -4886,6 +4975,14 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
         <message>
             <source>Mate…</source>
             <translation>Relación…</translation>
+        </message>
+        <message>
+            <source>Matlib</source>
+            <translation>Biblioteca de materiales</translation>
+        </message>
+        <message>
+            <source>Matlib…</source>
+            <translation>Biblioteca de materiales…</translation>
         </message>
         <message>
             <source>Measure</source>
@@ -5232,6 +5329,10 @@ Runs: STRANSFORM, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>multiply its sizes by this (after its own size in mm)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>NACA 4-digit airfoil profile (e.g</source>
             <translation type="unfinished" />
         </message>
@@ -5314,6 +5415,10 @@ Runs: STRANSFORM, ...</source>
         <message>
             <source>New empty project</source>
             <translation>Nuevo proyecto vacío</translation>
+        </message>
+        <message>
+            <source>New material…</source>
+            <translation>Material nuevo…</translation>
         </message>
         <message>
             <source>New part</source>
@@ -5570,6 +5675,10 @@ Runs: SOFFSET2, d, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>only this layer or group (its label or id; none: all)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>opacity</source>
             <translation>opacidad</translation>
         </message>
@@ -5596,6 +5705,10 @@ Runs: SOFFSET2, d, ...</source>
         <message>
             <source>Open form</source>
             <translation>Abrir formulario</translation>
+        </message>
+        <message>
+            <source>Open library folder</source>
+            <translation>Abrir carpeta de la biblioteca</translation>
         </message>
         <message>
             <source>Open my skills folder</source>
@@ -5921,6 +6034,10 @@ Runs: SCON, FIX, ...</source>
         <message>
             <source>pixels down</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Place</source>
+            <translation>Posición</translation>
         </message>
         <message>
             <source>Place a copy against another: MATE, kind, &lt;fixed item&gt;, &lt;moving item&gt; [, value] [, FLIP] moves the body of the second item</source>
@@ -6317,11 +6434,19 @@ Runs: SCULPT, body, DRAW, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Read an SVG drawing into the open sketch: SSVG, logo.svg · SSVG, plate.svg, 1, -50, -30, CUT (one layer, moved)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Read an SVG drawing into the open sketch: SSVG, logo.svg · SSVG, plate.svg, 1, -50, -30, CUT (one layer, moved). Paths (lines, arcs, Beziers), rectangles, circles, ellipses, lines and polygons come in as sketch curves at their size in mm (the file's width and viewBox, else 96 pixels to the inch), y up, with ends that meet tied together so closed outlines EXTRUDE. Text and pictures are left out. Saved projects keep a copy of the file.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Read bodies from a file</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. Saved projects keep a copy of the file.</source>
+            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. SCAD reads an OpenSCAD file's solids, flat shapes, extrusions, transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. Saved projects keep a copy of the file.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7089,6 +7214,10 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>SET: name=value words: density=2700 E=69000 nu=0.33 yield=276 k=167 cte=23 cp=900 tmax=200 color=SILVER look=ALUMINIUM shiny=yes note="6061-T6"</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Settings and files</source>
             <translation>Ajustes y archivos</translation>
         </message>
@@ -7228,7 +7357,7 @@ Runs: DIST</source>
         </message>
         <message>
             <source>Show a picture of what a button makes in its tooltip</source>
-            <translation>Mostrar en la información emergente una imagen de lo que crea un botón</translation>
+            <translation>Mostrar en la ayuda una imagen de lo que hace un botón</translation>
         </message>
         <message>
             <source>Show a picture on a plane at a known size, to sketch over it: IMAGE, front.jpg, XY, 240 (240 wide, its corner at the origin) · IMAGE, side.png, ZX, 240, -120, 0, 0.4 · IMAGE, CLEAR</source>
@@ -7296,7 +7425,7 @@ Runs: SECTIONEDIT, plane, offset</source>
         </message>
         <message>
             <source>Show the view cube in the corner of the 3D view</source>
-            <translation>Mostrar el cubo de vista en la esquina de la vista 3D</translation>
+            <translation>Mostrar el cubo de vistas en la esquina de la vista 3D</translation>
         </message>
         <message>
             <source>Show this page when the app starts</source>
@@ -7615,6 +7744,14 @@ Runs: SECTIONEDIT, plane, offset</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Ssvg</source>
+            <translation>Ssvg</translation>
+        </message>
+        <message>
+            <source>Ssvg…</source>
+            <translation>Ssvg…</translation>
+        </message>
+        <message>
             <source>Stack-up</source>
             <translation>Cadena de tolerancias</translation>
         </message>
@@ -7738,11 +7875,11 @@ Runs: SKETCH (and PLANE when the plane is moved)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, STL, OBJ, 3MF or GLTF</source>
+            <source>STEP, IGES, BREP, SCAD, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
+            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML or AMF</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8008,6 +8145,10 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Take the material out of the library (a built-in one goes back to its built-in values)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Take…</source>
             <translation>Tomar…</translation>
         </message>
@@ -8137,6 +8278,14 @@ Runs: MASK, body, INVERT</source>
         </message>
         <message>
             <source>the bend radius on the centreline (0: 1.5 diameters for a pipe, 6 for a cable)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the board body's name (its parts go on the layer NAME_parts)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the board: IDF (.emn, with its .emp library next to it) or KiCad (.kicad_pcb)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8373,7 +8522,15 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the height of parts the file gives none for (0: a guess from R, C, U, J ...)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the hole: CLEAR (clearance; a countersunk screw also gets its countersink), TAP (a tap drill as deep as the screw), CBORE (a counterbore: the head sinks in) or FIT (the hole a pin, insert or bearing is pressed into; their default)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the IDF library file, when it is not next to the board file</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8438,6 +8595,26 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the longest an edge may be</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the material (SET: a new name, or one to change)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The material library every project shares (stiffness, strength, heat values, looks): MATLIB lists the materials · MATLIB, SHOW, STEEL · MATLIB, SET, AL6061, density=2700 E=68900 nu=0.33 yield=276 k=167 cte=23.6 look=ALUMINIUM · MATLIB, SET, STEEL, yield=355 (your steel, for every project) · MATLIB, DELETE, AL6061 · MATLIB, KEEP, CFRP (a MATERIAL, NEW one into the library) · MATLIB, FILE</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The material library every project shares (stiffness, strength, heat values, looks): MATLIB lists the materials · MATLIB, SHOW, STEEL · MATLIB, SET, AL6061, density=2700 E=68900 nu=0.33 yield=276 k=167 cte=23.6 look=ALUMINIUM · MATLIB, SET, STEEL, yield=355 (your steel, for every project) · MATLIB, DELETE, AL6061 · MATLIB, KEEP, CFRP (a MATERIAL, NEW one into the library) · MATLIB, FILE. MATERIAL gives bodies a material; MASSPROP, STRESS, RENDER and drawings read its values.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The material library every project shares: density, stiffness, strength, heat values and looks (MATLIB)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The material library is shared by every project on this computer. Change a value and it is kept in the library (MATLIB, SET): MASSPROP, STRESS and RENDER use it from then on. A saved project keeps a copy of the library materials it uses, so it opens the same elsewhere.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9030,7 +9207,7 @@ Runs: DRAFT, angle</source>
         </message>
         <message>
             <source>Tooltips:</source>
-            <translation>Información emergente:</translation>
+            <translation>Ayudas:</translation>
         </message>
         <message>
             <source>tooth length per unit of curvature (0: the longest tooth a tenth of the size)</source>
@@ -9484,6 +9661,10 @@ Runs: MASK, body, CLEAR</source>
             <translation>valores</translation>
         </message>
         <message>
+            <source>Values (SET: E=69000 yield=276 ...)</source>
+            <translation>Valores (SET: E=69000 yield=276 ...)</translation>
+        </message>
+        <message>
             <source>Variants</source>
             <translation>Variantes</translation>
         </message>
@@ -9522,7 +9703,7 @@ Runs: SDIM, VDIST, ...</source>
         </message>
         <message>
             <source>View cube:</source>
-            <translation>Cubo de vista:</translation>
+            <translation>Cubo de vistas:</translation>
         </message>
         <message>
             <source>Volume</source>
@@ -9647,6 +9828,10 @@ Runs: WELD, a, b [, size]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>What to do</source>
+            <translation>Acción</translation>
+        </message>
+        <message>
             <source>What uses what: the linked part files, the parts (where each comes from, which other parts it uses, where it is placed), the geometry taken from parts (TAKE), loops, and every broken link.</source>
             <translation type="unfinished" />
         </message>
@@ -9680,6 +9865,10 @@ Runs: TOPOPT, body, fixed faces, loaded faces, FORCE, fx, fy, fz, share</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>where it goes: ORIGIN (the board's lower left corner at 0,0), CENTRE (its middle at 0,0) or FILE (where the file has it)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>where it is now</source>
             <translation type="unfinished" />
         </message>
@@ -9705,6 +9894,10 @@ Runs: TOPOPT, body, fixed faces, loaded faces, FORCE, fx, fy, fz, share</source>
         </message>
         <message>
             <source>which control point: 3 on a curve, (2, 3) on a surface</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>which drilled holes to cut: MOUNT (mounting and big unplated ones), ALL or NONE</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9852,7 +10045,7 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Write bodies to a file: EXPORT, STEP, "part.step" [, body]. STEP, IGES and BREP keep the exact shape; STL, OBJ, 3MF and GLTF (.glb or .gltf) write triangles. STEP also carries the sizes, hole diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations that other programs read. Runs when given; not kept in the history.</source>
+            <source>Write bodies to a file: EXPORT, STEP, "part.step" [, body]. STEP, IGES and BREP keep the exact shape; STL, OBJ, 3MF, GLTF (.glb or .gltf), VRML (.wrl) and AMF write triangles. STEP also carries the sizes, hole diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations that other programs read. Runs when given; not kept in the history.</source>
             <translation type="unfinished" />
         </message>
         <message>

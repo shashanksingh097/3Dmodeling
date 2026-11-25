@@ -1444,7 +1444,7 @@ def tol(p: Processor, tol):
 # Files
 # =============================================================================
 
-_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF")
+_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "VRML", "AMF")
 
 
 def _compound(shapes):
@@ -1480,12 +1480,12 @@ def _named_faces(m, body) -> list:
 
 @command(
     "EXPORT",
-    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF or GLTF"),
+    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML or AMF"),
     Arg("file", Path),
     Arg("b", BodyRef, 0, "body to export (default: all bodies)"),
     logged=False,
     help="Write bodies to a file: EXPORT, STEP, \"part.step\" [, body]. STEP, IGES and BREP keep the exact "
-         "shape; STL, OBJ, 3MF and GLTF (.glb or .gltf) write triangles. STEP also carries the sizes, hole "
+         "shape; STL, OBJ, 3MF, GLTF (.glb or .gltf), VRML (.wrl) and AMF write triangles. STEP also carries the sizes, hole "
          "diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations "
          "that other programs read. Runs when given; not kept in the history.",
 )
@@ -1503,7 +1503,7 @@ def export(p: Processor, format, file, b):
     if meshes and format in ("STEP", "IGES", "BREP"):
         raise CommandError(f"EXPORT: {format} holds exact faces, and bod{'y' if len(meshes) == 1 else 'ies'} "
                            f"{', '.join(map(str, meshes))} {'is a mesh' if len(meshes) == 1 else 'are meshes'}; "
-                           "export STL, OBJ, 3MF or GLTF, or TOSOLID first")
+                           "export STL, OBJ, 3MF, GLTF, VRML or AMF, or TOSOLID first")
     shape = bodies[0].shape if len(bodies) == 1 else _compound([x.shape for x in bodies])
     path = os.path.abspath(file)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -1551,6 +1551,10 @@ def export(p: Processor, format, file, b):
                 meshfiles.write_obj(path, meshes)
             elif format == "3MF":
                 meshfiles.write_3mf(path, meshes, m.units)
+            elif format == "VRML":
+                meshfiles.write_vrml(path, meshes)
+            elif format == "AMF":
+                meshfiles.write_amf(path, meshes, m.units)
             else:
                 meshfiles.write_gltf(path, meshes, UNITS[m.units] / 1000.0)
         except OSError as exc:

@@ -24,6 +24,16 @@ LOOKS = {  # MATERIAL -> (OCCT material, reflective)
 }
 
 
+def _look(model, name: str):
+    """(OCCT material, reflective) for a body's material: the material's own look (built in or from
+    the material library), else the table above; None draws it from its colour alone."""
+    key = (name or "").upper()
+    mat = model.materials.get(key) if key else None
+    if mat is not None and getattr(mat, "look", ""):
+        return (mat.look, bool(mat.shiny))
+    return LOOKS.get(key)
+
+
 class RenderError(RuntimeError):
     pass
 
@@ -99,7 +109,7 @@ def render(vp, path: str, width: int, height: int, view: str = "", frames: int =
         for b in ids:
             ais = vp._ais[b]
             saved_mat[b] = ais.Material()
-            look = LOOKS.get((m.bodies[b].material or "").upper())
+            look = _look(m, m.bodies[b].material)
             colour = Quantity_Color()
             ais.Color(colour)
             if look:

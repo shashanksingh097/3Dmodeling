@@ -212,7 +212,10 @@ def massprop(p: Processor, b, density):
         "mass_kg": round(g.Mass(), 9) if weighted else None,
         "centre": [round(v, 6) for v in (c.X(), c.Y(), c.Z())],
         "inertia": [round(v, 6) for v in (i1, i2, i3)], "inertia_unit": unit.split(" ")[0],
-        "no_material": missing})
+        "no_material": missing,
+        # every value known of each material used (built in, the material library, or MATERIAL, NEW)
+        "materials": {k: m.materials[k].props() for k in sorted({m.body(i).material.upper() for i in ids
+                                                                  if m.body(i).material}) if k in m.materials}})
     return "\n".join(lines)
 
 

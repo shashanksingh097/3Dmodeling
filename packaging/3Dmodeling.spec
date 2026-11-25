@@ -35,7 +35,7 @@ examples += [(os.path.join(ROOT, "modeler", "plugin_examples", "bolt_ring.py"), 
 examples += [(p, "modeler/i18n") for p in glob.glob(os.path.join(ROOT, "modeler", "i18n", "*.ts"))]  # i18n language files
 TEMPLATES = os.path.join(ROOT, "modeler", "templates")  # the start page's project templates (PLAN item 88)
 examples += [(os.path.join(TEMPLATES, n), os.path.join("modeler", "templates"))
-             for n in sorted(os.listdir(TEMPLATES)) if n.endswith(".cmd")]
+             for n in sorted(os.listdir(TEMPLATES)) if n.endswith((".cmd", ".kicad_pcb"))]  # + the bench's board
 TUTORIALS = os.path.join(ROOT, "modeler", "tutorials")  # Help > Tutorials (PLAN item 94)
 examples += [(os.path.join(TUTORIALS, n), os.path.join("modeler", "tutorials"))
              for n in sorted(os.listdir(TUTORIALS)) if n.endswith(".tut")]

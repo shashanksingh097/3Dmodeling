@@ -1,7 +1,7 @@
 ---
 name: imported-parts
 description: Changing parts that have no history (imported STEP or IGES files, or any solid) - finding their holes, rounds, chamfers and rows of holes, selecting ones like a face, resizing or removing them in bulk, pushing and moving faces. Use for "simplify this STEP", "make the holes bigger", "remove the small fillets", "the 6 mm holes should be M8 clearance".
-commands: IMPORT, FEATURES, DEFEATURE, RESIZE, SEL, PUSHPULL, MOVEFACE, DELFACE, CHECK, HEAL
+commands: IMPORT, SSVG, FEATURES, DEFEATURE, RESIZE, SEL, PUSHPULL, MOVEFACE, DELFACE, CHECK, HEAL
 ---
 # Editing imported parts
 
@@ -9,6 +9,9 @@ commands: IMPORT, FEATURES, DEFEATURE, RESIZE, SEL, PUSHPULL, MOVEFACE, DELFACE,
 
 1. **Bring it in and check it**: `IMPORT, STEP, "part.step", part`, then
    `CHECK, part, FLAWS`; `HEAL, part` when it lists gaps or bad faces.
+   An OpenSCAD file: `IMPORT, SCAD, "part.scad"` (one exact body per
+   top-level object). A flat SVG drawing goes into a sketch instead:
+   `SKETCH, s, XY`, `SSVG, "logo.svg"`, `ENDSKETCH`, then `EXTRUDE`.
 2. **See what is there**: `FEATURES, part` lists every hole (diameter,
    depth, through or blind, counterbore), round (radius, inside or outside),
    chamfer (size) and row or ring of holes, numbered, with face IDs. The

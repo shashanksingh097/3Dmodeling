@@ -185,6 +185,53 @@ def write_3mf(path: str, meshes: list[Mesh], units: str = "MM") -> None:
         z.writestr("3D/3dmodel.model", model_xml)
 
 
+def write_vrml(path: str, meshes: list[Mesh]) -> None:
+    """VRML 2.0 (.wrl): an IndexedFaceSet per body, in its colour, for viewers and older programs."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("#VRML V2.0 utf8\n# written by 3Dmodeling\n")
+        for k, m in enumerate(meshes):
+            r, g, b = m.color if m.color is not None else (0.7, 0.7, 0.75)
+            ident = _safe_name(m.name or "body", k).replace(".", "_").replace("-", "_")
+            f.write(f"DEF {'_' + ident if ident[0].isdigit() else ident} Shape {{\n"
+                    f"  appearance Appearance {{ material Material {{ diffuseColor {r:.4g} {g:.4g} {b:.4g} }} }}\n"
+                    "  geometry IndexedFaceSet {\n    solid FALSE\n    coord Coordinate { point [\n")
+            f.writelines(f"      {x:.9g} {y:.9g} {z:.9g},\n" for x, y, z in m.points)
+            f.write("    ] }\n    coordIndex [\n")
+            f.writelines(f"      {a}, {b_}, {c}, -1,\n" for a, b_, c in m.tris)
+            f.write("    ]\n  }\n}\n")
+
+
+_AMF_UNITS = {"MM": "millimeter", "CM": "millimeter", "M": "meter", "IN": "inch"}
+
+
+def write_amf(path: str, meshes: list[Mesh], units: str = "MM") -> None:
+    """AMF (the older 3D printing format, plain XML): an object per body, with its colour. Centimetres
+    are written as millimetres (AMF has no cm)."""
+    k_cm = 10.0 if units == "CM" else 1.0
+    root = ET.Element("amf", {"unit": _AMF_UNITS.get(units, "millimeter"), "version": "1.1"})
+    ET.SubElement(root, "metadata", {"type": "producer"}).text = "3Dmodeling"
+    for k, m in enumerate(meshes):
+        obj = ET.SubElement(root, "object", {"id": str(k + 1)})
+        ET.SubElement(obj, "metadata", {"type": "name"}).text = m.name or f"body{k + 1}"
+        if m.color is not None:
+            col = ET.SubElement(obj, "color")
+            for tag, v in zip(("r", "g", "b"), m.color):
+                ET.SubElement(col, tag).text = f"{v:.4g}"
+        mesh = ET.SubElement(obj, "mesh")
+        verts = ET.SubElement(mesh, "vertices")
+        for x, y, z in m.points * k_cm:
+            c = ET.SubElement(ET.SubElement(verts, "vertex"), "coordinates")
+            for tag, v in zip(("x", "y", "z"), (x, y, z)):
+                ET.SubElement(c, tag).text = f"{v:.9g}"
+        vol = ET.SubElement(mesh, "volume")
+        for a, b, c in m.tris:
+            t = ET.SubElement(vol, "triangle")
+            for tag, v in zip(("v1", "v2", "v3"), (a, b, c)):
+                ET.SubElement(t, tag).text = str(int(v))
+    with open(path, "wb") as f:
+        f.write(b'<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="utf-8"))
+
+
 def write_gltf(path: str, meshes: list[Mesh], scale: float = 1.0) -> None:
     """glTF 2.0: a binary ``.glb``, or a ``.gltf`` with the data inside it.
 

@@ -102,10 +102,12 @@ def _reads(p: Processor) -> list[tuple[str, str, int]]:
             name = getattr(st, "name", None)
             args = getattr(st, "args", []) or []
             raw = None
-            if name in ("SDXF", "STRACE", "IMAGE") and args and args[0].strip().strip('"').upper() != "CLEAR":
+            if name in ("SDXF", "SSVG", "STRACE", "IMAGE") and args and args[0].strip().strip('"').upper() != "CLEAR":
                 raw = args[0]
             elif name == "IMPORT" and len(args) >= 2:
                 raw = args[1]
+            elif name == "BOARD" and args:
+                raw = args[0]
             elif name == "LIB" and len(args) >= 2 and args[0].strip().upper() in ("LOAD", "LINK"):
                 raw = args[1]
                 name = "LIB " + args[0].strip().upper()

@@ -1,12 +1,22 @@
 ---
 name: enclosure
 description: Plastic enclosures and moulded cases - a hollow box with even walls, a lip and groove between two halves, screw bosses with ribs, snap hooks, vents, ribs and draft. Use for housings, cases, covers and lids.
-commands: BLOCK, SHELL, LIP, BOSS, SNAP, VENT, RIB, DRAFT, FILLET, MATERIAL, THICK, PRINTCHECK
+commands: BOARD, BLOCK, SHELL, LIP, BOSS, SNAP, VENT, RIB, DRAFT, FILLET, MATERIAL, THICK, PRINTCHECK
 ---
 # Enclosure
 
 ## Steps
 
+0. **A circuit board inside?** `BOARD, "main.kicad_pcb", pcb` (or an IDF
+   `.emn`) makes the board and its parts. Size the case from its report,
+   not from a picture: inside = `envelope` (board and parts, connectors
+   over the edge included) plus a clearance (1 to 2 mm round, 2 mm over
+   `tallest_top`); put a `BOSS` under each of `mounting_holes` (hole 2.5
+   for an M3 self-tapping screw), standing up to the board's underside, and
+   lift the board by the boss height (`MOVE`, the board and the
+   `pcb_parts` layer). Connectors at an edge (J1 ...): cut their opening
+   through the wall from their `box`. Part heights marked
+   `height_from: guess` are guesses: ask, or leave more room.
 1. **Parameters**: outer size `W`, `D`, `H`, wall `T` (2 to 3 mm for
    moulded plastic), and the material: `MATERIAL, case, ABS`.
 2. **Outer shape**: `BLOCK` (or a sketch + `EXTRUDE` for a shaped outline);
@@ -46,6 +56,8 @@ ASSERT, MINWALL(base), GE, 1.9
 * Walls: `MINWALL(b), GE, T - 0.1` right after the shell (later the lip,
   ribs and vents count as thin walls too), or `wall_thickness` for where.
 * Halves: `contact(base, lid)` touching on faces, `OVERLAP(base, lid), EQ, 0`.
+* Around a board: `OVERLAP(case, U1), EQ, 0` for the tall parts (or
+  `CLEARANCE`), and the bosses meet the board's mounting holes.
 * Ready to make: `PRINTCHECK` or the manufacturing skill; `PARTING` for a
   mould.
 

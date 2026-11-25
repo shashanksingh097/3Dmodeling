@@ -180,6 +180,17 @@ TASKS: list[Task] = [
          setup="BLOCK, 0, 0, 0, 100, 40, 2\nNAME, LAST, tray\nBLOCK, 0, 20, 2, 100, 40, 2\nNAME, LAST, lid",
          reference="SPOTWELD, lid, tray, 21, 25",
          area="analysis-prep"),
+    Task("board_case",
+         "Make a closed case named case around the circuit board and all its parts (the battery holder is "
+         "underneath), with 2 mm walls and at least 1 mm of room round the parts; nothing may touch the board or "
+         "a part.",
+         ["VALID(case)", "BBOX(case).dx, GE, 84", "BBOX(case).dy, GE, 54", "BBOX(case).zmin, LE, -6",
+          "BBOX(case).zmax, GE, 12.1", "OVERLAP(case, pcb), EQ, 0", "OVERLAP(case, J2), EQ, 0",
+          "OVERLAP(case, BT1), EQ, 0", "OVERLAP(case, J1), EQ, 0"],
+         setup='BOARD, "{templates}/controller.kicad_pcb", pcb',
+         reference="BLOCK, -4, -4, -9, 88, 58, 23\nNAME, LAST, case\nBLOCK, -2, -2, -7, 84, 54, 19\n"
+                   "SUBTRACT, case, LAST",
+         area="enclosure"),
     Task("strength",
          "The aluminium bracket carries 400 N straight down on its tip face (set tip) with the wall face (set "
          "wall) fixed. Make its plates thick enough for a safety factor of at least 2, keeping its 60 x 40 x 50 "
@@ -293,7 +304,12 @@ def fresh(task: Task):
     from ..commands import Processor
 
     p = Processor()
-    for res in p.run_script(task.setup) if task.setup else []:  # one history step per line
+    import os
+
+    from .. import templates
+
+    setup = task.setup.replace("{templates}", os.path.dirname(os.path.abspath(templates.__file__)))
+    for res in p.run_script(setup) if setup else []:  # one history step per line
         if not res.ok:
             raise RuntimeError(f"{task.name}: the setup failed: {res.message}")
     return p

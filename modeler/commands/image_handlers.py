@@ -43,34 +43,9 @@ def _file(p: Processor, file: str, what: str) -> str:
     return path
 
 
-@command(
-    "SDXF",
-    Arg("file", Path, help="a DXF drawing (ASCII)"),
-    Arg("scale", float, 1.0, "multiply its sizes by this (25.4: a drawing in inches into mm)"),
-    Arg("du", float, 0.0, "move it along the sketch's u"), Arg("dv", float, 0.0, "and v"),
-    Arg("layer", Text, "", "only this layer (none: all)"),
-    help="Read a 2D DXF drawing into the open sketch: SDXF, bracket.dxf · SDXF, part.dxf, 25.4 (inches) · "
-         "SDXF, plate.dxf, 1, -50, -30, OUTLINE (one layer, moved). Lines, arcs, circles, ellipses, polylines "
-         "(with their arcs) and splines come in as sketch curves, with ends that meet tied together, so closed "
-         "outlines EXTRUDE. Saved projects keep a copy of the file.",
-)
-def sdxf(p: Processor, file, scale, du, dv, layer):
-    sk = _active(p, "SDXF")
-    path = _file(p, file, "SDXF")
-    if scale <= 0:
-        raise CommandError("SDXF: the scale must be more than 0")
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            ents, notes = dx.read(f.read())
-    except dx.DxfError as exc:
-        raise CommandError(f"SDXF: {os.path.basename(path)}: {exc}") from None
-    want = layer.strip().strip('"').upper()
-    if want:
-        ents = [e for e in ents if e.layer.upper() == want]
-    if not ents:
-        raise CommandError("SDXF: nothing to read" + (f" on layer {layer.strip()}" if want else ""))
-    if len(ents) > MAX_ENTITIES:
-        raise CommandError(f"SDXF: {len(ents)} curves is too many (at most {MAX_ENTITIES}); pick a layer")
+def _place(p: Processor, sk, ents, scale: float, du: float, dv: float, what: str):
+    """Put DXF-style entities (geometry/dxfread.Entity) into the open sketch, scaled and moved, with
+    ends that meet tied together. Returns (curves made, count per kind)."""
 
     def tr(q):
         return (q[0] * scale + du, q[1] * scale + dv)
@@ -147,9 +122,94 @@ def sdxf(p: Processor, file, scale, du, dv, layer):
         sk._dedupe_ties()
         sk.solve()
     except SketchError as exc:
-        raise CommandError(f"SDXF: {exc}") from None
+        raise CommandError(f"{what}: {exc}") from None
+    return made, counts
+
+
+@command(
+    "SDXF",
+    Arg("file", Path, help="a DXF drawing (ASCII)"),
+    Arg("scale", float, 1.0, "multiply its sizes by this (25.4: a drawing in inches into mm)"),
+    Arg("du", float, 0.0, "move it along the sketch's u"), Arg("dv", float, 0.0, "and v"),
+    Arg("layer", Text, "", "only this layer (none: all)"),
+    help="Read a 2D DXF drawing into the open sketch: SDXF, bracket.dxf · SDXF, part.dxf, 25.4 (inches) · "
+         "SDXF, plate.dxf, 1, -50, -30, OUTLINE (one layer, moved). Lines, arcs, circles, ellipses, polylines "
+         "(with their arcs) and splines come in as sketch curves, with ends that meet tied together, so closed "
+         "outlines EXTRUDE. Saved projects keep a copy of the file.",
+)
+def sdxf(p: Processor, file, scale, du, dv, layer):
+    sk = _active(p, "SDXF")
+    path = _file(p, file, "SDXF")
+    if scale <= 0:
+        raise CommandError("SDXF: the scale must be more than 0")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            ents, notes = dx.read(f.read())
+    except dx.DxfError as exc:
+        raise CommandError(f"SDXF: {os.path.basename(path)}: {exc}") from None
+    want = layer.strip().strip('"').upper()
+    if want:
+        ents = [e for e in ents if e.layer.upper() == want]
+    if not ents:
+        raise CommandError("SDXF: nothing to read" + (f" on layer {layer.strip()}" if want else ""))
+    if len(ents) > MAX_ENTITIES:
+        raise CommandError(f"SDXF: {len(ents)} curves is too many (at most {MAX_ENTITIES}); pick a layer")
+
+    made, counts = _place(p, sk, ents, scale, du, dv, "SDXF")
     said = (f"read {len(made)} curves from {os.path.basename(path)} ("
             + ", ".join(f"{v} {k.lower()}{'s' if v != 1 else ''}" for k, v in sorted(counts.items())) + ")"
+            + (f"; left out: {', '.join(notes)}" if notes else ""))
+    return _store(p, sk, said)
+
+
+@command(
+    "SSVG",
+    Arg("file", Path, help="an SVG drawing (from Inkscape, Illustrator, a laser cutter's software ...)"),
+    Arg("scale", float, 1.0, "multiply its sizes by this (after its own size in mm)"),
+    Arg("du", float, 0.0, "move it along the sketch's u"), Arg("dv", float, 0.0, "and v"),
+    Arg("layer", Text, "", "only this layer or group (its label or id; none: all)"),
+    help="Read an SVG drawing into the open sketch: SSVG, logo.svg · SSVG, plate.svg, 1, -50, -30, CUT (one "
+         "layer, moved). Paths (lines, arcs, Beziers), rectangles, circles, ellipses, lines and polygons come in "
+         "as sketch curves at their size in mm (the file's width and viewBox, else 96 pixels to the inch), y "
+         "up, with ends that meet tied together so closed outlines EXTRUDE. Text and pictures are left out. "
+         "Saved projects keep a copy of the file.",
+)
+def ssvg(p: Processor, file, scale, du, dv, layer):
+    from ..core.model import UNITS
+    from ..geometry import svgread as sv
+
+    sk = _active(p, "SSVG")
+    path = _file(p, file, "SSVG")
+    if scale <= 0:
+        raise CommandError("SSVG: the scale must be more than 0")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            ents, notes, info = sv.read(f.read())
+    except sv.SvgError as exc:
+        raise CommandError(f"SSVG: {os.path.basename(path)}: {exc}") from None
+    want = layer.strip().strip('"').upper()
+    if want:
+        layers = sorted({e.layer for e in ents})
+        ents = [e for e in ents if e.layer.upper() == want]
+        if not ents:
+            raise CommandError(f"SSVG: nothing on layer {layer.strip()} (layers: {', '.join(layers) or 'none'})")
+    if not ents:
+        raise CommandError("SSVG: no shapes to read in the drawing")
+    if len(ents) > MAX_ENTITIES:
+        raise CommandError(f"SSVG: {len(ents)} curves is too many (at most {MAX_ENTITIES}); pick a layer")
+    k = scale * UNITS["MM"] / UNITS[p.model.units]  # the file is read in mm
+    made, _counts = _place(p, sk, ents, k, du, dv, "SSVG")
+    counts: dict[str, int] = {}
+    for e in ents:  # in the drawing's own words: a two-point piece with a bulge is an arc
+        kind = e.kind
+        if kind == "POLY":
+            kind = "ARC" if len(e.pts) == 2 and abs(e.pts[0][2]) > 1e-12 else "POLYLINE"
+        elif kind == "SPLINE":
+            kind = "CURVE"
+        counts[kind] = counts.get(kind, 0) + 1
+    size = f"{fmt_num(round(info['width'] * k, 3))} x {fmt_num(round(info['height'] * k, 3))}"
+    said = (f"read {len(made)} curves from {os.path.basename(path)}, {size} ("
+            + ", ".join(f"{v} {kind.lower()}{'s' if v != 1 else ''}" for kind, v in sorted(counts.items())) + ")"
             + (f"; left out: {', '.join(notes)}" if notes else ""))
     return _store(p, sk, said)
 

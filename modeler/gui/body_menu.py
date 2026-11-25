@@ -183,6 +183,9 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
     items.append(MenuItem("Colour…", [f"COLOR, {sel}, "], form="COLOR"))
     items.append(MenuItem("Layer…", [f"LAYER, , ADD, {sel}"], form="LAYER"))
     items.append(MenuItem("Material…", [f"MATERIAL, {sel}, "], form="MATERIAL"))
+    mat = model.body(bid).material if bid in model.bodies else ""
+    if mat:  # what is known of it: the material library
+        items.append(MenuItem(f"Material values ({mat.lower()})…", [f"MATLIB, SHOW, {mat}"], form="MATLIB"))
     items.append(MenuItem("Wrap in one closed skin…", [f"WRAPSKIN, {sel}, 1"], form="WRAPSKIN"))
     items += analysis_items(model, ids, bid)
     items += pattern_skip_items(model, bid, processor)

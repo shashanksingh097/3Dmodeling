@@ -105,7 +105,7 @@ PARAM = "="
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Parameters", (PARAM, "CONFIG", "USECONFIG", "CONFIGOFF", "DESIGNTABLE", "VARIANTS", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
-    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE", "SCHECK")),
+    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "SSVG", "STRACE", "IMAGE", "SCHECK")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
@@ -129,7 +129,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "ROTATE", "SCALE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
-    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
+    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "MATLIB", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL", "CMRENAME")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "CLASHFIX", "SECTION", "ECHO", "LIST")),
@@ -138,7 +138,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Make", ("PRINTCHECK", "MILL")),
     ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES", "SPOTWELD")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "BOARD", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
                             "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
 ]
 
@@ -275,6 +275,14 @@ _COMMAND_LABELS = {
     ("COLOR", "g"): "Green (if r, g, b)",
     ("COLOR", "b"): "Blue (if r, g, b)",
     ("MATERIAL", "target"): "Bodies",
+    ("BOARD", "file"): "Board file (.kicad_pcb, .emn)",
+    ("BOARD", "holes"): "Holes to cut",
+    ("BOARD", "height"): "Height of parts the file has none for (0: guess)",
+    ("BOARD", "lib"): "IDF library (.emp), if not next to it",
+    ("BOARD", "at"): "Place",
+    ("MATLIB", "kind"): "What to do",
+    ("MATLIB", "name"): "Material",
+    ("MATLIB", "values"): "Values (SET: E=69000 yield=276 ...)",
     ("MATERIAL", "name"): "Material",
     ("MATERIAL", "density"): "Density kg/m3 (new material only)",
     ("MATERIAL", "color"): "Colour (new material only)",
@@ -305,6 +313,11 @@ _EXTRA_CHOICES = {
     ("LIP", "mode"): ("LIP", "GROOVE"),
     ("WRAP", "mode"): ("ADD", "CUT"),
     ("SCULPT", "brush"): ("DRAW", "CLAY", "INFLATE", "SMOOTH", "FLATTEN", "PINCH", "CREASE", "GRAB"),
+    ("BOARD", "holes"): ("MOUNT", "ALL", "NONE"),
+    ("BOARD", "at"): ("ORIGIN", "CENTRE", "FILE"),
+    ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
+    ("MATLIB", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
+                         "NYLON", "PLA", "RUBBER", "WOOD", "GLASS"),
     ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "LAYERS", "MATERIALS"),
     ("MATERIAL", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
                            "NYLON", "PLA", "RUBBER", "WOOD", "GLASS", "NONE"),
@@ -346,6 +359,11 @@ def _label(name: str, cmd: str = "") -> str:
 
 def _choices(cmd: str, arg) -> tuple[str, ...]:
     got = _EXTRA_CHOICES.get((cmd, arg.name)) or assist._COMMAND_CHOICES.get((cmd, arg.name))
+    if (cmd, arg.name) in (("MATERIAL", "name"), ("MATLIB", "name")):  # the shared material library too
+        from ..core import matlib
+
+        got = tuple(dict.fromkeys([*[g for g in got if g != "NONE"], *sorted(matlib.library()),
+                                   *(["NONE"] if cmd == "MATERIAL" else [])]))
     if got:
         return tuple(got)
     if arg.type is str:
