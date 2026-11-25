@@ -64,6 +64,10 @@
             <translation>&amp;Importar…</translation>
         </message>
         <message>
+            <source>&amp;Layout</source>
+            <translation>&amp;Disposición</translation>
+        </message>
+        <message>
             <source>&amp;Link part file…</source>
             <translation>&amp;Vincular archivo de pieza…</translation>
         </message>
@@ -94,6 +98,10 @@
         <message>
             <source>&amp;Save</source>
             <translation>&amp;Guardar</translation>
+        </message>
+        <message>
+            <source>&amp;Tutorials</source>
+            <translation>&amp;Tutoriales</translation>
         </message>
         <message>
             <source>&amp;User guide (web)</source>
@@ -179,6 +187,10 @@ Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down</source>
         <message>
             <source>&lt;b&gt;Recent projects&lt;/b&gt;</source>
             <translation>&lt;b&gt;Proyectos recientes&lt;/b&gt;</translation>
+        </message>
+        <message>
+            <source>&lt;b&gt;Tutorials&lt;/b&gt;&lt;br&gt;Short lessons that check your model as you go.</source>
+            <translation>&lt;b&gt;Tutoriales&lt;/b&gt;&lt;br&gt;Lecciones cortas que comprueban su modelo mientras trabaja.</translation>
         </message>
         <message>
             <source>&lt;h2 style='margin:0'&gt;What would you like to make?&lt;/h2&gt;</source>
@@ -1026,6 +1038,10 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
             <translation>Preguntar al asistente</translation>
         </message>
         <message>
+            <source>Assembly</source>
+            <translation>Ensamblaje</translation>
+        </message>
+        <message>
             <source>Assert</source>
             <translation>Comprobar</translation>
         </message>
@@ -1120,6 +1136,10 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
         <message>
             <source>Axis…</source>
             <translation>Eje…</translation>
+        </message>
+        <message>
+            <source>Back</source>
+            <translation>Atrás</translation>
         </message>
         <message>
             <source>Back distance</source>
@@ -2451,6 +2471,10 @@ Runs: PLANE, P1, FACE, id</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Delete a saved layout</source>
+            <translation>Borrar una disposición guardada</translation>
+        </message>
+        <message>
             <source>Delete every body
 Runs: CLEAR</source>
             <translation type="unfinished" />
@@ -2710,6 +2734,10 @@ Runs: SDEL, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Do this step for me, so I can see how (TUTORIAL, SHOW)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>DO, or PREVIEW to only show and say what it would do (not kept)</source>
             <translation type="unfinished" />
         </message>
@@ -2824,8 +2852,16 @@ Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
             <translation>Plano</translation>
         </message>
         <message>
+            <source>drawing sketches: history and properties beside a big view (LAYOUT, sketch)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Drawings</source>
             <translation>Planos</translation>
+        </message>
+        <message>
+            <source>drawings and checks: history, parameters and the output (LAYOUT, drawing)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Drawings…</source>
@@ -2994,6 +3030,10 @@ Runs: ROUTES</source>
         </message>
         <message>
             <source>End the section view</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>End the tutorial; the model stays as it is (TUTORIAL, STOP)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3321,6 +3361,10 @@ Runs: EXPORT, format, file</source>
         <message>
             <source>Find the sheet metal in a solid made elsewhere: its base, thickness, bends (radius, angle, up or down) and walls, so UNFOLD, SHEETINFO and FLANGE work on it: TOSHEET, bracket · TOSHEET, bracket, 0.4. Only flanges bent straight off the base are found; parts with walls of several thicknesses are refused with the reason.</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Finish</source>
+            <translation>Terminar</translation>
         </message>
         <message>
             <source>Finish and extrude this sketch
@@ -4127,6 +4171,10 @@ Runs: IMPORT, format, file</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>In mm. A number may carry another unit: 2 in, 1/4 in, 25 mm + 2</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>in order across the other set</source>
             <translation type="unfinished" />
         </message>
@@ -4292,6 +4340,10 @@ Runs: SCON, COINCIDENT/ON, ...</source>
             <translation>Guardar la clave en este equipo (en un archivo que solo tu cuenta de usuario puede leer)</translation>
         </message>
         <message>
+            <source>Keep the panels as they are now under a name (LAYOUT, SAVE, name)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Keep the planes so far and cut along this one too (up to three)</source>
             <translation type="unfinished" />
         </message>
@@ -4451,6 +4503,10 @@ Runs: UNFOLD, body [, file.dxf]</source>
             <translation>Capa…</translation>
         </message>
         <message>
+            <source>Layout</source>
+            <translation>Disposición</translation>
+        </message>
+        <message>
             <source>Least draft angle</source>
             <translation>Ángulo de desmoldeo mínimo</translation>
         </message>
@@ -4502,11 +4558,11 @@ Runs: SDIM, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Length unit of the model (default MM)</source>
+            <source>Length unit of the model (default MM), used by EXPORT and by numbers typed with a unit (25 mm, 1/4 in, 0.5 m, 2 ft; angles 30 deg, 1.2 rad)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Length unit of the model (default MM). Used by EXPORT and the MM/CM/METER/INCH constants.</source>
+            <source>Length unit of the model (default MM), used by EXPORT and by numbers typed with a unit (25 mm, 1/4 in, 0.5 m, 2 ft; angles 30 deg, 1.2 rad). /UNITS alone says what is set. /UNITS, IN, SHOW shows numbers in inches without changing the model; /UNITS, MM, SHOW (the model's own units) goes back.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4744,6 +4800,10 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>making parts: the model tree, history, properties and parameters (LAYOUT, modelling)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>margin</source>
             <translation>margen</translation>
         </message>
@@ -4937,7 +4997,7 @@ Runs: SMIRROR, axis, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>MM, CM, M or IN</source>
+            <source>MM, CM, M or IN (with SHOW also FT)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4951,6 +5011,10 @@ Runs: SMIRROR, axis, ...</source>
         <message>
             <source>MODEL, a body (name or ID), SEL, or FACE / EDGE / VERTEX</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Modelling</source>
+            <translation>Modelado</translation>
         </message>
         <message>
             <source>Model…</source>
@@ -5246,6 +5310,10 @@ Runs: STRANSFORM, ...</source>
         <message>
             <source>New…</source>
             <translation>Nuevo…</translation>
+        </message>
+        <message>
+            <source>Next</source>
+            <translation>Siguiente</translation>
         </message>
         <message>
             <source>no parameter</source>
@@ -6136,6 +6204,10 @@ Runs: LAYER, name, ADD, SEL</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>putting parts together: the model tree, properties and parameters (LAYOUT, assembly)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Quick access</source>
             <translation>Acceso rápido</translation>
         </message>
@@ -6435,6 +6507,10 @@ Runs: PATTERN, ...</source>
         <message>
             <source>Report a problem (web)</source>
             <translation>Informar de un problema (web)</translation>
+        </message>
+        <message>
+            <source>Reset</source>
+            <translation>Restablecer</translation>
         </message>
         <message>
             <source>Reset all</source>
@@ -6765,6 +6841,14 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Save this layout</source>
+            <translation>Guardar esta disposición</translation>
+        </message>
+        <message>
+            <source>Save this layout…</source>
+            <translation>Guardar esta disposición…</translation>
+        </message>
+        <message>
             <source>Save this project as a template…</source>
             <translation>Guardar este proyecto como plantilla…</translation>
         </message>
@@ -6838,6 +6922,10 @@ Runs: SCON, EQUAL, a, b</source>
         </message>
         <message>
             <source>Sculpt: drag over a mesh body. Ctrl: the other way, Shift: smooth, [ ]: brush size, Esc: stop</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>sculpting: everything put away but the output, for the most room (LAYOUT, sculpt)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7074,6 +7162,10 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Short lessons that check your model as you go: your first part, sketch to solid, fixing a step</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Shortcut</source>
             <translation>Atajo</translation>
         </message>
@@ -7099,6 +7191,10 @@ Runs: DIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Show a picture of what a button makes in its tooltip</source>
+            <translation>Mostrar en la información emergente una imagen de lo que crea un botón</translation>
+        </message>
+        <message>
             <source>Show a picture on a plane at a known size, to sketch over it: IMAGE, front.jpg, XY, 240 (240 wide, its corner at the origin) · IMAGE, side.png, ZX, 240, -120, 0, 0.4 · IMAGE, CLEAR</source>
             <translation type="unfinished" />
         </message>
@@ -7122,6 +7218,10 @@ Runs: IMAGE, file, plane, width</source>
         <message>
             <source>Show in History</source>
             <translation>Mostrar en el historial</translation>
+        </message>
+        <message>
+            <source>Show me</source>
+            <translation>Muéstramelo</translation>
         </message>
         <message>
             <source>Show only these bodies and hide every other one: ISOLATE, SEL · ISOLATE, bracket · ISOLATE, pipes (a layer)</source>
@@ -7159,8 +7259,16 @@ Runs: SECTIONEDIT, plane, offset</source>
             <translation>Mostrar las herramientas adecuadas junto a lo elegido</translation>
         </message>
         <message>
+            <source>Show the view cube in the corner of the 3D view</source>
+            <translation>Mostrar el cubo de vista en la esquina de la vista 3D</translation>
+        </message>
+        <message>
             <source>Show this page when the app starts</source>
             <translation>Mostrar esta página al abrir</translation>
+        </message>
+        <message>
+            <source>SHOW: only the units numbers are shown in (status bar, Properties, SELINFO)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Show…</source>
@@ -8313,6 +8421,10 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The next step, once this one is done (TUTORIAL, NEXT)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the nominal size (0: the diameter of the picked round face)</source>
             <translation type="unfinished" />
         </message>
@@ -8338,6 +8450,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>The outside files the project reads (IMPORT, LIB, SDXF, IMAGE ...): the step that reads each, where it was found, and which are missing (the copy saved in the project is used then). RELINK points the project at one that moved.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The panels as the window first opens (LAYOUT, RESET)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8583,6 +8699,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the steepest overhang the printer manages without support, degrees from vertical</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The step before (TUTORIAL, BACK)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8833,6 +8953,10 @@ Runs: DRAFT, angle</source>
             <translation>Herramientas junto a la selección:</translation>
         </message>
         <message>
+            <source>Tooltips:</source>
+            <translation>Información emergente:</translation>
+        </message>
+        <message>
             <source>tooth length per unit of curvature (0: the longest tooth a tenth of the size)</source>
             <translation type="unfinished" />
         </message>
@@ -9067,6 +9191,14 @@ Runs: TOMESH, b then REMESH, b, size/150</source>
         <message>
             <source>turns wound tight at each end (closed ends), e.g. 1</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Tutorial</source>
+            <translation>Tutorial</translation>
+        </message>
+        <message>
+            <source>Tutorials</source>
+            <translation>Tutoriales</translation>
         </message>
         <message>
             <source>Twist</source>
@@ -9311,6 +9443,10 @@ Runs: SDIM, VDIST, ...</source>
         <message>
             <source>View</source>
             <translation>Vista</translation>
+        </message>
+        <message>
+            <source>View cube:</source>
+            <translation>Cubo de vista:</translation>
         </message>
         <message>
             <source>Volume</source>

@@ -88,6 +88,8 @@ Every numeric argument of every command is an expression.
 | `GAP(a, b)` | shortest distance between two bodies (0 when they touch or overlap) |
 | `VALID(b)`, `PIECES(b)` | 1 if the body passes `CHECK`, else 0; how many separate solids it is made of |
 | `NFACES(b)`, `NFACES(b, "cylinder")` | how many faces, or faces of one type (plane cylinder cone sphere torus bspline ...) |
+| `FAILED()`, `STEPS("FILLET")` | how many history steps fail now; how many steps run a command (all steps with no name) |
+| `SKETCHED("s")`, `SKETCHED("s", "circle")` | how many lines, circles, arcs ... sketch `s` holds (0 when there is no such sketch) |
 | `HOLES(b)`, `HOLES(b, d)`, `HOLES(b, d, 1)` | round holes in the body: all, of diameter `d`, and only through (1) or only blind (0) holes; section 23 |
 | `SYMMETRIC(b, "YZ")` | 1 if the body is its own mirror image in the plane (a base plane or a datum plane) |
 | `MINWALL(b)` | the thinnest wall of a solid (see `THICK`, section 23) |
@@ -335,7 +337,7 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Implicit and lattices | `IMPLICIT, name, f(x,y,z), x0,y0,z0, x1,y1,z1 [, step]` · `LATTICE, b, GYROID/SCHWARZ/DIAMOND/CUBIC/BCC/OCTET, cell, thickness [, skin [, step]]` (section 26) |
 | Projects | `SAVE [, file.m3d]` · `OPEN, file.m3d` · `OPEN, AUTOSAVE` · `NEW` (section 10) |
 | History | `UNDO` · `REDO` · `HIST ...` |
-| View & info | `VIEW, ISO/TOP/...` · `FIT` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
+| View & info | `VIEW, ISO/TOP/TOP FRONT/...` · `VIEW, TURN, LEFT/RIGHT/UP/DOWN/CW/CCW` · `VIEW, HOME` · `FIT` · `LAYOUT [, name/SAVE/RESET]` · `TUTORIAL [, name/NEXT/...]` · `LIST [, BODIES/PARAMS/MACROS/SETS/DATUMS/SKETCHES/SKETCH/LAYERS/MATERIALS]` · `ECHO, expr` · `HELP [, name]` |
 | Check and describe | `PROBE, RAY/POINT, ...` · `PROFILE, b, plane [, offset [, step, count]]` · `THICK, b [, below]` · `ASSERT, value [, op, ref [, tol]]` · `DESCRIBE [, b/SEL/FACE, id [, SUMMARY/FACES/EDGES]] [, JSON]` · `SELFOR [, kind, id]` · `LINT [, file]` · `DIFF [, first [, last]] [, JSON]` (section 23) |
 
 ## 8. Running scripts without the GUI
@@ -3679,7 +3681,7 @@ one load case: check the part you make with `STRESS`.
 
 Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.
 
-## 46. Everyday work: previews, picking, numbers, typed sizes, templates, errors, repeat and properties
+## 46. Everyday work: previews, picking, numbers, typed sizes, templates, errors, repeat, properties, units, the view cube, tutorials and layouts
 
 ### See a step before it runs: PREVIEW
 
@@ -3939,3 +3941,111 @@ changes are ordinary steps.
 The PATTERN report lists every copy with its number and middle. Pick a
 face of a copy and right click: "Leave out copy n of the pattern" edits the
 PATTERN step to add it to SKIP.
+### Numbers with units
+
+Any number in a command, a form field or a parameter may carry a unit:
+`mm`, `cm`, `m`, `in` (or `inch`), `ft` for lengths and `deg` or `rad` for
+angles. The number is turned into the model's units before it is used, so
+in a millimetre project `1 in` is 25.4 and `1/4 in` is 6.35. Brackets take a
+unit too: `(W/4) in`. Text in quotes is left alone.
+
+    BLOCK, 0,0,0, 2 in, 1 in, 6 mm
+    HOLE, plate, 1 in, 0.5 in, 6 mm, 1/4 in
+    W = 3/8 in
+    ROTATE, plate, 0.5 rad, 0,0,0, 0,0,1
+
+`/UNITS, IN, SHOW` changes only the units numbers are *shown* in (the
+status bar, the Properties panel, `SELINFO`), not the model. In the
+Properties panel a plain number is read in the shown units. Forms show the
+unit beside every length and angle field. `/UNITS` alone says what is set.
+
+    /UNITS, MM                   ! the model is in millimetres
+    /UNITS, IN, SHOW             ! ... shown in inches
+    /UNITS                       ! units MM, numbers shown in inches
+
+### The view cube and VIEW
+
+The small cube in the top right corner of the 3D view turns the view: click
+a face to look straight at it, an edge for the view between two faces, a
+corner for an iso view from that corner. The arrows round it turn the model
+by 90 degrees (left, right, up, down) or roll the view (the curved arrows),
+and the house goes back to the standard view with everything in sight.
+Every click writes the ordinary `VIEW` line, so it works the same typed:
+
+    VIEW, TOP                    ! a face: TOP BOTTOM FRONT BACK LEFT RIGHT (ISO too)
+    VIEW, TOP FRONT              ! an edge
+    VIEW, TOP FRONT RIGHT        ! a corner (the same as ISO)
+    VIEW, TURN, LEFT             ! LEFT RIGHT UP DOWN, CW CCW: turn by 90 degrees
+    VIEW, HOME                   ! iso, everything in sight
+
+Preferences > View cube hides it. The assistant's `view_state` tool says
+where the view looks from, which way is up, the cube name of the view and
+which bodies are in sight.
+
+### Learning by doing: TUTORIAL
+
+Help > Tutorials opens the Tutorial panel with short lessons: **Your first
+part** (a shape, a name, sizes in Properties, holes, fillets), **From a
+sketch to a solid** and **Fixing a step that failed**. Each starts a new
+project. A step says what to do and which button does it, and its checks
+look at the model itself, so it does not matter whether you click, type or
+ask the assistant: the checks turn green and **Next** lights up the moment
+the step is done. **Show me** does the step for you.
+
+    TUTORIAL                     ! the list
+    TUTORIAL, first_part         ! start one (a new project)
+    TUTORIAL, first_part, NEW    ! ... even with unsaved changes
+    TUTORIAL, CHECK              ! what is done and what is still missing
+    TUTORIAL, HINT               ! what to type
+    TUTORIAL, SHOW               ! do it for me
+    TUTORIAL, NEXT               ! on to the next step (only once this one is done)
+    TUTORIAL, BACK
+    TUTORIAL, STOP               ! the model stays as it is
+    TUTORIAL, JSON
+
+Write your own as a text file `name.tut` in the `tutorials` folder beside
+your templates folder:
+
+    ! tutorial: bracket
+    ! title: An angle bracket
+    ! about: what it teaches, in one line
+    ! start: W = 40                (steps the project starts with, if any)
+
+    ## Make the base
+    The text of the step. **Bold** for buttons, `code` for values.
+    hint: BLOCK, 0, 0, 0, W, 30, 5           (what Show me runs)
+    check: BBOX(LAST).dx, EQ, 40 ! 40 long   (an ASSERT check, then the words shown)
+
+A step without `check:` lines is one to read; Next goes on. The assistant's
+`tutorial` tool gives the lesson as data, and its `tutor` skill helps with
+the step the user is on.
+
+### Pictures in tooltips
+
+Hover a ribbon button to see a small picture of what it makes, from the
+same examples as the user guide's command pages, under what it does and the
+command it runs. Preferences > Tooltips turns the pictures off.
+
+### Layouts: LAYOUT
+
+View > Layout shows the panels for the job at hand:
+
+| Layout | Panels | Ribbon tab |
+| --- | --- | --- |
+| modelling | Model tree, History, Properties, Parameters, Output | Model |
+| sketch | History, Properties, Output (a bigger view) | Sketch |
+| assembly | Model tree, History, Properties, Parameters (in front), Output | Model |
+| drawing | History, Parameters, Output | Inspect |
+| sculpt | only a small Output (the most room) | Sculpt |
+
+Arrange the panels your own way and keep it with **Save this layout…**:
+
+    LAYOUT, sketch
+    LAYOUT, SAVE, mine           ! the window as it is now
+    LAYOUT, mine                 ! back to it
+    LAYOUT, DELETE, mine
+    LAYOUT, RESET                ! the panels as the window first opens
+    LAYOUT                       ! the list (LAYOUT, JSON as data)
+
+Layouts are kept with your settings, not in the project, and `LAYOUT` is
+not a history step.

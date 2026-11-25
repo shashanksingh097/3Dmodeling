@@ -79,3 +79,5 @@ from . import template_handlers  # noqa: F401  (TEMPLATE, and NEW, template: pro
 from . import why_handlers  # noqa: F401  (WHY: why a step failed, with the faces at fault in red)
 from . import repeat_handlers  # noqa: F401  (REPEAT: the last step again, on a new pick)
 from . import props_handlers  # noqa: F401  (PROPS: a body's properties, each one changeable)
+from . import tutorial_handlers  # noqa: F401  (TUTORIAL: lessons checked against the model)
+from . import layout_handlers  # noqa: F401  (LAYOUT: the panels for the job at hand)

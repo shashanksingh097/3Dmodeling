@@ -195,18 +195,31 @@ def properties(p: Processor, bid: int) -> dict[str, Any]:
         add("part", m.instances[bid][0].lower(), "body", "", "a copy of this part (INST)")
     if nums.get("kind"):
         add("kind", nums["kind"], "body")
+    k = _show_factor(p)
     c = _centre(p, bid)
     for axis, v in zip("xyz", c):
-        add(axis, v, "where", "MOVE", f"the centre of its box in {axis.upper()}; a new value moves the body")
+        add(axis, _r(v * k), "where", "MOVE",
+            f"the centre of its box in {axis.upper()}; a new value moves the body (a unit may be typed: 2 in)")
     add("turn", "", "where", "ROTATE", "type an axis and an angle, e.g. Z 90: turns it about its centre")
     add("colour", _hex(b.color) if b.color else "", "look", "COLOR",
         "its own colour; empty: the colour of its layer or material")
     add("layer", b.layer.lower(), "look", "LAYER")
     add("material", b.material.lower(), "look", "MATERIAL")
+    from .selinfo import _unit, shown
+
+    nums = shown(p, nums)
     for key in ("size", "volume", "area", "mass_kg", "centre"):
         if key in nums:
             add("centre of mass" if key == "centre" else key.replace("_kg", " (kg)"), nums[key], "numbers")
-    return {"body": bid, "label": _label(p, bid), "units": m.units.lower(), "rows": rows + step_rows(p, bid)}
+    return {"body": bid, "label": _label(p, bid), "units": _unit(p), "rows": rows + step_rows(p, bid)}
+
+
+def _show_factor(p: Processor) -> float:
+    """Lengths in the model's units times this are in the units numbers are shown in."""
+    from ..core.units import factor
+
+    m = p.model
+    return factor(m.units, m.show_units) if m.show_units and m.show_units != m.units else 1.0
 
 
 def set_line(p: Processor, bid: int, key: str, value: str) -> str:
@@ -219,10 +232,14 @@ def set_line(p: Processor, bid: int, key: str, value: str) -> str:
             raise CommandError("PROPS: a name is a word of letters, digits and _ that starts with a letter")
         return f"NAME, {ref}, {v}"
     if k in ("x", "y", "z"):
+        from ..core.units import has_unit
+
         try:
             new = float(p.evaluator.eval(v))
         except Exception as exc:  # noqa: BLE001
             raise CommandError(f"PROPS: {k} needs a number ({exc})") from None
+        if not has_unit(v):
+            new /= _show_factor(p)  # a plain number is in the units the table shows
         c = _centre(p, bid)
         d = [0.0, 0.0, 0.0]
         d["xyz".index(k)] = _r(new - c["xyz".index(k)])
