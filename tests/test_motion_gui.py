@@ -57,3 +57,23 @@ def test_slider_drives_and_close_lets_go(app, win, tmp_path):
     assert len(saved) == 5 and all(os.path.getsize(f) > 1000 for f in saved)
     dlg.close()
     assert not win.processor.drive and win.processor.params["A"] == 0
+
+
+def test_study_plots_and_table(win, app, tmp_path):
+    from modeler.gui.motion_panel import open_motion
+
+    assert win.execute("MATERIAL, lid, ALUMINIUM").ok
+    dlg = open_motion(win)
+    dlg.param.setCurrentText("A")
+    dlg.start.setValue(0)
+    dlg.end.setValue(60)
+    dlg.steps.setValue(6)
+    dlg.points.setText("lid 40,30,7")
+    msg = dlg.study()
+    assert "motion study" in msg and "drive torque" in msg
+    assert [s[0] for s in dlg.plot.series] == ["lid speed", "lid acceleration", "drive torque"]
+    dlg.plot.grab()  # it paints
+    f = tmp_path / "study.csv"
+    dlg.save_table(str(f))
+    assert f.read_text().startswith("A,time_s")
+    dlg.close()
