@@ -38,9 +38,10 @@ if TYPE_CHECKING:
 APP_NAME = "3Dmodeling"
 MAX_RECENT = 8
 
-IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
+IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.scad *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
                  "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf *.xyz *.pts *.e57);;"
                  "Exact shapes (*.step *.stp *.iges *.igs *.brep);;"
+                 "OpenSCAD (*.scad);;"
                  "Meshes (*.stl *.obj *.3mf *.glb *.gltf *.ply *.off);;"
                  "Point clouds (*.xyz *.pts *.e57 *.ply *.txt *.csv);;"
                  "Simulation meshes (*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;All files (*)")
@@ -53,13 +54,16 @@ EXPORT_FILTERS = {
     "glTF binary (*.glb)": "GLTF",
     "glTF text (*.gltf)": "GLTF",
     "BREP, Open CASCADE (*.brep)": "BREP",
+    "VRML (*.wrl)": "VRML",
+    "AMF for 3D printing (*.amf)": "AMF",
 }
 _EXT_FORMAT = {".step": "STEP", ".stp": "STEP", ".stl": "STL", ".brep": "BREP",
                ".iges": "IGES", ".igs": "IGES", ".obj": "OBJ", ".3mf": "3MF", ".glb": "GLTF",
                ".gltf": "GLTF", ".ply": "PLY", ".off": "OFF", ".vtk": "VTK", ".vtu": "VTK",
-               ".xyz": "XYZ", ".pts": "PTS", ".e57": "E57", ".txt": "XYZ", ".csv": "XYZ"}
+               ".xyz": "XYZ", ".pts": "PTS", ".e57": "E57", ".txt": "XYZ", ".csv": "XYZ",
+               ".scad": "SCAD", ".wrl": "VRML", ".vrml": "VRML", ".amf": "AMF"}
 _DEFAULT_EXT = {"STEP": ".step", "IGES": ".igs", "STL": ".stl", "BREP": ".brep", "OBJ": ".obj",
-                "3MF": ".3mf", "GLTF": ".glb"}
+                "3MF": ".3mf", "GLTF": ".glb", "VRML": ".wrl", "AMF": ".amf"}
 
 
 def _quote(path: str) -> str:

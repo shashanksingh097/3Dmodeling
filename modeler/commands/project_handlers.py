@@ -30,7 +30,7 @@ from .processor import Arg, CommandError, Path, Processor, Text, command
 
 PROJECT_VERSION = 1
 _IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH", "XYZ", "PTS",
-                   "E57")
+                   "E57", "SCAD")
 POINT_FORMATS = ("XYZ", "PTS", "E57")
 # formats read as triangles (a faceted body); MESH takes any file meshio reads, by its extension
 MESH_FORMATS = ("STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
@@ -207,9 +207,42 @@ def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
     return out or [shape]
 
 
+def _import_scad(p: Processor, path: str, name: str) -> str:
+    """OpenSCAD's constructive part as exact bodies: one per top-level object (PLAN item 101)."""
+    from ..geometry import robust
+    from ..geometry import scad
+    from .handlers import _added
+
+    fname = os.path.basename(path)
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            shapes, counts = scad.read(fh.read())
+    except scad.ScadError as exc:
+        raise CommandError(f"IMPORT: {fname}: {exc}") from None
+    except RecursionError:
+        raise CommandError(f"IMPORT: {fname}: a module calls itself without end") from None
+    shapes = [s for s in shapes if s is not None and not robust.is_empty(s)]
+    if not shapes:
+        raise CommandError(f"IMPORT: {fname} makes no shapes")
+    msgs, flat = [], 0
+    for k, s in enumerate(shapes):
+        s = robust.unwrap(s)
+        if not robust.solids(s):
+            flat += 1
+        body = p.model.add_body(s, name if (name and k == 0) else "")
+        msgs.append(_added(p, body, "IMPORT"))
+    if flat:
+        p.warn(f"IMPORT: {flat} top-level object{'s are' if flat != 1 else ' is'} flat (2D); EXTRUDE or "
+               "linear_extrude makes a solid")
+    used = ", ".join(f"{v} {k}" for k, v in sorted(counts.items(), key=lambda kv: -kv[1])[:6])
+    head = f"IMPORT {fname}: {len(shapes)} bod{'y' if len(shapes) == 1 else 'ies'} from OpenSCAD ({used})"
+    return "\n".join([head] + ["  " + m for m in msgs])
+
+
 @command(
     "IMPORT",
-    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57"),
+    Arg("format", str, help="STEP, IGES, BREP, SCAD, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, "
+                            "PTS, E57"),
     Arg("file", Path),
     Arg("name", Text, "", "name for the (first) imported body"),
     Arg("kind", str, "AUTO", "for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), "
@@ -220,7 +253,9 @@ def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
          "volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH "
          "reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). "
          "XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, "
-         "thinned to at most 200,000 points. Saved projects keep a copy of the file.",
+         "thinned to at most 200,000 points. SCAD reads an OpenSCAD file's solids, flat shapes, extrusions, "
+         "transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. Saved "
+         "projects keep a copy of the file.",
 )
 def import_(p: Processor, format, file, name, kind):
     if format not in _IMPORT_FORMATS:
@@ -237,6 +272,8 @@ def import_(p: Processor, format, file, name, kind):
     if format in POINT_FORMATS or (format == "PLY" and (kind == "POINTS" or _ply_faces(path) == 0)) \
             or (kind == "POINTS" and format in MESH_FORMATS):
         return _import_points(p, format, path, name)
+    if format == "SCAD":
+        return _import_scad(p, path, name)
     if format in MESH_FORMATS:
         from ..geometry import meshbody, meshfiles
 
@@ -365,7 +402,7 @@ def _imports_in(p: Processor) -> list[str]:
         for st in stmts:
             name = getattr(st, "name", None)
             args = getattr(st, "args", [])
-            if name in ("SDXF", "STRACE", "IMAGE") and args and args[0].strip().strip('"').upper() != "CLEAR":
+            if name in ("SDXF", "SSVG", "STRACE", "IMAGE") and args and args[0].strip().strip('"').upper() != "CLEAR":
                 raw = st.args[0].strip()
                 if len(raw) >= 2 and raw[0] in "\"'" and raw[-1] == raw[0]:
                     raw = raw[1:-1]

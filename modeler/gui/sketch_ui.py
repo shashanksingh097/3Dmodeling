@@ -148,6 +148,9 @@ class SketchUI:
                 ("From DXF…", "s_dxf", "SDXF", "Bring a 2D DXF drawing's lines, arcs, circles, polylines and splines "
                                                "into this sketch, joined where they meet\nRuns: SDXF, file [, scale, "
                                                "du, dv, layer]"),
+                ("From SVG…", "s_dxf", "SSVG", "Bring an SVG drawing's paths, rectangles, circles and ellipses into "
+                                               "this sketch at their size in mm, joined where they meet\nRuns: "
+                                               "SSVG, file [, scale, du, dv, layer]"),
                 ("Trace picture…", "s_trace", "STRACE", "Trace the outlines of the dark shapes in a picture into this "
                                                         "sketch, as smooth curves or straight pieces\n"
                                                         "Runs: STRACE, file, width [, threshold, du, dv]"),

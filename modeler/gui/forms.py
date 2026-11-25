@@ -103,7 +103,7 @@ PARAM = "="
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Parameters", (PARAM, "CONFIG", "USECONFIG", "CONFIGOFF", "DESIGNTABLE", "VARIANTS", "DRIVE")),
     ("Solids", ("BLOCK", "CYL", "TUBE", "SPHERE", "CONE", "TORUS", "WEDGE", "SPRING")),
-    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "STRACE", "IMAGE", "SCHECK")),
+    ("Sketch", ("SKETCH", "EXTRUDE", "REVOLVE", "SDXF", "SSVG", "STRACE", "IMAGE", "SCHECK")),
     ("Curves", ("LINE", "ARC", "POLYLINE", "SPLINE", "HELIX", "CURVE", "TRACE")),
     ("Profiles", ("CIRCLE", "ELLIPSE", "RECT", "POLYGON", "STAR", "SLOT", "AIRFOIL")),
     ("Shapes from curves", ("LOFT", "SPINELOFT", "SWEEP", "RAILSWEEP", "MORPH", "PIPE")),
