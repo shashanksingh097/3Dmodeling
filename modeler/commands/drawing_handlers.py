@@ -27,7 +27,7 @@ def _exact_extent(bodies) -> dict[str, float] | None:
 
 def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale, section, detail,
                extra: dict | None = None, template=None, tables: str = "", sheet_notes: list | None = None,
-               placed: list | None = None):
+               placed: list | None = None, moves: dict | None = None):
     """The views of one sheet, laid out (and on paper when there is one): (views, bounds, page or None,
     bodies, sizes written, notes placed)."""
     from ..geometry import drawing as dr
@@ -127,7 +127,7 @@ def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale,
             p.warn(f"{what}: {w}")
         if placed is not None:
             placed.extend(got)
-    bounds = dr.layout(out)
+    bounds = dr.layout(out, moves)
     page = None
     sheet_tables, marks = [], []
     if tables and paper != "NONE":

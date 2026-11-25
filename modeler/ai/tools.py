@@ -469,6 +469,16 @@ class Toolbox:
         out["active_sketch"] = m.active_sketch or ""
         wp = getattr(m, "workplane", None)
         out["workplane"] = getattr(wp, "name", "") if wp is not None else "XY (default)"
+        # which project this is, and the others open in tabs (PLAN item 109): only the shown one is worked on
+        out["project"] = {"file": p.project_path or "not saved yet"}
+        try:
+            tabs = view.window().project_tabs if view is not None else None
+            if tabs is not None and tabs.count() > 1:
+                out["project"]["open_tabs"] = tabs.labels()
+                out["project"]["shown_tab"] = tabs.current + 1
+                out["project"]["note"] = "you work on the shown tab; the user switches tabs"
+        except Exception:  # noqa: BLE001 - no window (scripts, tests)
+            pass
         return out
 
     def selector_for(self, kind: str, id: int, where: str = "model"):

@@ -1,7 +1,7 @@
 ---
 name: editing-a-model
 description: Change a model that already exists - a size, a hole position, a failing step - by editing its history (parameter lines first) instead of adding patches on top. Use for "make it wider", "move the holes", "change the bolt size".
-commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES, SECTIONEDIT, PUSHPULL
+commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES, SECTIONEDIT, PUSHPULL, UPTO, COPY, PASTE
 ---
 # Editing a model
 
@@ -34,7 +34,16 @@ Adding a `MOVE` or a `SUBTRACT` on top works once and breaks the next edit.
    The report's `draw` gives the steps that start a sketch on the plane,
    to add or remove material with `EXTRUDE, sketch, d, ADD` or `CUT`.
    `SECTIONEDIT, OFF` ends it; it is not kept in the history.
-7. In the assistant: try the edit with `round_trip` or in the sandbox,
+7. **Up to another part**: `UPTO, b, FACE, n` moves body b along the
+   face's normal until it touches it (`UPTO, b, VERTEX, n, Z, 2` along Z,
+   2 short); `UPTO, FACES 6 7, FACE, n` pulls flat faces level with face n.
+   A person gets the same from a drag that snaps to the other part (the
+   label says "to a corner of body ...") or from Move up to… / Pull up to….
+   Prefer one UPTO over working out a MOVE distance by hand.
+8. **Copies**: a person's Ctrl+V writes `COPY, b, dx, dy, dz` (same
+   project) or `PASTE, CLIP1, dx, dy, dz` (geometry kept from another
+   project; `PASTE, LIST` lists it). Write COPY for copies you make.
+9. In the assistant: try the edit with `round_trip` or in the sandbox,
    then hand it over with `propose_edits` (not `propose_commands`), so the
    user sees old and new text per step.
 

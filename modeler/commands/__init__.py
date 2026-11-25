@@ -84,4 +84,8 @@ from . import repeat_handlers  # noqa: F401  (REPEAT: the last step again, on a 
 from . import props_handlers  # noqa: F401  (PROPS: a body's properties, each one changeable)
 from . import tutorial_handlers  # noqa: F401  (TUTORIAL: lessons checked against the model)
 from . import layout_handlers  # noqa: F401  (LAYOUT: the panels for the job at hand)
+from . import clip_handlers  # noqa: F401  (PASTE: copy and paste between projects)
+from . import upto_handlers  # noqa: F401  (UPTO: move or pull up to a face, edge or vertex)
+from . import spacemouse_handlers  # noqa: F401  (SPACEMOUSE: the 3D mouse's settings)
+from . import detail_handlers  # noqa: F401  (DETAIL: how much the 3D view draws)
 from . import edit_impact  # noqa: F401  (EDITCHECK: what a change of a step would break, and the direct way)

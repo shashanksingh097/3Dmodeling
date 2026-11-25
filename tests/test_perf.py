@@ -13,7 +13,7 @@ from modeler.core.model import Model
 def test_the_quick_benchmark_is_within_its_budgets():
     result = perf.run(quick=True, out=lambda *_: None)
     assert set(result["cases"]) == {"build plate", "import STEP", "pick faces", "drawing", "save", "open",
-                                    "long history", "rebuild after edit"}
+                                    "long history", "rebuild after edit", "big assembly"}
     assert all(r["memory_mb"] > 0 for r in result["cases"].values())
     with open(perf.BUDGETS, encoding="utf-8") as f:
         budgets = json.load(f)

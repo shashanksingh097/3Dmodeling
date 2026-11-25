@@ -1,7 +1,7 @@
 ---
 name: assembly-and-motion
 description: Assemblies - reusable parts placed as copies, parts mated against each other, a mechanism moved by a parameter (DRIVE, MOTION), clash, contact and gravity checks, and the parts list. Use for anything with more than one part, hinges, linkages, mechanisms.
-commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL, CLASH, CLASHFIX
+commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL, CLASH, CLASHFIX, DETAIL
 ---
 # Assemblies and motion
 
@@ -73,5 +73,8 @@ ASSERT, OVERLAP(lid, base), EQ, 0
 * Parts that stick through each other at some angles only: a check at one
   position is not enough; run MOTION over the whole range.
 * Using body numbers for copies (`4`, `5`): name them.
+* Copying a body many times with COPY for a big assembly: place copies of
+  a *PART with INST instead; they share one mesh and stay quick to draw.
+  If the user says turning the view is slow, `DETAIL, FAST` draws less.
 * GRAVITY reports a hinged or bolted part as tipping: list it as fastened
   once the hinge or bolts are really there.

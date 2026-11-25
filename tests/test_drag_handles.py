@@ -223,3 +223,25 @@ def test_typed_value_and_escape_in_the_view(win):
     QTest.mouseRelease(vp, Qt.LeftButton, Qt.NoModifier, a)
     app.processEvents()
     assert len(w.processor.history) == n + 2  # the PUSHPULL and the SEL; nothing from the cancelled drag
+
+
+def test_drag_snaps_to_other_bodies(monkeypatch):
+    """PLAN item 108: a drag comes level with a corner of another body when near it."""
+    p = Processor()
+    ok(p, "BLOCK, 0,0,0, 10,10,10\nNAME, LAST, box\nBLOCK, 30.4,0,0, 5,5,5\nNAME, LAST, post\nPICK, BODY, 1")
+    hs = dh.Handles.for_model(p.model)
+    assert hs.anchors and any("post" in w for _, w in hs.targets)
+    to_pixel, ray = _ortho_top()
+    xh = next(h for h in hs.items if h.name == "X" and h.kind == "MOVE")
+    mid = tuple((a + b) / 2 for a, b in zip(xh.origin, xh.tip))
+    assert hs.press(*to_pixel(mid), to_pixel, ray)
+    # 20.2 along X: the box's right side (x=10) comes within 1 px of the post's left side (x=30.4)
+    end = (mid[0] + 20.3, mid[1], mid[2])
+    hs.move(ray(*to_pixel(end)), to_pixel=to_pixel)
+    assert hs.amount == pytest.approx(20.4) and "post" in hs.readout()
+    hs.move(ray(*to_pixel(end)), free=True, to_pixel=to_pixel)  # Shift: no snapping
+    assert hs.amount == pytest.approx(20.3) and hs.drag.snapped is None
+    # far from any snap point: the grid
+    hs.move(ray(*to_pixel((mid[0] + 5.2, mid[1], mid[2]))), to_pixel=to_pixel)
+    assert hs.amount == pytest.approx(5) and hs.drag.snapped is None
+    assert hs.release() == "MOVE, box, 5, 0, 0"
