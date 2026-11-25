@@ -31,6 +31,8 @@ include = ["modeler*"]
 [tool.setuptools.package-data]
 "modeler.skills" = ["*/SKILL.md", "*/example.cmd"]
 "modeler.templates" = ["*.cmd"]
+"modeler.tutorials" = ["*.tut"]
+"modeler.gui" = ["tip_pictures/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

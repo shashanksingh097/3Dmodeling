@@ -273,6 +273,7 @@ class Model:
         self.named_sets: dict[str, tuple[str, list[int]]] = {}  # NAME -> (kind, ids)
         self.last_body: int = 0
         self.units: str = "MM"
+        self.show_units: str = ""  # the units numbers are shown in ("": the model's), /UNITS, IN, SHOW
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
         self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
@@ -376,6 +377,7 @@ class Model:
             "named_sets": copy.deepcopy(self.named_sets),
             "last_body": self.last_body,
             "units": self.units,
+            "show_units": self.show_units,
             "tolerance": self.tolerance,
             "hidden": set(self.hidden),
             "keep": self.keep,
@@ -414,6 +416,7 @@ class Model:
         self.named_sets = copy.deepcopy(snap["named_sets"])
         self.last_body = snap["last_body"]
         self.units = snap["units"]
+        self.show_units = snap.get("show_units", "")
         self.tolerance = snap["tolerance"]
         self.hidden = set(snap.get("hidden", ()))
         self.keep = snap.get("keep", False)

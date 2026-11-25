@@ -1384,13 +1384,36 @@ def cmdel(p: Processor, name):
 # =============================================================================
 
 
-@command("/UNITS", Arg("unit", str, help="MM, CM, M or IN"),
-         help="Length unit of the model (default MM). Used by EXPORT and the MM/CM/METER/INCH constants.")
-def units(p: Processor, unit):
+@command("/UNITS", Arg("unit", str, "", help="MM, CM, M or IN (with SHOW also FT)"),
+         Arg("mode", str, "", help="SHOW: only the units numbers are shown in (status bar, Properties, SELINFO)"),
+         help="Length unit of the model (default MM), used by EXPORT and by numbers typed with a unit "
+              "(25 mm, 1/4 in, 0.5 m, 2 ft; angles 30 deg, 1.2 rad). /UNITS alone says what is set. "
+              "/UNITS, IN, SHOW shows numbers in inches without changing the model; /UNITS, MM, SHOW (the "
+              "model's own units) goes back.")
+def units(p: Processor, unit, mode):
+    from ..core.units import MM_PER, unit_name
+
+    m = p.model
+    if not unit:
+        shown = m.show_units or m.units
+        return (f"units {m.units}" + (f", numbers shown in {unit_name(shown)}" if shown != m.units else "")
+                + "; any number may carry a unit: 25 mm, 1/4 in, 0.5 m, 2 ft, 30 deg")
+    if mode == "SHOW":
+        if unit not in MM_PER:
+            raise CommandError(f"/UNITS, SHOW: use one of {', '.join(MM_PER)}")
+        m.show_units = "" if unit == m.units else unit
+        return f"numbers shown in {unit_name(unit)} (the model stays in {unit_name(m.units)})"
+    if mode:
+        raise CommandError("/UNITS: the second argument is SHOW, or nothing")
     if unit not in UNITS:
         raise CommandError(f"/UNITS: use one of {', '.join(UNITS)}")
-    p.model.units = unit
+    m.units = unit
+    if m.show_units == unit:
+        m.show_units = ""
     return f"units {unit}"
+
+
+REGISTRY["/UNITS"].queries = ("",)  # /UNITS alone only says what is set
 
 
 @command("/TOL", Arg("tol", help="0 = exact"), help="Extra tolerance for booleans and geometric selection.")
@@ -1697,13 +1720,43 @@ def pickregion(p: Processor, tool):
     return {"BOX": "box pick on: drag a box", "LASSO": "lasso pick on: draw a loop"}.get(t, "region pick off")
 
 
-@command("VIEW", Arg("name", str, "ISO", help=", ".join(VIEWS)), logged=False, help="Standard view direction.")
-def view(p: Processor, name):
-    if name not in VIEWS:
-        raise CommandError(f"VIEW: use one of {', '.join(VIEWS)}")
+@command("VIEW", Arg("name", Raw, "ISO", help=", ".join(VIEWS) + ", two or three sides (TOP FRONT, TOP FRONT "
+                                                 "RIGHT), HOME or TURN"),
+         Arg("how", str, "", help="with TURN: LEFT, RIGHT, UP, DOWN, CW or CCW (90 degrees)"),
+         logged=False,
+         help="Turn the view: VIEW, TOP (FRONT, RIGHT, ISO ...) looks from a side; VIEW, TOP FRONT from an edge "
+              "of the view cube and VIEW, TOP FRONT RIGHT from a corner; VIEW, TURN, LEFT turns the model 90 "
+              "degrees (RIGHT, UP, DOWN, CW, CCW); VIEW, HOME is the iso view with everything in sight. The view "
+              "cube in the corner of the 3D view writes these.")
+def view(p: Processor, name, how):
+    from ..core import views as vw
+
+    raw = (name or "ISO").strip().strip('"').upper()
+    if raw == "TURN":
+        if how not in vw.TURNS:
+            raise CommandError(f"VIEW, TURN: use one of {', '.join(vw.TURNS)}")
+        if p.view and hasattr(p.view, "turn_view"):
+            p.view.turn_view(how)
+            got = p.view.view_name() if hasattr(p.view, "view_name") else ""
+            return f"view turned {how.lower()}" + (f": from {got.lower()}" if got else "")
+        return f"view turned {how.lower()}"
+    if raw == "HOME":
+        if p.view:
+            p.view.set_view("ISO")
+            if hasattr(p.view, "fit"):
+                p.view.fit()
+        return "view home (iso, everything in sight)"
+    if raw in VIEWS:
+        if p.view:
+            p.view.set_view(raw)
+        return f"view {raw}"
+    canon = vw.canonical(raw)
+    if not canon:
+        raise CommandError(f"VIEW: use one of {', '.join(VIEWS)}, two or three sides that are not opposite "
+                           "(TOP FRONT, BOTTOM BACK LEFT), HOME or TURN, LEFT")
     if p.view:
-        p.view.set_view(name)
-    return f"view {name}"
+        p.view.set_view(canon)
+    return f"view {canon}"
 
 
 @command("FIT", Arg("target", Raw, "", "a body, SEL or several bodies (3 5 7); empty: everything"), logged=False,

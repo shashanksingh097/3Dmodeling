@@ -169,6 +169,18 @@ class PreferencesDialog(QDialog):
         self.start_page.setChecked(start_page.enabled(win))
         self.start_page.toggled.connect(lambda on: start_page.set_enabled(win, on))
         form.addRow("Start page:", self.start_page)
+        from .main_window import set_view_cube_enabled, view_cube_enabled
+
+        self.view_cube = QCheckBox("Show the view cube in the corner of the 3D view")
+        self.view_cube.setChecked(view_cube_enabled(win))
+        self.view_cube.toggled.connect(lambda on: set_view_cube_enabled(win, on))
+        form.addRow("View cube:", self.view_cube)
+        from . import picture_tips
+
+        self.picture_tips = QCheckBox("Show a picture of what a button makes in its tooltip")
+        self.picture_tips.setChecked(picture_tips.enabled(win))
+        self.picture_tips.toggled.connect(lambda on: picture_tips.set_enabled(win, on))
+        form.addRow("Tooltips:", self.picture_tips)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)

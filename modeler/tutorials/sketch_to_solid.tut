@@ -1,0 +1,42 @@
+! tutorial: sketch_to_solid
+! title: From a sketch to a solid
+! about: Draw a rectangle with a circle in it, then pull it up into a plate with a hole. About 5 minutes.
+! order: 2
+
+## Start a sketch
+A sketch is a flat drawing that becomes a solid. On the **Features** tab
+click **Sketch**, call it `base` and choose the **XY** plane (the ground).
+The Sketch tabs open and the view turns to look straight down at it.
+hint: SKETCH, base, XY
+check: STEPS("SKETCH"), GE, 1 ! a sketch started
+
+## Draw a rectangle
+On the **Sketch** tab click **Rectangle**, then click two opposite corners.
+For exact sizes, type them while drawing: after the first click type `60`,
+press Tab, type `40` and press Enter.
+hint: SRECT, 0, 0, 60, 40
+check: SKETCHED("base", "line"), GE, 4 ! four lines in the sketch
+
+## Draw a circle inside it
+Click **Circle**, click the centre inside the rectangle and drag out the
+size, or type a radius of `8`. A closed shape inside another becomes a hole.
+hint: SCIRCLE, 30, 20, 8
+check: SKETCHED("base", "circle"), GE, 1 ! a circle in the sketch
+
+## Finish the sketch
+Click **Finish sketch** on the **Constrain** tab. The output says how many
+profiles are ready to extrude.
+hint: ENDSKETCH
+check: STEPS("ENDSKETCH"), GE, 1 ! the sketch is finished
+
+## Pull it up into a solid
+On the **Features** tab click **Extrude…**, choose the sketch `base` and a
+height of **6**.
+hint: EXTRUDE, base, 6
+check: STEPS("EXTRUDE"), GE, 1 ! an EXTRUDE step
+check: HOLES(LAST), GE, 1 ! the solid has the hole
+check: FAILED(), EQ, 0 ! no failed steps
+
+## Done
+The sketch is still there. Click its step in the History to change the
+rectangle or the circle, and the solid follows.

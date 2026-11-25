@@ -110,13 +110,19 @@ class Command:
     help: str
     logged: bool = True  # False: queries/view commands, never in the history
     session: bool = False  # acts on the history itself (UNDO, HIST ...): top level only
-    # first words that make the command a query, run but not kept (TAKE, LIST, part)
+    # first words that make the command a query, run but not kept (TAKE, LIST, part);
+    # "" makes the bare command (no arguments) a query (/UNITS alone says what is set)
     queries: tuple[str, ...] = ()
     # the most an argument may be (counts and sizes that would take hours or all the memory)
     limits: dict[str, float] = field(default_factory=dict)
 
     def is_query(self, args: list[str]) -> bool:
-        return not self.logged or bool(self.queries and args and args[0].strip().upper() in self.queries)
+        if not self.logged:
+            return True
+        if not self.queries:
+            return False
+        first = args[0].strip().upper() if args else ""
+        return first in self.queries and (first or all(not a.strip() for a in args))
 
 
 REGISTRY: dict[str, Command] = {}
@@ -275,6 +281,10 @@ class Processor:
         self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
         self.analysis = None  # ANALYZE: what the view colours (analysis_handlers.Analysis), a view setting only
         self.toolpath = None  # MILL: the milling path the view shows (a compound of polylines), a view setting only
+        self.tutorial = None  # TUTORIAL: the lesson being followed (tutorial_handlers.Lesson), or None
+        # the window (gui/main_window.py MainWindow) when there is one: LAYOUT and TUTORIAL tell it
+        # what to show; headless runs leave it None and the commands still work
+        self.ui = None
 
         self.history: list[Entry] = []
         self._uid = 0  # the last entry uid handed out
@@ -329,7 +339,8 @@ class Processor:
 
     # commands REPEAT never runs again: picking, undo, history edits and itself
     NOT_REPEATED = frozenset({"PICK", "SEL", "CMSEL", "PICKMODE", "PICKREGION", "REPEAT", "UNDO", "REDO", "HIST",
-                              "NEW", "OPEN", "SAVE", "RESUME", "PARAM", "NAME"})
+                              "NEW", "OPEN", "SAVE", "RESUME", "PARAM", "NAME", "/UNITS", "TUTORIAL",
+                              "LAYOUT"})
 
     def _note_tool(self, res: Result) -> Result:
         """Remember the last typed or clicked step that changed the model, for REPEAT (PLAN item 90)."""

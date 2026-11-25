@@ -138,6 +138,16 @@ class _FieldWidget(QWidget):
                 self.line.setPlaceholderText("pick, then press ← Selection" if f.pick else "")
             self.line.textChanged.connect(dlg.update_preview)
             lay.addWidget(self.line, 1)
+        unit = F.field_unit(f, dlg.unit)
+        self.unit_label: QLabel | None = None
+        if unit:  # PLAN item 92: the unit the field is in; another can be typed (1/4 in, 30 deg)
+            self.unit_label = QLabel(unit)
+            self.unit_label.setObjectName("unit")
+            self.unit_label.setStyleSheet("color: #666;")
+            other = "rad" if unit == "deg" else ("in" if unit != "in" else "mm")
+            self.unit_label.setToolTip(f"In {unit}. A number may carry another unit: 2 {other}"
+                                       + (", 1/4 in, 25 mm + 2" if unit != "deg" else ""))
+            lay.addWidget(self.unit_label)
         if f.kind in ("body", "bodies", "ids", "point", "points"):
             b = QPushButton("← Selection")
             b.setToolTip("Use what is picked in the 3D view")
@@ -262,6 +272,9 @@ class FormDialog(QDialog):
                  edit_line: int | None = None) -> None:
         super().__init__(win)
         self.win, self.spec = win, spec
+        from ..core.units import unit_label
+
+        self.unit = unit_label(win.processor.model.units)  # the length unit fields are in
         self.edit_row = edit_row  # 0-based history row being edited, or None
         self.edit_line = edit_line  # with edit_row: the line inside that entry (a *PART or loop), or None
         where = "" if edit_row is None else f" (history entry {edit_row + 1}" + (

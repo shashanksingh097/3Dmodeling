@@ -84,4 +84,9 @@ ASSERT, BBOX(plate).dz, EQ, T, 0.01
   fail on the rounded edges.
 * Guessing a command's arguments: `command_help` gives them, with examples.
 * Sizes without units in the answer: the model is in mm unless `/UNITS` says
-  otherwise.
+  otherwise. A size the user gave in other units can be written with its
+  unit (`W = 1/4 in`, `HOLE, plate, 10, 10, 6, 6 mm`, `ROTATE, b, 0.5 rad, ...`):
+  it is turned into the model's units. `/UNITS, IN, SHOW` only changes how
+  numbers are shown.
+* Talking about "the left side" or "what I see": `view_state` says where the
+  user's view looks from and what is in sight.

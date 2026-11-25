@@ -5,6 +5,21 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ## [Unreleased]
 
 ### Added
+- Numbers with units anywhere: `25 mm`, `1/4 in`, `0.5 m`, `2 ft`, `30 deg`, `(W/4) in` in commands,
+  form fields and parameters, turned into the model's units. Forms show the unit beside each field;
+  `/UNITS, IN, SHOW` shows numbers in other units (status bar, Properties, `SELINFO`) without
+  changing the model.
+- A view cube in the corner of the 3D view: click a face, edge or corner to look from there; arrows
+  turn the view by 90 degrees and the house goes home. It writes `VIEW, TOP FRONT`,
+  `VIEW, TURN, LEFT`, `VIEW, HOME`; the assistant's `view_state` says how the view looks.
+- Tutorials (Help > Tutorials, `TUTORIAL`): three short lessons in a panel that checks the model as
+  you go, with Show me, Next and Back; write your own as `.tut` files. The assistant gets a
+  `tutorial` tool and a `tutor` skill.
+- Pictures in the ribbon buttons' tooltips, from the user guide's examples (Preferences >
+  Tooltips).
+- Layouts (View > Layout, `LAYOUT`): modelling, sketch, assembly, drawing and sculpt show the
+  panels that fit; save your own and reset.
+- New queries for checks: `FAILED()`, `STEPS("cmd")`, `SKETCHED("s" [, kind])`.
 - Forms show what their step would make before OK: a see-through ghost in the 3D view and a line
   saying what changes, or why it would fail with the faces or edges at fault in red (`PREVIEW`,
   and the assistant's `preview_step`).

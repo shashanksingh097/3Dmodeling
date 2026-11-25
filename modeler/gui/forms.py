@@ -15,6 +15,8 @@ with one *variant* per keyword.
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, replace
 
 from ..commands import REGISTRY, Processor
@@ -154,6 +156,8 @@ NO_FORM = {
     "SELINFO", "TEMPLATE",
     # the error bar and Why? (WHY), Enter on an empty line (REPEAT), the Properties panel (PROPS)
     "WHY", "REPEAT", "PROPS",
+    # View > Layout (LAYOUT) and the Tutorial panel (TUTORIAL)
+    "LAYOUT", "TUTORIAL",
     # the model tree lists the steps of the picked body
     "STEPS",
     # the Control points button (Features toolbar); dragging a point sends MOVEPT
@@ -758,6 +762,35 @@ def missing_forms() -> list[str]:
 
 
 # ---- choices the model offers ----------------------------------------------------
+
+_ANGLE_WORDS = {"angle", "degrees", "taper", "deg", "helix", "pressure", "overhang"}
+_LENGTH_WORDS = {"radius", "diameter", "height", "depth", "distance", "length", "width", "thickness", "offset",
+                 "gap", "wall", "pitch", "size", "sizes", "chord", "position", "point", "step", "move", "minwall",
+                 "minedge", "bore", "od", "rim", "module", "hole", "tool", "down", "over", "cell", "skin", "x0",
+                 "y0", "z0", "bulge", "base", "roller", "hx", "hy", "hz", "back", "near", "margin"}
+_NO_UNIT_WORDS = {"count", "fraction", "factor", "density", "scale", "id", "steps", "sections", "turns", "teeth",
+                  "sides", "points", "degree", "degv", "grid", "law", "frames", "speed", "feed", "strength",
+                  "detail", "rounds", "ribs", "tolerance", "deflection", "t", "or"}
+
+
+def field_unit(f: Field, units: str = "mm") -> str:
+    """The unit a number or point field is in, shown beside it (PLAN item 92): "deg" for
+    angles, the project's length unit for sizes and places, "" when it has none."""
+    if f.kind not in ("num", "point"):
+        return ""
+    words = set(re.findall(r"[a-z0-9]+", f.label.lower()))
+    if f.kind == "point":
+        return "" if words & {"direction", "normal", "axis"} - {"point"} and "point" not in words else units
+    if words & _NO_UNIT_WORDS:
+        return ""
+    if words & _ANGLE_WORDS:
+        return "deg"
+    if f.label.lower().startswith("turn (") or words == {"turn"}:
+        return "deg"
+    if words & _LENGTH_WORDS:
+        return units
+    return ""
+
 
 def body_label(p: Processor, bid: int) -> str:
     b = p.model.bodies.get(bid)

@@ -225,6 +225,16 @@ class Toolbox:
                  {"body": {"type": "string", "description": "a body name or ID (default: the pick)"},
                   "step": {"type": "integer", "description": "a history step instead of a body"},
                   "where": _WHERE}, (), self.properties),
+            Tool("view_state", "How the user's 3D view looks now: the direction it looks from (looking_from, "
+                 "from the model towards the eye), which way is up, its name when it is a view cube side, edge "
+                 "or corner (TOP, TOP FRONT, TOP FRONT RIGHT = iso), the bodies in sight, out of sight and "
+                 "hidden. VIEW, name / VIEW, TURN, LEFT / VIEW, HOME change it (the view cube writes these).",
+                 {}, (), self.view_state),
+            Tool("tutorial", "The lesson the user is following (Help > Tutorials), if any: its step, the "
+                 "step's text, what 'Show me' would run (hints) and each check with pass and what was found; "
+                 "with no lesson, the tutorials there are. Help the user do the step themselves (say which "
+                 "button, or the command); TUTORIAL, NEXT goes on once every check passes.",
+                 {}, (), self.tutorial),
             Tool("preview_selection", "What SEL lines would select, without changing the selection.",
                  {"lines": {"type": "array", "items": {"type": "string"}}, "where": _WHERE}, ("lines",),
                  self.preview_selection),
@@ -519,6 +529,22 @@ class Toolbox:
             raise ToolError(str(exc)) from None
         d["change"] = "PROPS, b, key, value (b: the body, or STEP n): one ordinary step, Undo takes it back"
         return d
+
+    def view_state(self) -> dict[str, Any]:
+        p = self.real
+        view = getattr(p, "view", None)
+        if view is None or not hasattr(view, "view_state"):
+            return {"note": "no 3D view is open (scripts and tests run without one)",
+                    "hidden": sorted(p.model.hidden)}
+        return view.view_state()
+
+    def tutorial(self) -> dict[str, Any]:
+        from ..commands import tutorial_handlers as th
+
+        p = self.real
+        if p.tutorial is not None:
+            th.check_step(p, p.tutorial)
+        return th.state(p)
 
     def preview_selection(self, lines: list[str], where: str = "model"):
         return sl.preview_selection(self._p(where), lines)
