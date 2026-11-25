@@ -281,6 +281,8 @@ class Processor:
         self.last_report: dict | None = None  # give_report: the data of the line being run
         self.reports: dict[str, dict] = {}  # the newest report of each check (STRESS, GRAVITY ...)
         self.part_doc = None  # a part document (commands/partdoc_handlers.py PartDoc), or None for a project
+        self.pattern_copies: dict = {}  # PATTERN: body -> (step uid, [(copy n, middle)], size, skipped) for Skip
+        self.section_edit = None  # SECTIONEDIT state (commands/section_edit_handlers.py), a view setting only
         self.section = None  # SECTION view: (datum plane, "ABOVE"/"BELOW") or None; a view setting only
         self.control_points: int | None = None  # CPOINTS: the body whose control points the view shows
         self.analysis = None  # ANALYZE: what the view colours (analysis_handlers.Analysis), a view setting only

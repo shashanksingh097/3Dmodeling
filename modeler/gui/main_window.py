@@ -796,6 +796,7 @@ class MainWindow(QMainWindow):
                              checkable=True)
         handles.toggled.connect(self.viewport.set_handles)
         self.handles_action = handles
+        self.viewport.handles_wanted.connect(handles.setChecked)
 
         tb = tbs.group(self, "View", "view", "Home")
         for name in ("ISO", "TOP", "FRONT", "RIGHT"):
@@ -984,6 +985,11 @@ class MainWindow(QMainWindow):
                                                   "the cut faces are hatched and their areas listed\n"
                                                   "Runs: SECTION, plane, side, offset / SECTION, OFF",
                    self.open_section)
+        tbs.action(self, tb, "Edit in a section…", "section", "Cut the part open and edit it there: click a line of "
+                                                             "the cut and drag its arrow to move the face behind it, "
+                                                             "or draw on the cut to add or remove material\n"
+                                                             "Runs: SECTIONEDIT, plane, offset, then PICK and PUSHPULL",
+                   self.open_section_edit)
 
         tb = tbs.group(self, "Make", "printer", "Inspect")
         tbs.action(self, tb, "Print check…", "printer", "Ready to 3D print? What sits on the bed, what overhangs "
@@ -1062,6 +1068,12 @@ class MainWindow(QMainWindow):
         from .motion_panel import open_motion
 
         return open_motion(self)
+
+    def open_section_edit(self):
+        """The Section window with Edit in the cut on (PLAN item 96)."""
+        dlg = self.open_section()
+        dlg.edit.setChecked(True)
+        return dlg
 
     def open_section(self):
         """The Section window (gui/section_panel.py): a cutting plane moved with a slider."""

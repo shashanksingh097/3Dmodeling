@@ -1081,11 +1081,18 @@ CYL, 30,0,-1, 4, 10
 ARRAY, POLAR, LAST, 8, 360, 0,0,0, 0,0,1, CUT, disc
 
 @ PATTERN pic
-! Make one hole, then repeat that step five times along X.
+! Make one hole, repeat it five times along X, then fill the tab with vent holes in staggered rows
+! (spacing 6, 2 clear of the edge). Other kinds: CURVE (along a curve), POINTS (at a sketch's points),
+! MIRROR (in a plane); SKIP, 3 leaves copy 3 out.
 BLOCK, 0,0,0, 120, 30, 8
 NAME, LAST, plate
 HOLE, plate, 10, 15, 8, 6
 PATTERN, LINEAR, plate, 1, 5, 25, 0, 0
+BLOCK, 0, 30, 0, 120, 40, 2
+UNION, plate, LAST
+NAME, LAST, plate
+HOLE, plate, 6, 36, 2, 3
+PATTERN, FILL, plate, 1, 17, 6, 2, HEX
 
 ! ===================================================================== Bodies
 
@@ -1260,6 +1267,15 @@ SEL, S, FACE, NORMAL, 0,0,1
 CM, top_face, FACE
 CMDEL, top_face
 
+@ CMRENAME
+! Rename a named set. Face, edge and point sets go to STEP files under their names,
+! so the analysis app finds the inlet without picking it again.
+BLOCK, 0,0,0, 40, 20, 10
+SEL, S, FACE, NORMAL, 0,0,1
+CM, top_face, FACE
+CMRENAME, top_face, inlet
+EXPORT, STEP, "named.step"
+
 ! ===================================================================== Measure
 
 @ DIST
@@ -1342,6 +1358,17 @@ CYL, 20,20,-1, 8, 30
 SUBTRACT, 1, 2
 SECTION, ZX, ABOVE, 20
 SECTION, OFF
+
+@ SECTIONEDIT pic
+! Edit in a cross-section: list the lines of the cut with the faces behind them, then pull one.
+BLOCK, 0,0,0, 40, 20, 10
+NAME, LAST, plate
+CYL, 20, 10, 0, 4, 10
+SUBTRACT, plate, LAST
+NAME, LAST, plate
+SECTIONEDIT, XY, 5
+SEL, S, FACE, NORMAL, 1, 0, 0
+PUSHPULL, 5
 
 @ ECHO
 ! Print the value of an expression.

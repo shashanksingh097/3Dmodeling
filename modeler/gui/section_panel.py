@@ -3,6 +3,9 @@
 Each change runs ``SECTION, plane, side, offset`` (a view setting: the history does not change),
 and the window shows the area and centre of each cut. **Add plane** keeps the planes so far and
 adds this one (``SECTION, plane, side, offset, ADD``). **Off** and closing the window end the section view.
+**Edit in the cut** (PLAN item 96) runs ``SECTIONEDIT, plane, offset`` instead: the cut lines show in
+orange, a click on one picks the face behind it and its arrow pulls it; **Draw on the cut** starts a
+sketch on the plane to add or remove material with EXTRUDE.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFormLayout,
@@ -93,6 +97,18 @@ class SectionDialog(QDialog):
         row.addWidget(self.slider, 1)
         row.addWidget(self.value_label)
 
+        self.edit = QCheckBox("Edit in the cut")
+        self.edit.setToolTip("Show the lines of the cut: click one to pick the face behind it, then drag its arrow "
+                             "(or type a value) to move that face\nRuns: SECTIONEDIT, plane, offset")
+        self.draw_btn = QPushButton("Draw on the cut")
+        self.draw_btn.setToolTip("Start a sketch on the section plane; finish it and EXTRUDE it with ADD or CUT "
+                                 "to add or remove material\nRuns: SKETCH (and PLANE when the plane is moved)")
+        self.draw_btn.setEnabled(False)
+        edit_row = QHBoxLayout()
+        edit_row.addWidget(self.edit)
+        edit_row.addWidget(self.draw_btn)
+        edit_row.addStretch(1)
+
         self.add_btn = QPushButton("Add plane")
         self.add_btn.setToolTip("Keep the planes so far and cut along this one too (up to three)")
         off_btn = QPushButton("Off")
@@ -111,6 +127,7 @@ class SectionDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.addLayout(form)
         lay.addLayout(row)
+        lay.addLayout(edit_row)
         lay.addLayout(buttons)
         lay.addWidget(self.report, 1)
 
@@ -124,6 +141,9 @@ class SectionDialog(QDialog):
         self.side.currentTextChanged.connect(lambda _t: self._debounce.start())
         self.slider.valueChanged.connect(self._slid)
         self.add_btn.clicked.connect(self.add_plane)
+        self.edit.toggled.connect(self._edit_toggled)
+        win.viewport.section_edit_changed.connect(self._edit_changed_elsewhere)
+        self.draw_btn.clicked.connect(self.draw)
         off_btn.clicked.connect(self.off)
         close_btn.clicked.connect(self.close)
         self._plane_changed(self.plane.currentText())
@@ -146,8 +166,41 @@ class SectionDialog(QDialog):
     def current(self) -> str:
         return f"{self.plane.currentText()}, {self.side.currentText()}, {self.offset():.10g}"
 
+    def _edit_toggled(self, on: bool) -> None:
+        self._edit_toggled_view(on)
+        if on:
+            self.kept = []
+            self.apply()
+        else:
+            r = self.win.execute("SECTIONEDIT, OFF")
+            self.report.setPlainText(r.message)
+            self._debounce.start()
+
+    def _edit_changed_elsewhere(self, on: bool) -> None:
+        """SECTIONEDIT was typed (or ended) outside this window: follow it."""
+        if on != self.edit.isChecked():
+            self.edit.blockSignals(True)
+            self.edit.setChecked(on)
+            self.edit.blockSignals(False)
+            self._edit_toggled_view(on)
+
+    def draw(self) -> list[str]:
+        """Start a sketch on the section plane (the steps SECTIONEDIT lists under "draw")."""
+        data = self.win.processor.reports.get("SECTIONEDIT") or {}
+        lines = list(data.get("draw") or [])
+        for line in lines:
+            r = self.win.execute(line)
+            if not r.ok:
+                self.report.setPlainText(r.message)
+                break
+        return lines
+
     def apply(self) -> str:
         """Show the section for the current plane, side and offset (after any planes kept)."""
+        if self.edit.isChecked():
+            r = self.win.execute(f"SECTIONEDIT, {self.plane.currentText()}, {self.offset():.10g}")
+            self.report.setPlainText(r.message)
+            return r.message
         lines = [*self.kept, self.current()]
         r = None
         for i, line in enumerate(lines):
@@ -167,12 +220,23 @@ class SectionDialog(QDialog):
     def off(self) -> None:
         self._debounce.stop()
         self.kept = []
-        r = self.win.execute("SECTION, OFF")
+        r = self.win.execute("SECTIONEDIT, OFF" if self.edit.isChecked() else "SECTION, OFF")
+        self.edit.blockSignals(True)
+        self.edit.setChecked(False)
+        self.edit.blockSignals(False)
+        self._edit_toggled_view(False)
         self.report.setPlainText(r.message)
+
+    def _edit_toggled_view(self, on: bool) -> None:
+        self.add_btn.setEnabled(not on)
+        self.side.setEnabled(not on)
+        self.draw_btn.setEnabled(on)
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt's name
         self._debounce.stop()
-        if self.win.processor.section is not None:
+        if getattr(self.win.processor, "section_edit", None) is not None:
+            self.win.execute("SECTIONEDIT, OFF")
+        elif self.win.processor.section is not None:
             self.win.execute("SECTION, OFF")
         super().closeEvent(event)
 

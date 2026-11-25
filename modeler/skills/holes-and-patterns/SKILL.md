@@ -1,7 +1,7 @@
 ---
 name: holes-and-patterns
 description: Holes (through, blind, counterbored, countersunk, threaded) and repeated features - bolt circles, grids, rows - with HOLE, PATTERN and ARRAY ... CUT, checked with HOLES(). Use for flanges, plates with bolt patterns, perforated panels.
-commands: HOLE, PATTERN, ARRAY, SUBTRACT, THREAD, SEL, ASSERT
+commands: HOLE, PATTERN, ARRAY, SUBTRACT, THREAD, SEL, SKETCH, SPOINT, ASSERT
 ---
 # Holes and patterns
 
@@ -18,8 +18,22 @@ commands: HOLE, PATTERN, ARRAY, SUBTRACT, THREAD, SEL, ASSERT
    steps did to the body, all copies in one step:
    * a bolt circle: `PATTERN, POLAR, flange, 1, 6` (6 around Z through
      the origin; `, angle, x,y,z, dx,dy,dz` to change that);
-   * a grid: `PATTERN, LINEAR, plate, 1, 10, 8,0,0, 5, 0,8,0`.
-   The 1 is how many steps back to copy (the HOLE).
+   * a grid: `PATTERN, LINEAR, plate, 1, 10, 8,0,0, 5, 0,8,0`;
+   * along a curve: `PATTERN, CURVE, plate, 1, path, 6` (6 spread from the
+     curve's start to its end; add `TURN` to turn them with the curve);
+   * at points: `PATTERN, POINTS, plate, 1, s` (a sketch's SPOINTs, or its
+     circles' centres), or a list whose first point is where the feature is
+     now: `PATTERN, POINTS, plate, 1, (10,10,5), (30,10,5), (50,40,5)`;
+   * vents and perforations: `PATTERN, FILL, plate, 1, face, 8, 2` fills a
+     flat face at spacing 8, keeping 2 off its edges and holes; `HEX` for
+     staggered rows;
+   * a mirrored copy: `PATTERN, MIRROR, plate, 1, mid` (a datum plane or
+     XY/YZ/ZX);
+   * leave copies out: `..., SKIP, 3, 5` (the original is copy 1). The
+     PATTERN report lists every copy with its number and middle (`at`), so
+     pick the numbers from it, not by counting in a picture.
+   The 1 is how many steps back to copy (the HOLE). Picks (SEL, PICK) are
+   steps too: SEL then PATTERN needs 2.
 3. **Very many cuts of any shape**: make one tool body and
    `ARRAY, LINEAR, tool, 20, 5,0,0, 15, 0,5,0, CUT, plate` (cuts all of them,
    the original too, in one boolean).
@@ -52,5 +66,7 @@ ASSERT, HOLES(flange, 8, 1), EQ, 6
   steps to edit. Use HOLE + PATTERN or ARRAY ... CUT.
 * A polar pattern around the wrong centre: the default axis is Z through
   the origin; give x, y, z when the part is elsewhere.
+* FILL on a curved face: it needs a flat one (find it with
+  `SEL, S, FACE, NORMAL, ...`).
 * Holes that break through an edge or into each other: check with
   `PIECES(b), EQ, 1` and the HOLES count.

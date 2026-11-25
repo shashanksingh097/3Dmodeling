@@ -20,7 +20,12 @@ from OCP.TopAbs import TopAbs_FACE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
-from OCP.XCAFDoc import XCAFDoc_ColorCurv, XCAFDoc_ColorGen, XCAFDoc_ColorSurf, XCAFDoc_DocumentTool
+from OCP.XCAFDoc import (
+    XCAFDoc_ColorCurv,
+    XCAFDoc_ColorGen,
+    XCAFDoc_ColorSurf,
+    XCAFDoc_DocumentTool,
+)
 
 try:
     from OCP.collections import Sequence_TDF_Label as _Labels
@@ -44,7 +49,8 @@ def _doc() -> TDocStd_Document:
 
 def _name(label: TDF_Label) -> str:
     attr = TDataStd_Name()
-    if label.FindAttribute(TDataStd_Name.GetID_s(), attr):
+    # FindAttribute crashes in OCP when the label has no name, so ask first
+    if label.IsAttribute(TDataStd_Name.GetID_s()) and label.FindAttribute(TDataStd_Name.GetID_s(), attr):
         return attr.Get().ToExtString().strip()
     return ""
 
@@ -90,15 +96,18 @@ def read(path: str, pmi: list | None = None) -> list[Part]:
     """Every single part in the file, placed, with its name and colour (None where the file has
     none). An empty list when the file holds no shapes; IOError when it cannot be read.
     With a list for ``pmi``, the sizes, tolerances and datums in the file (AP242) are added to it
-    as records (geometry/step_pmi.py)."""
+    as records (geometry/step_pmi.py). Faces, edges and points the file names (sets, PLAN item 95)
+    come back in each part's ``faces`` as (placed sub-shape, name)."""
+    from OCP.Interface import Interface_Static
+    from OCP.STEPCAFControl import STEPCAFControl_Controller
+
+    (getattr(STEPCAFControl_Controller, "Init_s", None) or STEPCAFControl_Controller.Init)()
+    (getattr(Interface_Static, "SetIVal_s", None) or Interface_Static.SetIVal)("read.stepcaf.subshapes.name", 1)
     r = STEPCAFControl_Reader()
     r.SetNameMode(True)
     r.SetColorMode(True)
     r.SetLayerMode(False)
     if pmi is not None:
-        from OCP.STEPCAFControl import STEPCAFControl_Controller
-
-        (getattr(STEPCAFControl_Controller, "Init_s", None) or STEPCAFControl_Controller.Init)()
         r.SetGDTMode(True)
     if int(r.ReadFile(path)) != 1:  # IFSelect_RetDone
         raise OSError(f"could not read STEP file {path}")
@@ -127,8 +136,19 @@ def read(path: str, pmi: list | None = None) -> list[Part]:
         shape = st.GetShape_s(label)
         if shape.IsNull():
             return
+        named = []
+        # the named sub-shapes (faces, edges and points the file names)
+        for tag in range(1, label.NbChildren() + 1):
+            sub_label = label.FindChild(tag, False)
+            if sub_label.IsNull() or not st.IsShape_s(sub_label):
+                continue
+            sub = st.GetShape_s(sub_label)
+            text = _name(sub_label) if not sub.IsNull() else ""
+            if text:
+                named.append((sub.Moved(loc) if not loc.IsIdentity() else sub, text))
         col = colour or _colour(ct, label, shape) or _face_colour(ct, shape)
-        out.append(Part(shape.Moved(loc) if not loc.IsIdentity() else shape, "" if _is_generic(name) else name, col))
+        out.append(Part(shape.Moved(loc) if not loc.IsIdentity() else shape, "" if _is_generic(name) else name, col,
+                        named))
 
     free = _Labels()
     st.GetFreeShapes(free)
@@ -139,7 +159,7 @@ def read(path: str, pmi: list | None = None) -> list[Part]:
 
         try:
             pmi.extend(step_pmi.read(doc))
-        except Exception:  # noqa: BLE001 - annotations a file gets wrong must not stop the shapes
+        except Exception:
             pass
     return out
 

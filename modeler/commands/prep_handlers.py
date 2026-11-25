@@ -226,6 +226,9 @@ def fluidvolume(p: Processor, b, caps):
     for k, s in enumerate(sorted(solids, key=lambda x: -robust.volume(x))):
         new = m.add_body(s, name=_free(m, f"{base}_fluid"))
         ends = _opening_faces(p, new, opens)
+        for e in ends:  # named sets that go to STEP for the analysis app (PLAN item 95)
+            if e["face"]:
+                m.save_set(f"{new.name}_opening_{e['opening']}", "FACE", [e["face"]])
         made.append({"body": new.id, "volume": round(robust.volume(s), 6), "openings": ends})
         msgs.append(_added(p, new, f"fluid volume {robust.volume(s):.6g} {m.units.lower()}3"
                                    + (f", openings on faces {', '.join(str(e['face']) for e in ends)}" if ends else "")))
@@ -290,13 +293,16 @@ def enclosure(p: Processor, what, shape, margin):
         raise CommandError(f"ENCLOSURE: {exc}") from None
     new = m.add_body(res, name=_free(m, "enclosure"))
     faces = {k: _gids(new, "FACE", v) for k, v in named.items()}
+    for k, v in faces.items():  # named sets that go to STEP (PLAN item 95)
+        if v:
+            m.save_set(f"{new.name}_{k.lower()}", "FACE", v)
     d = {"bodies": ids, "shape": shape.upper(), "margins": ms, "new_body": new.id,
          "volume": round(robust.volume(res), 6), "faces": faces}
     p.give_report("ENCLOSURE", d)
     sides = "; ".join(f"{k} {', '.join(map(str, v))}" if k != "WALLS" else f"{len(v)} faces of the model"
                       for k, v in faces.items())
     return _added(p, new, f"ENCLOSURE {shape.upper()} round {len(ids)} bod{'y' if len(ids) == 1 else 'ies'} "
-                          f"(volume {robust.volume(res):.6g}; faces: {sides})")
+                          f"(volume {robust.volume(res):.6g}; faces: {sides}; saved as sets {new.name}_<side>)")
 
 
 # ---- item 82 --------------------------------------------------------------------------------

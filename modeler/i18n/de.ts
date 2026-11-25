@@ -599,6 +599,10 @@ Runs: BOSS, body, x,y,z, h, od [, hole, ribs]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a sketch's name (its points, or its circles' centres), or one point per line: the first is where the feature is now</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a solid</source>
             <translation type="unfinished" />
         </message>
@@ -1084,6 +1088,10 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
         <message>
             <source>at most this many rounds (each one is a solve)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>At points</source>
+            <translation>An Punkten</translation>
         </message>
         <message>
             <source>Auto</source>
@@ -1852,6 +1860,14 @@ Runs: SCIRCLET</source>
             <translation>Cmdel…</translation>
         </message>
         <message>
+            <source>Cmrename</source>
+            <translation>Cmrename</translation>
+        </message>
+        <message>
+            <source>Cmrename…</source>
+            <translation>Cmrename…</translation>
+        </message>
+        <message>
             <source>Cmsel</source>
             <translation>Cmsel</translation>
         </message>
@@ -2086,6 +2102,10 @@ Runs: SPATTERN, LINEAR/POLAR, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>copy numbers to leave out, like 3 5 (the original is copy 1); a right click on a copy in the 3D view does this too</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Copy the whole log</source>
             <translation type="unfinished" />
         </message>
@@ -2258,6 +2278,11 @@ Runs: SUBTRACT, ...</source>
         <message>
             <source>Cut list</source>
             <translation>Zuschnittliste</translation>
+        </message>
+        <message>
+            <source>Cut the part open and edit it there: click a line of the cut and drag its arrow to move the face behind it, or draw on the cut to add or remove material
+Runs: SECTIONEDIT, plane, offset, then PICK and PUSHPULL</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Cut the view open along a plane and move it with a slider; the cut faces are hatched and their areas listed
@@ -2807,6 +2832,10 @@ Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Draw on the cut</source>
+            <translation>Auf dem Schnitt zeichnen</translation>
+        </message>
+        <message>
             <source>Draw what a form's step would make before OK</source>
             <translation>Vor OK zeigen, was der Schritt des Formulars erzeugt</translation>
         </message>
@@ -2932,8 +2961,28 @@ Runs: ROUTES</source>
             <translation>Bearbeiten</translation>
         </message>
         <message>
+            <source>Edit a part in a cross-section: SECTIONEDIT, XY, 5 cuts the view open at the plane and lists the lines of the cut, each with the face behind it</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Edit a part in a cross-section: SECTIONEDIT, XY, 5 cuts the view open at the plane and lists the lines of the cut, each with the face behind it. Click a line in the 3D view and drag its arrow (or type a value) to move that face: the history gets PICK, FACE, id and PUSHPULL, d. "Draw on the cut" starts a sketch on the plane; EXTRUDE, sketch, d, ADD or CUT then adds or removes material. SECTIONEDIT, OFF ends it. Not kept in the history.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Edit faces</source>
             <translation>Flächen bearbeiten</translation>
+        </message>
+        <message>
+            <source>Edit in a section</source>
+            <translation>Im Schnitt bearbeiten</translation>
+        </message>
+        <message>
+            <source>Edit in a section…</source>
+            <translation>Im Schnitt bearbeiten…</translation>
+        </message>
+        <message>
+            <source>Edit in the cut</source>
+            <translation>Im Schnitt bearbeiten</translation>
         </message>
         <message>
             <source>Edit part…</source>
@@ -3278,6 +3327,10 @@ Runs: EXPORT, format, file</source>
             <translation>Verrundung…</translation>
         </message>
         <message>
+            <source>Filling a face</source>
+            <translation>Eine Fläche füllend</translation>
+        </message>
+        <message>
             <source>Fill…</source>
             <translation>Füllen…</translation>
         </message>
@@ -3410,6 +3463,10 @@ Runs: FITSURF, b, region, tolerance</source>
         <message>
             <source>Flange…</source>
             <translation>Lasche…</translation>
+        </message>
+        <message>
+            <source>Flat face</source>
+            <translation>Ebene Fläche</translation>
         </message>
         <message>
             <source>flat faces facing up (+Z; OUTLINE: or down): numbers ("5 9"), a set saved with CM, or SEL</source>
@@ -4271,6 +4328,10 @@ Runs: SCON, COINCIDENT/ON, ...</source>
             <translation>Behalten</translation>
         </message>
         <message>
+            <source>Keep off the edge by</source>
+            <translation>Abstand zum Rand</translation>
+        </message>
+        <message>
             <source>Keep only the common volume: INTERSECT, a, b [, c ...].</source>
             <translation type="unfinished" />
         </message>
@@ -4448,6 +4509,10 @@ Runs: UNFOLD, body [, file.dxf]</source>
         <message>
             <source>Least draft angle</source>
             <translation>Kleinste Formschräge</translation>
+        </message>
+        <message>
+            <source>Leave out copies</source>
+            <translation>Kopien auslassen</translation>
         </message>
         <message>
             <source>Leave sketch mode
@@ -4918,6 +4983,10 @@ Runs: SMIRROR, axis, ...</source>
         <message>
             <source>Mirror Z</source>
             <translation>Spiegeln Z</translation>
+        </message>
+        <message>
+            <source>Mirrored</source>
+            <translation>Gespiegelt</translation>
         </message>
         <message>
             <source>Mirror…</source>
@@ -5463,6 +5532,10 @@ Runs: SOFFSET2, d, ...</source>
         <message>
             <source>Only this</source>
             <translation>Nur dies</translation>
+        </message>
+        <message>
+            <source>only this body (default: every body shown)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>only this layer (none: all)</source>
@@ -6383,6 +6456,14 @@ Runs: DELFACE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Rename a named set: CMRENAME, top_faces, inlet</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Rename a named set: CMRENAME, top_faces, inlet. The new name also goes to STEP files.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Render</source>
             <translation>Rendern</translation>
         </message>
@@ -6408,11 +6489,11 @@ Runs: PATTERN, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Repeat what the last steps did to a body: PATTERN, LINEAR, plate, 1, n, dx,dy,dz [, n2, dx2,dy2,dz2] · PATTERN, POLAR, flange, 1, n [, angle [, x,y,z [, dx,dy,dz]]]</source>
+            <source>Repeat what the last steps did to a body: PATTERN, LINEAR, plate, 1, n, dx,dy,dz [, n2, dx2,dy2,dz2] · POLAR, flange, 1, n [, angle [, x,y,z [, dx,dy,dz]]] · CURVE, b, 1, curve, n [, TURN] (spread along a curve, turned with it after TURN) · POINTS, b, 1, sketch or (x,y,z), (x,y,z) ..</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Repeat what the last steps did to a body: PATTERN, LINEAR, plate, 1, n, dx,dy,dz [, n2, dx2,dy2,dz2] · PATTERN, POLAR, flange, 1, n [, angle [, x,y,z [, dx,dy,dz]]]. The material those steps added or took away is copied, and all copies go in at once, so 100 holes cost about as much as one: HOLE, plate, 5,5,10, 3 then PATTERN, LINEAR, plate, 1, 10, 8,0,0.</source>
+            <source>Repeat what the last steps did to a body: PATTERN, LINEAR, plate, 1, n, dx,dy,dz [, n2, dx2,dy2,dz2] · POLAR, flange, 1, n [, angle [, x,y,z [, dx,dy,dz]]] · CURVE, b, 1, curve, n [, TURN] (spread along a curve, turned with it after TURN) · POINTS, b, 1, sketch or (x,y,z), (x,y,z) ... (at a sketch's points; in a list the first point is where the feature is now) · FILL, b, 1, face, spacing [, margin [, HEX]] (over a flat face, for vents and perforations) · MIRROR, b, 1, plane. Add SKIP, 3, 5 to leave copies out (the original is copy 1). The material those steps added or took away is copied, and all copies go in at once, so 100 holes cost about as much as one: HOLE, plate, 5,5,10, 3 then PATTERN, LINEAR, plate, 1, 10, 8,0,0.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6888,6 +6969,14 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Sectionedit</source>
+            <translation>Sectionedit</translation>
+        </message>
+        <message>
+            <source>Sectionedit…</source>
+            <translation>Sectionedit…</translation>
+        </message>
+        <message>
             <source>Sections</source>
             <translation>Schnitte</translation>
         </message>
@@ -7153,6 +7242,11 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Show the lines of the cut: click one to pick the face behind it, then drag its arrow (or type a value) to move that face
+Runs: SECTIONEDIT, plane, offset</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Show the size of what the mouse rests on in the 3D view</source>
             <translation>Größe dessen zeigen, worauf die Maus in der 3D-Ansicht ruht</translation>
         </message>
@@ -7281,6 +7375,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation>Skizzenwerkzeuge</translation>
         </message>
         <message>
+            <source>Sketch, or points</source>
+            <translation>Skizze oder Punkte</translation>
+        </message>
+        <message>
             <source>Sketch:</source>
             <translation>Skizze:</translation>
         </message>
@@ -7385,6 +7483,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Spacing</source>
+            <translation>Abstand</translation>
+        </message>
+        <message>
             <source>Sphere</source>
             <translation>Kugel</translation>
         </message>
@@ -7477,6 +7579,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation>Toleranzkette…</translation>
         </message>
         <message>
+            <source>Staggered rows</source>
+            <translation>Versetzte Reihen</translation>
+        </message>
+        <message>
             <source>STANDARD (front, top, right and iso), or views joined with +: TOP+FRONT, ISO ...</source>
             <translation type="unfinished" />
         </message>
@@ -7528,6 +7634,11 @@ Runs: SHEET, sketch, t [, bend radius, K-factor]</source>
         </message>
         <message>
             <source>Start a sheet metal part: a plate of thickness t cut from a sketch's outline (holes in the sketch are holes in the plate): SHEET, s1, 2 · SHEET, s1, 1.5, 3 (bend radius 3) · SHEET, s1, 2, 2, 0.4 (K-factor 0.4). Then FLANGE bends walls along its edges and UNFOLD gives the flat pattern</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Start a sketch on the section plane; finish it and EXTRUDE it with ADD or CUT to add or remove material
+Runs: SKETCH (and PLANE when the plane is moved)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9064,6 +9175,10 @@ Runs: TOMESH, b then REMESH, b, size/150</source>
         <message>
             <source>Turn the wheel the other way to zoom in</source>
             <translation>Zum Vergrößern das Rad andersherum drehen</translation>
+        </message>
+        <message>
+            <source>Turn with the curve</source>
+            <translation>Mit der Kurve drehen</translation>
         </message>
         <message>
             <source>Turned about an axis</source>

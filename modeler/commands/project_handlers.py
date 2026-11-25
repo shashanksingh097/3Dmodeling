@@ -132,9 +132,11 @@ def read_shape(fmt: str, path: str) -> TopoDS_Shape:
     raise CommandError(f"IMPORT: {fmt} is not an exact format")
 
 
-def _exact_pieces(fmt: str, path: str, pmi: list | None = None) -> list[tuple[TopoDS_Shape, str, tuple | None]]:
+def _exact_pieces(fmt: str, path: str, pmi: list | None = None,
+                  named: list | None = None) -> list[tuple[TopoDS_Shape, str, tuple | None]]:
     """(shape, name, colour) for each body an exact file gives. STEP keeps part names and colours, and
-    puts its sizes and tolerances (AP242) in ``pmi`` when given."""
+    puts its sizes and tolerances (AP242) in ``pmi`` when given and its named faces, edges and points
+    in ``named`` as (sub-shape, name) (PLAN item 95)."""
     if fmt == "STEP":
         from ..geometry import robust, stepdoc
 
@@ -146,6 +148,8 @@ def _exact_pieces(fmt: str, path: str, pmi: list | None = None) -> list[tuple[To
             raise CommandError(f"IMPORT: {path} holds no shapes")
         out, loose = [], []
         for part in parts:
+            if named is not None:
+                named += part.faces
             pieces = _solids(part.shape)
             if not part.name and not robust.solids(part.shape):
                 loose += pieces  # unnamed faces and skins: kept together, as the plain reader gives them
@@ -226,7 +230,8 @@ def import_(p: Processor, format, file, name, kind):
         raise CommandError(f"IMPORT: no such file: {file}")
     from .handlers import _added
 
-    msgs = []
+    msgs: list[str] = []
+    tail: list[str] = []  # notes after the bodies (sets, annotations)
     if kind not in ("AUTO", "SOLID", "MESH", "POINTS"):
         raise CommandError("IMPORT: kind is AUTO, SOLID, MESH or POINTS")
     if format in POINT_FORMATS or (format == "PLY" and (kind == "POINTS" or _ply_faces(path) == 0)) \
@@ -271,7 +276,8 @@ def import_(p: Processor, format, file, name, kind):
         unclean = []
         pmi: list = []
         new_ids = []
-        for k, (s, own, colour) in enumerate(_exact_pieces(format, path, pmi)):
+        named: list = []
+        for k, (s, own, colour) in enumerate(_exact_pieces(format, path, pmi, named)):
             body = p.model.add_body(s, name if (name and k == 0) else _free_name(p.model, own))
             new_ids.append(body.id)
             if colour is not None:
@@ -279,6 +285,11 @@ def import_(p: Processor, format, file, name, kind):
             msgs.append(_added(p, body, "IMPORT"))
             if robust.count(s, robust.TopAbs_FACE) and not robust.report(s)["ok"]:
                 unclean.append(body.id)
+        if named:
+            made = _named_sets_back(p, new_ids, named)
+            if made:
+                tail.append(f"{len(made)} named set{'s' if len(made) != 1 else ''} from the file: "
+                            + ", ".join(made))
         if unclean:
             b0 = unclean[0]
             which = f"body {b0} is" if len(unclean) == 1 else f"bodies {', '.join(map(str, unclean))} are"
@@ -289,11 +300,60 @@ def import_(p: Processor, format, file, name, kind):
             from .pmi_notes import records_to_notes
 
             made = records_to_notes(p, pmi, new_ids)
-            msgs.append(f"{made} note{'s' if made != 1 else ''} from the file's annotations "
+            tail.append(f"{made} note{'s' if made != 1 else ''} from the file's annotations "
                         f"({step_pmi.summary(pmi)}; LIST, NOTES shows them)")
     if len(msgs) == 1:
-        return msgs[0]
-    return f"IMPORT {file}: {len(msgs)} bodies\n  " + "\n  ".join(msgs)
+        return "\n  ".join(msgs + tail)
+    return f"IMPORT {file}: {len(msgs)} bodies\n  " + "\n  ".join(msgs + tail)
+
+
+def _named_sets_back(p: Processor, bids: list[int], named: list) -> list[str]:
+    """Turn the faces, edges and points a STEP file names back into named sets (CM) and wall
+    thicknesses, on the bodies just imported. Returns the set names made."""
+    m = p.model
+    groups: dict[str, tuple[str, list[int]]] = {}
+    for sub, text in named:
+        kind = {"Face": "FACE", "Edge": "EDGE", "Vertex": "VERTEX"}.get(_shape_kind(sub))
+        if kind is None:
+            continue
+        gid = 0
+        for bid in bids:
+            try:
+                gid = m.find_entity(bid, kind, sub)
+                owner = bid
+                break
+            except Exception:  # noqa: BLE001 - not in this body
+                continue
+        if not gid:
+            continue
+        for word in (w.strip() for w in text.split(";")):
+            if not word:
+                continue
+            if word.lower().startswith("thickness ") and kind == "FACE":
+                try:
+                    m.thickness.setdefault(owner, {})[gid] = float(word.split()[1])
+                except ValueError:
+                    pass
+                continue
+            name = "".join(c if c.isalnum() or c == "_" else "_" for c in word)
+            g = groups.setdefault(name.upper(), (kind, []))
+            if g[0] == kind and gid not in g[1]:
+                g[1].append(gid)
+            groups.setdefault("~" + name.upper(), (name, []))
+    made = []
+    for key, (kind, ids) in groups.items():
+        if key.startswith("~"):
+            continue
+        name = groups["~" + key][0]
+        m.save_set(name, kind, ids)
+        made.append(name)
+    return made
+
+
+def _shape_kind(s) -> str:
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+
+    return {TopAbs_FACE: "Face", TopAbs_EDGE: "Edge", TopAbs_VERTEX: "Vertex"}.get(s.ShapeType(), "")
 
 
 # ---- projects -------------------------------------------------------------------

@@ -137,6 +137,22 @@ def _tools_for_menu(model, bid: int, processor) -> list[MenuItem]:
         return []
 
 
+def pattern_skip_items(model, bid: int, processor) -> list[MenuItem]:
+    """Leave out the copy of the body's last PATTERN that the picked faces are on (PLAN item 97)."""
+    if processor is None or model.selection_kind != "FACE" or not model.selection:
+        return []
+    from ..commands.pattern_handlers import skip_command
+
+    try:
+        got = skip_command(processor, bid, [f for f in model.selection if model.entity_owner("FACE", f)[0] == bid])
+    except Exception:  # noqa: BLE001 - no item rather than a broken menu
+        return []
+    if got is None:
+        return []
+    n, line = got
+    return [MenuItem(f"Leave out copy {n} of the pattern", [line])]
+
+
 def body_items(model, bid: int, sources: dict | None = None, processor=None) -> list[MenuItem]:
     """The menu for a right click on body ``bid`` in the 3D view (or a tree row).
     ``sources`` is the processor's ``part_files``: which parts come from a file."""
@@ -169,6 +185,7 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
     items.append(MenuItem("Material…", [f"MATERIAL, {sel}, "], form="MATERIAL"))
     items.append(MenuItem("Wrap in one closed skin…", [f"WRAPSKIN, {sel}, 1"], form="WRAPSKIN"))
     items += analysis_items(model, ids, bid)
+    items += pattern_skip_items(model, bid, processor)
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]

@@ -203,6 +203,8 @@ class OccViewport(QWidget):
     hover_left = Signal()  # the mouse moved on, or left the view: the hover numbers go
     sketch_values = Signal(object, object, str)  # typed-value boxes while drawing: (fields, global QPoint, error)
     sculpt_changed = Signal(bool)  # sculpting went on or off
+    handles_wanted = Signal(bool)
+    section_edit_changed = Signal(bool)  # SECTIONEDIT went on or off (the Section window follows)  # the view turned the drag handles on (SECTIONEDIT): the toolbar follows
     sculpt_stroke = Signal(int, object, object)  # (mesh body, N x 3 hit points, keyboard modifiers)
 
     background = "grey"
@@ -246,6 +248,8 @@ class OccViewport(QWidget):
         self._step_ais: list = []  # model.preview: what a form's step would make (draw_step_preview)
         self._ghost_ais: list = []  # what an editor previews (not bodies: never pickable)
         self._cp = None  # gui.point_edit.PointEditor while control points are shown (CPOINTS)
+        self._se = None  # commands.section_edit_handlers.SectionEdit while editing in a section (SECTIONEDIT)
+        self._se_ais: list = []  # its cut lines
         self.handles_on = False  # drag handles on the picked body or faces (gui/drag_handles.py)
         self.handle_step, self.handle_angle = 1.0, 5.0  # what drags snap to (Preferences)
         self._hd = None  # gui.drag_handles.Handles for the selection, while handles are on
@@ -346,6 +350,8 @@ class OccViewport(QWidget):
             self.cube = None
         if getattr(self, "_pending_section", None) is not None:
             self.set_section(self._pending_section)
+        if self._se is not None:
+            self._draw_section_edit()
 
         for body in self.model.bodies.values():
             self._display_body(body.id, update=False)
@@ -552,6 +558,9 @@ class OccViewport(QWidget):
             self.draw_mask()
         if self.handles_on and ev.kind != "sketch_selection" and self._drag != "handle":
             self.refresh_handles()
+        if self._se is not None and ev.kind not in ("selection", "sketch_selection", "preview"):
+            self._se_dirty = True  # cut again once the command is done (a script sends many events)
+            QTimer.singleShot(0, self._section_edit_again)
 
     def _apply_body_event(self, ev: Event) -> None:
         if ev.kind == "body_added":
@@ -1462,6 +1471,62 @@ class OccViewport(QWidget):
             self._an_hidden = a.body
         ctx.UpdateCurrentViewer()
 
+    # ---- editing in a section (PLAN item 96) ------------------------------------------
+    def set_section_edit(self, state) -> None:
+        """Show the cut lines of SECTIONEDIT (None: stop). A click on a line picks its face and the
+        drag handles pull it."""
+        self._se = state
+        self.section_edit_changed.emit(state is not None)
+        if state is not None and not self.handles_on:
+            self.set_handles(True)
+            self.handles_wanted.emit(True)
+        if self._initialized:
+            self._draw_section_edit()
+
+    def _section_edit_again(self) -> None:
+        if self._se is None or not getattr(self, "_se_dirty", False):
+            return
+        self._se_dirty = False
+        from ..commands import section_edit_handlers as seh
+
+        try:
+            seh.refresh(self.model, self._se)
+        except Exception:  # noqa: BLE001 - old lines rather than a broken view
+            traceback.print_exc()
+        self._draw_section_edit()
+
+    def section_line_at(self, x: float, y: float):
+        """(body, cut line) under the mouse, or None."""
+        if self._se is None:
+            return None
+        from ..geometry import section_edit as se
+
+        pairs = self._se.all_lines()
+        hit = se.nearest([ln for _b, ln in pairs], x, y, lambda q: self.view.Convert(*q))
+        return next(((b, ln) for b, ln in pairs if ln is hit), None) if hit is not None else None
+
+    def _draw_section_edit(self) -> None:
+        from OCP.BRep import BRep_Builder
+        from OCP.TopoDS import TopoDS_Compound
+
+        ctx = self.context
+        for ais in self._se_ais:
+            ctx.Remove(ais, False)
+        self._se_ais = []
+        if self._se is not None:
+            comp, b = TopoDS_Compound(), BRep_Builder()
+            b.MakeCompound(comp)
+            for _bid, ln in self._se.all_lines():
+                b.Add(comp, ln.edge)
+            ais = AIS_Shape(comp)
+            ais.SetColor(_rgb(1.0, 0.55, 0.05))
+            ais.SetWidth(4.0)
+            ctx.Display(ais, 0, 0, False)
+            _on_top(ctx, ais)
+            ctx.Deactivate(ais)
+            self._se_ais.append(ais)
+        ctx.UpdateCurrentViewer()
+
     # ---- drag handles (PLAN item 68) ------------------------------------------------
     def set_handles(self, on: bool) -> None:
         """Show drag handles on the picked body or faces (or hide them)."""
@@ -2335,6 +2400,18 @@ class OccViewport(QWidget):
             self._draw_handles()
             self._handle_preview()
             return
+        if self._se is not None and e.button() == Qt.LeftButton and not e.modifiers():
+            hit = self.section_line_at(x, y)
+            if hit is not None:  # a cut line: pick the face behind it; its pull arrow moves it
+                bid, ln = hit
+                try:
+                    gid = self.model.find_entity(bid, "FACE", ln.face)
+                except Exception:  # noqa: BLE001
+                    gid = 0
+                if gid:
+                    self.command.emit(f"PICK, FACE, {gid}")
+                    self._drag = "section_line"  # the release picks nothing more
+                    return
         if (self._cp is not None and e.button() == Qt.LeftButton
                 and self._cp.press(x, y, lambda q: self.view.Convert(*q))):
             self._drag = "point"
@@ -2456,6 +2533,8 @@ class OccViewport(QWidget):
                 self.sketcher.no_auto = bool(e.modifiers() & Qt.ShiftModifier)
                 self._sketch_commands(self.sketcher.click(*uv, self._tol(x, y), add))
                 self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if self.sketcher.tool != "SELECT" else None)
+            return
+        if drag == "section_line":  # a cut line was clicked (SECTIONEDIT): its face is picked already
             return
         if drag == "region_maybe":  # a Ctrl+click, not a drag: add what is under the cursor
             self._region_px = []

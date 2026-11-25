@@ -1,7 +1,7 @@
 ---
 name: analysis-prep
 description: Get geometry ready for the separate analysis app - middle surfaces of thin parts with their thickness (MIDSURFACE), beam centre lines with section values (BEAMS), the fluid inside pipes and housings (FLUIDVOLUME), air round a model (ENCLOSURE), touching parts that share faces (SHAREFACES, IMPRINT) and fewer, cleaner faces (MERGEFACES). Use for "shell model", "beam model", "flow volume", "mesh these as one", "clean it up for meshing".
-commands: MIDSURFACE, BEAMS, FLUIDVOLUME, ENCLOSURE, SHAREFACES, IMPRINT, MERGEFACES, CHECK, EXPORT
+commands: MIDSURFACE, BEAMS, FLUIDVOLUME, ENCLOSURE, SHAREFACES, IMPRINT, MERGEFACES, CM, CMRENAME, CHECK, EXPORT
 ---
 # Getting parts ready for analysis
 
@@ -43,6 +43,13 @@ user asks for a mesh or a full analysis here.
    and short edges; `MERGEFACES, part` joins faces on the same surface
    (seams), `MERGEFACES, part, SMALL, 0.2` also removes slivers under 0.2
    wide. The report says what is left.
+7. **Name the faces the analysis needs** (inlet, fixed face, loaded face):
+   pick them and `CM, inlet, FACE`; `CMRENAME, top, inlet` renames a set.
+   `EXPORT, STEP` writes every face, edge and point set by name, so the
+   analysis app finds them without picking again (a face in two sets gets
+   "fixed; outside"). FLUIDVOLUME makes `<fluid>_opening_1` ... and
+   ENCLOSURE makes `enclosure_xmin` ... `enclosure_walls` itself. `IMPORT,
+   STEP` reads the names back as sets. `describe_model` lists the sets.
 
 ```cmd
 BLOCK, 0, 0, 0, 100, 50, 2

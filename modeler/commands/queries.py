@@ -114,6 +114,23 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
     def body(name):
         return body_id(name, "BODY")
 
+    def setsize(name):
+        """How many faces, edges ... a named set (CM) holds now; 0 when there is no such set."""
+        try:
+            return len(m.named_set(str(name))[1])
+        except ModelError:
+            return 0
+
+    def setarea(name):
+        """The area of a face set (CM): what the analysis app gets as one boundary (PLAN item 95)."""
+        try:
+            kind, ids = m.named_set(str(name))
+        except ModelError as exc:
+            raise ExprError(f"SETAREA(): {exc}") from None
+        if kind != "FACE":
+            raise ExprError(f"SETAREA(): set {name!r} holds {kind.lower()}s, not faces")
+        return sum(props("FACE", m.entity_shape("FACE", i)).Mass() for i in ids)
+
     def owner(i, kind="FACE"):
         try:
             return m.entity_owner(check_kind(str(kind)), int(i))[0]
@@ -457,6 +474,8 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         "SELID": selid,
         "COUNT": count,
         "BODY": body,
+        "SETSIZE": setsize,
+        "SETAREA": setarea,
         "OWNER": owner,
         "EXISTS": exists,
         "PARAM": param,

@@ -1377,8 +1377,22 @@ def cmsel(p: Processor, mode, name):
 @command("CMDEL", Arg("name", Text), help="Delete a named set.")
 def cmdel(p: Processor, name):
     p.model.named_set(name)
-    del p.model.named_sets[name.upper()]
+    p.model.drop_set(name)
     return f"set '{name}' deleted"
+
+
+@command("CMRENAME", Arg("name", Text), Arg("new", Text),
+         help="Rename a named set: CMRENAME, top_faces, inlet. The new name also goes to STEP files.")
+def cmrename(p: Processor, name, new):
+    m = p.model
+    if not is_ident(new):
+        raise CommandError(f"CMRENAME: {new!r} is not a valid name")
+    kind, ids = m.named_set(name)
+    if new.upper() in m.named_sets and new.upper() != name.upper():
+        raise CommandError(f"CMRENAME: there is already a set named {new!r}")
+    m.drop_set(name)
+    m.save_set(new, kind, ids)
+    return f"set '{name}' is now '{new}'"
 
 
 # =============================================================================
@@ -1443,13 +1457,20 @@ def _compound(shapes):
 
 
 def _named_faces(m, body) -> list:
-    """Faces that carry a name into STEP: a middle surface's wall thickness (MIDSURFACE), read by the
-    analysis app as each face's shell thickness."""
-    out = []
+    """Faces, edges and points that carry a name into STEP, for the analysis app (PLAN item 95): the
+    named sets (CM) they are in, and a middle surface's wall thickness (MIDSURFACE). One part of the
+    body in several sets gets the names joined with "; "."""
+    names: dict[tuple[str, int], list[str]] = {}
+    for key, (kind, ids) in sorted(m.named_sets.items()):
+        if kind not in ("FACE", "EDGE", "VERTEX"):
+            continue
+        for gid in ids:
+            if gid in body.entity_ids[kind]:
+                names.setdefault((kind, gid), []).append(m.set_label(key))
     for gid, t in sorted(m.thickness.get(body.id, {}).items()):
         if gid in body.entity_ids["FACE"]:
-            out.append((m.entity_shape("FACE", gid), f"thickness {fmt_num(round(t, 6))}"))
-    return out
+            names.setdefault(("FACE", gid), []).append(f"thickness {fmt_num(round(t, 6))}")
+    return [(m.entity_shape(kind, gid), "; ".join(text)) for (kind, gid), text in sorted(names.items())]
 
 
 @command(
