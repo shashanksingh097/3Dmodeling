@@ -355,12 +355,12 @@ def _next_name(p, command: str) -> str:
 
 
 def _pin_name(p) -> str:
-    """The next free pin name: pin1, pin2 ..."""
+    """The next free gauge name: gauge1, gauge2 ..."""
     have = {x["name"].upper() for x in getattr(p.model, "measure_pins", [])}
     k = 1
-    while f"PIN{k}" in have:
+    while f"GAUGE{k}" in have:
         k += 1
-    return f"pin{k}"
+    return f"gauge{k}"
 
 
 def pick_tools(p) -> list[MenuItem]:
@@ -404,7 +404,7 @@ def pick_tools(p) -> list[MenuItem]:
             add(MenuItem("Axis through it", short="Axis", commands=[f"AXIS, {name}, FACE, {sel[0]}"], icon="axis"))
         if n == 2:
             add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"] if flat else ["DIST"], icon="measure"))
-            add(MenuItem("Pin this distance", short="Pin", commands=[f"PIN, {_pin_name(p)}, DIST"], form="PIN", icon="measure"))
+            add(MenuItem("Pin this distance", short="Pin", commands=[f"GAUGE, {_pin_name(p)}, DIST"], form="GAUGE", icon="measure"))
             add(MenuItem("Mate the two…", short="Mate", form="MATE", icon="mate"))
             add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))
         if n == 1:
@@ -436,12 +436,12 @@ def pick_tools(p) -> list[MenuItem]:
                              commands=[f"SPOTWELD, {a}, {b}, {sel[0]}, 25"], form="SPOTWELD", icon="pick_edge"))
         if n == 2:
             add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"], icon="measure"))
-            add(MenuItem("Pin this distance", short="Pin", commands=[f"PIN, {_pin_name(p)}, DIST"], form="PIN", icon="measure"))
+            add(MenuItem("Pin this distance", short="Pin", commands=[f"GAUGE, {_pin_name(p)}, DIST"], form="GAUGE", icon="measure"))
             add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))
     elif kind == "VERTEX":
         if n == 2:
             add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
-            add(MenuItem("Pin this distance", short="Pin", commands=[f"PIN, {_pin_name(p)}, DIST"], form="PIN", icon="measure"))
+            add(MenuItem("Pin this distance", short="Pin", commands=[f"GAUGE, {_pin_name(p)}, DIST"], form="GAUGE", icon="measure"))
         if n == 3:
             name = _next_name(p, "PLANE") or "P1"
             add(MenuItem("Work plane through the three", short="Plane", commands=[f"PLANE, {name}, 3P, " + ", ".join(f'CENT({v}, "VERTEX")' for v in sel)],
@@ -468,7 +468,7 @@ def pick_tools(p) -> list[MenuItem]:
             pass
         if n == 2:
             add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
-            add(MenuItem("Pin this distance", short="Pin", commands=[f"PIN, {_pin_name(p)}, DIST"], form="PIN", icon="measure"))
+            add(MenuItem("Pin this distance", short="Pin", commands=[f"GAUGE, {_pin_name(p)}, DIST"], form="GAUGE", icon="measure"))
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
         add(MenuItem("Mass and volume", short="Mass", commands=["MASSPROP"], icon="measure"))
         _ = names

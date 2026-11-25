@@ -1857,7 +1857,7 @@ SPACEMOUSE, ROTATE, OFF
 SPACEMOUSE, BUTTON, 1, FIT
 SPACEMOUSE, RESET
 
-@ PIN
+@ GAUGE pic
 ! Keep the gap between a base and a post in view (at least 8), then make the base longer: the pin
 ! is measured again and shows 5, in red.
 W = 40
@@ -1865,17 +1865,17 @@ BLOCK, 0, 0, 0, W, 30, 10
 NAME, LAST, base
 BLOCK, 50, 0, 0, 20, 30, 25
 NAME, LAST, post
-PIN, gap, DIST, BODY, base, BODY, post, 8
+GAUGE, gap, DIST, BODY, base, BODY, post, 8
 HIST, EDIT, 1, "W = 45"
-PIN
+GAUGE
 
 @ DETAIL
-! A hundred copies of a pin share one mesh; FAST leaves out bodies under 4 pixels while drawing.
-*PART, pin, D=4
+! A hundred copies of a peg share one mesh; FAST leaves out bodies under 4 pixels while drawing.
+*PART, peg, D=4
   CYL, 0, 0, 0, D/2, 20
 *ENDPART
 *DO, i, 1, 100
-INST, pin, (i-1-10*FLOOR((i-1)/10))*10, FLOOR((i-1)/10)*10, 0
+INST, peg, (i-1-10*FLOOR((i-1)/10))*10, FLOOR((i-1)/10)*10, 0
 *ENDDO
 DETAIL, FAST, 4
 DETAIL

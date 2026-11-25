@@ -3932,6 +3932,14 @@ Runs: VIEW, FRONT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Gauge</source>
+            <translation>Galga</translation>
+        </message>
+        <message>
+            <source>Gauge…</source>
+            <translation>Galga…</translation>
+        </message>
+        <message>
             <source>Gear</source>
             <translation>Engranaje</translation>
         </message>
@@ -4634,11 +4642,11 @@ Runs: SCON, COINCIDENT/ON, ...</source>
             <translation>Conservar</translation>
         </message>
         <message>
-            <source>Keep a measurement in the view, measured again after every change: PIN, gap, DIST, FACE, 6, BODY, lid (or PIN, gap, DIST with two things picked) · PIN, a, ANGLE, FACE, 3, FACE, 9 · limits: PIN, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range)</source>
+            <source>Keep a measurement in the view, measured again after every change: GAUGE, gap, DIST, FACE, 6, BODY, lid (or GAUGE, gap, DIST with two things picked) · GAUGE, a, ANGLE, FACE, 3, FACE, 9 · limits: GAUGE, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Keep a measurement in the view, measured again after every change: PIN, gap, DIST, FACE, 6, BODY, lid (or PIN, gap, DIST with two things picked) · PIN, a, ANGLE, FACE, 3, FACE, 9 · limits: PIN, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range). PIN alone lists them with their values now; PIN, DELETE, gap and PIN, CLEAR remove them.</source>
+            <source>Keep a measurement in the view, measured again after every change: GAUGE, gap, DIST, FACE, 6, BODY, lid (or GAUGE, gap, DIST with two things picked) · GAUGE, a, ANGLE, FACE, 3, FACE, 9 · limits: GAUGE, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range). GAUGE alone lists them with their values now; GAUGE, DELETE, gap and GAUGE, CLEAR remove them.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6287,10 +6295,6 @@ Runs: PICKMODE, BODY</source>
             <translation>Imagen…</translation>
         </message>
         <message>
-            <source>Pin</source>
-            <translation>Fijar</translation>
-        </message>
-        <message>
             <source>Pin a note, a size, a hole size or a fit to the model: shown in the view and on drawings; also datums and geometric tolerance frames
 Runs: NOTE, "text", x,y,z · NOTE, SIZE, ... · NOTE, FIT, H7 · NOTE, GDT, FLATNESS, 0.05</source>
             <translation type="unfinished" />
@@ -6307,10 +6311,6 @@ Runs: SCON, FIX, ...</source>
         <message>
             <source>Pinch</source>
             <translation>Pellizcar</translation>
-        </message>
-        <message>
-            <source>Pin…</source>
-            <translation>Fijar…</translation>
         </message>
         <message>
             <source>Pipe</source>

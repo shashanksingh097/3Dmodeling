@@ -1537,10 +1537,10 @@ read and a skill). Built about three items per pull request, in this order.
      clicked points, notes as labels; works on a phone.
 115. **Pinned measurements** (P3): pin a measurement so it stays in the view
      and updates as the model changes; saved with the project; the
-     assistant reads them as data. Done: `PIN, name, DIST | ANGLE, k1, i1,
+     assistant reads them as data. Done: `GAUGE, name, DIST | ANGLE, k1, i1,
      k2, i2 [, least, most]` (or the two picked; "Pin this distance" on a
      right click); drawn as a line with its value, green in range, red out;
-     measured again after every change; `PIN` lists them (report "pins") and
+     measured again after every change; `GAUGE` lists them (report "pins") and
      the assistant's user_context has them.
 116. **Textures and decals** (P3): textures on materials and decals (a logo
      on a face) shown live in the view and used by RENDER.

@@ -479,7 +479,7 @@ class Toolbox:
                 out["project"]["note"] = "you work on the shown tab; the user switches tabs"
         except Exception:  # noqa: BLE001 - no window (scripts, tests)
             pass
-        if getattr(m, "measure_pins", None):  # measurements the user keeps in view (PIN, PLAN item 115)
+        if getattr(m, "measure_pins", None):  # measurements the user keeps in view (GAUGE, PLAN item 115)
             from ..commands.pin_handlers import report
 
             out["pinned_measurements"] = report(m)

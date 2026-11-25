@@ -1,7 +1,7 @@
 ---
 name: editing-a-model
 description: Change a model that already exists - a size, a hole position, a failing step - by editing its history (parameter lines first) instead of adding patches on top. Use for "make it wider", "move the holes", "change the bolt size".
-commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES, SECTIONEDIT, PUSHPULL, UPTO, COPY, PASTE, PIN
+commands: HIST, STEPS, UNDO, DIFF, ASSERT, HANDLES, SECTIONEDIT, PUSHPULL, UPTO, COPY, PASTE, GAUGE
 ---
 # Editing a model
 
@@ -78,9 +78,9 @@ ASSERT, BBOX(bar).dx, EQ, 50, 0.01
 
 ## Sizes the user keeps an eye on
 
-`PIN` lists the measurements the user pinned in the view (also in
+`GAUGE` lists the measurements the user pinned in the view (also in
 user_context as pinned_measurements), with their values now and whether
 they are in range. After a change, check them: a pin that went out of range
 (ok false) is something to tell the user about or fix. To keep a size in
-view for the user: `PIN, gap, DIST, BODY, base, BODY, lid, 2` (at least 2).
+view for the user: `GAUGE, gap, DIST, BODY, base, BODY, lid, 2` (at least 2).
 

@@ -4386,11 +4386,11 @@ about 1/1500 of the model's size.
 
 ### Pinned measurements
 
-    PIN, gap, DIST, BODY, base, BODY, lid, 2      ! at least 2: red below it
-    PIN, square, ANGLE, FACE, 3, FACE, 9, 89.5, 90.5
-    PIN, gap2, DIST                               ! the two picked things
-    PIN                                           ! all of them with their values now
-    PIN, DELETE, gap · PIN, CLEAR
+    GAUGE, gap, DIST, BODY, base, BODY, lid, 2      ! at least 2: red below it
+    GAUGE, square, ANGLE, FACE, 3, FACE, 9, 89.5, 90.5
+    GAUGE, gap2, DIST                               ! the two picked things
+    GAUGE                                           ! all of them with their values now
+    GAUGE, DELETE, gap · GAUGE, CLEAR
 
 A pin keeps a distance or an angle in the 3D view, as a line between the
 nearest points with its value on a white box: green in its range, red out
@@ -4398,5 +4398,5 @@ of it (marked "(!)"), purple without limits. It is measured again after
 every change; faces, edges and bodies keep their numbers through edits, so
 it follows what it was put on. Pins are history steps, saved with the
 project. A right click with two things picked offers Pin this distance. The
-assistant reads them from `PIN` (report "pins") and its user_context.
+assistant reads them from `GAUGE` (report "pins") and its user_context.
 

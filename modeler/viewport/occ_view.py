@@ -960,7 +960,7 @@ class OccViewport(QWidget):
         ctx.UpdateCurrentViewer()
 
     def _show_pins(self, line) -> None:
-        """Pinned measurements (PIN, PLAN item 115): a line between the nearest points and the value now,
+        """Pinned measurements (GAUGE, PLAN item 115): a line between the nearest points and the value now,
         green when in range, red when out, purple without limits."""
         if not self.model.measure_pins:
             return

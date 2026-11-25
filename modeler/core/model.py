@@ -359,7 +359,7 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
-        self.measure_pins: list[dict] = []  # PIN: measurements kept in the view, measured again after each change
+        self.measure_pins: list[dict] = []  # GAUGE: measurements kept in the view, measured again after each change
         self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
         self.joints: list = []  # JOINT steps (core/joints.py Joint), kept true by the joint solver
         self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
@@ -877,7 +877,7 @@ class Model:
         self._emit(Event("pictures"))
         return n
 
-    # ---- pinned measurements (PIN) -------------------------------------------
+    # ---- pinned measurements (GAUGE) -------------------------------------------
     def set_pins(self, pins: list[dict]) -> None:
         self.measure_pins = [dict(x) for x in pins]
         self._emit(Event("pins"))
