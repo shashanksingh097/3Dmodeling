@@ -991,6 +991,10 @@ def main(args: list[str]) -> int:
         render_pictures([a.upper() for a in args if not a.startswith("--")] or None)
         sys.stdout.flush()
         os._exit(0)
+    if "--tips" in args:
+        n = make_tip_pictures()
+        print(f"{n} tooltip pictures in {TIP_PICTURES}")
+        return 0
     if "--check" in args:
         _, bad = run_all(read_examples())
         for n, why in bad.items():
@@ -1011,6 +1015,32 @@ def main(args: list[str]) -> int:
             cmd += ["-d", os.path.join(ROOT, "build", "site"), "--strict"]
         return subprocess.call(cmd)
     return 0
+
+
+# ----------------------------------------------------------------- tooltip pictures (PLAN item 94)
+
+TIP_PICTURES = os.path.join(ROOT, "modeler", "gui", "tip_pictures")
+TIP_SIZE = (240, 160)
+
+
+def make_tip_pictures(src: str = PICTURES, out: str = TIP_PICTURES) -> int:
+    """Small copies of the command pictures for the toolbar buttons' tooltips (gui/tip_pictures.py).
+
+    Run after ``--pictures``: ``python -m modeler docs --tips``. Each is 240 x 160 with 64 colours
+    (about 3 kB), so all of them add well under 1 MB to the app."""
+    from PIL import Image
+
+    os.makedirs(out, exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(src)):
+        if not f.endswith(".png"):
+            continue
+        with Image.open(os.path.join(src, f)) as im:
+            im = im.convert("RGB")
+            im.thumbnail(TIP_SIZE, Image.LANCZOS)
+            im.quantize(64).save(os.path.join(out, f), "PNG", optimize=True)
+        n += 1
+    return n
 
 
 # ----------------------------------------------------------------- screenshots of the window

@@ -144,6 +144,29 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         except ExprError:
             return 0
 
+    def failed():
+        """How many applied steps failed (red in the history)."""
+        return sum(1 for e in p.history[: p.cursor] if not e.suppressed and not e.ok)
+
+    def steps(cmd=""):
+        """How many applied steps run this command (all steps with no name)."""
+        want = str(cmd).strip().upper()
+        n = 0
+        for e in p.history[: p.cursor]:
+            if e.suppressed:
+                continue
+            word = e.text.split(",", 1)[0].strip().upper()
+            n += (not want) or word == want
+        return n
+
+    def sketch_shapes(name, kind=""):
+        """How many lines, circles, arcs ... sketch `name` holds (one kind: "circle"); 0 if no such sketch."""
+        sk = m.sketches.get(str(name).upper())
+        if sk is None:
+            return 0
+        want = str(kind).strip().upper()
+        return sum(1 for g in sk.geos.values() if not g.construction and (not want or g.kind.upper() == want))
+
     def param(name, default=None):
         try:
             return p._lookup(str(name).upper())
@@ -456,4 +479,7 @@ def functions(p: "Processor") -> dict[str, Callable[..., Any]]:
         "OWNER": owner,
         "EXISTS": exists,
         "PARAM": param,
+        "FAILED": failed,
+        "STEPS": steps,
+        "SKETCHED": sketch_shapes,
     }
