@@ -112,6 +112,8 @@ class Body:
     layer: str = "DEFAULT"
     color: tuple[float, float, float] | None = None  # own colour (0..1 RGB); None: by layer, then material
     material: str = ""  # upper-case key of Model.materials, or ""
+    # TEXTURE: a picture on every face, (file, tile size in mm); None: the material's, if it has one
+    texture: tuple[str, float] | None = None
 
 
 DEFAULT_LAYER = "DEFAULT"
@@ -151,6 +153,8 @@ class Material:
     look: str = ""  # how RENDER draws it: STEEL, CHROME, PLASTIC ... ("" from the colour alone)
     shiny: bool = False  # RENDER: reflects the room
     note: str = ""  # a grade or supplier, free text
+    texture: str = ""  # TEXTURE, MATERIAL: a picture on the faces of bodies of this material
+    texture_size: float = 0.0  # one tile of it, mm
 
     def props(self) -> dict:
         """Everything known, as plain data (the assistant and MATLIB, LIST read it)."""
@@ -169,6 +173,9 @@ class Material:
             d["shiny"] = self.shiny
         if self.note:
             d["note"] = self.note
+        if self.texture:
+            d["texture"] = self.texture
+            d["texture_size"] = self.texture_size
         return d
 
 
@@ -359,6 +366,7 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.decals: list[dict] = []  # DECAL: pictures on faces (a logo, a label), following their face
         self.measure_pins: list[dict] = []  # GAUGE: measurements kept in the view, measured again after each change
         self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
         self.joints: list = []  # JOINT steps (core/joints.py Joint), kept true by the joint solver
@@ -452,6 +460,7 @@ class Model:
             "properties": dict(self.properties),
             "notes": list(self.notes),
             "measure_pins": [dict(x) for x in self.measure_pins],
+            "decals": [dict(x) for x in self.decals],
             "mates": list(self.mates),
             "joints": list(self.joints),
             "frames": dict(self.frames),
@@ -496,6 +505,7 @@ class Model:
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
         self.measure_pins = [dict(x) for x in snap.get("measure_pins", [])]
+        self.decals = [dict(x) for x in snap.get("decals", [])]
         self.mates = list(snap.get("mates", []))
         self.joints = list(snap.get("joints", []))
         self.frames = dict(snap.get("frames", {}))
@@ -553,7 +563,8 @@ class Model:
         bid = keep_id if keep_id is not None else self._alloc("BODY")
         style = like if like is not None else (made_from[1][0] if made_from is not None and made_from[1] else None)
         if style is not None and style.layer.upper() in self.layers:
-            look = {"layer": style.layer, "color": style.color, "material": style.material}
+            look = {"layer": style.layer, "color": style.color, "material": style.material,
+                    "texture": style.texture}
         else:
             look = {"layer": self.layers[self.current_layer].name}
         body = Body(id=bid, name=name or f"body{bid}", shape=shape, **look)
@@ -881,6 +892,21 @@ class Model:
     def set_pins(self, pins: list[dict]) -> None:
         self.measure_pins = [dict(x) for x in pins]
         self._emit(Event("pins"))
+
+    def set_decals(self, decals: list[dict]) -> None:
+        self.decals = [dict(x) for x in decals]
+        self._emit(Event("decals"))
+
+    def display_texture(self, bid: int) -> tuple[str, float] | None:
+        """The picture a body's faces are drawn with (TEXTURE): its own, else its material's, else None."""
+        body = self.body(bid)
+        if body.texture is not None:
+            return body.texture if body.texture[0] else None  # ("", 0): OFF, even over the material's
+        if body.material:
+            mat = self.materials.get(body.material.upper())
+            if mat is not None and mat.texture:
+                return (mat.texture, mat.texture_size)
+        return None
 
     # ---- notes -------------------------------------------------------------
     def add_note(self, note: Note) -> int:

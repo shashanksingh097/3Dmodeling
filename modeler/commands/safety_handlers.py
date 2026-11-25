@@ -108,6 +108,10 @@ def _reads(p: Processor) -> list[tuple[str, str, int]]:
                 raw = args[1]
             elif name == "BOARD" and args:
                 raw = args[0]
+            elif name == "TEXTURE" and len(args) >= 2 and args[1].strip().strip('"').upper() != "OFF":
+                raw = args[1]
+            elif name == "DECAL" and len(args) >= 3 and args[2].strip():
+                raw = args[2]
             elif name == "LIB" and len(args) >= 2 and args[0].strip().upper() in ("LOAD", "LINK"):
                 raw = args[1]
                 name = "LIB " + args[0].strip().upper()

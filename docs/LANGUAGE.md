@@ -4400,3 +4400,51 @@ it follows what it was put on. Pins are history steps, saved with the
 project. A right click with two things picked offers Pin this distance. The
 assistant reads them from `GAUGE` (report "pins") and its user_context.
 
+
+## 55. Pictures on bodies and faces, which version this is
+
+### Textures
+
+    TEXTURE, desk, "oak.jpg", 80        ! the picture over every face, one tile 80 mm wide
+    TEXTURE, SEL, "carbon.png"          ! a tile a quarter of each body's biggest side
+    TEXTURE, WOOD, "oak.jpg", 80        ! every body of the material WOOD
+    TEXTURE, desk, OFF                  ! off (even when its material has one)
+
+A texture is drawn face by face, with the picture repeated so that a tile
+is the same size on every face, big or small. A body made from others
+(a union, a fillet) keeps the first one's texture, as it keeps its colour.
+A body with more than 1500 faces (a mesh) is drawn without it. A
+material's texture is kept with the material (and in the material library
+when the material comes from there).
+
+### Decals
+
+    DECAL, logo, 12, "acme.png", 40                ! 40 wide in the middle of face 12
+    DECAL, logo, SEL, "acme.png", 40, 10, -5, 30   ! moved 10 along x, -5 along y, turned 30 degrees
+    DECAL                                          ! all of them, as data
+    DECAL, DELETE, logo · DECAL, CLEAR
+
+A decal is a picture on one face, like a sticker; its height follows the
+picture. It goes on a flat face (moved along the face's own x and y, and
+turned) or a round one (it wraps round it; dx goes round, dy along the
+axis, the angle is 0 or 180). It follows its face through edits, since
+faces keep their numbers. A PNG's see-through parts stay see-through.
+`DECAL` says when one hangs over its face's edge. Right-click a face >
+Picture on this face (decal), or a body > Texture.
+
+`RENDER` draws both. Ray tracing pictures needs a graphics driver with
+bindless textures; without one `RENDER` draws the picture the ordinary way
+and says so.
+
+### Which version, and what is new
+
+    VERSION                  ! this app's version
+    VERSION, NEWS            ! what changed in it
+    VERSION, NEWS, 0.5.0     ! every change since 0.5.0
+    VERSION, CHECK           ! is a newer version out? (asks GitHub)
+
+Help > What's new in this version shows the same notes, and the app shows
+them once by itself after an update. Help > Check for a new version asks
+GitHub for the newest published release; Preferences > Updates can check
+when the app starts (at most once a day). The check is off unless you turn
+it on, and it sends nothing about you or your models.

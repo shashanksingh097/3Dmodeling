@@ -256,6 +256,13 @@ class PreferencesDialog(QDialog):
         self.picture_tips.setChecked(picture_tips.enabled(win))
         self.picture_tips.toggled.connect(lambda on: picture_tips.set_enabled(win, on))
         form.addRow("Tooltips:", self.picture_tips)
+        from . import updates_ui
+
+        self.update_check = QCheckBox("Check for a new version when the app starts (asks GitHub; nothing about you "
+                                      "or your models is sent)")
+        self.update_check.setChecked(updates_ui.enabled(win))
+        self.update_check.toggled.connect(lambda on: updates_ui.set_enabled(win, on))
+        form.addRow("Updates:", self.update_check)
         lay.addLayout(form)
         note = QLabel("Changes apply at once and are kept for next time.")
         note.setEnabled(False)

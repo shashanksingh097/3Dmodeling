@@ -5,6 +5,15 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ## [Unreleased]
 
 ### Added
+- Pictures on models: `TEXTURE, desk, oak.jpg, 80` tiles a picture over a body's faces (80 mm a
+  tile on every face), or over every body of a material (`TEXTURE, WOOD, ...`); `DECAL, logo, 12,
+  acme.png, 40` puts a picture on a flat or round face like a sticker, moved and turned as asked,
+  and it follows its face through edits. Both show in the 3D view and in `RENDER`; right-click a
+  face > Picture on this face, or a body > Texture.
+- What's new and the update check: Help > What's new in this version, a What's new page once
+  after an update, Help > Check for a new version, and Preferences > Updates to check when the
+  app starts (off unless turned on; it only asks GitHub for the newest release). `VERSION`,
+  `VERSION, NEWS` and `VERSION, CHECK` give the same as text and data.
 - Sketches that features already use can be changed: `SKETCH, s1` (or double-click it in the model
   tree, or right-click > Edit sketch) opens it where it was drawn; the later steps wait, and
   ENDSKETCH runs them again with the changed sketch. One Undo takes the edit back.

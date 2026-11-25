@@ -44,6 +44,7 @@ examples += [(os.path.join(TIPS, n), os.path.join("modeler", "gui", "tip_picture
              for n in sorted(os.listdir(TIPS)) if n.endswith(".png")]
 examples += [(os.path.join(ROOT, "docs", n), "modeler/docs")  # the assistant's search_docs (ai/knowledge.py)
              for n in ("LANGUAGE.md", "USER-GUIDE.md")]
+examples += [(os.path.join(ROOT, "CHANGELOG.md"), "modeler/docs")]  # Help > What's new (updates.py)
 
 a = Analysis(
     [os.path.join(SPECPATH, "launch.py")],

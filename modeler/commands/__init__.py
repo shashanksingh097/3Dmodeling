@@ -90,3 +90,5 @@ from . import spacemouse_handlers  # noqa: F401  (SPACEMOUSE: the 3D mouse's set
 from . import detail_handlers  # noqa: F401  (DETAIL: how much the 3D view draws)
 from . import pin_handlers  # noqa: F401  (GAUGE: measurements kept in the view)
 from . import edit_impact  # noqa: F401  (EDITCHECK: what a change of a step would break, and the direct way)
+from . import decal_handlers  # noqa: F401  (TEXTURE, DECAL: pictures on bodies and faces)
+from . import version_handlers  # noqa: F401  (VERSION: this version, what changed, is a newer one out)

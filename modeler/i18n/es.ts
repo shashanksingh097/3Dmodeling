@@ -286,6 +286,10 @@ Runs: LIP, face, h, w [, GROOVE]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a body, SEL, ALL or a material name (every body of that material)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a body, SEL, ALL or several bodies (3 5 7)</source>
             <translation type="unfinished" />
         </message>
@@ -521,6 +525,22 @@ Runs: MIRROR, ...</source>
         </message>
         <message>
             <source>a picture (PNG, JPEG, BMP ...): dark shapes on a light ground</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A picture on a face, like a sticker: DECAL, logo, 12, acme.png, 40 (40 mm wide, in the middle of face 12) · DECAL, logo, SEL, acme.png, 40, 10, -5, 30 (moved 10, -5 and turned 30 degrees)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A picture on a face, like a sticker: DECAL, logo, 12, acme.png, 40 (40 mm wide, in the middle of face 12) · DECAL, logo, SEL, acme.png, 40, 10, -5, 30 (moved 10, -5 and turned 30 degrees). Flat and round faces; it follows the face through edits. DECAL alone lists them; DECAL, DELETE, logo · DECAL, CLEAR.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A picture over every face, tiled: TEXTURE, desk, oak.jpg, 80 (tiles 80 mm wide) · TEXTURE, WOOD, oak.jpg, 80 (every body of the material WOOD) · TEXTURE, SEL, OFF</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A picture over every face, tiled: TEXTURE, desk, oak.jpg, 80 (tiles 80 mm wide) · TEXTURE, WOOD, oak.jpg, 80 (every body of the material WOOD) · TEXTURE, SEL, OFF. Shown in the view and by RENDER.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -850,6 +870,10 @@ Runs: TORUS, ...</source>
             <translation>Todo un cuerpo</translation>
         </message>
         <message>
+            <source>All releases (web)</source>
+            <translation>Todas las versiones (web)</translation>
+        </message>
+        <message>
             <source>ALL, BODIES, PARAMS, MACROS, PARTS, SETS, DATUMS, SKETCHES, SKETCH, LAYERS, MATERIALS, NOTES</source>
             <translation type="unfinished" />
         </message>
@@ -1100,6 +1124,10 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
         <message>
             <source>Ask Copilot: "add a 6 mm hole through the middle of the plate"</source>
             <translation>Pregunta a Copilot: "un agujero de 6 mm en el centro de la placa"</translation>
+        </message>
+        <message>
+            <source>Ask GitHub whether a newer version is out (Preferences can check when the app starts)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Ask the &amp;assistant</source>
@@ -1425,6 +1453,10 @@ Runs: CHAMFER, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Body, SEL, ALL or a material</source>
+            <translation>Cuerpo, SEL, ALL o un material</translation>
+        </message>
+        <message>
             <source>Body:</source>
             <translation>Cuerpo:</translation>
         </message>
@@ -1691,6 +1723,18 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
         </message>
         <message>
             <source>Check a solid before 3D printing: PRINTCHECK, b (built along +Z, 45° overhangs, 0.8 walls) · PRINTCHECK, b, BEST · PRINTCHECK, b, -Y, 50, 1.2. Colours: blue on the bed, red needs support. ANALYZE, OFF ends them</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Check for a ne&amp;w version…</source>
+            <translation>&amp;Buscar una versión nueva…</translation>
+        </message>
+        <message>
+            <source>Check for a new version</source>
+            <translation>Buscar una versión nueva</translation>
+        </message>
+        <message>
+            <source>Check for a new version when the app starts (asks GitHub; nothing about you or your models is sent)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2574,6 +2618,18 @@ Runs: PLANE, P1, FACE, id</source>
         <message>
             <source>Debug</source>
             <translation>Depuración</translation>
+        </message>
+        <message>
+            <source>Decal</source>
+            <translation>Calcomanía</translation>
+        </message>
+        <message>
+            <source>Decal's name (DELETE, CLEAR)</source>
+            <translation>Nombre de la calcomanía (DELETE, CLEAR)</translation>
+        </message>
+        <message>
+            <source>Decal…</source>
+            <translation>Calcomanía…</translation>
         </message>
         <message>
             <source>Default</source>
@@ -4392,6 +4448,10 @@ Runs: SDIM, HDIST, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>how wide, mm (the height follows the picture)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>How:</source>
             <translation>Cómo:</translation>
         </message>
@@ -4762,6 +4822,10 @@ Runs: INTERSECT, ...</source>
         <message>
             <source>Lasso</source>
             <translation>Lazo</translation>
+        </message>
+        <message>
+            <source>Later</source>
+            <translation>Más tarde</translation>
         </message>
         <message>
             <source>Lattice</source>
@@ -5463,6 +5527,14 @@ Runs: SMIRROR, axis, ...</source>
             <translation>Mover a lo largo de (vacío: la normal de la cara)</translation>
         </message>
         <message>
+            <source>Move along the face's x</source>
+            <translation>Mover a lo largo de la x de la cara</translation>
+        </message>
+        <message>
+            <source>Move along the face's y</source>
+            <translation>Mover a lo largo de la y de la cara</translation>
+        </message>
+        <message>
             <source>Move an assembly by a parameter with a slider, play it, check the range for parts running into each other, save pictures
 Runs: DRIVE, name, value · MOTION, name, from, to, steps</source>
             <translation type="unfinished" />
@@ -5489,6 +5561,14 @@ Runs: DRIVE, name, value · MOTION, name, from, to, steps</source>
         </message>
         <message>
             <source>move it across the slots</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>move it along the face's x from the face's middle</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>move it along the face's y</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -5952,6 +6032,14 @@ Runs: SOFFSET2, d, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>one tile of the picture, mm (default: a quarter of the body's biggest side)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>One tile, mm (0 = a quarter of the body)</source>
+            <translation>Una tesela, mm (0 = un cuarto del cuerpo)</translation>
+        </message>
+        <message>
             <source>Only this</source>
             <translation>Solo esto</translation>
         </message>
@@ -6059,6 +6147,10 @@ Runs: OPEN, AUTOSAVE</source>
         <message>
             <source>Open the part's recipe in a window of its own; saving it updates every copy</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Open the release page</source>
+            <translation>Abrir la página de la versión</translation>
         </message>
         <message>
             <source>Open…</source>
@@ -6289,6 +6381,10 @@ Runs: PICKMODE, BODY</source>
         <message>
             <source>Picture</source>
             <translation>Imagen</translation>
+        </message>
+        <message>
+            <source>Picture (or OFF)</source>
+            <translation>Imagen (u OFF)</translation>
         </message>
         <message>
             <source>Picture…</source>
@@ -8690,6 +8786,14 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Texture</source>
+            <translation>Textura</translation>
+        </message>
+        <message>
+            <source>Texture…</source>
+            <translation>Textura…</translation>
+        </message>
+        <message>
             <source>Text…</source>
             <translation>Texto…</translation>
         </message>
@@ -8894,6 +8998,10 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the decal's name; DELETE, CLEAR or nothing (list them)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the depth of each cut, mm (0: half the tool's diameter)</source>
             <translation type="unfinished" />
         </message>
@@ -8927,6 +9035,10 @@ Runs: MASK, body, INVERT</source>
         </message>
         <message>
             <source>the exploded view's name</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the face (an ID, or SEL); with DELETE: the decal's name</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9281,6 +9393,14 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the picked faces of the solid take this surface's shape</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the picture (.png with a see-through background works best)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the picture (.png, .jpg ...), or OFF to take the texture off</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9930,6 +10050,10 @@ Runs: REVOLVE, sketch, axis, angle</source>
             <translation>Eje de giro</translation>
         </message>
         <message>
+            <source>turn it, degrees (on a round face 0 or 180)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Turn RX the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
             <translation type="unfinished" />
         </message>
@@ -9985,6 +10109,10 @@ Runs: TOMESH, b then REMESH, b, size/150</source>
         <message>
             <source>Turn with the curve</source>
             <translation>Girar con la curva</translation>
+        </message>
+        <message>
+            <source>Turn, degrees</source>
+            <translation>Girar, grados</translation>
         </message>
         <message>
             <source>Turned about an axis</source>
@@ -10148,6 +10276,10 @@ Runs: MASK, body, CLEAR</source>
         <message>
             <source>Update preview</source>
             <translation>Actualizar vista previa</translation>
+        </message>
+        <message>
+            <source>Updates:</source>
+            <translation>Actualizaciones:</translation>
         </message>
         <message>
             <source>Upto</source>
@@ -10385,6 +10517,10 @@ Runs: WELD, a, b [, size]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>What changed in this version</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>What is wrong with a sketch, or still loose, named by geometry and constraint: constraints that fight or only repeat others (and which ones), geometry that can still move and how, curves drawn twice or too small, and whether the profile is closed</source>
             <translation type="unfinished" />
         </message>
@@ -10415,6 +10551,14 @@ Runs: WELD, a, b [, size]</source>
         <message>
             <source>What uses what: the linked part files, the parts (where each comes from, which other parts it uses, where it is placed), the geometry taken from parts (TAKE), loops, and every broken link.</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>What's &amp;new in this version</source>
+            <translation>&amp;Novedades de esta versión</translation>
+        </message>
+        <message>
+            <source>What's new in this version</source>
+            <translation>Novedades de esta versión</translation>
         </message>
         <message>
             <source>Wheel</source>

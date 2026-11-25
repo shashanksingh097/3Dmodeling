@@ -483,6 +483,14 @@ class Toolbox:
             from ..commands.pin_handlers import report
 
             out["pinned_measurements"] = report(m)
+        if getattr(m, "decals", None):  # pictures on faces (DECAL, PLAN item 116)
+            from ..commands.decal_handlers import report as decal_report
+
+            out["decals"] = decal_report(m)
+        textured = {b.name: {"file": b.texture[0], "tile_mm": b.texture[1]} for b in m.bodies.values()
+                    if getattr(b, "texture", None) and b.texture[0]}
+        if textured:  # TEXTURE on bodies (a material's texture shows in the material's data)
+            out["textures"] = textured
         return out
 
     def selector_for(self, kind: str, id: int, where: str = "model"):

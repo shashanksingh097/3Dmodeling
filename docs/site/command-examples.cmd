@@ -1869,6 +1869,29 @@ GAUGE, gap, DIST, BODY, base, BODY, post, 8
 HIST, EDIT, 1, "W = 45"
 GAUGE
 
+
+@ TEXTURE pic
+! Tile a picture over a block, one tile 25 mm wide on every face, then put a logo on its top.
+BLOCK, 0, 0, 0, 120, 60, 30
+NAME, LAST, crate
+TEXTURE, crate, logo.png, 25
+DECAL, mark, 6, logo.png, 50
+
+@ DECAL pic
+! A logo on a flat face, turned 15 degrees, and a label that wraps round a can (moved 42 mm round it,
+! to the side the view looks at).
+BLOCK, 0, 0, 0, 100, 60, 20
+NAME, LAST, plate
+DECAL, logo, 6, logo.png, 50, 0, 0, 15
+CYL, 140, 30, 0, 18, 50
+NAME, LAST, can
+DECAL, label, 7, logo.png, 40, 42, 5
+
+@ VERSION
+! Which version this is, and what changed in it (VERSION, CHECK asks GitHub for a newer one).
+VERSION
+VERSION, NEWS
+
 @ DETAIL
 ! A hundred copies of a peg share one mesh; FAST leaves out bodies under 4 pixels while drawing.
 *PART, peg, D=4

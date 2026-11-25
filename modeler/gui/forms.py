@@ -129,7 +129,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "UPTO", "ROTATE", "SCALE", "COPY", "PASTE", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
-    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "MATLIB", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
+    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "MATLIB", "TEXTURE", "DECAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL", "CMRENAME")),
     ("Measure", ("DIST", "ANGLE", "GAUGE", "MASSPROP", "BOM", "CLASH", "CLASHFIX", "SECTION", "ECHO", "LIST")),
@@ -139,7 +139,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES", "SPOTWELD")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "BOARD", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "SHEETVIEW", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
-                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS", "SPACEMOUSE", "DETAIL")),
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS", "SPACEMOUSE", "DETAIL", "VERSION")),
 ]
 
 PLUGIN_CATEGORY = "Plug-ins"
@@ -165,6 +165,8 @@ NO_FORM = {
     "PICKREGION", "PREVIEW", "TOOLS",
     # the status bar's numbers of the pick (SELINFO), File > New's start page (TEMPLATE)
     "SELINFO", "TEMPLATE",
+    # Help > What's new in this version and Help > Check for a new version
+    "VERSION",
     # the error bar and Why? (WHY), Enter on an empty line (REPEAT), the Properties panel (PROPS)
     "WHY", "REPEAT", "PROPS",
     # asked by the window before a change that would break later steps (gui/edit_guard.py)
@@ -224,6 +226,7 @@ STARTS: dict[str, dict[str, str]] = {
     "CAM": {"x": "0, 0, 0", "law": "R10/120 D60 F10/120 D60", "base": "30", "roller": "8", "width": "12"},
     "TOPOPT": {"keep": "0.3"},
     "IMAGE": {"width": "100"},
+    "DECAL": {"width": "40"},
     "STRACE": {"width": "100"},
 }
 
@@ -317,6 +320,16 @@ _COMMAND_LABELS = {
     ("SPACEMOUSE", "command"): "Button's command",
     ("DETAIL", "mode"): "Detail",
     ("GAUGE", "name"): "Pin's name (DELETE, CLEAR)",
+    ("TEXTURE", "target"): "Body, SEL, ALL or a material",
+    ("TEXTURE", "file"): "Picture (or OFF)",
+    ("TEXTURE", "size"): "One tile, mm (0 = a quarter of the body)",
+    ("DECAL", "name"): "Decal's name (DELETE, CLEAR)",
+    ("DECAL", "face"): "Face",
+    ("DECAL", "file"): "Picture",
+    ("DECAL", "width"): "Width",
+    ("DECAL", "dx"): "Move along the face's x",
+    ("DECAL", "dy"): "Move along the face's y",
+    ("DECAL", "angle"): "Turn, degrees",
     ("GAUGE", "kind"): "Measure",
     ("GAUGE", "k1"): "First: FACE, EDGE, VERTEX, BODY or DATUM (empty: the two picked)",
     ("GAUGE", "i1"): "Its number or name",
@@ -362,6 +375,7 @@ _EXTRA_CHOICES = {
 # arguments whose plain type would mislead the form
 _KINDS = {
     ("LIBSAVE", "part"): "part",
+    ("DECAL", "face"): "ids",
     ("MIRROR", "copy"): "bool",
     ("SWEEP", "solid"): "bool",
     ("RAILSWEEP", "solid"): "bool",
@@ -472,7 +486,7 @@ def _generic(name: str) -> list[Field]:
 
 
 # whole-number arguments that are an ID picked in the view
-_PICKS = {("SPOTWELD", "edge"): "EDGE", ("UPTO", "n"): "ANY"}
+_PICKS = {("SPOTWELD", "edge"): "EDGE", ("UPTO", "n"): "ANY", ("DECAL", "face"): "FACE"}
 
 
 # ---- hand-written forms ----------------------------------------------------------

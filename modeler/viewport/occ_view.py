@@ -334,6 +334,9 @@ class OccViewport(QWidget):
         self._update_pending = False  # a redraw waits for a burst of model events to end (_update_soon)
         self._last_update = 0.0
         self._pins_pending = False
+        self._tex_ais: dict[int, list] = {}  # TEXTURE: a body's textured faces, drawn over its edges
+        self._decal_ais: list = []  # DECAL: pictures on faces
+        self._decals_pending = False
         self.detail_mode, self.cull_px, self._fast_now = "AUTO", 3.0, False  # big assemblies (set_detail)
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point), "cube"
@@ -405,6 +408,7 @@ class OccViewport(QWidget):
         self._show_sketches()
         self._show_notes()
         self._show_pictures()
+        self._show_decals()
         self._sync_selection()
         self._draw_control_points()
         self._draw_analysis()
@@ -625,6 +629,7 @@ class OccViewport(QWidget):
             ais = self._ais.pop(ev.body_id, None)
             if ais is not None:
                 self.context.Remove(ais, False)
+            self._drop_textures(ev.body_id)
         elif ev.kind == "cleared":
             self.context.RemoveAll(False)
             self._cube_back()
@@ -632,6 +637,8 @@ class OccViewport(QWidget):
             self._an_ais, self._an_hidden = None, None
             self._brush_ais = self._mask_ais = self._patch_ais = None
             self._ais.clear()
+            self._tex_ais.clear()
+            self._decal_ais = []
             self._datum_ais.clear()
             self._sketch_ais.clear()
             self._preview_ais.clear()
@@ -646,6 +653,8 @@ class OccViewport(QWidget):
             self._an_ais, self._an_hidden = None, None
             self._brush_ais = self._mask_ais = self._patch_ais = None
             self._ais.clear()
+            self._tex_ais.clear()
+            self._decal_ais = []
             self._datum_ais.clear()
             self._sketch_ais.clear()
             self._preview_ais.clear()
@@ -659,6 +668,7 @@ class OccViewport(QWidget):
             self._show_sketches()
             self._show_notes()
             self._show_pictures()
+            self._show_decals()
             self._sync_selection()
             return
         elif ev.kind in ("sketch", "sketch_selection"):
@@ -667,6 +677,8 @@ class OccViewport(QWidget):
             self._show_datums()
         elif ev.kind in ("notes", "pins"):
             self._show_notes()
+        elif ev.kind == "decals":
+            self._show_decals()
         elif ev.kind == "pictures":
             self._show_pictures()
         elif ev.kind == "selection":
@@ -676,6 +688,7 @@ class OccViewport(QWidget):
             ais = self._ais.pop(ev.body_id, None)
             if ais is not None:
                 self.context.Remove(ais, False)
+            self._drop_textures(ev.body_id)
             if ev.body_id in self.model.bodies:
                 self._display_body(ev.body_id, update=False)
             self._sync_selection()
@@ -686,11 +699,15 @@ class OccViewport(QWidget):
                     continue
                 if ais is not None:
                     self.context.Remove(self._ais.pop(bid), False)
+                self._drop_textures(bid)
                 self._display_body(bid, update=False)
             self._show_datums()
             self._sync_selection()
         if self.model.measure_pins and ev.kind in ("body_added", "body_removed", "restored"):
             self._pins_soon()  # pinned measurements follow the change, once a burst of changes ends
+        if (self.model.decals or self._decal_ais) and ev.kind in (
+                "body_added", "body_removed", "restored", "visibility", "style", "layers"):
+            self._decals_soon()  # decals follow their faces
         self._update_soon()
 
     def _update_soon(self) -> None:
@@ -726,15 +743,117 @@ class OccViewport(QWidget):
             self._last_update = _t.monotonic()
             self.context.UpdateCurrentViewer()
 
+    def _decals_soon(self) -> None:
+        if not self._decals_pending:
+            self._decals_pending = True
+            QTimer.singleShot(0, self, self._decals_now)
+
+    def _decals_now(self) -> None:
+        self._decals_pending = False
+        if self._initialized and self.isVisible():
+            self._show_decals()
+            self._update_soon()
+
     def _look(self, bid: int) -> tuple:
-        """What a body's drawing depends on besides its shape: colour and see-through."""
-        return (self.model.display_color(bid), self.model.display_transparency(bid))
+        """What a body's drawing depends on besides its shape: colour, see-through and texture."""
+        return (self.model.display_color(bid), self.model.display_transparency(bid), self.model.display_texture(bid))
+
+    def _drop_textures(self, bid: int) -> None:
+        for ais in self._tex_ais.pop(bid, []):
+            self.context.Remove(ais, False)
+
+    @staticmethod
+    def _picture_look(ais, color=(1.0, 1.0, 1.0)) -> None:
+        """A textured face lit like the bodies, see-through where its picture is (a PNG's clear parts)."""
+        from OCP.Graphic3d import Graphic3d_AlphaMode
+
+        ais.SetTextureMapOn()
+        ais.EnableTextureModulate()
+        ais.SetColor(_rgb(*color))
+        ais.SetDisplayMode(3)
+        ais.Attributes().ShadingAspect().Aspect().SetAlphaMode(Graphic3d_AlphaMode.Graphic3d_AlphaMode_MaskBlend, 0.5)
+
+    def _show_texture(self, bid: int, ais, texture, face_color) -> bool:
+        """TEXTURE: draw the body's faces with the picture tiled (one tile ``size`` mm on every face) and the
+        body itself as its edges only (it stays pickable). False when it is drawn plainly (too many faces, or
+        a picture that is not there)."""
+        import os as _os
+
+        from OCP.AIS import AIS_TexturedShape
+        from OCP.TCollection import TCollection_AsciiString
+
+        from ..geometry import decal as dc
+
+        path, size = texture
+        if not _os.path.isfile(path) or size <= 0:
+            return False
+        faces = dc.faces(self.model.bodies[bid].shape)
+        if len(faces) > dc.MAX_TEXTURED_FACES:
+            return False
+        out = []
+        for f in faces:
+            try:
+                ru, rv = dc.tiles(f, size)
+            except Exception:  # noqa: BLE001  (a face OCCT cannot evaluate: left plain)
+                continue
+            t = AIS_TexturedShape(f)
+            t.SetTextureFileName(TCollection_AsciiString(path))
+            t.SetTextureRepeat(True, ru, rv)
+            self._picture_look(t, face_color)
+            out.append(t)
+        if not out:
+            return False
+        ais.SetDisplayMode(0)  # the faces above draw the shading
+        ais.Attributes().UIsoAspect().SetNumber(0)
+        ais.Attributes().VIsoAspect().SetNumber(0)
+        see = self.model.display_transparency(bid)
+        for t in out:
+            self.context.Display(t, False)
+            self.context.Deactivate(t)
+            if see > 0:
+                self.context.SetTransparency(t, see, False)
+        self._tex_ais[bid] = out
+        return True
+
+    def _show_decals(self) -> None:
+        """Draw the decals (DECAL) on the faces they belong to, when those bodies are shown; never pickable."""
+        from OCP.AIS import AIS_TexturedShape
+        from OCP.Aspect import Aspect_PolygonOffsetMode
+        from OCP.TCollection import TCollection_AsciiString
+
+        from ..commands.decal_handlers import place
+        from ..core.model import ModelError
+        from ..geometry import decal as dc
+
+        ctx = self.context
+        for ais in self._decal_ais:
+            ctx.Remove(ais, False)
+        self._decal_ais = []
+        m = self.model
+        for d in m.decals:
+            try:
+                bid = m.entity_owner("FACE", int(d["face"]))[0]
+                if not m.is_shown(bid):
+                    continue
+                patch, _over = place(m, d)
+            except (ModelError, dc.DecalError, KeyError):
+                continue
+            t = AIS_TexturedShape(patch)
+            t.SetTextureFileName(TCollection_AsciiString(d["file"]))
+            t.SetTextureRepeat(False, 1.0, 1.0)
+            self._picture_look(t)
+            t.Attributes().ShadingAspect().Aspect().SetPolygonOffsets(
+                int(Aspect_PolygonOffsetMode.Aspect_POM_Fill), -1.0, -10.0)
+            ctx.Display(t, False)
+            ctx.Deactivate(t)
+            self._decal_ais.append(t)
 
     def _display_body(self, bid: int, update: bool = True) -> None:
         if not self.model.is_shown(bid):
             return
         shape = self.model.bodies[bid].shape
         ais = AIS_Shape(shape)
+        mode = 1  # shaded (0: edges only, when TEXTURE draws its faces)
         col = self.model.display_color(bid)  # own colour, else layer, else material
         self._drawn_color[bid] = self._look(bid)
         if self.model.bodies[bid].entity_ids["FACE"]:
@@ -746,6 +865,10 @@ class OccViewport(QWidget):
             # edges a darker shade of the body: panel lines and shut gaps read at any zoom
             edge = _rgb(*(0.4 * c for c in face))
             ais.Attributes().SetFaceBoundaryAspect(Prs3d_LineAspect(edge, Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.0))
+            texture = self.model.display_texture(bid)
+            if texture is not None and not mb.is_mesh(shape) and self._show_texture(bid, ais, texture, face):
+                ais.SetColor(edge)  # its edges, drawn over the textured faces
+                mode = 0
         elif not self.model.bodies[bid].entity_ids["EDGE"]:  # a point cloud: small dots
             from OCP.Aspect import Aspect_TypeOfMarker
             from OCP.Prs3d import Prs3d_PointAspect
@@ -759,7 +882,7 @@ class OccViewport(QWidget):
         else:  # a curve (path or profile): draw it bright and a little thicker
             ais.SetColor(_rgb(*col) if col else _rgb(1.0, 0.62, 0.15))
             ais.SetWidth(2.5)
-        self.context.Display(ais, 1, 0, False)
+        self.context.Display(ais, mode, 0, False)
         if not self.model.bodies[bid].entity_ids["EDGE"] and self._few_points(bid):
             # weld points lie on the faces they join: drawn on top, or the faces hide them
             from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost

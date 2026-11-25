@@ -40,8 +40,10 @@ def render(p: Processor, file, width, height, view, frames, floor):
         got = hook(path, width, height, view.strip().strip('"').upper(), frames, floor == "ON")
     except RenderError as exc:
         raise CommandError(f"RENDER: {exc}") from None
+    note = getattr(p.view, "last_render_note", "")
+    note = f" ({note})" if note else ""
     if len(got) == 1:
-        return f"rendered {width} x {height} to {got[0]}"
+        return f"rendered {width} x {height} to {got[0]}{note}"
     gif = [g for g in got if g.endswith(".gif")]
     return (f"rendered a turntable of {frames} pictures, {width} x {height}: {got[0]} ... "
-            f"{[g for g in got if g.endswith('.png')][-1]}" + (f", and {gif[0]}" if gif else ""))
+            f"{[g for g in got if g.endswith('.png')][-1]}" + (f", and {gif[0]}" if gif else "") + note)
