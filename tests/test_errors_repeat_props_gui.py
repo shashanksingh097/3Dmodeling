@@ -219,6 +219,16 @@ def test_repeat_is_first_without_a_pick(win):
     win._body_menu.close()
 
 
+def test_body_name_stays_first_with_repeat(win):
+    run(win, "BLOCK, 0,0,0, 20,20,20\nNAME, LAST, cube\nPICK, EDGE, 1\nFILLET, 2")
+    win.processor.model.selection = []
+    bid = max(win.processor.model.bodies)
+    win.show_body_menu(bid, win.mapToGlobal(win.rect().center()))
+    acts = win._body_menu.actions()
+    assert acts[0].text().startswith("cube") and acts[1].objectName() == "repeat" and acts[2].isSeparator()
+    win._body_menu.close()
+
+
 def test_no_repeat_in_the_menu_before_any_step(win):
     win.show_body_menu(0, win.mapToGlobal(win.rect().center()))
     assert all(a.objectName() != "repeat" for a in win._body_menu.actions())

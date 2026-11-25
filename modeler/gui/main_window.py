@@ -1100,7 +1100,13 @@ class MainWindow(QMainWindow):
             acts = menu.actions()
             first = acts[0] if acts else None
             picked = first is not None and not first.isEnabled() and first.text().startswith("The picked")
-            sep = next((a for a in acts if a.isSeparator()), None) if picked else first
+            titled = not picked and first is not None and first.font().bold()  # the body's name stays first
+            if picked:
+                sep = next((a for a in acts if a.isSeparator()), None)
+            elif titled:
+                sep = acts[1] if len(acts) > 1 else None
+            else:
+                sep = first
             act = QAction(f"Repeat {short}", menu)
             act.triggered.connect(self.repeat_last)
             act.setToolTip("Run it again on the current pick (Enter on an empty command line does the same)")
