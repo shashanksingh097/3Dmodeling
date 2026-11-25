@@ -1093,6 +1093,23 @@ SCALE, LAST, 1, 30,0,0, 1, 2
 CYL, 0,0,0, 5, 20
 COPY, 1, 30, 0, 0
 
+@ PASTE
+! Geometry copied from another project (Ctrl+C there, Ctrl+V here) is kept with this project as CLIP1 and
+! pasted as a step; PASTE, LIST shows what is kept.
+PASTE, LIST
+
+@ UPTO pic
+! Move a block up until it touches the underside of a shelf (face 11, whose normal points down), then a
+! peg along X until its side lines up with the block's corner.
+BLOCK, 0, 0, 0, 10, 10, 10
+NAME, LAST, box
+BLOCK, 0, 0, 50, 40, 40, 5
+NAME, LAST, shelf
+CYL, 30, 5, 0, 3, 10
+NAME, LAST, peg
+UPTO, box, FACE, 11
+UPTO, peg, VERTEX, 1, X, 2
+
 @ MIRROR pic
 ! A mirror copy of a wedge in the YZ plane.
 WEDGE, 5,0,0, 30, 15, 10, 10

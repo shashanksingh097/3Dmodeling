@@ -382,6 +382,8 @@ def pick_tools(p) -> list[MenuItem]:
             add(MenuItem("Thread…", short="Thread", form="THREAD", icon="thread"))
         add(MenuItem("Fillet its edges…" if n == 1 else "Fillet their edges…", short="Fillet edges", form="FILLET",
                      first=["SEL, S, EDGE, OF, FACE"], icon="fillet"))
+        if flat:
+            add(MenuItem("Pull up to…", short="Up to", form="UPTO", commands=[f"UPTO, FACES {' '.join(map(str, sel))}, FACE, "], icon="upto"))
         add(MenuItem("Shell (open this face)…" if n == 1 else f"Shell (open {n} faces)…", short="Shell", form="SHELL",
                      icon="shell"))
         add(MenuItem("Move face…" if n == 1 else "Move faces…", short="Move face", form="MOVEFACE", icon="moveface"))
@@ -443,6 +445,15 @@ def pick_tools(p) -> list[MenuItem]:
             add(MenuItem(f"Subtract the others from body {sel[0]}", short="Subtract",
                          commands=["SEL, U, BODY, ID, " + str(sel[0]), f"SUBTRACT, {sel[0]}, SEL"], icon="subtract"))
             add(MenuItem(f"Intersect the {n}", short="Intersect", commands=[f"INTERSECT, {', '.join(map(str, sel[:9]))}"], icon="intersect"))
+        if n == 1:
+            add(MenuItem("Move up to…", short="Up to", form="UPTO", commands=[f"UPTO, {sel[0]}, FACE, "], icon="upto"))
+        try:
+            from ..commands import clip_handlers as _ch
+
+            dup = _ch.paste_lines(p, _ch.copy_bodies(p, list(sel)))
+            add(MenuItem("Duplicate (Ctrl+D)", short="Duplicate", commands=dup, icon="duplicate"))
+        except Exception:  # noqa: BLE001 - no Duplicate rather than no menu
+            pass
         if n == 2:
             add(MenuItem("Distance", short="Measure", commands=["DIST"], icon="measure"))
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))

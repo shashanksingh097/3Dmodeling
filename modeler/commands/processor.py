@@ -152,6 +152,12 @@ class Result:
     report: dict | None = None  # the same answer as data, from checks such as STRESS or PRINTCHECK
 
 
+def _new_clip_id() -> str:
+    import uuid
+
+    return uuid.uuid4().hex
+
+
 @dataclass
 class Entry:
     """One top-level unit of the history."""
@@ -258,6 +264,9 @@ class Processor:
         # geometry taken from other parts (TAKE), by name: what was asked, a fingerprint to find it
         # again, and for COPY the geometry itself (BREP text); kept with the project
         self.taken: dict = {}
+        # geometry pasted from another project (PASTE, CLIP1 ...): BREP text and look; kept with the project
+        self.pasted: dict = {}
+        self.clip_id = _new_clip_id()  # which project copied bodies came from (Ctrl+C / Ctrl+V)
         # the assistant conversation: [{"who": "you"/"assistant", "text": ...}], saved with the project
         self.chat: list[dict] = []
         # LIB, LINK names as written -> what the last run read (part_handlers.Link);
@@ -483,6 +492,8 @@ class Processor:
         self.file_map = {}
         self.strokes = {}
         self.taken = {}
+        self.pasted = {}
+        self.clip_id = _new_clip_id()
         self.chat = []
         self.links = {}
         self.link_paths = {}

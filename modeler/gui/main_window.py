@@ -563,6 +563,8 @@ class MainWindow(QMainWindow):
         central = QWidget()
         lay = QVBoxLayout(central)
         lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        self._central_layout = lay
         lay.addWidget(self.viewport, 1)
         row = QHBoxLayout()
         row.setContentsMargins(4, 0, 0, 0)
@@ -646,8 +648,13 @@ class MainWindow(QMainWindow):
         from .app_shell import AppShell
 
         self.shell = AppShell(self, settings, guard)
+        from .project_tabs import ProjectTabs
+
+        self.project_tabs = ProjectTabs(self)  # several projects open at once (PLAN item 109)
+        self._central_layout.insertWidget(0, self.project_tabs.bar)
         self._build_toolbar()
         self.shell.build_file_menu()
+        self.shell.build_edit_menu()
         self.commands_menu = self.menuBar().addMenu("&Commands")
         fd.command_menu(self, self.commands_menu)
         from .sketch_ui import SketchUI
@@ -688,6 +695,10 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
         if self.offload.busy:
             self.offload.helper.cancel()
+        tabs = getattr(self, "project_tabs", None)
+        if tabs is not None and tabs.count() > 1 and not tabs.confirm_close_all():
+            event.ignore()
+            return
         self.shell.close_event(event)
         if event.isAccepted():
             from .form_dialog import FormDialog
@@ -1156,6 +1167,14 @@ class MainWindow(QMainWindow):
                 menu.insertAction(sep, act)
                 if not picked:
                     menu.insertSeparator(sep)
+        tabs = getattr(self, "project_tabs", None)
+        if tabs is not None and tabs.count() > 1 and bid in m.bodies:  # PLAN item 109
+            sel = list(m.selection) if m.selection_kind == "BODY" and bid in m.selection else [bid]
+            sub = menu.addMenu("Copy to")
+            for k, label in enumerate(tabs.labels()):
+                if k != tabs.current:
+                    act = sub.addAction(label)
+                    act.triggered.connect(lambda _=False, k=k, sel=sel: tabs.copy_to(sel, k))
         self._body_menu = menu  # tests read it
         menu.popup(global_pos)
 

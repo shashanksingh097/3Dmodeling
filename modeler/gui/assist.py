@@ -66,6 +66,8 @@ _COMMAND_CHOICES = {
     ("DRAWSHEET", "sizes"): ("ALL", "OVERALL", "HOLES", "NONE"),
     ("DRAWSHEET", "paper"): ("AUTO", "A4", "A3", "A2", "A1", "A0"),
     ("SREPAIR", "refit"): ("YES", "NO"),
+    ("UPTO", "kind"): ("FACE", "EDGE", "VERTEX"),
+    ("UPTO", "axis"): ("NORMAL", "X", "Y", "Z"),
     ("BOARD", "holes"): ("MOUNT", "ALL", "NONE"),
     ("BOARD", "at"): ("ORIGIN", "CENTRE", "FILE"),
     ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
