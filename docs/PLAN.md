@@ -1466,3 +1466,46 @@ Built about three items per pull request, in this order.
     processor at hand, off by default; what it changes goes to the history
     as commands. Done: View > Python console with `run(...)`, `c.COMMAND(...)`,
     `report`, `value`, `body`; direct changes to the model are undone.
+
+### What users still miss (M17)
+
+From a fourth comparison (2026-11-25), made after items 95-106 were built.
+This one ranks gaps by how often a user meets them in a normal working day,
+not by missing features. The same rule as M14: each item works by mouse, by
+command (one history step and a form) and for the assistant (data it can
+read and a skill). Built about three items per pull request, in this order.
+
+107. **Copy, paste and duplicate** (P1): Ctrl+C, Ctrl+V and Ctrl+D for
+     bodies, picked faces and sketch geometry, also between projects. A
+     paste becomes ordinary commands in the history (COPY, MOVE or the
+     sketch commands), placed where the mouse is. The assistant gets a
+     `PASTE` command and the clipboard's contents as data.
+108. **Snapping to other parts; up-to moves** (P1): while dragging (drag
+     handles, MOVE, PUSHPULL), snap to vertices, edge midpoints, circle
+     centres and faces of any part, shown with a marker. MOVE and PUSHPULL
+     gain UPTO a picked face or point; ALIGN and CENTRE on a pick.
+109. **Several projects open at once** (P1): projects open in tabs; a part
+     dragged from one tab to another is copied there (as an INST of a saved
+     part or a COPY); each tab keeps its own history and undo. The
+     assistant names the project it works on.
+110. **A live drawing-sheet window** (P2): see a DRAWSHEET as it is built,
+     drag views, click edges to add sizes, balloons and notes, with the
+     sheet redrawn live; each change is one history step.
+111. **3D mouse** (P2): pan, zoom and rotate with a 3D mouse (SpaceMouse
+     and similar), with a speed setting and the device's buttons mapped to
+     commands. Tested with a real device by the user.
+112. **Big assemblies stay fast** (P2): a simplified look for small or far
+     parts while the view moves, a part's shape loaded only when it is
+     shown, and a "big model" setting; timings in the speed benchmark.
+113. **Open FreeCAD files** (P2): `IMPORT` of .FCStd: shapes, names,
+     colours and the part tree.
+114. **Share a model as one web page** (P2): `EXPORT, HTML` writes one file
+     with a 3D viewer (turn, hide parts, measure, read notes) for people
+     who don't have the app.
+115. **Pinned measurements** (P3): pin a measurement so it stays in the view
+     and updates as the model changes; saved with the project; the
+     assistant reads them as data.
+116. **Textures and decals** (P3): textures on materials and decals (a logo
+     on a face) shown live in the view and used by RENDER.
+117. **Update check and What's new** (P3): an opt-in check for a new release
+     and a "What's new" page after an update.
