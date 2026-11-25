@@ -105,16 +105,23 @@ def wrap(shapes, gap: float, cell: float = 0.0) -> Skin:
     outside = np.isin(labels, border)
     if outside.all():
         raise WrapError("nothing to wrap: no surfaces in the box")
-    # signed distance to the outside region's edge (positive inside the wrap), in model units. The
-    # nearest outside cell is a little farther from the bodies than the gap (cells are whole): take
-    # that extra off, so the skin lands on the surface and not up to a cell inside it
-    din, near = ndimage.distance_transform_edt(~outside, return_indices=True)
-    din = din * cell
-    d_near = d[near[0], near[1], near[2]]
-    d_near = np.where(np.isfinite(d_near), d_near, gap + cell)
-    din = din - (d_near - gap)
+    # The skin is where a point is exactly ``gap`` inside the outside region's edge. That edge is
+    # sampled where it really is: for each outside cell next to the inside, the point at the gap
+    # from its nearest surface point, towards the cell. Distances to those points (not to whole
+    # cells) give a smooth skin that sits on flat faces and comes back to a sharp edge at corners.
+    edge = outside & ndimage.binary_dilation(~outside)
+    cells = np.c_[X[edge], Y[edge], Z[edge]]
+    _dd, idx = tree.query(cells)
+    near = pts[idx]
+    away = cells - near
+    away /= np.maximum(np.linalg.norm(away, axis=1), 1e-12)[:, None]
+    rim = cKDTree(near + gap * away)
+    din = ndimage.distance_transform_edt(~outside) * cell  # rough, for cells deep inside
+    band = ~outside & (din <= gap + 3 * cell)
+    exact, _ = rim.query(np.c_[X[band], Y[band], Z[band]])
     dout = ndimage.distance_transform_edt(outside) * cell
-    vals = np.where(outside, dout + gap, gap - din)  # the skin where we are back in by the gap
+    vals = np.where(outside, dout + gap, gap - din - 3 * cell)
+    vals[band] = gap - exact
     vals[0, :, :] = vals[-1, :, :] = vals[:, 0, :] = vals[:, -1, :] = vals[:, :, 0] = vals[:, :, -1] = cell
     vals[vals == 0] = 1e-12 * cell
     p, t = implicit.march(vals, (xs, ys, zs))
