@@ -1436,13 +1436,21 @@ Built about three items per pull request, in this order.
     `SHEETNOTE, sheet, CENTRES / THREADS / FINISH / WELD / LEADER`; the sheet
     menu and a picked face, edge or weld bead offer them.
 101. **More file formats** (P2): SVG paths into a sketch, OpenSCAD `.scad`
-    files (CSG) as bodies, and VRML and AMF export.
+    files (CSG) as bodies, and VRML and AMF export. Done: `SSVG` (also
+    Sketch > From SVG…), `IMPORT, SCAD` (one exact body per top-level
+    object), `EXPORT, VRML` and `EXPORT, AMF`.
 102. **A material library** (P2): a library file of materials (stiffness,
     strength, heat, appearance) shared by every project, with a Materials
-    window to edit it; STRESS, MASSPROP and RENDER read it.
+    window to edit it; STRESS, MASSPROP and RENDER read it. Done: `MATLIB`
+    (LIST, SHOW, SET, DELETE, KEEP, FILE) and View > Materials…; built-in
+    materials carry stiffness, strength, heat values and a render look;
+    saved projects keep a copy of the library materials they use.
 103. **Circuit boards for enclosures** (P2): read IDF or KiCad board files:
     the board outline as a plate, each part as a named box at its place,
-    ready for the enclosure skill.
+    ready for the enclosure skill. Done: `BOARD` (KiCad courtyard boxes with
+    Height properties or guesses, IDF outlines and heights from the .emp),
+    mounting holes cut, a report with the envelope, tallest parts and holes;
+    File > Import… opens board files.
 104. **Repairing imported curves** (P2): `SREPAIR` closes small gaps,
     removes duplicates and tiny pieces, and refits chains of short lines as
     splines; SCHECK says when it would help.

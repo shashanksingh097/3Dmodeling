@@ -3982,3 +3982,69 @@ names each point ("spot weld 2; joins lid + tray; nugget 5").
     SHEETNOTE, s1                                ! list them; SHEETNOTE, s1, DELETE, 2 removes one
 
 `SHEETNOTE` details are drawn from the model each time `DRAWINGS` writes the sheets.
+
+## 49. SVG and OpenSCAD files, a shared material library, circuit boards
+
+### SVG drawings into sketches
+
+    SSVG, plate.svg                     ! every path, rectangle, circle and ellipse
+    SSVG, logo.svg, 0.5, -20, -10, CUT  ! half size, moved, only the layer (or group) CUT
+
+(`SSVG`) works in the open sketch, like `SDXF`. Sizes come in mm from the
+file's width and viewBox (else 96 pixels to the inch), y up. Arcs stay
+arcs, Beziers become curves, and ends that meet are tied together, so a
+closed outline extrudes. Text and pictures are left out (the answer says
+so). File > Sketch > From SVG… does the same.
+
+### OpenSCAD files
+
+    IMPORT, SCAD, bracket.scad
+
+reads OpenSCAD's building part as exact bodies, one per top-level object:
+cube, sphere, cylinder, polyhedron, square, circle, polygon,
+linear_extrude, rotate_extrude, translate, rotate, scale, mirror,
+multmatrix, union, difference, intersection, variables, `for`, `if`,
+modules and functions. hull, minkowski, offset, text and import are not
+read; the error names the line.
+
+`EXPORT, VRML` (.wrl) and `EXPORT, AMF` (.amf) join the other formats.
+
+### The material library
+
+    MATLIB                                                  ! every material and where it comes from
+    MATLIB, SET, AL6061, density=2700 E=68900 nu=0.33 yield=276 k=167 cte=23.6 look=ALUMINIUM shiny=yes
+    MATLIB, SET, STEEL, yield=355                           ! your steel, in every project
+    MATLIB, SHOW, AL6061
+    MATLIB, DELETE, AL6061
+    MATLIB, KEEP, CFRP                                      ! a MATERIAL, NEW one into the library
+    MATLIB, FILE                                            ! where the library file is
+
+(`MATLIB`) keeps materials in one file shared by every project on the
+computer (`materials.json` in the app's data folder). Each has a density
+and, where known, stiffness `E` (MPa), Poisson's ratio `nu`, `yield`
+strength (MPa), heat conduction `k`, expansion `cte`, specific heat `cp`,
+top temperature `tmax`, a `color`, a render `look` and a `note`.
+`MATERIAL` uses them by name; `MASSPROP` gives the mass and lists every
+value, `STRESS` and `TOPOPT` take the stiffness and strength, and `RENDER`
+the look. View > Materials… shows them all in a table to edit. MATLIB is
+not a history step: the library is outside the project. A saved project
+keeps a copy of the library materials it uses, so it opens and weighs the
+same on a computer without them.
+
+### Circuit boards
+
+    BOARD, controller.kicad_pcb, pcb
+    BOARD, main.emn, pcb, ALL, 3, , CENTRE
+
+(`BOARD`) reads a KiCad board (.kicad_pcb) or an IDF one (.emn, with its
+.emp library next to it). The outline becomes a plate from z 0 up to its
+thickness, with its cut-outs and mounting holes (ALL: every drilled hole;
+NONE: none), and each part a named body (R1, U3, J1 ...) on its side, on
+the layer `pcb_parts`. KiCad parts are the box of their courtyard; their
+height is the footprint's `Height` property, else the height given, else
+a guess from the reference letters (the answer says which). The board
+goes with its lower left corner at 0,0 (CENTRE: its middle; FILE: where
+the file has it). The report gives the size, the thickness, the tallest
+part above and below, the envelope of board and parts, the mounting holes
+and every part with its box: what the enclosure skill builds the case
+from. File > Import… opens board files too.

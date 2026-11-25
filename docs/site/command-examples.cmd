@@ -128,6 +128,14 @@ STRACE, logo.png, 60
 ENDSKETCH
 EXTRUDE, logo, 3
 
+@ SSVG pic
+! Read an SVG drawing into a sketch at its size in mm (here only its CUT layer), then make it a plate.
+! plate.svg comes with the example files.
+SKETCH, s1, XY
+SSVG, plate.svg, 1, 0, 0, CUT
+ENDSKETCH
+EXTRUDE, s1, 3
+
 @ IMAGE
 ! Show a picture 120 wide on the XY plane, to draw over it. It is not a body; IMAGE, CLEAR takes it away.
 IMAGE, logo.png, XY, 120
@@ -1190,6 +1198,15 @@ BLOCK, 0,0,0, 100, 50, 10
 MATERIAL, LAST, ALUMINIUM
 MASSPROP, LAST
 
+@ MATLIB
+! The material library every project shares: add an aluminium grade with its stiffness and strength,
+! use it, and MASSPROP, STRESS and RENDER read its values.
+MATLIB, SET, AL6061, density=2700 E=68900 nu=0.33 yield=276 k=167 cte=23.6 look=ALUMINIUM shiny=yes
+BLOCK, 0,0,0, 100, 50, 10
+MATERIAL, LAST, AL6061
+MASSPROP, LAST
+MATLIB, SHOW, AL6061
+
 @ ISOLATE
 ! Show only one body and hide every other one.
 BLOCK, 0,0,0, 40, 20, 5
@@ -1746,12 +1763,19 @@ CYL, 0,0,0, 10, 20
 EXPORT, STEP, "part.step"
 CLEAR
 IMPORT, STEP, "part.step", part
+IMPORT, SCAD, bracket.scad    ! an OpenSCAD file, as exact bodies (it comes with the example files)
+
+@ BOARD pic
+! A circuit board to design a case around: the outline becomes a plate with its mounting holes, each
+! part a named body on its side. controller.kicad_pcb comes with the example files (an IDF .emn works too).
+BOARD, controller.kicad_pcb, pcb
 
 @ EXPORT
 ! Write bodies to STEP (exact) and STL (triangles) files.
 BLOCK, 0,0,0, 40, 20, 10
 EXPORT, STEP, "plate.step"
 EXPORT, STL, "plate.stl"
+EXPORT, VRML, "plate.wrl"    ! also AMF, 3MF, OBJ, glTF, IGES ...
 
 @ DRAWING
 ! A 2D drawing with front, top, right and iso views and the main sizes.

@@ -1,7 +1,7 @@
 ---
 name: strength-and-weight
 description: A quick linear strength check of one solid (STRESS - largest stress, deflection, safety factor from its material), checks kept in the script with SAFETY, MAXSTRESS, DEFLECT and MASS, and TOPOPT to see where material carries the load. Use for "will it hold", "how much does it bend", "make it lighter".
-commands: MATERIAL, CM, SEL, STRESS, TOPOPT, MASSPROP, ASSERT
+commands: MATERIAL, MATLIB, CM, SEL, STRESS, TOPOPT, MASSPROP, ASSERT
 ---
 # Strength and weight
 
@@ -12,7 +12,11 @@ large deflections, no vibration. Say so when you report a result.
 ## Steps
 
 1. **Material**: `MATERIAL, part, ALUMINIUM` (steel is assumed if none).
-   The yield strength used is in the STRESS answer.
+   The yield strength used is in the STRESS answer. `MATLIB` lists every
+   material with its stiffness and strength; for a grade the user names,
+   `MATLIB, SHOW, name` first, else add it from the data sheet with
+   `MATLIB, SET, AL6061, density=2700 E=68900 nu=0.33 yield=276` (a library
+   shared by every project: say so before changing a built-in one).
 2. **Name the faces**: the faces held still and the faces the load acts
    on, as sets: `SEL, S, FACE, NORMAL, -1,0,0` then `CM, wall, FACE`;
    `SEL, S, FACE, LOC, X, 60` then `CM, tip, FACE`. Then `SEL, NONE`.
