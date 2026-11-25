@@ -1501,13 +1501,28 @@ read and a skill). Built about three items per pull request, in this order.
      user_context lists the open tabs.
 110. **A live drawing-sheet window** (P2): see a DRAWSHEET as it is built,
      drag views, click edges to add sizes, balloons and notes, with the
-     sheet redrawn live; each change is one history step.
+     sheet redrawn live; each change is one history step. Done: View >
+     Drawing sheets… shows a sheet as it prints and draws it again after
+     every change; dragging a view writes `SHEETVIEW, sheet, view, dx, dy`;
+     buttons add sizes of picked edges (`SHEETNOTE, sheet, SIZE, EDGE n`),
+     leader notes, centre marks, parts lists and save the PDF.
 111. **3D mouse** (P2): pan, zoom and rotate with a 3D mouse (SpaceMouse
      and similar), with a speed setting and the device's buttons mapped to
-     commands. Tested with a real device by the user.
+     commands. Tested with a real device by the user. Done: read through
+     spacenavd (Linux) or the pyspacemouse package (any system); the model
+     follows the cap; speed, turn/pan/zoom, strongest axis only and axes the
+     other way in Preferences > Mouse and `SPACEMOUSE`; buttons run commands
+     (FIT and VIEW, ISO to start). Still to test with a real device.
 112. **Big assemblies stay fast** (P2): a simplified look for small or far
      parts while the view moves, a part's shape loaded only when it is
      shown, and a "big model" setting; timings in the speed benchmark.
+     Done: copies of a part (INST) share one shape, so its mesh is made
+     once; a script that adds hundreds of bodies redraws once at its end;
+     View > Detail and `DETAIL, AUTO | FINE | FAST [, px]` (FAST: coarser
+     meshes, bodies under a few pixels left out; AUTO from 300 bodies).
+     400 bolts show in 0.8 s instead of 8.4 s; the speed benchmark's "big
+     assembly" case builds and meshes 1000 copies (0.9 s, 3.3 s before).
+     Loading a linked part's shape only when shown is left for later.
 113. **Open FreeCAD files** (P2): `IMPORT` of .FCStd: shapes, names,
      colours and the part tree.
 114. **Share a model as one web page** (P2): `EXPORT, HTML` writes one file

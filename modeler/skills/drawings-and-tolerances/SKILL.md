@@ -1,7 +1,7 @@
 ---
 name: drawings-and-tolerances
 description: 2D drawings and sheets (views, sections, details, sizes, title block) as SVG, DXF or PDF, notes and sizes pinned to the 3D model, ISO 286 fits, geometric tolerances with datums, and tolerance stack-ups. Use for "make a drawing", "add tolerances", "will these parts always fit".
-commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETNOTE, SHEETDATA, REVISION, PROPERTY, NOTE, FITS, STACKUP, SECTION
+commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETNOTE, SHEETVIEW, SHEETDATA, REVISION, PROPERTY, NOTE, FITS, STACKUP, SECTION
 ---
 # Drawings and tolerances
 
@@ -43,7 +43,12 @@ commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETNOTE, SHEETDATA, REVISION, PROPER
    side), `THREADS` (cosmetic threads on holes with a thread NOTE, such as
    a 6.8 hole noted "M8"), `FINISH, 12, 1.6, ground` (surface finish on
    face 12), `WELD, weld_1` (weld symbol with size and length) and
-   `LEADER, EDGE 5, "Break sharp edges"`. `SHEETNOTE, front` lists them,
+   `LEADER, EDGE 5, "Break sharp edges"` and `SIZE, EDGE 5` (the length of
+   one straight edge, or a round edge's diameter, in a view that shows it
+   true). A view that sits badly moves with `SHEETVIEW, front, TOP, 0, 15`
+   (model units before the scale; `RESET` puts it back); the others stay
+   put. The user sees the same sheet live in View > Drawing sheets….
+   `SHEETNOTE, front` lists them,
    `SHEETNOTE, front, DELETE, 2` removes one. After DRAWINGS, the report
    `drawings` has `details`: what was placed on which view.
 7. **Sizes and tolerances to other programs**: `EXPORT, STEP, "part.step"`
