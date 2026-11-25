@@ -394,10 +394,11 @@ def add_notes(views: list[View], notes, size: float) -> int:
     return len(placed)
 
 
-def layout(views: list[View]) -> tuple[float, float, float, float]:
+def layout(views: list[View], moves: dict | None = None) -> tuple[float, float, float, float]:
     """Place the views on one sheet (third-angle: top above front, right
     beside it, iso in the free corner, others in a row after), and return
-    the sheet's bounds."""
+    the sheet's bounds. ``moves`` shifts views from there: {view title: (dx, dy)}
+    in the views' own units (SHEETVIEW, PLAN item 110)."""
     size = max([max(b[2] - b[0], b[3] - b[1]) for b in (v.bounds() for v in views)] + [1.0])
     gap = 0.2 * size + max([4 * v.dims.height for v in views if v.dims.lines] + [0.0])
     by = {v.name: v for v in views}
@@ -450,8 +451,16 @@ def layout(views: list[View]) -> tuple[float, float, float, float]:
     pts = [(v.bounds()[0] + v.dx, v.bounds()[1] + v.dy, v.bounds()[2] + v.dx, v.bounds()[3] + v.dy) for v in views]
     pts += [(e[0] + v.dx, e[1] + v.dy, e[2] + v.dx, e[3] + v.dy) for v in views
             for e in [v.dims.extent()] if e is not None]
-    return (min(p[0] for p in pts) - gap / 2, min(p[1] for p in pts) - gap, max(p[2] for p in pts) + gap / 2,
+    home = (min(p[0] for p in pts) - gap / 2, min(p[1] for p in pts) - gap, max(p[2] for p in pts) + gap / 2,
             max(p[3] for p in pts) + gap / 2)
+    # moved views go where they were put; the sheet keeps the bounds (so the scale and the place of the
+    # other views) it had before, so a dragged view lands where it was dropped
+    for v in views:
+        mv = (moves or {}).get(v.title.upper()) or (moves or {}).get(v.name.upper())
+        if mv:
+            v.dx += float(mv[0])
+            v.dy += float(mv[1])
+    return home
 
 
 def _f(v: float) -> str:

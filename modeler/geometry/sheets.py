@@ -302,6 +302,7 @@ class Page:
     scale: float = 1.0
     paper: str = "A4"
     warnings: list = field(default_factory=list)
+    boxes: list = field(default_factory=list)  # (view title, x0, y0, x1, y1) on the paper, for the sheet window
 
 
 def fit(sheet_bounds, paper: str = "AUTO", scale: float = 0.0, side: float = 0.0) -> tuple[str, float]:
@@ -377,6 +378,8 @@ def compose(views: list[dr.View], sheet_bounds, paper: str, scale: float, props:
         low = min(by0, e[1]) if e is not None else by0
         x, y = tr(((bx0 + bx1) / 2, low), v)
         pg.texts.append((x, y - label_h * 2, label_h, v.title, "m", "k", 0.0))
+        lo, hi = tr((bx0, by0), v), tr((bx1, v.bounds()[3]), v)
+        pg.boxes.append((v.title, lo[0], min(lo[1], y - label_h * 2), hi[0], hi[1]))
     if marks:
         _marks(pg, views, marks, tr, scale)
     # frame

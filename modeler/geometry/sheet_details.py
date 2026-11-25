@@ -10,6 +10,7 @@ command layer (commands/sheet_note_handlers.py) from the model:
 * finish: {point, normal, ra, text}
 * weld: {point, size, length}
 * leader: {point, normal (or None), text}
+* size: {line: (a, b)} or {circle: {centre, r, axis}} (PLAN item 110)
 
 and returns what was placed, as data: [{kind, view, at (x, y in the view), ...}].
 """
@@ -219,6 +220,63 @@ def leader(views: list[dr.View], rec: dict, h: float) -> dict | None:
     return {"kind": "leader", "view": v.name, "at": [round(tip[0], 6), round(tip[1], 6)], "text": text}
 
 
+def edge_size(views: list[dr.View], rec: dict, h: float) -> dict | None:
+    """The size of one edge: a straight edge's length in a view that shows it true (along the view's
+    across or up direction when it can), a round edge's diameter in a view that looks down its axis."""
+    flat = [v for v in views if v.name in dr.VIEWS and v.name != "ISO"]
+    if not flat:
+        return None
+    if "circle" in rec:
+        c = rec["circle"]
+        ax = np.asarray(c["axis"], float)
+        v = next((v for v in flat if abs(abs(ax @ _look(v)) - 1) < 1e-6), None)
+        if v is None:
+            return None
+        cx, cy = _flat(v)(c["centre"])
+        text = f"\u00d8{_n(round(2 * c['r'], 4))}"
+        dr._diameter(v.dims, (cx, cy, c["r"]), len(v.dims.texts), text, [])
+        return {"kind": "size", "view": v.name, "at": [round(cx, 6), round(cy, 6)], "text": text}
+    a3, b3 = (np.asarray(q, float) for q in rec["line"])
+    d3 = b3 - a3
+    ln = float(np.linalg.norm(d3))
+    if ln < 1e-9:
+        return None
+    v = next((v for v in flat if abs(d3 @ _look(v)) < 1e-6 * ln), None)
+    if v is None:
+        return None
+    f = _flat(v)
+    a, b = f(a3), f(b3)
+    x0, y0, x1, y1 = v.bounds()
+    text = _n(round(ln, 4))
+    if abs(a[1] - b[1]) < 1e-6 * ln:  # across: below the view, or above when the edge is in its top half
+        at = y0 - 2.5 * h if a[1] <= (y0 + y1) / 2 else y1 + 2.5 * h
+        dr._linear(v.dims, a, b, False, at, text)
+    elif abs(a[0] - b[0]) < 1e-6 * ln:  # up: beside the view
+        at = x1 + 2.5 * h if a[0] >= (x0 + x1) / 2 else x0 - 2.5 * h
+        dr._linear(v.dims, a, b, True, at, text)
+    else:  # slanted: a line along it, set off to one side
+        u = ((b[0] - a[0]) / math.dist(a, b), (b[1] - a[1]) / math.dist(a, b))
+        nrm = (-u[1], u[0])
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        if (mid[0] - (x0 + x1) / 2) * nrm[0] + (mid[1] - (y0 + y1) / 2) * nrm[1] < 0:
+            nrm = (-nrm[0], -nrm[1])
+        off = 2.5 * h
+        pa = (a[0] + nrm[0] * off, a[1] + nrm[1] * off)
+        pb = (b[0] + nrm[0] * off, b[1] + nrm[1] * off)
+        v.dims.lines += [(a, (pa[0] + nrm[0] * 0.6 * h, pa[1] + nrm[1] * 0.6 * h)),
+                         (b, (pb[0] + nrm[0] * 0.6 * h, pb[1] + nrm[1] * 0.6 * h)), (pa, pb)]
+        v.dims.arrows += [(pa, (-u[0], -u[1])), (pb, u)]
+        ang = math.degrees(math.atan2(u[1], u[0]))
+        if ang > 90:
+            ang -= 180
+        elif ang < -90:
+            ang += 180
+        tm = ((pa[0] + pb[0]) / 2 + nrm[0] * 0.75 * h, (pa[1] + pb[1]) / 2 + nrm[1] * 0.75 * h)
+        v.dims.texts.append((tm, ang, text))
+    return {"kind": "size", "view": v.name, "at": [round((a[0] + b[0]) / 2, 6), round((a[1] + b[1]) / 2, 6)],
+            "text": text}
+
+
 def _n(x: float) -> str:
     return f"{x:.6g}"
 
@@ -244,7 +302,7 @@ def draw(views: list[dr.View], holes: list[dict], wanted: list[dict], size: floa
                         "threads drawn")
         placed += got
     for w in wanted:
-        fn = {"FINISH": finish, "WELD": weld, "LEADER": leader}.get(w["kind"])
+        fn = {"FINISH": finish, "WELD": weld, "LEADER": leader, "SIZE": edge_size}.get(w["kind"])
         if fn is None:
             continue
         if w.get("missing"):
@@ -252,7 +310,8 @@ def draw(views: list[dr.View], holes: list[dict], wanted: list[dict], size: floa
             continue
         got = fn(views, w, h)
         if got is None:
-            warn.append(f"the {w['kind'].lower()} has no flat view to go on")
+            warn.append(f"the {w['kind'].lower()} has no flat view to go on" if w["kind"] != "SIZE" else
+                        f"the size of edge {w['id']} has no view that shows it true (add one that looks square at it)")
         else:
             placed.append(got)
     return placed, warn

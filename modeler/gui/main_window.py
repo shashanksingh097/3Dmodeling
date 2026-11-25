@@ -1046,6 +1046,11 @@ class MainWindow(QMainWindow):
                      "and looks (MATLIB)")
         a.triggered.connect(self.open_materials)
         self.materials_action = a
+        a = m.addAction("&Drawing sheets…")
+        a.setToolTip("The drawing sheets as they print, kept up to date: drag views, add sizes and notes on what "
+                     "you pick, save a PDF (DRAWSHEET, SHEETVIEW, SHEETNOTE)")
+        a.triggered.connect(self.open_sheets)
+        self.sheets_action = a
         self.view_menu = m
 
     def toggle_console(self, on: bool | None = None):
@@ -1059,6 +1064,12 @@ class MainWindow(QMainWindow):
         from .materials_dialog import open_dialog
 
         return open_dialog(self)
+
+    def open_sheets(self):
+        """View > Drawing sheets…: the live sheet window (gui/sheet_window.py)."""
+        from .sheet_window import open_window
+
+        return open_window(self)
 
     def tutorial_changed(self) -> None:
         """TUTORIAL started, moved or stopped: the Tutorial panel follows."""
