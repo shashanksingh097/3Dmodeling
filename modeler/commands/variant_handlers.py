@@ -44,6 +44,7 @@ def variant(p: Processor, name: str) -> Processor:
     q = Processor()
     q.project_dir, q.file_map, q.link_paths = p.project_dir, dict(p.file_map), dict(p.link_paths)
     q.strokes, q.taken = dict(p.strokes), copy.deepcopy(p.taken)
+    q.pasted = dict(p.pasted)
     q.config_off = {k: set(v) for k, v in p.config_off.items()}
     q.config, q.config_values = key, dict(p.configs.get(key, {}))
     q.model.units = p.model.units

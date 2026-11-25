@@ -4210,3 +4210,44 @@ View > Python console opens a Python prompt. It is off until you open it.
 are there to read. Commands run through the console go into the history
 like typed ones. A line that changes the model directly is undone at once,
 so the history stays the whole story of the model.
+
+## 51. Copy and paste, up-to moves
+
+### Copy, paste and duplicate
+
+Edit > Copy (Ctrl+C) takes the picked bodies, the picked faces, or, while
+sketching, the picked sketch geometry. Edit > Paste (Ctrl+V) makes copies
+under the mouse (on the model, or on the ground plane Z = 0; in a sketch, on
+the sketch plane). Edit > Duplicate (Ctrl+D) makes copies beside the
+originals. Each copy is an ordinary history step:
+
+    COPY, 1, 11, 0, 0                         ! a body pasted in its own project
+    PASTE, CLIP1, 50, 0, 0                    ! from another project, or faces
+    STRANSFORM, MOVE, 11, 0, 1, 2, 3, COPY    ! sketch geometry, same sketch
+    SLINE, 20, 0, 30, 0                       ! sketch geometry, another sketch
+
+Geometry from another project (or picked faces, which paste as one sheet
+body) is kept with this project under a name (CLIP1, CLIP2 ...), so the
+PASTE step rebuilds without the clipboard. The pasted body keeps its name
+(when it is free), colour and material. `PASTE, LIST` lists what is kept.
+A text field with the focus keeps its own Ctrl+C and Ctrl+V.
+
+### Snapping and up-to moves
+
+While a drag handle moves a body or pulls faces, a corner, edge middle,
+circle centre or flat-face middle of what is dragged snaps level with the
+same kinds of points on the other bodies when it comes within 10 pixels; a
+ring marks the point and the label names it. Shift drags freely.
+
+    UPTO, box, FACE, 11              ! along the face's normal until it touches it
+    UPTO, box, VERTEX, 7, Z, 2       ! along Z, stopping 2 short of vertex 7
+    UPTO, SEL, FACE, 11              ! pull the picked flat faces level with face 11
+    UPTO, FACES 6 9, FACE, 11        ! the same, faces named
+
+`UPTO` moves a body (along X, Y, Z, or NORMAL, the target face's normal,
+the default for a face target) just far enough that its side facing the
+target touches the plane through it: a face's middle, an edge's middle (a
+round edge's centre) or a vertex. Round sides count exactly. Picked faces
+move along their own normals instead (a PUSHPULL with the distance worked
+out). `offset` stops short (negative: past). A right click on a body gives
+Move up to… and Duplicate; on flat faces, Pull up to….

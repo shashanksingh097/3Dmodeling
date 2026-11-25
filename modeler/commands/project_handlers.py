@@ -534,6 +534,13 @@ def _write_project(p: Processor, path: str, tmp: str) -> int:
             meta["strokes"] = "strokes.npz"
         if p.taken:  # geometry taken from other parts (TAKE): fingerprints, and copies as BREP text
             meta["taken"] = p.taken
+        if p.pasted:  # geometry pasted from other projects (PASTE): only what the history uses
+            from .clip_handlers import used_keys
+
+            used = used_keys(p)
+            kept_paste = {k: v for k, v in p.pasted.items() if k in used}
+            if kept_paste:
+                meta["pasted"] = kept_paste
         if p.backups_keep != BACKUPS_KEEP:
             meta["backups_keep"] = p.backups_keep
         kept = _library_materials(p)
@@ -605,6 +612,7 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     p.file_map = mapping
     p.strokes = strokes
     p.taken = {str(k).upper(): v for k, v in dict(meta.get("taken", {})).items() if isinstance(v, dict)}
+    p.pasted = {str(k).upper(): v for k, v in dict(meta.get("pasted", {})).items() if isinstance(v, dict)}
     p.chat = [e for e in meta.get("chat", []) if isinstance(e, dict) and isinstance(e.get("text"), str)]
     p.link_paths = dict(meta.get("links", {}))
     p.project_dir = os.path.dirname(os.path.abspath(path))

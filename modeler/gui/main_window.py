@@ -648,6 +648,7 @@ class MainWindow(QMainWindow):
         self.shell = AppShell(self, settings, guard)
         self._build_toolbar()
         self.shell.build_file_menu()
+        self.shell.build_edit_menu()
         self.commands_menu = self.menuBar().addMenu("&Commands")
         fd.command_menu(self, self.commands_menu)
         from .sketch_ui import SketchUI

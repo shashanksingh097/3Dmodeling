@@ -376,6 +376,8 @@ def pick_tools(p) -> list[MenuItem]:
             name = _next_name(p, "SKETCH") or "s1"
             add(MenuItem("Sketch on this face", short="Sketch", commands=[f"SKETCH, {name}, FACE, {sel[0]}"], icon="sketch"))
         add(MenuItem("Pull…" if n == 1 else f"Pull {n} faces…", short="Pull", form="PUSHPULL", icon="pushpull"))
+        if flat:
+            add(MenuItem("Pull up to…", short="Up to", form="UPTO", commands=[f"UPTO, FACES {' '.join(map(str, sel))}, FACE, "], icon="upto"))
         if flat and n == 1:
             add(MenuItem("Hole…", short="Hole", form="HOLE", icon="hole"))
         if round_:
@@ -435,6 +437,15 @@ def pick_tools(p) -> list[MenuItem]:
     elif kind == "BODY":
         names = " ".join(str(b) for b in sel)
         add(MenuItem("Move…" if n == 1 else f"Move {n} bodies…", short="Move", form="MOVE", icon="move"))
+        if n == 1:
+            add(MenuItem("Move up to…", short="Up to", form="UPTO", commands=[f"UPTO, {sel[0]}, FACE, "], icon="upto"))
+        try:
+            from ..commands import clip_handlers as _ch
+
+            dup = _ch.paste_lines(p, _ch.copy_bodies(p, list(sel)))
+            add(MenuItem("Duplicate (Ctrl+D)", short="Duplicate", commands=dup, icon="duplicate"))
+        except Exception:  # noqa: BLE001 - no Duplicate rather than no menu
+            pass
         add(MenuItem("Rotate…", short="Rotate", form="ROTATE", icon="rotate"))
         add(MenuItem("Mirror…", short="Mirror", form="MIRROR", icon="mirror"))
         add(MenuItem("Array…", short="Array", form="ARRAY", icon="array"))

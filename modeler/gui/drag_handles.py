@@ -5,7 +5,10 @@ three arrows (move along X, Y, Z) and three rings (turn about X, Y, Z) at its
 middle; picked faces of a solid show a pull arrow along their normal and three
 small arrows to move them. A drag follows the mouse with a live preview, snaps
 to the grid (``step`` for lengths, ``angle_step`` for turns; Shift drags
-freely), takes a typed value (type a number while dragging, Enter puts it in),
+freely), snaps to the corners, edge middles, circle centres and flat-face middles of
+the other bodies when a corner or face of what is dragged comes within a few pixels
+of being level with one of them (PLAN item 108: a marker shows the point), takes a
+typed value (type a number while dragging, Enter puts it in),
 and Esc cancels. Letting go writes one ordinary step:
 
     MOVE, b, dx, dy, dz              an arrow on a body
@@ -33,6 +36,8 @@ P3 = tuple[float, float, float]
 AXES = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
 COLOURS = {"X": (0.9, 0.2, 0.2), "Y": (0.2, 0.75, 0.25), "Z": (0.25, 0.45, 0.95), "N": (1.0, 0.7, 0.1)}
 PICK_PX = 9.0  # how near the mouse must be to a handle, in pixels
+SNAP_PX = 10.0  # how near (in pixels along the arrow) a drag must come to a snap point
+MAX_SNAP_POINTS = 4000  # snap points taken from the other bodies (more are thinned out)
 RING_SEGMENTS = 48
 
 
@@ -104,6 +109,7 @@ class Drag:
     value: float = 0.0  # how far it has gone: a length, or degrees
     typed: str = ""  # a number typed while dragging
     free: bool = False  # Shift: no snapping
+    snapped: tuple | None = None  # (point, what it is) when the drag snapped to other geometry
 
 
 @dataclass
@@ -120,6 +126,8 @@ class Handles:
     angle_step: float = 5.0
     drag: Drag | None = None
     jointed: bool = False  # the body is held by joints: the linkage follows a drag
+    anchors: list = field(default_factory=list)  # points of what is dragged that snap
+    targets: list = field(default_factory=list)  # (point, what it is) on the other bodies
 
     # ---- what to show ----------------------------------------------------------------
     @classmethod
@@ -133,6 +141,11 @@ class Handles:
             owners = {model.entity_owner("FACE", g)[0] for g in sel if _known(model, g)}
             if len(owners) == 1:
                 h._faces(model, owners.pop(), sel)
+        if h.mode:
+            try:
+                h.anchors, h.targets = snap_points(model, h)
+            except Exception:  # noqa: BLE001 - no snapping rather than no handles
+                h.anchors, h.targets = [], []
         return h
 
     def _body(self, model, bid: int) -> None:
@@ -210,7 +223,7 @@ class Handles:
             return None
         return (b * _dot(d, w0) - dd * _dot(a, w0)) / den
 
-    def move(self, ray, free: bool = False) -> None:
+    def move(self, ray, free: bool = False, to_pixel=None) -> None:
         g = self.drag
         if g is None:
             return
@@ -218,13 +231,38 @@ class Handles:
         if at is None:
             return
         g.free = free
+        g.snapped = None
         if g.handle.kind == "TURN":
             deg = math.degrees(at - g.start)
             deg = (deg + 180.0) % 360.0 - 180.0
             g.value = deg if free else snap(deg, self.angle_step)
         else:
             v = at - g.start
-            g.value = v if free else snap(v, self.step)
+            hit = None if free or to_pixel is None else self.snap_to(g.handle, v, to_pixel)
+            if hit is not None:
+                g.value, g.snapped = hit[0], (hit[1], hit[2])
+            else:
+                g.value = v if free else snap(v, self.step)
+
+    def snap_to(self, h: Handle, v: float, to_pixel) -> tuple[float, P3, str] | None:
+        """(value, point, what) when moving by ``v`` along the arrow comes within SNAP_PX of putting
+        a point of what is dragged level with a snap point (square to the arrow); else None."""
+        if not self.anchors or not self.targets:
+            return None
+        import numpy as np
+
+        d = h.direction
+        a = np.asarray(self.anchors, dtype=float) @ np.asarray(d)
+        t = np.asarray([q for q, _ in self.targets], dtype=float) @ np.asarray(d)
+        cand = (t[None, :] - a[:, None]).ravel()  # each value that puts an anchor level with a target
+        k = int(np.argmin(np.abs(cand - v)))
+        c = float(cand[k])
+        here = to_pixel(_add(h.origin, d, v))
+        there = to_pixel(_add(h.origin, d, c))
+        if math.hypot(here[0] - there[0], here[1] - there[1]) > SNAP_PX:
+            return None
+        q, what = self.targets[k % len(self.targets)]
+        return c, q, what
 
     def type_key(self, text: str) -> bool:
         """A key typed while dragging: digits, a point and a minus build a value;
@@ -262,7 +300,8 @@ class Handles:
         what = {"MOVE": "move", "TURN": "turn", "PULL": "pull", "SLIDE": "move faces"}[g.handle.kind]
         axis = "" if g.handle.name == "N" else f" {g.handle.name}"
         typed = " (typed)" if g.typed else ""
-        return f"{what}{axis} {fmt_num(round(self.amount, 4))}{unit}{typed}"
+        snapped = f" (to {g.snapped[1]})" if g.snapped and not g.typed else ""
+        return f"{what}{axis} {fmt_num(round(self.amount, 4))}{unit}{typed}{snapped}"
 
     def preview(self):
         """(kind, value) for the view to show: ("MOVE", (dx,dy,dz)), ("TURN", (deg, centre, axis)),
@@ -325,6 +364,78 @@ def describe(hs: Handles) -> dict:
                      "writes": command_for(hs, h, 1.0)})  # for a drag of 1 (mm, or degree for a ring)
     return {"mode": hs.mode, "body": hs.body, "faces": list(hs.faces), "centre": [round(c, 6) for c in hs.centre],
             "step": hs.step, "angle_step": hs.angle_step, "jointed": hs.jointed, "handles": rows}
+
+
+# ---- snap points -------------------------------------------------------------------------
+def _key_points(shape, label: str) -> list[tuple[P3, str]]:
+    """Corners, edge middles, circle centres and flat-face middles of a shape."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Plane
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+    from OCP.TopExp import TopExp
+
+    from ..core.model import TopTools_IndexedMapOfShape
+    from ..geometry.features import as_edge, as_face, as_vertex
+
+    out: list[tuple[P3, str]] = []
+    m = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_VERTEX, m)
+    for i in range(1, m.Extent() + 1):
+        q = BRep_Tool.Pnt_s(as_vertex(m.FindKey(i)))
+        out.append(((q.X(), q.Y(), q.Z()), f"a corner of {label}"))
+    m = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_EDGE, m)
+    for i in range(1, m.Extent() + 1):
+        c = BRepAdaptor_Curve(as_edge(m.FindKey(i)))
+        if c.GetType() == GeomAbs_Circle:
+            q = c.Circle().Location()
+            out.append(((q.X(), q.Y(), q.Z()), f"a circle centre of {label}"))
+        q = c.Value((c.FirstParameter() + c.LastParameter()) / 2)
+        out.append(((q.X(), q.Y(), q.Z()), f"an edge middle of {label}"))
+    m = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_FACE, m)
+    for i in range(1, m.Extent() + 1):
+        f = as_face(m.FindKey(i))
+        if BRepAdaptor_Surface(f).GetType() == GeomAbs_Plane:
+            from ..geometry import recognize as rc
+
+            q, _n = rc.face_normal_at_middle(f)
+            out.append((tuple(q), f"a face of {label}"))  # type: ignore[arg-type]
+    return out
+
+
+def snap_points(model, hs: Handles) -> tuple[list[P3], list[tuple[P3, str]]]:
+    """(anchors, targets): points of what is dragged, and (point, what) on the other shown bodies."""
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    from ..geometry import meshbody
+
+    if hs.mode == "BODY":
+        anchors = [q for q, _ in _key_points(model.body(hs.body).shape, "it")]
+    else:
+        comp, b = TopoDS_Compound(), BRep_Builder()
+        b.MakeCompound(comp)
+        for g in hs.faces:
+            b.Add(comp, model.entity_shape("FACE", g))
+        anchors = [q for q, _ in _key_points(comp, "it")]
+    hidden = getattr(model, "hidden", set()) or set()
+    targets: list[tuple[P3, str]] = []
+    for bid, body in model.bodies.items():
+        if bid == hs.body or bid in hidden or meshbody.is_mesh(body.shape):
+            continue
+        targets += _key_points(body.shape, f"body {_name(model, bid)}")
+    if len(targets) > MAX_SNAP_POINTS:
+        step = len(targets) / MAX_SNAP_POINTS
+        targets = [targets[int(i * step)] for i in range(MAX_SNAP_POINTS)]
+    seen, uniq = set(), []
+    for q in anchors:
+        k = tuple(round(c, 6) for c in q)
+        if k not in seen:
+            seen.add(k)
+            uniq.append(q)
+    return uniq[:400], targets
 
 
 # ---- help ------------------------------------------------------------------------------

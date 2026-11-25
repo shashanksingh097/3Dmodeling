@@ -447,6 +447,21 @@ class AppShell:
         m.addSeparator()
         self.quit_action = a(m, "&Quit", self.win.close, QKeySequence.Quit, "Close the app")
 
+    def build_edit_menu(self) -> None:
+        """Edit > Copy, Paste, Duplicate (PLAN item 107)."""
+        from . import clipboard as cb
+
+        m = self.win.menuBar().addMenu("&Edit")
+        self.edit_menu = m
+        a = self._action
+        self.copy_action = a(m, "&Copy", lambda: cb.copy(self.win), QKeySequence.Copy,
+                             "Copy the picked bodies, faces or sketch geometry (also to paste in another project)")
+        self.paste_action = a(m, "&Paste", lambda: cb.paste(self.win), QKeySequence.Paste,
+                              "Paste copies under the mouse. Runs: COPY (same project), PASTE (from another "
+                              "project or faces), or the sketch commands")
+        self.duplicate_action = a(m, "&Duplicate", lambda: cb.duplicate(self.win), "Ctrl+D",
+                                  "Copies of the picked bodies, faces or sketch geometry beside them. Runs: COPY")
+
     def _fill_examples(self) -> None:
         menu = self.examples_menu
         d = examples_dir()
