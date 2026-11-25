@@ -474,6 +474,14 @@ Runs: SCON, MIDPOINT, p, line</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a point body</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A point body from a body's surface: TOPOINTS, part, 20000, 0.02 makes a made-up scan to try point cloud work on, or to hand points to another program (new body; the body stays)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a point on the axis</source>
             <translation type="unfinished" />
         </message>
@@ -3158,12 +3166,28 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Fit an exact face to a patch of a point cloud: FITPOINTS, scan, CYLINDER, x, y, z, 15 fits a cylinder to the points within 15 of (x, y, z) and makes it a face trimmed to the patch (new body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fit an exact face to a patch of a point cloud: FITPOINTS, scan, CYLINDER, x, y, z, 15 fits a cylinder to the points within 15 of (x, y, z) and makes it a face trimmed to the patch (new body). It says the fitted sizes (a radius, an axis, a cone's angle) and how far the points are from the face like DEVIATION: the share within ±tolerance, the largest distance out and in, the RMS</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Fit surface</source>
             <translation>Ajustar superficie</translation>
         </message>
         <message>
             <source>Fit surface: pick one mesh body first (Body pick mode)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fitpoints</source>
+            <translation>Fitpoints</translation>
+        </message>
+        <message>
+            <source>Fitpoints…</source>
+            <translation>Fitpoints…</translation>
         </message>
         <message>
             <source>Fits</source>
@@ -3286,7 +3310,7 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
+            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3740,6 +3764,10 @@ Runs: SDIM, HDIST, ...</source>
         </message>
         <message>
             <source>how many of the last history steps made the feature: 1 for a HOLE, 2 for SEL then THREAD ...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>how many points, spread evenly over its surface</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4738,6 +4766,10 @@ Runs: DRIVE, name, value · MOTION, name, from, to, steps</source>
             <translation>Mover en</translation>
         </message>
         <message>
+            <source>move each point up to ± this along the surface (like a scanner's noise)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>move it across the slots</source>
             <translation type="unfinished" />
         </message>
@@ -5530,6 +5562,10 @@ Runs: SCON, FIX, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>PLANE, CYLINDER, SPHERE, CONE, FREEFORM, or AUTO (the simplest shape that fits)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Plane…</source>
             <translation>Plano…</translation>
         </message>
@@ -5848,7 +5884,7 @@ Runs: SCULPT, body, DRAW, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). Saved projects keep a copy of the file.</source>
+            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. Saved projects keep a copy of the file.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7115,7 +7151,7 @@ Runs: SHEET, sketch, t [, bend radius, K-factor]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK or MESH</source>
+            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7545,6 +7581,10 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the body to sample</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the body to split</source>
             <translation type="unfinished" />
         </message>
@@ -7862,6 +7902,14 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the patch's centre: pick a point of the cloud</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the patch: points within this distance of the centre (0: every point)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>The path a point on a moving part follows as a parameter runs, kept as a curve
 Runs: TRACE, name, from, to, steps, body, x,y,z</source>
             <translation type="unfinished" />
@@ -8068,6 +8116,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the tolerance band, ± (0: 0.1% of the model's size)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the tolerance band, ± (0: 0.1% of the patch's size)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8301,6 +8353,14 @@ Runs: VIEW, TOP</source>
         <message>
             <source>topo bracket</source>
             <translation>soporte topológico</translation>
+        </message>
+        <message>
+            <source>Topoints</source>
+            <translation>Topoints</translation>
+        </message>
+        <message>
+            <source>Topoints…</source>
+            <translation>Topoints…</translation>
         </message>
         <message>
             <source>Topology</source>

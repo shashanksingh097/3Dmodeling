@@ -918,6 +918,22 @@ TOMESH, LAST, 0.01
 NAME, LAST, scan
 DEVIATION, scan, part, 0.05
 
+@ TOPOINTS pic
+! A made-up scan: 20,000 points on a cylinder's surface, with a little noise.
+CYL, 0,0,0, 10, 30
+NAME, LAST, part
+TOPOINTS, part, 20000, 0.01
+HIDE, part
+
+@ FITPOINTS pic
+! Fit a cylinder to the points within 8 of a picked point, and see how far the points are from it.
+CYL, 0,0,0, 10, 30
+NAME, LAST, part
+TOPOINTS, part, 20000, 0.01
+NAME, LAST, scan
+HIDE, part
+FITPOINTS, scan, CYLINDER, 10, 0, 15, 8
+
 @ IMPLICIT pic
 ! Two balls blended smoothly into one shape, from an equation.
 IMPLICIT, blob, SMIN(BALL(0,0,0,10), BALL(14,0,0,7), 4), -12,-12,-12, 24,12,12

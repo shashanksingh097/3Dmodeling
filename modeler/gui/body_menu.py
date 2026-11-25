@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
+
 
 @dataclass
 class MenuItem:
@@ -148,9 +150,39 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))
         items += feature_items(model, bid)
+        items += point_items(model, bid)
     items += sheet_items(model)
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
+    return items
+
+
+def point_items(model, bid: int) -> list[MenuItem]:
+    """Point clouds (PLAN item 77): fit a shape to the points around a picked point, or to all."""
+    from ..geometry import pointcloud as pc
+
+    if not pc.is_points(model.bodies[bid].shape):
+        return []
+    items = [SEPARATOR]
+    if model.selection_kind == "VERTEX" and len(model.selection) == 1:
+        try:
+            owner = model.entity_owner("VERTEX", model.selection[0])[0]
+            v = model.entity_shape("VERTEX", model.selection[0])
+        except Exception:  # noqa: BLE001 - a stale pick
+            owner = None
+        if owner == bid:
+            from OCP.BRep import BRep_Tool
+            from OCP.TopoDS import TopoDS
+
+            as_vertex = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+            q = (getattr(BRep_Tool, "Pnt_s", None) or BRep_Tool.Pnt)(as_vertex(v))
+            pts = pc.arrays(model.bodies[bid].shape)
+            r = 0.1 * float(np.linalg.norm(np.ptp(pts, axis=0)))
+            at = ", ".join(f"{c:.6g}" for c in (q.X(), q.Y(), q.Z()))
+            items.append(MenuItem("Fit a shape to the points around the pick…",
+                                  [f"FITPOINTS, {bid}, AUTO, {at}, {r:.4g}"], form="FITPOINTS"))
+    items.append(MenuItem("Fit a shape to all the points…", [f"FITPOINTS, {bid}, AUTO"], form="FITPOINTS"))
+    items.append(MenuItem("Measure against a model…", [f"DEVIATION, {bid}, "], form="DEVIATION"))
     return items
 
 

@@ -171,7 +171,12 @@ def deviation_cmd(p: Processor, scan, b, tol, fmt):
     if not robust.count(model.shape, robust.TopAbs_FACE):
         raise CommandError(f"DEVIATION: body {b} has no faces")
     shape = p.model.body(scan).shape
-    if mb.is_mesh(shape):
+    from ..geometry import pointcloud as pc
+
+    points_only = pc.is_points(shape)
+    if points_only:  # a point cloud: no triangles, so no holes or pieces to look at
+        pts, t = pc.arrays(shape), None
+    elif mb.is_mesh(shape):
         pts, t = mb.arrays(shape)
     else:
         from ..geometry import analysis as an
@@ -181,11 +186,13 @@ def deviation_cmd(p: Processor, scan, b, tol, fmt):
     pts = np.asarray(pts, float)
     tol = tol or 1e-3 * robust.diagonal(model.shape)
     try:
-        r = dv.deviation(pts, np.asarray(t), model.shape, tol, model.entity_ids.get("FACE"))
+        r = dv.deviation(pts, None if t is None else np.asarray(t), model.shape, tol, model.entity_ids.get("FACE"))
     except ValueError as exc:
         raise CommandError(f"DEVIATION: {exc}") from None
     d = {"scan": scan, "body": b, **r.as_dict()}
     p.give_report("DEVIATION", d)
+    if points_only:  # the colours go on triangles; a cloud shows none
+        return json.dumps(d, indent=1) if fmt == "JSON" else "\n".join(deviation_text(r, scan, b)[:-1])
     tg = dv.target(model.shape, min(tol / 4, robust.diagonal(model.shape) / 1000))
     p.analysis = Analysis(scan, "DEVIATION", (0.0, 0.0, 1.0), 0.0, field=dv.Field(tg), scale=tol)
     hook = getattr(p.view, "show_analysis", None) if p.view else None

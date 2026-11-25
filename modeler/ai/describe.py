@@ -58,8 +58,10 @@ def made_by(p: "Processor", kind: str, gid: int) -> int | None:
 
 
 def body_kind(shape) -> str:
-    from ..geometry import meshbody
+    from ..geometry import meshbody, pointcloud
 
+    if pointcloud.is_points(shape):
+        return "points"
     if meshbody.is_mesh(shape):  # a mesh body: closed ones have an inside
         return "solid" if meshbody.info(shape).closed else "surface"
     if robust.count(shape, TopAbs_SOLID):
@@ -71,6 +73,8 @@ def body_kind(shape) -> str:
     return "other"
 
 
+POINTS_CAN = ("a point cloud (scanner points): FITPOINTS fits a plane, cylinder, sphere, cone or freeform face "
+              "to a patch of it, DEVIATION measures it against a model, MOVE/ROTATE/HIDE; it has no faces")
 FACETED_CAN = ("booleans (UNION, SUBTRACT, INTERSECT), SPLIT, SECTION, PROFILE, PROBE, measuring, "
                "MOVE/ROTATE/SCALE/ARRAY, export")
 FACETED_CANNOT = ("FILLET, CHAMFER, SHELL, OFFSET and DRAFT across facets, HOLE on curved areas, and "
@@ -87,10 +91,12 @@ def representation(shape, sample: int = 400) -> str:
     B-rep body), else 'exact'."""
     from OCP.TopAbs import TopAbs_EDGE
 
-    from ..geometry import meshbody
+    from ..geometry import meshbody, pointcloud
 
     if meshbody.is_mesh(shape):
         return "mesh"
+    if pointcloud.is_points(shape):
+        return "points"
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
@@ -264,6 +270,8 @@ def describe_body(p: "Processor", ref, detail: str = "summary", limit: int = LIM
         info = meshbody.info(shape)
         out["mesh"] = {"triangles": info.triangles, "closed": info.closed, "works": MESH_CAN,
                        "does_not_work": MESH_CANNOT}
+    elif out["representation"] == "points":
+        out["points"] = {"count": out["counts"]["vertices"], "works": POINTS_CAN}
     elif out.get("imported"):
         out["note"] = ("exact shape from another program, without its feature history: edit it with HOLE, FILLET, "
                        "CHAMFER, SHELL, PUSHPULL, MOVEFACE, REPLACEFACE, DELFACE (remove holes/fillets), booleans; "

@@ -39,9 +39,10 @@ APP_NAME = "3Dmodeling"
 MAX_RECENT = 8
 
 IMPORT_FILTER = ("All models (*.step *.stp *.iges *.igs *.brep *.stl *.obj *.3mf *.glb *.gltf *.ply *.off "
-                 "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;"
+                 "*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf *.xyz *.pts *.e57);;"
                  "Exact shapes (*.step *.stp *.iges *.igs *.brep);;"
                  "Meshes (*.stl *.obj *.3mf *.glb *.gltf *.ply *.off);;"
+                 "Point clouds (*.xyz *.pts *.e57 *.ply *.txt *.csv);;"
                  "Simulation meshes (*.vtk *.vtu *.msh *.inp *.bdf *.nas *.med *.xdmf);;All files (*)")
 EXPORT_FILTERS = {
     "STEP (*.step *.stp)": "STEP",
@@ -55,7 +56,8 @@ EXPORT_FILTERS = {
 }
 _EXT_FORMAT = {".step": "STEP", ".stp": "STEP", ".stl": "STL", ".brep": "BREP",
                ".iges": "IGES", ".igs": "IGES", ".obj": "OBJ", ".3mf": "3MF", ".glb": "GLTF",
-               ".gltf": "GLTF", ".ply": "PLY", ".off": "OFF", ".vtk": "VTK", ".vtu": "VTK"}
+               ".gltf": "GLTF", ".ply": "PLY", ".off": "OFF", ".vtk": "VTK", ".vtu": "VTK",
+               ".xyz": "XYZ", ".pts": "PTS", ".e57": "E57", ".txt": "XYZ", ".csv": "XYZ"}
 _DEFAULT_EXT = {"STEP": ".step", "IGES": ".igs", "STL": ".stl", "BREP": ".brep", "OBJ": ".obj",
                 "3MF": ".3mf", "GLTF": ".glb"}
 
@@ -263,7 +265,7 @@ class AppShell:
                 return
             fmt = _EXT_FORMAT.get(os.path.splitext(path)[1].lower()) or EXPORT_FILTERS.get(chosen, "STEP")
         fmt = fmt or _EXT_FORMAT.get(os.path.splitext(path)[1].lower(), "STEP")
-        if fmt not in _DEFAULT_EXT:  # read-only formats (PLY, OFF, VTK)
+        if fmt not in _DEFAULT_EXT:  # read-only formats (PLY, OFF, VTK, point clouds)
             fmt = "STEP"
         if not os.path.splitext(path)[1]:
             path += _DEFAULT_EXT[fmt]

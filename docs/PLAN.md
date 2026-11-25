@@ -1230,6 +1230,14 @@ done.
     body (thinned for speed), pick a patch of points and fit a plane,
     cylinder, sphere, cone or freeform surface to it (`FITPOINTS`), with the
     deviation reported like `DEVIATION`.
+    *Done (geometry/pointcloud.py, `IMPORT` XYZ/PTS/E57/PLY, `TOPOINTS`,
+    `FITPOINTS`): a point body is loose vertices (each point can be
+    picked), thinned evenly to at most 200,000 points; E57 is read
+    directly (float and scaled-integer points, scan poses). `FITPOINTS`
+    fits a plane, cylinder, sphere, cone or freeform face (AUTO: the
+    simplest that fits) to the points around a picked point, makes the face
+    and reports the sizes and the deviation; `DEVIATION` measures clouds
+    too; the right-click menu on a cloud offers the fits.*
 78. **Shrinkwrap** (P3): `WRAPSKIN, b|ALL, gap` puts one clean closed skin
     around a messy mesh or a whole assembly (holes, overlaps and loose bits
     closed over), for printing and for quick outside shapes.
