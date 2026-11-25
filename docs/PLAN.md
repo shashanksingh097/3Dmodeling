@@ -1453,10 +1453,16 @@ Built about three items per pull request, in this order.
     File > Import… opens board files.
 104. **Repairing imported curves** (P2): `SREPAIR` closes small gaps,
     removes duplicates and tiny pieces, and refits chains of short lines as
-    splines; SCHECK says when it would help.
+    splines; SCHECK says when it would help. Done: `SREPAIR [, gap, tiny,
+    refit]` (also Sketch > Repair curves…); SCHECK, SDXF and SSVG say what it
+    would do.
 105. **Motion studies** (P3): MOTION also gives the position, speed and
     acceleration of chosen points and the drive force or torque, as tables
-    and plots.
+    and plots. Done: MOTION takes points, a time, ANGLE/LENGTH and a .csv or
+    .svg file; the drive comes from the change in the parts' energy (masses
+    from MATERIAL, gravity, no friction); Study and Save table… in the Motion
+    window, with plots.
 106. **A Python console** (P3): a console dock with the model and the
     processor at hand, off by default; what it changes goes to the history
-    as commands.
+    as commands. Done: View > Python console with `run(...)`, `c.COMMAND(...)`,
+    `report`, `value`, `body`; direct changes to the model are undone.

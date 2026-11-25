@@ -717,6 +717,43 @@ def sketch_listing(p: Processor, name: str = "") -> list[str]:
 
 
 @command(
+    "SREPAIR",
+    Arg("gap", float, 0.0, "close gaps up to this size (0: 0.2 % of the sketch's size)"),
+    Arg("tiny", float, 0.0, "remove lines and arcs shorter than this (0: 0.05 % of its size)"),
+    Arg("refit", str, "YES", "YES: chains of short lines that turn gently become splines; NO: keep them; or "
+                             "the longest line to refit (a number)"),
+    help=("Repair imported curves in the open sketch: SREPAIR · SREPAIR, 0.5 · SREPAIR, 0.5, 0.01, NO. Curves "
+          "drawn twice go, tiny pieces go, loose ends closer than the gap meet and are tied, and chains of six or "
+          "more short lines that turn gently become one spline. SCHECK says when it would help."),
+)
+def srepair(p: Processor, gap, tiny, refit):
+    from ..sketch import repair as rp
+
+    sk = _active(p, "SREPAIR")
+    if gap < 0 or tiny < 0:
+        raise CommandError("SREPAIR: the gap and the tiny size cannot be negative")
+    r = (refit or "YES").strip().upper()
+    if r in ("YES", "Y", "ON", "AUTO", ""):
+        rf: float | None = 0.0
+    elif r in ("NO", "N", "OFF"):
+        rf = None
+    else:
+        try:
+            rf = float(p.evaluate(refit))
+        except (ExprError, TypeError, ValueError):
+            raise CommandError("SREPAIR: refit is YES, NO or the longest line to refit") from None
+        if rf <= 0:
+            raise CommandError("SREPAIR: the longest line to refit must be more than 0")
+    with _sketch_error("SREPAIR"):
+        rep = rp.repair(sk, gap, tiny, rf, uid=p.entry_uid)
+    p.give_report("SREPAIR", {"sketch": sk.name, **{k: v for k, v in rep.items()}})
+    said = f"SREPAIR {sk.name}: {rp.as_text(rep)}"
+    if rep["loose_ends"]:
+        said += f"; {rep['loose_ends']} loose end{'s' if rep['loose_ends'] != 1 else ''} left (a bigger gap?)"
+    return _store(p, sk, said)
+
+
+@command(
     "SCHECK",
     Arg("name", str, "", help="the sketch (left out: the open one, or the last one made)"),
     Arg("fmt", str, "TEXT", help="TEXT, JSON, or SEL to also select what it found (in an open sketch)"),

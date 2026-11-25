@@ -151,6 +151,9 @@ class SketchUI:
                 ("From SVG…", "s_dxf", "SSVG", "Bring an SVG drawing's paths, rectangles, circles and ellipses into "
                                                "this sketch at their size in mm, joined where they meet\nRuns: "
                                                "SSVG, file [, scale, du, dv, layer]"),
+                ("Repair curves…", "s_join", "SREPAIR", "Fix imported curves: close small gaps, remove curves drawn "
+                                                         "twice and tiny pieces, and turn chains of short lines into "
+                                                         "splines\nRuns: SREPAIR [, gap, tiny, refit]"),
                 ("Trace picture…", "s_trace", "STRACE", "Trace the outlines of the dark shapes in a picture into this "
                                                         "sketch, as smooth curves or straight pieces\n"
                                                         "Runs: STRACE, file, width [, threshold, du, dv]"),

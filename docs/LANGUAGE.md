@@ -4158,3 +4158,55 @@ the file has it). The report gives the size, the thickness, the tallest
 part above and below, the envelope of board and parts, the mounting holes
 and every part with its box: what the enclosure skill builds the case
 from. File > Import… opens board files too.
+
+## 50. Repairing imported curves, motion studies, the Python console
+
+### Repairing imported curves
+
+    SREPAIR                       ! in the open sketch, with sizes from the sketch's own size
+    SREPAIR, 0.5                  ! close gaps up to 0.5
+    SREPAIR, 0.5, 0.01, NO        ! remove pieces under 0.01, keep short lines as lines
+    SREPAIR, 0.1, 0, 6            ! refit chains of lines shorter than 6
+
+(`SREPAIR`) fixes curves that came in from DXF, SVG or a traced picture.
+Curves drawn twice go, tiny pieces go, loose ends closer than the gap meet
+halfway and are tied, and chains of six or more short lines that turn
+gently (under 35 degrees at each joint) become one spline, tied to what
+the chain's ends were tied to. Sharp corners stay corners. The defaults are
+0.2 % of the sketch's size for the gap, 0.05 % for tiny pieces and 10 % for
+the longest line to refit. `SCHECK`, `SDXF` and `SSVG` say when SREPAIR
+would help. The report gives what was done and the loose ends left.
+Sketch > Repair curves… does the same.
+
+### Motion studies
+
+    MOTION, A, 0, 360, 36, "rod 120,0,10; crank 40,0,0", 0.5
+    MOTION, A, 0, 360, 36, "rod 120,0,10", 0.5, ANGLE, "rod.csv"   ! the table
+    MOTION, A, 0, 360, 36, "rod 120,0,10", 0.5, , "rod.svg"        ! the plots
+
+With points (a body and a point on it as it is now), `MOTION` also gives
+each point's position, speed and acceleration at every position, the
+motion taking the time given (the parameter moving at a steady rate). It
+also gives the drive torque (the parameter is an angle) or force (a
+length): what lifts the moving parts against gravity (along -Z) and speeds
+them up and down. Masses come from each part's `MATERIAL`, and there is no
+friction. AUTO tells an angle from a length by the steps that use the
+parameter (ROTATE, MATE ANGLE: an angle; MOVE, MATE DIST: a length). The
+report has every value; a .csv file gets the table and an .svg file the
+plots. In the Motion window, give the points and the time and press Study
+for the plots (a line marks the slider's place), or Save table….
+
+### The Python console
+
+View > Python console opens a Python prompt. It is off until you open it.
+
+    c.BLOCK(0, 0, 0, 20, 10, 5)          # runs BLOCK, 0, 0, 0, 20, 10, 5
+    run("NAME, LAST, plate")             # a command as text
+    report("MASSPROP")                   # the newest answer of a check, as data
+    value("BBOX(plate).dx")              # a query
+    for i in range(4): c.CYL(10*i, 0, 0, 2, 5)
+
+`model`, `p` (the processor), `body(name)`, `bodies()`, `np` and `math`
+are there to read. Commands run through the console go into the history
+like typed ones. A line that changes the model directly is undone at once,
+so the history stays the whole story of the model.

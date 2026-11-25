@@ -65,6 +65,7 @@ _COMMAND_CHOICES = {
     ("SHARECHECK", "fmt"): ("TEXT", "JSON"),
     ("DRAWSHEET", "sizes"): ("ALL", "OVERALL", "HOLES", "NONE"),
     ("DRAWSHEET", "paper"): ("AUTO", "A4", "A3", "A2", "A1", "A0"),
+    ("SREPAIR", "refit"): ("YES", "NO"),
     ("BOARD", "holes"): ("MOUNT", "ALL", "NONE"),
     ("BOARD", "at"): ("ORIGIN", "CENTRE", "FILE"),
     ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
