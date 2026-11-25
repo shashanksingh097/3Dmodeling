@@ -3677,7 +3677,7 @@ one load case: check the part you make with `STRESS`.
 
 Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.
 
-## 46. Everyday work: previews, picking and the tools beside a pick
+## 46. Everyday work: previews, picking, the numbers of a pick, typed sizes and templates
 
 ### See a step before it runs: PREVIEW
 
@@ -3742,3 +3742,79 @@ Each tool opens its form filled in from the pick, or runs its commands.
 assistant's `suggest_tools` tool returns it. The toolbar goes when the mouse
 moves away, after a few seconds, on Esc or with the next pick;
 Preferences > Tools beside a pick turns it off.
+
+### The numbers of the pick: SELINFO
+
+The right of the status bar always shows the numbers of what is picked:
+
+| Picked | The line says |
+| --- | --- |
+| a face | its type and area; radius and diameter for a cylinder, cone, sphere or torus |
+| an edge | line, arc or circle, its length; an arc's radius and angle |
+| a vertex | where it is |
+| a body | volume, area, mass (from its `MATERIAL`) and size |
+| several | how many, and the total area, length, volume or mass |
+| two | also the distance between them (dx, dy, dz when it is along one or two axes), and the angle, or "parallel" |
+
+A click on the line copies it (with every row). Resting the mouse on a face,
+edge or vertex for a moment shows its numbers in a tooltip, without picking it
+(Preferences > Numbers on hover turns that off). `SELINFO` prints the same:
+
+    SELINFO                        ! the picked things
+    SELINFO, FACE, "3 5"           ! any faces
+    SELINFO, BODY, plate, JSON     ! as data
+
+It is a query, not a history step. The assistant gets the line, the totals and
+the distance and angle of two picks in `user_context`, and any of them with
+`selection_numbers`.
+
+### Typed sizes while sketching
+
+After the first click of a line, centreline, rectangle, centre rectangle,
+circle, arc, slot or polygon, boxes beside the cursor show its sizes as the
+mouse moves: length and angle (a line, the first two clicks of an arc or a
+slot, a polygon's radius and turn), width and height, or radius. Type a number
+and it goes into the first box; Tab fixes it and moves to the next (Tab first
+to type a parameter name, such as `W` or `D*2`); Enter places the point; Esc
+clears what was typed (a second Esc ends the drawing). Clicking a box types into
+it. The mouse still sets whatever is not typed: with only a length typed, a
+line still turns with the mouse.
+
+Each typed value becomes a size on the sketch, written as the ordinary steps:
+
+    SLINE, 5, 5, 39.641, 25
+    SDIM, LENGTH, 1, 40
+    SDIM, ANGLE, 1, 30
+
+A level or upright line gets `H` or `V` rather than an angle size, an arc its
+`DIST` between the ends and its `RADIUS`, a slot the `DIST` between its centres
+and its `RADIUS`, and a polygon's radius and angle go into `SNGON` itself. A
+size typed as an expression keeps it, so editing the parameter later resizes
+the sketch.
+
+### Starting a project: the start page, NEW and TEMPLATE
+
+The start page opens when the app starts with nothing to open (and from
+File > New). It has a card per template, the recent projects with a picture
+of each (taken when it was saved), the examples and the quick start.
+
+The built-in templates:
+
+| Template | Sets |
+| --- | --- |
+| `part` | mm; a construction layer; parameters W, D, T; title and material in the title block |
+| `assembly` | mm; layers frame, parts and fasteners; a clearance parameter; a title |
+| `sheet_metal` | mm; thickness T, bend radius R and K-factor K for `SHEET` and `FLANGE`; the sketch `base` open on XY for the outline |
+| `drawing` | mm; A3 paper (`PROPERTY, SHEET, A3`, which `DRAWING` then uses); title, number, revision and author |
+
+    NEW, sheet_metal               ! clears the session; the template's steps are the first entries
+    TEMPLATE                       ! lists them, with what each sets (TEMPLATE, JSON as data)
+    TEMPLATE, SHOW, part           ! its steps
+    TEMPLATE, SAVE, my_bracket, "My bracket", "A bracket to start from"
+    TEMPLATE, DELETE, my_bracket
+
+A template's steps are ordinary history entries, so each can be edited later.
+`TEMPLATE, SAVE` keeps the current history as your own template, in the
+per-user app data folder (`MODELER_TEMPLATES` names another folder); one of
+yours with a built-in name is used instead of it, until you delete it. The
+assistant's `templates` tool lists them all with what each sets.

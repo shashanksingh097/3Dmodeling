@@ -36,7 +36,7 @@ from OCP.StdSelect import StdSelect_BRepOwner
 from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHAPE, TopAbs_VERTEX
 from OCP.V3d import V3d_TypeOfOrientation, V3d_Viewer, V3d_ZBUFFER
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtWidgets import QWidget
 
 from ..core.model import Event, Model, ModelError
@@ -183,6 +183,9 @@ BACKGROUNDS = {
 }
 
 
+HOVER_REST_MS = 600  # the mouse still this long over something: show its numbers
+
+
 class OccViewport(QWidget):
     command = Signal(str)  # command text for the processor
     ready = Signal()
@@ -194,6 +197,9 @@ class OccViewport(QWidget):
     pick_note = Signal(str)  # a line for the status bar about a pick (Tab through what is under the cursor ...)
     pressed = Signal()  # any mouse press in the view (the tools beside a pick go away)
     picked_at = Signal(object)  # a plain click picked something: the global QPoint (for the tools beside it)
+    hovered = Signal(str, int, object)  # the mouse rested on (kind, id) at the global QPoint (its numbers, item 86)
+    hover_left = Signal()  # the mouse moved on, or left the view: the hover numbers go
+    sketch_values = Signal(object, object, str)  # typed-value boxes while drawing: (fields, global QPoint, error)
     sculpt_changed = Signal(bool)  # sculpting went on or off
     sculpt_stroke = Signal(int, object, object)  # (mesh body, N x 3 hit points, keyboard modifiers)
 
@@ -252,6 +258,13 @@ class OccViewport(QWidget):
         self._region_mods = Qt.NoModifier
         self._hover_px: tuple[int, int] | None = None  # where the mouse is (for Tab: pick the one behind)
         self._behind: tuple[tuple[int, int], list, int] | None = None  # (pixel, candidates, index) for Tab
+        self._rest = QTimer(self)  # the mouse resting still: say what is under it (PLAN item 86)
+        self._rest.setSingleShot(True)
+        self._rest.setInterval(HOVER_REST_MS)
+        self._rest.timeout.connect(self._rested)
+        self._rest_shown = False
+        self.closing = False  # set when the window closes: late timers must not touch the GL view
+        self._sketch_pos: QPoint | None = None  # the mouse in the view while sketching (the value boxes go beside it)
         self.knife = False  # the Knife tool is on: a left drag draws a stroke to cut along
         self.knife_width = 0.0  # 0: split; more: cut a slot this wide
         self._knife_px: list[tuple[int, int]] = []
@@ -769,10 +782,14 @@ class OccViewport(QWidget):
 
     def _sketch_mode_changed(self) -> None:
         self._mode_pending = False
+        if self.closing:
+            return  # the window closed before this ran: the GL view is going
         m = self.model
         if m.active_sketch == self._shown_active:
             return
         self._shown_active = m.active_sketch
+        if not m.active_sketch:
+            self.sketch_values.emit([], QPoint(), "")  # the typed-value boxes go with the sketch
         active = m.sketches.get(m.active_sketch) if m.active_sketch else None
         self._dim_bodies(active is not None)
         if active is not None:
@@ -1893,6 +1910,86 @@ class OccViewport(QWidget):
                 return None
         return None
 
+    def emit_typed(self) -> None:
+        """Tell the value boxes what to show (PLAN item 87)."""
+        sk = self.sketcher
+        if sk is None or not self._sketching():
+            self.sketch_values.emit([], QPoint(), "")
+            return
+        at = self._sketch_pos
+        if at is None:
+            from PySide6.QtGui import QCursor
+
+            g = QCursor.pos()
+        else:
+            g = self.mapToGlobal(at)
+        self.sketch_values.emit(list(sk.fields), g, sk.typed_error)
+
+    def _typed_key(self, e) -> bool:
+        """Keys for the typed-value boxes while drawing; True when used."""
+        sk = self.sketcher
+        if sk is None or not self._sketching() or not sk.typing_fields():
+            return False
+        k = e.key()
+        if k in (Qt.Key_Return, Qt.Key_Enter):
+            x, y = self._hover_px or (self.width() // 2, self.height() // 2)
+            cmds = sk.enter(self._tol(x, y))
+            self._sketch_commands(cmds)
+            if self.sketcher.tool != "SELECT" and self._hover_px is not None:
+                uv = self.plane_point(*self._hover_px)
+                self.set_preview(self.sketcher.move(*uv, self._tol(x, y)) if uv is not None else None)
+            self.emit_typed()
+            return True
+        if k == Qt.Key_Escape and sk.type_escape():
+            self._typed_refresh()
+            return True
+        if k == Qt.Key_Backspace:
+            used = sk.type_key("\b")
+        else:
+            used = sk.type_key(e.text())
+        if used:
+            self._typed_refresh()
+        return used
+
+    def _typed_refresh(self) -> None:
+        sk = self.sketcher
+        if self._hover_px is not None:
+            x, y = self._hover_px
+            uv = self.plane_point(x, y)
+            if uv is not None:
+                self.set_preview(sk.move(*uv, self._tol(x, y)))
+        self.emit_typed()
+
+    def _hover_gone(self) -> None:
+        self._rest.stop()
+        if self._rest_shown:
+            self._rest_shown = False
+            self.hover_left.emit()
+
+    def hover_hit(self) -> tuple[str, int] | None:
+        """What the mouse rests on now (kind, id), as a click would pick it, or None."""
+        if self._hover_px is None or not self._initialized:
+            return None
+        hits = self.candidates_at(*self._hover_px)
+        return hits[0] if hits else None
+
+    def _rested(self) -> None:
+        if (self.closing or self._press is not None or self._drag or self._sketching() or self.sculpt_on or self.knife
+                or self.region_tool or not self.underMouse()):
+            return
+        hit = self.hover_hit()
+        if hit is None:
+            self._hover_gone()
+            return
+        from PySide6.QtGui import QCursor
+
+        self._rest_shown = True
+        self.hovered.emit(hit[0], int(hit[1]), QCursor.pos())
+
+    def leaveEvent(self, e) -> None:
+        self._hover_gone()
+        super().leaveEvent(e)
+
     def candidates_at(self, x: int, y: int) -> list[tuple[str, int]]:
         """Everything that can be picked under device pixel (x, y), nearest first
         (what Tab steps through: the face behind the one in front ...)."""
@@ -2094,6 +2191,7 @@ class OccViewport(QWidget):
         if not self._initialized:
             return
         self.pressed.emit()
+        self._hover_gone()
         self._press = e.position().toPoint()
         self._last = self._press
         x, y = self._px(self._press)
@@ -2155,6 +2253,8 @@ class OccViewport(QWidget):
                     pv = self.sketcher.move(*uv, self._tol(x, y))
                     self.set_preview(pv)
                 self.sketch_hover.emit(f"u {uv[0]:.3f}   v {uv[1]:.3f}")
+                self._sketch_pos = QPoint(pos)
+                self.emit_typed()
             return
         if self._drag in ("region", "region_maybe"):
             if self._drag == "region_maybe" and moved:
@@ -2193,8 +2293,11 @@ class OccViewport(QWidget):
                 self.view.Pan(x - lx, ly - y)
             self._last = pos
         elif self._press is None:
+            if self._hover_px is not None and abs(self._hover_px[0] - x) + abs(self._hover_px[1] - y) > 3:
+                self._hover_gone()
             self._hover_px = (x, y)
             self.context.MoveTo(x, y, self.view, True)  # hover highlight
+            self._rest.start()
 
     def mouseReleaseEvent(self, e) -> None:
         if not self._initialized or self._press is None:
@@ -2317,6 +2420,15 @@ class OccViewport(QWidget):
                 and not self._sketching() and self._drag == ""):
             self.pick_behind(e.modifiers())
             return True
+        if (e.type() == QEvent.ShortcutOverride and self._sketching() and self.sketcher is not None
+                and self.sketcher.typed.focus >= 0 and e.text() and e.text().isprintable()):
+            e.accept()  # typing a size (a parameter name): letters are not tool shortcuts now
+            return True
+        if (e.type() == QEvent.KeyPress and e.key() in (Qt.Key_Tab, Qt.Key_Backtab) and self._initialized
+                and self._sketching() and self.sketcher is not None and self.sketcher.typing_fields()):
+            self.sketcher.type_tab()  # the next typed-value box (PLAN item 87)
+            self._typed_refresh()
+            return True
         return super().event(e)
 
     def keyPressEvent(self, e) -> None:
@@ -2351,13 +2463,17 @@ class OccViewport(QWidget):
             self._drag, self._press = "", None
             self._draw_control_points()
             return
+        if self._typed_key(e):
+            return
         if self._sketching() and e.key() == Qt.Key_Escape:
             self.sketcher.finish()
             self.set_preview(None)
+            self.emit_typed()
             return
         super().keyPressEvent(e)
 
     def wheelEvent(self, e) -> None:
+        self._hover_gone()
         if not self._initialized:
             return
         x, y = self._px(e.position().toPoint())

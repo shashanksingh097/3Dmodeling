@@ -59,3 +59,6 @@ ASSERT, HOLES(plate, 8), EQ, 1
   so call the sketch `knob_s` and the body `knob`.
 * Sizes typed as numbers when the user gave a parameter: use the parameter
   so editing it moves the sketch.
+* Sizes the user typed into the boxes beside the cursor while drawing are
+  already `SDIM` steps (a line's `LENGTH` and `ANGLE`, a rectangle's two
+  `LENGTH`s, a circle's `RADIUS`): change those entries, do not add more.

@@ -59,6 +59,13 @@ ASSERT, BBOX(plate).dz, EQ, T, 0.01
   see-through ghost.
 * "What can I do with this face?": `suggest_tools` lists the tools that
   fit the user's pick, the same list as their right-click menu.
+* "How big is this?", "how far apart are these?": `selection_numbers` (and
+  `user_context`) give the numbers the user's status bar shows: areas,
+  lengths, radii, volume and mass, the total of several picks and the
+  distance and angle between two.
+* A new project: `templates` lists what the start page offers (part,
+  assembly, sheet metal, drawing, the user's own) and what each sets.
+  `NEW, name` clears the model, so suggest it rather than run it.
 
 ## Mistakes to avoid
 

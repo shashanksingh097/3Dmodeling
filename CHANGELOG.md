@@ -15,6 +15,20 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 - The tools that fit a pick: a small toolbar beside a fresh pick and the start of the right-click
   menu (Sketch on this face, Pull, Hole, Fillet, Loop, Mate ...); `TOOLS` and the assistant's
   `suggest_tools` list the same.
+- The numbers of the pick at the right of the status bar: a face's type and area (radius for a
+  round one), an edge's length (radius and arc angle), a body's volume, area, size and mass; for
+  several picks the total, for two the distance and angle between them. A click copies them,
+  resting the mouse on something shows its numbers, `SELINFO` prints them and the assistant gets
+  them in `user_context` and `selection_numbers`.
+- Typed sizes while sketching: after the first click of a line, rectangle, circle, arc, slot or
+  polygon, boxes beside the cursor show its length and angle (or width and height, or radius);
+  type a number (or a parameter, after Tab), Tab to the next box, Enter to place it. Each typed
+  value becomes a size on the sketch (an ordinary `SDIM` step).
+- A start page (at start and File > New): New part, New assembly, New sheet metal part and New
+  drawing from templates that set units, layers, parameters and the title block (and the drawing
+  paper), recent projects with a picture of each, the examples and the quick start. `NEW, part`
+  starts from a template; `TEMPLATE, SAVE, name` keeps a project's steps as your own; the
+  assistant's `templates` lists them. A `PROPERTY, SHEET, A3` sets the paper `DRAWING` uses.
 
 ## [0.6.0] - 2026-11-24
 

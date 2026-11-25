@@ -1272,20 +1272,20 @@ Built in this order, about three per pull request.
     from the pick. The list comes from one table (`body_menu.py`) so it is
     tested headless. Command: `TOOLS` lists the tools for the current pick.
     Assistant: `suggest_tools` returns the same list for a selection.
-86. **What is picked, in numbers** (P1): a line at the bottom of the window
+86. **What is picked, in numbers** (P1, done: the status bar line, click to copy, the hover tooltip with Preferences > Numbers on hover, `SELINFO`, and `selection_numbers` plus the numbers in `user_context`): a line at the bottom of the window
     (and a tool tip on hover) gives the picked item with its size: face area
     and type, edge length or radius, body volume and mass, and for two picks
     the distance and angle between them; a click copies the numbers. Command:
     `SELINFO` prints the same. Assistant: `user_context` and `describe_entities`
     already return this; add the two-pick distance and angle.
-87. **Typed values while sketching** (P1): while drawing a line, arc, circle
+87. **Typed values while sketching** (P1, done: boxes for lines, centrelines, rectangles, centre rectangles, circles, arcs, slots and polygons; numbers or expressions; Tab, Enter, Esc, a click on a box; each value an `SDIM` step): while drawing a line, arc, circle
     or rectangle, boxes next to the cursor show its length and angle (or
     radius, width and height); typing a number fixes it, Tab moves to the
     next box, and fixed values become sizes on the sketch, as the drag
     handles already do (item 68). Command: the sketch steps and size
     constraints written are the ordinary ones. Assistant: nothing new to
     learn; the skill note says the typed values become sizes.
-88. **A start page and templates** (P1): on start (and File > New), a page
+88. **A start page and templates** (P1, done: the start page at start and File > New, templates part, assembly, sheet_metal and drawing, recent projects with pictures, `NEW, template`, `TEMPLATE` LIST/SHOW/SAVE/DELETE, the `templates` tool, `PROPERTY, SHEET` for the drawing paper): on start (and File > New), a page
     with New part, New assembly, New sheet metal part and New drawing, each
     from a template (units, planes, layers, materials, parameters, sheet
     size); recent projects with small pictures; the examples; the quick

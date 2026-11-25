@@ -12,10 +12,10 @@ OTHER = "Other"
 # headings for commands that have no form, after the command menu's own;
 # an empty tuple takes the sketch commands (S..., ENDSKETCH)
 EXTRA: list[tuple[str, tuple[str, ...]]] = [
-    ("Files and history", ("NEW", "OPEN", "SAVE", "RUN", "NEWPART", "OPENPART", "SAVEPART", "RELOAD",
+    ("Files and history", ("NEW", "TEMPLATE", "OPEN", "SAVE", "RUN", "NEWPART", "OPENPART", "SAVEPART", "RELOAD",
                            "UNDO", "REDO", "HIST", "STEPS")),
     ("View and picking", ("VIEW", "FIT", "PICK", "PICKMODE", "PICKREGION", "PREVIEW", "TOOLS",
-                          "CPOINTS", "HELP")),
+                          "SELINFO", "CPOINTS", "HELP")),
     ("Inside a sketch", ()),
 ]
 MAX_EXAMPLES = 4

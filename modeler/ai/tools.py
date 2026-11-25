@@ -205,6 +205,17 @@ class Toolbox:
                  "each with what it runs: the list their right-click menu and the small toolbar beside a pick "
                  "show (Sketch on this face, Pull, Hole, Fillet, Loop, Tangent chain, Mate ...).",
                  {"where": _WHERE}, (), self.suggest_tools),
+            Tool("templates", "The project templates the user can start from (start page, File > New, NEW, name): "
+                 "each with its title, what it is for and what it sets (units, layers, parameters, materials, "
+                 "title block, a first sketch). Starting one clears the model, so suggest it to the user (or "
+                 "use it in the sandbox: sandbox then run NEW, name) rather than running it on their model.",
+                 {}, (), self.templates),
+            Tool("selection_numbers", "The numbers of the user's pick (or of kind + ids): a face's type, area and "
+                 "radius; an edge's length, radius and arc angle; a vertex's position; a body's volume, area, size "
+                 "and mass; totals for several, and the distance and angle between two. The same line their "
+                 "status bar shows (status_line). Use it for 'how big is this', 'how far apart are these'.",
+                 {"kind": {"type": "string", "enum": KINDS}, "ids": {"type": "array", "items": {"type": "integer"}},
+                  "where": _WHERE}, (), self.selection_numbers),
             Tool("preview_selection", "What SEL lines would select, without changing the selection.",
                  {"lines": {"type": "array", "items": {"type": "string"}}, "where": _WHERE}, ("lines",),
                  self.preview_selection),
@@ -417,6 +428,15 @@ class Toolbox:
                     out["selection"]["selector"] = {"error": str(exc)}
             if len(m.selection) > 20:
                 out["selection"]["note"] = f"first 20 of {len(m.selection)} described"
+            try:  # the numbers the user sees in the status bar: totals, distance and angle of two picks
+                from ..commands import selinfo as si
+
+                info = si.selection_info(p, limit=0)
+                out["selection"]["numbers"] = {k: info[k] for k in ("total", "pair") if k in info}
+                out["selection"]["numbers"]["status_line"] = si.line(info, pretty=False) if len(m.selection) > 1 \
+                    else si.line(si.selection_info(p), pretty=False)
+            except Exception:  # noqa: BLE001 - numbers are a help, never a failure
+                pass
         else:
             out["selection"]["note"] = "nothing is selected; ask_pick asks the user to click"
         view = getattr(p, "view", None)
@@ -449,6 +469,30 @@ class Toolbox:
         p = self._p(where)
         return {"selection": {"kind": p.model.selection_kind, "ids": list(p.model.selection)},
                 "tools": bm.tools_rows(p)}
+
+    def templates(self) -> dict[str, Any]:
+        from ..commands import template_handlers as th
+
+        return {"templates": [t.data() for t in th.all_templates()], "user_folder": th.user_dir(),
+                "start": "NEW, name (clears the model: the template's steps become the first history entries)",
+                "save_own": "TEMPLATE, SAVE, name [, title [, about]]"}
+
+    def selection_numbers(self, kind: str | None = None, ids: list[int] | None = None,
+                          where: str = "model") -> dict[str, Any]:
+        from ..commands import selinfo as si
+
+        p = self._p(where)
+        if ids is not None and not kind:
+            raise ToolError("give the kind with the ids")
+        if kind and kind.upper() not in KINDS:
+            raise ToolError("kind is BODY, FACE, EDGE or VERTEX")
+        try:
+            info = si.selection_info(p, kind, [int(i) for i in ids] if ids is not None else (None if not kind or
+                                     kind.upper() == p.model.selection_kind else []))
+        except KeyError:
+            raise ToolError("kind is BODY, FACE, EDGE or VERTEX") from None
+        info["status_line"] = si.line(info, pretty=False)
+        return info
 
     def preview_selection(self, lines: list[str], where: str = "model"):
         return sl.preview_selection(self._p(where), lines)
