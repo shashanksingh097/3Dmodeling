@@ -690,6 +690,9 @@ class MainWindow(QMainWindow):
 
         _prefs.restore(self)
         _prefs.load_plugins(self)
+        from . import spacemouse_input
+
+        self.spacemouse = spacemouse_input.attach(self)  # a 3D mouse moves the view (PLAN item 111)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
@@ -1046,6 +1049,28 @@ class MainWindow(QMainWindow):
                      "and looks (MATLIB)")
         a.triggered.connect(self.open_materials)
         self.materials_action = a
+        a = m.addAction("&Drawing sheets…")
+        a.setToolTip("The drawing sheets as they print, kept up to date: drag views, add sizes and notes on what "
+                     "you pick, save a PDF (DRAWSHEET, SHEETVIEW, SHEETNOTE)")
+        a.triggered.connect(self.open_sheets)
+        self.sheets_action = a
+        sub = m.addMenu("Detail")  # big assemblies stay quick to turn (DETAIL, PLAN item 112)
+        sub.setToolTipsVisible(True)
+        from PySide6.QtGui import QActionGroup
+
+        grp = QActionGroup(sub)
+        self.detail_actions = {}
+        for mode, text, tip in (("AUTO", "Automatic", "Everything until 300 bodies are shown, then fast"),
+                                ("FINE", "Everything", "Every body at full detail, however many there are"),
+                                ("FAST", "Fast (big assemblies)", "Coarser meshes, and bodies smaller than a few "
+                                                                  "pixels left out while drawing")):
+            a = sub.addAction(text)
+            a.setCheckable(True)
+            a.setToolTip(tip + f" (DETAIL, {mode})")
+            a.setChecked(mode == "AUTO")
+            grp.addAction(a)
+            a.triggered.connect(lambda _c=False, md=mode: self.execute(f"DETAIL, {md}"))
+            self.detail_actions[mode] = a
         self.view_menu = m
 
     def toggle_console(self, on: bool | None = None):
@@ -1059,6 +1084,12 @@ class MainWindow(QMainWindow):
         from .materials_dialog import open_dialog
 
         return open_dialog(self)
+
+    def open_sheets(self):
+        """View > Drawing sheets…: the live sheet window (gui/sheet_window.py)."""
+        from .sheet_window import open_window
+
+        return open_window(self)
 
     def tutorial_changed(self) -> None:
         """TUTORIAL started, moved or stopped: the Tutorial panel follows."""

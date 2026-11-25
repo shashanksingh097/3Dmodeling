@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QColorDialog,
@@ -78,13 +78,25 @@ class LayerPanel(QWidget):
         lay.addWidget(self.table, 1)
         lay.addLayout(buttons)
 
+        self._refresh_pending = False
         window.processor.model.subscribe(self._on_model)
         self.refresh()
 
     # ---- showing ------------------------------------------------------------
     def _on_model(self, ev) -> None:
-        if ev.kind in _REFRESH_ON:
-            self.refresh()
+        if ev.kind not in _REFRESH_ON:
+            return
+        # a body added or removed in a long script: once at its end, not once per body (PLAN item 112)
+        if ev.kind in ("body_added", "body_removed"):
+            if not self._refresh_pending:
+                self._refresh_pending = True
+                QTimer.singleShot(0, self._refresh_later)
+            return
+        self.refresh()
+
+    def _refresh_later(self) -> None:
+        self._refresh_pending = False
+        self.refresh()
 
     def names(self) -> list[str]:
         return [lay.name for lay in self.win.processor.model.layers.values()]

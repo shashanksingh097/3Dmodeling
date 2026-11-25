@@ -4263,3 +4263,56 @@ there and Ctrl+V here, or from its right-click menu, Copy to ▸ (a `PASTE`
 step in that tab, where the body stands). Closing the window asks about each
 tab with unsaved changes. The assistant works on the shown tab; its
 `user_context` names the open tabs.
+
+
+## 52. The drawing-sheet window, the 3D mouse, big assemblies
+
+### The drawing-sheet window
+
+View > Drawing sheets… shows a sheet (`DRAWSHEET`) as it prints, made from
+the model as it is now, and draws it again a moment after every change. A
+dashed box marks each view: drag it to move the view, which writes one
+history step:
+
+    SHEETVIEW, front, TOP, 0, 15          ! the top view 15 higher than its own place
+    SHEETVIEW, front, TOP, RESET          ! back in its own place
+    SHEETNOTE, front, SIZE, EDGE 5        ! the length of a straight edge, or a round edge's diameter
+
+`SHEETVIEW`'s move is in the model's units before the sheet's scale, and it
+is where the view is, not a step: the same view again replaces it. Moving a
+view does not move the others or change the scale. A `SIZE` goes into a
+view that shows the edge at its true length (across, up or slanted), or, for
+a round edge, a view that looks along its axis. The window's buttons: Size
+of picked edge, Note on pick… (a leader note), Centre marks, Parts list…
+(`SHEETTABLE`), Views back and Save PDF… (`DRAWINGS`). A right click on an
+edge also offers Size on sheet.
+
+### The 3D mouse
+
+A 3D mouse (a SpaceMouse or another six-axis cap) moves the view: the model
+follows the cap, so slide it to pan, push or pull to zoom, tilt and twist to
+turn. On Linux it is read through the spacenavd service; anywhere, through
+the pyspacemouse package (`pip install pyspacemouse`, which needs the hidapi
+library). Preferences > Mouse sets it, and so does `SPACEMOUSE` (the
+settings are the app's, not the project's, and are not history steps):
+
+    SPACEMOUSE                     ! found or not, and how it is set
+    SPACEMOUSE, SPEED, 2           ! 0.1 ... 5
+    SPACEMOUSE, ROTATE, OFF        ! pan and zoom only (PAN, ZOOM the same way)
+    SPACEMOUSE, DOMINANT, ON       ! only the strongest axis counts
+    SPACEMOUSE, INVERT, RY TZ      ! these axes the other way (NONE: none)
+    SPACEMOUSE, BUTTON, 1, FIT     ! what a button runs (FIT and VIEW, ISO to start)
+    SPACEMOUSE, OFF                ! ON, OFF, RESET
+
+### Big assemblies
+
+Copies of a part (`INST`) share one shape, moved into place, so the mesh the
+view draws is made once however many copies there are. A script that adds
+many bodies redraws the view once at its end. View > Detail, or `DETAIL`,
+sets how much the view draws:
+
+    DETAIL                         ! how it is now
+    DETAIL, FAST, 6                ! coarser meshes; bodies under 6 pixels left out
+    DETAIL, FINE                   ! everything
+    DETAIL, AUTO                   ! FINE until 300 bodies are shown, then FAST (the start)
+

@@ -305,7 +305,7 @@ def _check(p: Processor, kind: str, a: Item, b_kind: str, b_gid: int, value: flo
     if kind == "COINCIDENT" and a.what == nb.what == "PLANE" and d > 1e-6:
         p.warn(f"MATE: {a.label} and {nb.label} are in one plane but do not overlap ({d:.6g} apart sideways); "
                "add a CONCENTRIC or DISTANCE mate to slide the copy over")
-    return f"distance now {d:.6g}"
+    return f"distance now {(0.0 if abs(d) < 1e-9 else d):.6g}"
 
 
 @command(

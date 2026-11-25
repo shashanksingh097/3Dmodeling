@@ -223,6 +223,47 @@ class OccViewport(QWidget):
             self._apply_background()
             self.view.Redraw()
 
+    # ---- big assemblies (PLAN item 112) ---------------------------------------------------------
+    DETAIL_MODES = ("AUTO", "FINE", "FAST")
+    BIG_AFTER = 300  # AUTO draws fast from this many shown bodies
+    FINE_DEVIATION, FAST_DEVIATION = 0.001, 0.004  # mesh sag per size of the body (OCCT's default first)
+
+    def set_detail(self, mode: str, cull_px: float | None = None) -> None:
+        """How much detail the view draws: FINE (all of it), FAST (coarser meshes for new bodies, and bodies
+        smaller than cull_px pixels left out), AUTO (FAST once BIG_AFTER bodies are shown)."""
+        if mode not in self.DETAIL_MODES:
+            raise ValueError(mode)
+        self.detail_mode = mode
+        if cull_px is not None:
+            self.cull_px = max(float(cull_px), 0.0)
+        self._apply_detail(force=True)
+        if getattr(self, "_initialized", False):
+            self.view.Redraw()
+
+    def detail_fast(self) -> bool:
+        if self.detail_mode == "AUTO":
+            return len(self._ais) >= self.BIG_AFTER  # the bodies drawn
+        return self.detail_mode == "FAST"
+
+    def _apply_detail(self, force: bool = False) -> None:
+        if not getattr(self, "_initialized", False):
+            return
+        fast = self.detail_fast()
+        if fast == self._fast_now and not force:
+            return
+        self._fast_now = fast
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Default
+
+        self.context.DefaultDrawer().SetDeviationCoefficient(self.FAST_DEVIATION if fast else self.FINE_DEVIATION)
+        ls = self.viewer.ZLayerSettings(Graphic3d_ZLayerId_Default)
+        ls.SetCullingSize(self.cull_px if fast and self.cull_px > 0 else -1.0)
+        self.viewer.SetZLayerSettings(Graphic3d_ZLayerId_Default, ls)
+
+    def detail_state(self) -> dict:
+        shown = sum(1 for b in self.model.bodies if self.model.is_shown(b))
+        return {"mode": self.detail_mode, "fast": self.detail_fast(), "cull_px": self.cull_px, "shown": shown,
+                "big_after": self.BIG_AFTER}
+
     def _apply_background(self) -> None:
         lo, hi = BACKGROUNDS.get(self.background, BACKGROUNDS["grey"])
         self.view.SetBgGradientColors(_rgb(*lo), _rgb(*hi),
@@ -290,6 +331,9 @@ class OccViewport(QWidget):
         self._mask_ais = None  # frozen areas, drawn dark over the body
         self._hover_at = 0.0
         self._initialized = False
+        self._update_pending = False  # a redraw waits for a burst of model events to end (_update_soon)
+        self._last_update = 0.0
+        self.detail_mode, self.cull_px, self._fast_now = "AUTO", 3.0, False  # big assemblies (set_detail)
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point), "cube"
         self.mouse_style = ms.get(ms.DEFAULT)  # which drags orbit, pan and zoom (set_mouse_style)
@@ -341,6 +385,7 @@ class OccViewport(QWidget):
         self.view.SetProj(_VIEWS["ISO"])
         self.view.MustBeResized()
         self._initialized = True
+        self._apply_detail(force=True)
         try:  # PLAN item 93: the view cube in the top right corner
             from .view_cube import ViewCube
 
@@ -568,6 +613,7 @@ class OccViewport(QWidget):
             QTimer.singleShot(0, self._section_edit_again)
 
     def _apply_body_event(self, ev: Event) -> None:
+        self._apply_detail()
         if ev.kind == "body_added":
             first = not self._ais
             self._display_body(ev.body_id, update=False)
@@ -642,7 +688,30 @@ class OccViewport(QWidget):
                 self._display_body(bid, update=False)
             self._show_datums()
             self._sync_selection()
-        self.context.UpdateCurrentViewer()
+        self._update_soon()
+
+    def _update_soon(self) -> None:
+        """Redraw now, unless a redraw was just made: then once when the events stop coming. A script that
+        adds hundreds of bodies redraws a few times, not once per body (PLAN item 112)."""
+        import time as _t
+
+        if self._update_pending:
+            return
+        now = _t.monotonic()
+        if now - self._last_update > 0.05:
+            self._last_update = now
+            self.context.UpdateCurrentViewer()
+            return
+        self._update_pending = True
+        QTimer.singleShot(0, self, self._update_now)
+
+    def _update_now(self) -> None:
+        import time as _t
+
+        self._update_pending = False
+        if self._initialized and self.isVisible():  # not once its window has closed: its GL window is gone
+            self._last_update = _t.monotonic()
+            self.context.UpdateCurrentViewer()
 
     def _look(self, bid: int) -> tuple:
         """What a body's drawing depends on besides its shape: colour and see-through."""

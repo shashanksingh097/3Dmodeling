@@ -40,6 +40,10 @@
             <translation>&amp;Copiar</translation>
         </message>
         <message>
+            <source>&amp;Drawing sheets…</source>
+            <translation>&amp;Hojas de dibujo…</translation>
+        </message>
+        <message>
             <source>&amp;Duplicate</source>
             <translation>&amp;Duplicar</translation>
         </message>
@@ -199,6 +203,10 @@ Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down</source>
         <message>
             <source>3-point circle</source>
             <translation>Círculo por 3 puntos</translation>
+        </message>
+        <message>
+            <source>3D mouse</source>
+            <translation>Ratón 3D</translation>
         </message>
         <message>
             <source>3D view background:</source>
@@ -1162,12 +1170,20 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
             <translation>Automático</translation>
         </message>
         <message>
+            <source>AUTO (fast once 300 bodies are shown), FINE (everything) or FAST; empty: how it is now</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Auto constraints</source>
             <translation>Restricciones automáticas</translation>
         </message>
         <message>
             <source>AUTO: write them again after every rebuild and save; OFF: stop that</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Automatic</source>
+            <translation>Automático</translation>
         </message>
         <message>
             <source>Axes cut</source>
@@ -1502,6 +1518,14 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
             <translation>Abombamiento</translation>
         </message>
         <message>
+            <source>Button's command</source>
+            <translation>Comando del botón</translation>
+        </message>
+        <message>
+            <source>BUTTON: the command it runs (FIT, "VIEW, TOP" ...; empty: nothing)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>By ID</source>
             <translation>Por ID</translation>
         </message>
@@ -1578,7 +1602,7 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
             <translation>Línea central</translation>
         </message>
         <message>
-            <source>CENTRES, THREADS, FINISH, WELD, LEADER; DELETE or LIST</source>
+            <source>CENTRES, THREADS, FINISH, WELD, LEADER, SIZE; DELETE or LIST</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -1987,6 +2011,10 @@ Runs: SCIRCLET</source>
         <message>
             <source>Cm…</source>
             <translation>Cm…</translation>
+        </message>
+        <message>
+            <source>Coarser meshes, and bodies smaller than a few pixels left out while drawing (DETAIL, FAST)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Coil radius</source>
@@ -2727,6 +2755,10 @@ Runs: SDEL, ...</source>
             <translation>Tabla de diseño…</translation>
         </message>
         <message>
+            <source>Detail</source>
+            <translation>Detalle</translation>
+        </message>
+        <message>
             <source>detail</source>
             <translation>detalle</translation>
         </message>
@@ -2737,6 +2769,10 @@ Runs: SDEL, ...</source>
         <message>
             <source>detail views: a flat view, a model point, a radius and how much bigger, like "FRONT 20 0 5 8 3" (several with ;)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Detail…</source>
+            <translation>Detalle…</translation>
         </message>
         <message>
             <source>Deutsch</source>
@@ -2989,8 +3025,12 @@ Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
             <translation>Plano</translation>
         </message>
         <message>
-            <source>Drawing details on a sheet, drawn again from the model each time DRAWINGS writes the sheets: SHEETNOTE, front, CENTRES (centre marks and centre lines on the holes) · SHEETNOTE, front, THREADS (cosmetic threads on holes with a thread noted on them) · SHEETNOTE, front, FINISH, 12, 1.6, ground (a surface finish symbol on face 12) · SHEETNOTE, front, WELD, weld_1 (the weld symbol of a WELD bead, with its size and length) · SHEETNOTE, front, LEADER, EDGE 5, "Break sharp edges" · SHEETNOTE, front lists them; SHEETNOTE, front, DELETE, 2 (or ALL) removes them.</source>
+            <source>Drawing details on a sheet, drawn again from the model each time DRAWINGS writes the sheets: SHEETNOTE, front, CENTRES (centre marks and centre lines on the holes) · SHEETNOTE, front, THREADS (cosmetic threads on holes with a thread noted on them) · SHEETNOTE, front, FINISH, 12, 1.6, ground (a surface finish symbol on face 12) · SHEETNOTE, front, WELD, weld_1 (the weld symbol of a WELD bead, with its size and length) · SHEETNOTE, front, LEADER, EDGE 5, "Break sharp edges" · SHEETNOTE, front, SIZE, EDGE 5 (the length of a straight edge, or the diameter of a round one, in a view that shows it true) · SHEETNOTE, front lists them; SHEETNOTE, front, DELETE, 2 (or ALL) removes them.</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Drawing sheets</source>
+            <translation>Hojas de dibujo</translation>
         </message>
         <message>
             <source>drawing sketches: history and properties beside a big view (LAYOUT, sketch)</source>
@@ -3235,6 +3275,10 @@ Runs: SCULPT, body, SMOOTH, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Every body at full detail, however many there are (DETAIL, FINE)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Every command with an e&amp;xample (web)</source>
             <translation>&amp;Cada comando con un ejemplo (web)</translation>
         </message>
@@ -3263,8 +3307,16 @@ Runs: SCULPT, body, SMOOTH, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Everything</source>
+            <translation>Todo</translation>
+        </message>
+        <message>
             <source>Everything of a kind</source>
             <translation>Todo lo de un tipo</translation>
+        </message>
+        <message>
+            <source>Everything until 300 bodies are shown, then fast (DETAIL, AUTO)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Examples with pictures (web)</source>
@@ -3400,6 +3452,14 @@ Runs: EXPORT, format, file</source>
             <translation>Tamaño del extremo lejano</translation>
         </message>
         <message>
+            <source>Fast (big assemblies)</source>
+            <translation>Rápido (ensamblajes grandes)</translation>
+        </message>
+        <message>
+            <source>FAST: bodies smaller than this many pixels on screen are left out while it draws (0: keep it as it is; the start is 3)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>fastened</source>
             <translation>fijado</translation>
         </message>
@@ -3517,7 +3577,7 @@ Runs: EXTRUDE, sketch, d [, mode, body]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>FINISH and LEADER: the face (12) or FACE 12, EDGE 5, VERTEX 3; WELD: the weld bead; DELETE: the detail's number, or ALL</source>
+            <source>FINISH and LEADER: the face (12) or FACE 12, EDGE 5, VERTEX 3; SIZE: the edge (EDGE 5); WELD: the weld bead; DELETE: the detail's number, or ALL</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4172,6 +4232,10 @@ Runs: SDIM, HDIST, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>how far it is moved from its own place, across (model units, before the scale); RESET puts it back</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>how far it stands out (ADD) or sinks in (CUT)</source>
             <translation type="unfinished" />
         </message>
@@ -4201,6 +4265,10 @@ Runs: SDIM, HDIST, ...</source>
         </message>
         <message>
             <source>how far the surface may move</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>how far up</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4253,6 +4321,14 @@ Runs: SDIM, HDIST, ...</source>
         </message>
         <message>
             <source>how much of it is done by t (0 at the start of the body, 1 at the end); empty = evenly</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>How much the 3D view draws: DETAIL, FAST draws new bodies with coarser meshes and leaves out bodies smaller than a few pixels (DETAIL, FAST, 6 leaves out more); DETAIL, FINE draws everything; DETAIL, AUTO (the start) is FINE until 300 bodies are shown, then FAST</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>How much the 3D view draws: DETAIL, FAST draws new bodies with coarser meshes and leaves out bodies smaller than a few pixels (DETAIL, FAST, 6 leaves out more); DETAIL, FINE draws everything; DETAIL, AUTO (the start) is FINE until 300 bodies are shown, then FAST. Copies of a part (INST) always share one mesh, so a thousand bolts cost about as much to draw as their shapes. DETAIL alone says how it is.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4715,6 +4791,10 @@ Runs: UNFOLD, body [, file.dxf]</source>
         <message>
             <source>Least draft angle</source>
             <translation>Ángulo de desmoldeo mínimo</translation>
+        </message>
+        <message>
+            <source>Leave out bodies smaller than (pixels)</source>
+            <translation>Omitir cuerpos menores que (píxeles)</translation>
         </message>
         <message>
             <source>Leave out copies</source>
@@ -5327,6 +5407,14 @@ Runs: SMIRROR, axis, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Move a view on a drawing sheet: SHEETVIEW, front, TOP, 0, 15 puts the top view 15 higher than its own place (in the model's units, before the sheet's scale)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Move a view on a drawing sheet: SHEETVIEW, front, TOP, 0, 15 puts the top view 15 higher than its own place (in the model's units, before the sheet's scale). The value is where it is, not a step: the same view again replaces it. SHEETVIEW, front, TOP, RESET puts it back. The Drawing sheet window writes this when a view is dragged.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Move along (empty: the face's normal)</source>
             <translation>Mover a lo largo de (vacío: la normal de la cara)</translation>
         </message>
@@ -5418,6 +5506,14 @@ Runs: STRANSFORM, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Moved across by (or RESET)</source>
+            <translation>Movida en horizontal (o RESET)</translation>
+        </message>
+        <message>
+            <source>Moved up by</source>
+            <translation>Movida hacia arriba</translation>
+        </message>
+        <message>
             <source>Moveface</source>
             <translation>Moveface</translation>
         </message>
@@ -5432,6 +5528,10 @@ Runs: STRANSFORM, ...</source>
         <message>
             <source>Movept…</source>
             <translation>Movept…</translation>
+        </message>
+        <message>
+            <source>Moves:</source>
+            <translation>Movimientos:</translation>
         </message>
         <message>
             <source>Moves: a</source>
@@ -5578,12 +5678,20 @@ Runs: STRANSFORM, ...</source>
             <translation>Pestaña siguiente</translation>
         </message>
         <message>
+            <source>No 3D mouse found. On Linux it is read through spacenavd; anywhere else install pyspacemouse (pip install pyspacemouse).</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>no parameter</source>
             <translation>ningún parámetro</translation>
         </message>
         <message>
             <source>No recent projects</source>
             <translation>No hay proyectos recientes</translation>
+        </message>
+        <message>
+            <source>No sheets yet: New sheet… makes one (DRAWSHEET).</source>
+            <translation>Aún no hay hojas: Hoja nueva… crea una (DRAWSHEET).</translation>
         </message>
         <message>
             <source>No SWEEP step to edit: make one first (Commands → Shapes from curves)</source>
@@ -5772,6 +5880,10 @@ Runs: SOFFSET2, d, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>ON, OFF, SPEED, ROTATE, PAN, ZOOM, DOMINANT, INVERT, BUTTON or RESET; empty: how it is</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>ON: a floor under the model catches the shadows · OFF</source>
             <translation type="unfinished" />
         </message>
@@ -5921,6 +6033,10 @@ Runs: OPEN, AUTOSAVE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Other way:</source>
+            <translation>Al revés:</translation>
+        </message>
+        <message>
             <source>Outer radius</source>
             <translation>Radio exterior</translation>
         </message>
@@ -5952,6 +6068,10 @@ Runs: MASK, body, PAINT, ..., stroke</source>
         <message>
             <source>PAINT, ERASE, CLEAR, ALL, INVERT</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Pan</source>
+            <translation>Desplazar</translation>
         </message>
         <message>
             <source>pan</source>
@@ -6102,6 +6222,10 @@ Runs: PICKMODE, FACE</source>
         <message>
             <source>Pick one body in the tree or the view to see the steps that made it.</source>
             <translation>Elige un solo cuerpo en el árbol o en la vista para ver los pasos que lo crearon.</translation>
+        </message>
+        <message>
+            <source>Pick one or more edges in the 3D view first (straight or round ones).</source>
+            <translation>Primero elige una o más aristas en la vista 3D (rectas o redondas).</translation>
         </message>
         <message>
             <source>Pick vertices only
@@ -7447,6 +7571,10 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Setting</source>
+            <translation>Ajuste</translation>
+        </message>
+        <message>
             <source>Settings and files</source>
             <translation>Ajustes y archivos</translation>
         </message>
@@ -7508,6 +7636,10 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
             <translation>Chapa metálica</translation>
         </message>
         <message>
+            <source>Sheet:</source>
+            <translation>Chapa:</translation>
+        </message>
+        <message>
             <source>Sheetdata</source>
             <translation>Datos de hoja</translation>
         </message>
@@ -7538,6 +7670,14 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
         <message>
             <source>Sheettable…</source>
             <translation>Tabla de hoja…</translation>
+        </message>
+        <message>
+            <source>Sheetview</source>
+            <translation>Vista de hoja</translation>
+        </message>
+        <message>
+            <source>Sheetview…</source>
+            <translation>Vista de hoja…</translation>
         </message>
         <message>
             <source>Sheet…</source>
@@ -7889,8 +8029,24 @@ Runs: SECTIONEDIT, plane, offset</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Spacemouse</source>
+            <translation>Ratón 3D</translation>
+        </message>
+        <message>
+            <source>Spacemouse…</source>
+            <translation>Ratón 3D…</translation>
+        </message>
+        <message>
             <source>Spacing</source>
             <translation>Separación</translation>
+        </message>
+        <message>
+            <source>Speed:</source>
+            <translation>Velocidad:</translation>
+        </message>
+        <message>
+            <source>SPEED: 0.1 ... 5; ROTATE/PAN/ZOOM/DOMINANT: ON or OFF; INVERT: the axes turned the other way (TX TY TZ RX RY RZ, or NONE); BUTTON: its number</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Sphere</source>
@@ -8232,6 +8388,10 @@ Runs: SKETCH (and PLANE when the plane is moved)</source>
             <translation>Trazo…</translation>
         </message>
         <message>
+            <source>Strongest axis only</source>
+            <translation>Solo el eje más fuerte</translation>
+        </message>
+        <message>
             <source>Structural members (tube, angle, channel, I-beam ...) along a polyline or sketch, with mitred or butted corners
 Runs: MEMBER, path, profile, size [, MITRE/BUTT]</source>
             <translation type="unfinished" />
@@ -8486,6 +8646,14 @@ Runs: MASK, body, INVERT</source>
             <translation>Esa pieza</translation>
         </message>
         <message>
+            <source>The 3D mouse (a SpaceMouse or another six-axis cap): SPACEMOUSE alone says whether one was found and how it is set</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The 3D mouse (a SpaceMouse or another six-axis cap): SPACEMOUSE alone says whether one was found and how it is set. SPACEMOUSE, SPEED, 2 · SPACEMOUSE, ROTATE, OFF (pan and zoom only) · SPACEMOUSE, DOMINANT, ON (only the strongest axis) · SPACEMOUSE, INVERT, RY TZ · SPACEMOUSE, BUTTON, 1, FIT · SPACEMOUSE, OFF. It is read through spacenavd on Linux or the pyspacemouse package (pip install pyspacemouse) anywhere. The settings are kept with the app, not the project.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>The air round a model, for a flow or field model: ENCLOSURE, ALL, BOX, 20 puts a box 20 bigger on every side round the shown bodies, with them cut out, as a new solid</source>
             <translation type="unfinished" />
         </message>
@@ -8687,6 +8855,10 @@ Runs: MASK, body, INVERT</source>
         </message>
         <message>
             <source>the distance on the other face (0: the same)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The drawing sheets as they print, kept up to date: drag views, add sizes and notes on what you pick, save a PDF (DRAWSHEET, SHEETVIEW, SHEETNOTE)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9168,6 +9340,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The sheet shown (DRAWSHEET makes them)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the sheet thickness</source>
             <translation type="unfinished" />
         </message>
@@ -9278,6 +9454,10 @@ Runs: MOLD, body [, wall, shrink %]</source>
         </message>
         <message>
             <source>the value to hold it at (none: let go, back to the history's value)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the view, by the name under it: FRONT, TOP, ISO, SECTION A-A, DETAIL B ...</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9637,6 +9817,10 @@ Runs: STRACE, file, width [, threshold, du, dv]</source>
             <translation>Tubo…</translation>
         </message>
         <message>
+            <source>Turn</source>
+            <translation>Girar</translation>
+        </message>
+        <message>
             <source>Turn (degrees)</source>
             <translation>Giro (grados)</translation>
         </message>
@@ -9674,6 +9858,18 @@ Runs: REVOLVE, sketch, axis, angle</source>
             <translation>Eje de giro</translation>
         </message>
         <message>
+            <source>Turn RX the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Turn RY the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Turn RZ the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Turn the copy the other way (FLIP)</source>
             <translation>Girar la copia al revés (FLIP)</translation>
         </message>
@@ -9701,6 +9897,18 @@ Runs: TOMESH, b then REMESH, b, size/150</source>
         <message>
             <source>Turn the wheel the other way to zoom in</source>
             <translation>Girar la rueda al revés para acercar</translation>
+        </message>
+        <message>
+            <source>Turn TX the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Turn TY the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Turn TZ the other way (T: slide, R: turn; X across, Y up, Z toward you)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Turn with the curve</source>
@@ -9882,6 +10090,10 @@ Runs: MASK, body, CLEAR</source>
             <translation>Arriba…</translation>
         </message>
         <message>
+            <source>Use a 3D mouse (SpaceMouse) to move the view</source>
+            <translation>Mover la vista con un ratón 3D (SpaceMouse)</translation>
+        </message>
+        <message>
             <source>Use a configuration: its parameters keep its values and the whole model rebuilds: USECONFIG, big · USECONFIG, DEFAULT goes back to the values in the history · USECONFIG alone lists the configurations (* marks the one in use)</source>
             <translation type="unfinished" />
         </message>
@@ -9985,6 +10197,10 @@ Runs: SDIM, VDIST, ...</source>
         <message>
             <source>View</source>
             <translation>Vista</translation>
+        </message>
+        <message>
+            <source>View (FRONT, TOP, ISO, SECTION A-A ...)</source>
+            <translation>Vista (FRONT, TOP, ISO, SECTION A-A ...)</translation>
         </message>
         <message>
             <source>View cube:</source>
@@ -10437,6 +10653,10 @@ Runs: ANALYZE, body, ZEBRA / ANALYZE, OFF</source>
         <message>
             <source>ZEBRA: stripes, and each join between faces judged G2, G1 or creased; CURVATURE / GAUSS: a colour map; DRAFT: green and blue come out of the mould, red is too steep</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Zoom</source>
+            <translation>Zoom</translation>
         </message>
         <message>
             <source>zoom</source>

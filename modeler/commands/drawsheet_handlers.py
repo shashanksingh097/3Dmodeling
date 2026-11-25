@@ -19,7 +19,7 @@ import re
 import numpy as np
 
 from ..lang.script import is_ident
-from .processor import Arg, BodyRef, CommandError, Path, Processor, Text, command
+from .processor import Arg, BodyRef, CommandError, Path, Processor, Raw, Text, command
 
 DIA = ("\u00d8", "\u00f8")  # the diameter sign: capital or small o-slash
 
@@ -41,6 +41,8 @@ def _sheets_text(p: Processor) -> list[str]:
             bits.append(f"template {os.path.basename(s['template'])}")
         if s.get("tables"):
             bits.append(f"tables {s['tables'].lower()}")
+        if s.get("moves"):
+            bits.append("views moved: " + ", ".join(k.lower() for k in s["moves"]))
         if s.get("notes"):
             n = len(s["notes"])
             bits.append(f"{n} drawing detail{'s' if n != 1 else ''} (SHEETNOTE, {s['name']} lists them)")
@@ -105,12 +107,32 @@ def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail
                                           "scale": scale, "section": section, "detail": detail,
                                           "template": os.path.abspath(template) if template else "",
                                           "tables": "+".join(words),
-                                          "notes": list(m.drawsheets.get(key, {}).get("notes", []))}}
+                                          "notes": list(m.drawsheets.get(key, {}).get("notes", [])),
+                                          "moves": dict(m.drawsheets.get(key, {}).get("moves", {}))}}
     n = list(m.drawsheets).index(key) + 1
     return f"sheet {n} {name} " + ("added" if new else "changed") + "\n" + "\n".join(_sheets_text(p)[n - 1:n])
 
 
 # ---- writing them --------------------------------------------------------------------------------
+
+def render(p: Processor, s: dict, i: int = 1, total: int = 1, what: str = "DRAWINGS"):
+    """One sheet made from the model as it is now: (views, page, details placed, sizes written)."""
+    from ..geometry import sheets as sh
+    from .drawing_handlers import make_sheet
+
+    m = p.model
+    tpl = sh.read_template(s["template"]) if s.get("template") else None
+    paper = s.get("paper") or (tpl.paper if tpl is not None and tpl.paper else "AUTO")
+    b = s.get("b") or 0
+    if b and b not in m.bodies:
+        raise CommandError(f"{what}: sheet {s['name']} draws body {b}, which no longer exists")
+    placed: list = []
+    out, _bounds, page, _bodies, nsizes, _nn = make_sheet(
+        p, f"{what}, sheet {s['name']}", ".pdf", s["views"], b, s["sizes"], paper, s["scale"], s["section"],
+        s["detail"], extra={"SHEET": f"{i} of {total}", "SHEETNAME": s["name"]}, template=tpl,
+        tables=s.get("tables", ""), sheet_notes=s.get("notes"), placed=placed, moves=s.get("moves"))
+    return out, page, placed, nsizes
+
 
 def write_all(p: Processor, path: str) -> list[str]:
     """Write every sheet: one PDF with a page each, or one SVG per sheet. Returns the lines to show."""
@@ -128,16 +150,7 @@ def write_all(p: Processor, path: str) -> list[str]:
     p.sheet_details = details  # what SHEETNOTE details were drawn where, for DRAWINGS's answer
     total = len(m.drawsheets)
     for i, s in enumerate(m.drawsheets.values(), 1):
-        tpl = sh.read_template(s["template"]) if s.get("template") else None
-        paper = s.get("paper") or (tpl.paper if tpl is not None and tpl.paper else "AUTO")
-        b = s.get("b") or 0
-        if b and b not in m.bodies:
-            raise CommandError(f"DRAWINGS: sheet {s['name']} draws body {b}, which no longer exists")
-        placed: list = []
-        out, _bounds, page, _bodies, nsizes, _nn = make_sheet(
-            p, f"DRAWINGS, sheet {s['name']}", ".pdf", s["views"], b, s["sizes"], paper, s["scale"], s["section"],
-            s["detail"], extra={"SHEET": f"{i} of {total}", "SHEETNAME": s["name"]}, template=tpl,
-            tables=s.get("tables", ""), sheet_notes=s.get("notes"), placed=placed)
+        out, page, placed, nsizes = render(p, s, i, total)
         pages.append(page)
         for w in page.warnings:
             p.warn(f"DRAWINGS, sheet {s['name']}: {w}")
@@ -352,3 +365,54 @@ def drawings(p: Processor, file, mode):
         p.warn(f"{len(bad)} size{'s' if len(bad) != 1 else ''} on the model {'are' if len(bad) != 1 else 'is'} "
                "out of date (DRAWINGS lists them)")
     return "\n".join(lines + sizes_text(checked))
+
+
+# ---- moving views (PLAN item 110) ------------------------------------------------------------------
+
+@command(
+    "SHEETVIEW",
+    Arg("sheet", str, help="the sheet's name (DRAWSHEET)"),
+    Arg("view", str, help="the view, by the name under it: FRONT, TOP, ISO, SECTION A-A, DETAIL B ..."),
+    Arg("dx", Raw, "0", "how far it is moved from its own place, across (model units, before the scale); "
+                        "RESET puts it back"),
+    Arg("dy", float, 0.0, "how far up"),
+    help="Move a view on a drawing sheet: SHEETVIEW, front, TOP, 0, 15 puts the top view 15 higher than its own "
+         "place (in the model's units, before the sheet's scale). The value is where it is, not a step: the "
+         "same view again replaces it. SHEETVIEW, front, TOP, RESET puts it back. The Drawing sheet window writes "
+         "this when a view is dragged.",
+)
+def sheetview(p: Processor, sheet, view, dx, dy):
+    m = p.model
+    key = sheet.strip().upper()
+    if key not in m.drawsheets:
+        have = ", ".join(s["name"] for s in m.drawsheets.values()) or "none yet (DRAWSHEET adds one)"
+        raise CommandError(f"SHEETVIEW: there is no sheet {sheet.strip().lower()} (sheets: {have})")
+    s = m.drawsheets[key]
+    name = view.strip().upper().replace("_", " ")
+    moves = dict(s.get("moves", {}))
+    if str(dx).strip().upper() == "RESET":
+        moves.pop(name, None)
+        m.drawsheets = {**m.drawsheets, key: {**s, "moves": moves}}
+        return f"sheet {s['name']}: the {name.lower()} view is back in its own place"
+    try:
+        x = float(p.evaluate(str(dx))) if str(dx).strip() else 0.0
+    except Exception:  # noqa: BLE001 - told as a command error
+        raise CommandError(f"SHEETVIEW: dx must be a number or RESET, not {dx!r}") from None
+    from ..geometry import drawing as dr
+
+    known = set(dr.parse_views(s["views"]))
+    if name not in known and not name.startswith(("SECTION", "DETAIL")):
+        raise CommandError(f"SHEETVIEW: sheet {s['name']} has no {name.lower()} view (it has "
+                           f"{', '.join(v.lower() for v in sorted(known))}, and its sections and details)")
+    if abs(x) < 1e-12 and abs(dy) < 1e-12:
+        moves.pop(name, None)
+    else:
+        moves[name] = [round(x, 6), round(float(dy), 6)]
+    m.drawsheets = {**m.drawsheets, key: {**s, "moves": moves}}
+    return f"sheet {s['name']}: the {name.lower()} view moved by ({fmt(x)}, {fmt(dy)}) from its own place"
+
+
+def fmt(v: float) -> str:
+    from ..lang.expr import fmt_num
+
+    return fmt_num(round(float(v), 4) + 0.0)

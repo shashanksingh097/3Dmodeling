@@ -230,7 +230,8 @@ def inst(p: Processor, part, **raws):
     pd = _part(p, part, "INST")
     nums, given = _split(p, [raws[f"a{i}"] for i in range(1, _N_ARGS + 1)], pd)
     shape = build(p, pd, given)
-    mk = BRepBuilderAPI_Transform(shape, placement(nums), True)
+    # no copy: every copy of a part shares its geometry, so its mesh is made once (PLAN item 112)
+    mk = BRepBuilderAPI_Transform(shape, placement(nums), False)
     from .feature_handlers import place
 
     placed = place(p, mk.Shape())

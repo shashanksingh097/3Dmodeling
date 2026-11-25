@@ -1837,6 +1837,34 @@ SHEETNOTE, s1, CENTRES
 SHEETNOTE, s1, THREADS
 SHEETNOTE, s1, FINISH, 6, 1.6, ground
 SHEETNOTE, s1, LEADER, EDGE 3, "Break sharp edges"
+SHEETNOTE, s1, SIZE, EDGE 1
+
+@ SHEETVIEW
+! Move the top view of a sheet 15 higher than its own place (the Drawing sheets window writes this
+! when a view is dragged), then the iso view to the left, then put the iso view back.
+BLOCK, 0,0,0, 60, 40, 10
+DRAWSHEET, s1, STANDARD, 0, OVERALL, A3
+SHEETVIEW, s1, TOP, 0, 15
+SHEETVIEW, s1, ISO, -20, 0
+SHEETVIEW, s1, ISO, RESET
+
+@ SPACEMOUSE
+! The 3D mouse's settings: slower, no turning, and button 1 fits the view.
+SPACEMOUSE, SPEED, 0.5
+SPACEMOUSE, ROTATE, OFF
+SPACEMOUSE, BUTTON, 1, FIT
+SPACEMOUSE, RESET
+
+@ DETAIL
+! A hundred copies of a pin share one mesh; FAST leaves out bodies under 4 pixels while drawing.
+*PART, pin, D=4
+  CYL, 0, 0, 0, D/2, 20
+*ENDPART
+*DO, i, 1, 100
+INST, pin, (i-1-10*FLOOR((i-1)/10))*10, FLOOR((i-1)/10)*10, 0
+*ENDDO
+DETAIL, FAST, 4
+DETAIL
 
 @ REVISION
 ! Rows of the sheets' revision table; the newest is the title block's REV.
