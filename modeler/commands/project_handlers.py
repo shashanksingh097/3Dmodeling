@@ -30,7 +30,7 @@ from .processor import Arg, CommandError, Path, Processor, Text, command
 
 PROJECT_VERSION = 1
 _IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH", "XYZ", "PTS",
-                   "E57", "SCAD")
+                   "E57", "SCAD", "FCSTD")
 POINT_FORMATS = ("XYZ", "PTS", "E57")
 # formats read as triangles (a faceted body); MESH takes any file meshio reads, by its extension
 MESH_FORMATS = ("STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
@@ -207,6 +207,64 @@ def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
     return out or [shape]
 
 
+def _import_fcstd(p: Processor, path: str, name: str, hidden: bool) -> str:
+    """A FreeCAD document's shapes as exact bodies, named, coloured and on layers (PLAN item 113)."""
+    from ..core.model import Layer
+    from ..geometry import fcstd, robust
+    from .handlers import _added
+
+    fname = os.path.basename(path)
+    try:
+        pieces, counts = fcstd.read(path, hidden)
+    except fcstd.FcstdError as exc:
+        raise CommandError(f"IMPORT: {fname}: {exc}") from None
+    pieces = [pc for pc in pieces if not robust.is_empty(pc.shape)]
+    if not pieces:
+        why = (f"; {counts['hidden']} hidden ones are left out (IMPORT, FCSTD, file, , ALL brings them)"
+               if counts["hidden"] else "")
+        raise CommandError(f"IMPORT: {fname} has no shapes to bring in{why}")
+    m = p.model
+    msgs, layers = [], []
+    for k, pc in enumerate(pieces):
+        body = m.add_body(robust.unwrap(pc.shape), name if (name and k == 0) else _free_name(m, pc.label))
+        if pc.colour is not None:
+            m.set_style(body.id, color=pc.colour)
+        if pc.path:
+            lname = _free_layer(m, pc.path)
+            if lname.upper() not in m.layers:
+                m.put_layer(Layer(lname))
+                layers.append(lname)
+            m.set_style(body.id, layer=lname)
+        if not pc.visible:
+            m.set_hidden(body.id, True)
+        msgs.append(_added(p, body, "IMPORT") + (f" ({pc.type})" if pc.type else "")
+                    + (f" on layer {m.layer_of(body.id).name}" if pc.path else "")
+                    + ("" if pc.visible else ", hidden in FreeCAD"))
+    head = f"IMPORT {fname}: {len(pieces)} bod{'y' if len(pieces) == 1 else 'ies'} from FreeCAD"
+    bits = []
+    if counts["hidden"] and not hidden:
+        bits.append(f"{counts['hidden']} hidden shape{'s' if counts['hidden'] != 1 else ''} left out "
+                    "(kind ALL brings them)")
+    if counts["unreadable"]:
+        bits.append(f"{counts['unreadable']} shape file{'s' if counts['unreadable'] != 1 else ''} could not be read")
+    if layers:
+        bits.append("layers from its parts and groups: " + ", ".join(layers))
+    p.give_report("import", {"file": fname, "format": "FCSTD", "bodies": list(m.bodies)[-len(pieces):],
+                             "pieces": [{"label": pc.label, "type": pc.type, "path": pc.path,
+                                         "colour": pc.colour, "visible": pc.visible} for pc in pieces],
+                             **counts})
+    return "\n".join([head + (" (" + "; ".join(bits) + ")" if bits else "")] + ["  " + t for t in msgs])
+
+
+def _free_layer(model, path: str) -> str:
+    import re
+
+    base = re.sub(r"\W+", "_", path.replace("/", "__")).strip("_") or "FreeCAD"
+    if not (base[0].isalpha() or base[0] == "_"):
+        base = "L_" + base
+    return base
+
+
 def _import_scad(p: Processor, path: str, name: str) -> str:
     """OpenSCAD's constructive part as exact bodies: one per top-level object (PLAN item 101)."""
     from ..geometry import robust
@@ -241,20 +299,22 @@ def _import_scad(p: Processor, path: str, name: str) -> str:
 
 @command(
     "IMPORT",
-    Arg("format", str, help="STEP, IGES, BREP, SCAD, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, "
-                            "PTS, E57"),
+    Arg("format", str, help="STEP, IGES, BREP, SCAD, FCSTD (FreeCAD), STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, "
+                            "or points: XYZ, PTS, E57"),
     Arg("file", Path),
     Arg("name", Text, "", "name for the (first) imported body"),
     Arg("kind", str, "AUTO", "for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), "
                              "POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, "
-                             "MESH above)"),
+                             "MESH above); FCSTD: ALL also brings the shapes FreeCAD had hidden"),
     help="Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, "
          "GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; "
          "volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH "
          "reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). "
          "XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, "
          "thinned to at most 200,000 points. SCAD reads an OpenSCAD file's solids, flat shapes, extrusions, "
-         "transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. Saved "
+         "transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. FCSTD "
+         "reads a FreeCAD document without FreeCAD: the shapes it showed, exact, with their labels as names, "
+         "their colours, and the App::Part containers and groups they sat in as layers. Saved "
          "projects keep a copy of the file.",
 )
 def import_(p: Processor, format, file, name, kind):
@@ -267,6 +327,10 @@ def import_(p: Processor, format, file, name, kind):
 
     msgs: list[str] = []
     tail: list[str] = []  # notes after the bodies (sets, annotations)
+    if format == "FCSTD":
+        if kind not in ("AUTO", "ALL"):
+            raise CommandError("IMPORT: for FCSTD, kind is AUTO (the shapes FreeCAD showed) or ALL")
+        return _import_fcstd(p, path, name, kind == "ALL")
     if kind not in ("AUTO", "SOLID", "MESH", "POINTS"):
         raise CommandError("IMPORT: kind is AUTO, SOLID, MESH or POINTS")
     if format in POINT_FORMATS or (format == "PLY" and (kind == "POINTS" or _ply_faces(path) == 0)) \
