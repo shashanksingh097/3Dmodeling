@@ -1,7 +1,7 @@
 ---
 name: assembly-and-motion
 description: Assemblies - reusable parts placed as copies, parts mated against each other, a mechanism moved by a parameter (DRIVE, MOTION), clash, contact and gravity checks, and the parts list. Use for anything with more than one part, hinges, linkages, mechanisms.
-commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL
+commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONTACT, BOM, NAME, MATERIAL, CLASH, CLASHFIX
 ---
 # Assemblies and motion
 
@@ -33,6 +33,13 @@ commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONT
    overlaps. List bolted or hinged parts as fastened.
 6. **Parts list**: `BOM` (or `BOM, parts.csv`); copies of a part with the
    same values are counted together.
+7. **Fixing a clash**: `CLASH` lists the overlaps. `CLASHFIX, a, b, CUT
+   [, clearance]` cuts b's shape out of a (b stays); `CLASHFIX, a, b, MOVE
+   [, clearance [, direction]]` moves a the shortest way clear (AUTO tries
+   the six axes and straight away). Add `PREVIEW` as the last word first:
+   nothing changes, the result is marked and its report `CLASHFIX` says the
+   volume removed or the move. Moving is right for a part placed wrong;
+   cutting is right for a pocket or a hole the other part needs.
 
 ```cmd
 BLOCK, 0, 0, 0, 40, 30, 5

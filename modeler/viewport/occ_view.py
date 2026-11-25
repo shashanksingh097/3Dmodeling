@@ -564,6 +564,12 @@ class OccViewport(QWidget):
             # edges a darker shade of the body: panel lines and shut gaps read at any zoom
             edge = _rgb(*(0.4 * c for c in face))
             ais.Attributes().SetFaceBoundaryAspect(Prs3d_LineAspect(edge, Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.0))
+        elif not self.model.bodies[bid].entity_ids["EDGE"]:  # a point cloud: small dots
+            from OCP.Aspect import Aspect_TypeOfMarker
+            from OCP.Prs3d import Prs3d_PointAspect
+
+            dots = _rgb(*col) if col else _rgb(0.15, 0.35, 0.75)
+            ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_POINT, dots, 1.0))
         else:  # a curve (path or profile): draw it bright and a little thicker
             ais.SetColor(_rgb(*col) if col else _rgb(1.0, 0.62, 0.15))
             ais.SetWidth(2.5)

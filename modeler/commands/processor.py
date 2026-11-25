@@ -114,8 +114,12 @@ class Command:
     queries: tuple[str, ...] = ()
     # the most an argument may be (counts and sizes that would take hours or all the memory)
     limits: dict[str, float] = field(default_factory=dict)
+    # a word anywhere in the arguments that makes the command a query (CLASHFIX, ..., PREVIEW)
+    query_word: str = ""
 
     def is_query(self, args: list[str]) -> bool:
+        if self.query_word and any(a.strip().upper() == self.query_word for a in args):
+            return True
         return not self.logged or bool(self.queries and args and args[0].strip().upper() in self.queries)
 
 

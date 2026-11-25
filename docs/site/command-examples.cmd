@@ -918,6 +918,32 @@ TOMESH, LAST, 0.01
 NAME, LAST, scan
 DEVIATION, scan, part, 0.05
 
+@ TOPOINTS pic
+! A made-up scan: 20,000 points on a cylinder's surface, with a little noise.
+CYL, 0,0,0, 10, 30
+NAME, LAST, part
+TOPOINTS, part, 20000, 0.01
+HIDE, part
+
+@ FITPOINTS pic
+! Fit a cylinder to the points within 8 of a picked point, and see how far the points are from it.
+CYL, 0,0,0, 10, 30
+NAME, LAST, part
+TOPOINTS, part, 20000, 0.01
+NAME, LAST, scan
+HIDE, part
+FITPOINTS, scan, CYLINDER, 10, 0, 15, 8
+
+@ WRAPSKIN pic
+! One closed skin around a plate with a small hole and a block touching it: the hole is closed over.
+BLOCK, 0,0,0, 40, 30, 10
+CYL, 20, 15, -1, 1.5, 12
+SUBTRACT, 1, 2
+BLOCK, 38, 0, 0, 20, 30, 20
+WRAPSKIN, ALL, 2
+HIDE, 3
+HIDE, 4
+
 @ IMPLICIT pic
 ! Two balls blended smoothly into one shape, from an equation.
 IMPLICIT, blob, SMIN(BALL(0,0,0,10), BALL(14,0,0,7), 4), -12,-12,-12, 24,12,12
@@ -1233,6 +1259,16 @@ BOM
 BLOCK, 0,0,0, 20, 20, 20
 SPHERE, 20,10,10, 5
 CLASH, 1, 2
+
+@ CLASHFIX pic
+! A pin pushed into a box: see the fix first (marked, nothing changes), then cut the pin's shape out of the box with 0.5 clearance.
+BLOCK, 0,0,0, 40, 30, 20
+NAME, LAST, box
+CYL, 35, 15, 5, 8, 30
+NAME, LAST, pin
+CLASHFIX, box, pin, CUT, 0.5, AUTO, PREVIEW
+CLASHFIX, box, pin, CUT, 0.5
+FADE, box
 
 @ SECTION
 ! Cut the view open along a plane to look inside (the model is not changed).

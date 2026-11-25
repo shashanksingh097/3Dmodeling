@@ -56,6 +56,9 @@ from . import joint_handlers  # noqa: F401  (JOINT, JOINTS: joints that stay sol
 from . import handle_handlers  # noqa: F401  (HANDLES: the drag handles, as data)
 from . import sheet_table_handlers  # noqa: F401  (SHEETTABLE, REVISION, SHEETDATA: tables on drawing sheets)
 from . import plugin_handlers  # noqa: F401  (PLUGINS: the plug-ins found)
+from . import pointcloud_handlers  # noqa: F401  (TOPOINTS, FITPOINTS: point clouds)
+from . import wrap_handlers  # noqa: F401  (WRAPSKIN: shrinkwrap)
+from . import clashfix_handlers  # noqa: F401  (CLASHFIX: cut out or move clear)
 
 # counts that would take hours or all the memory are refused with a clear message (PLAN item 63;
 # found by trying every command's example with extreme values, tests/test_kernel_messages.py)

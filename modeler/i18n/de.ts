@@ -258,6 +258,10 @@ Runs: LIP, face, h, w [, GROOVE]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a body, several ("3 7" or names), SEL, or ALL (every shown body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a body; left out: every pair of shown bodies</source>
             <translation type="unfinished" />
         </message>
@@ -389,6 +393,10 @@ Runs: STRESS, body, fixed faces, loaded faces, FORCE, fx, fy, fz</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a gap to leave between them (0: they may touch)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>A grille of slots cut through the wall under the picked flat face
 Runs: VENT, count, length, width [, pitch, angle]</source>
             <translation type="unfinished" />
@@ -479,6 +487,14 @@ Runs: ROUTE, path, PIPE/CABLE, size [, bend radius]</source>
         <message>
             <source>A point at the middle of a line
 Runs: SCON, MIDPOINT, p, line</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>a point body</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A point body from a body's surface: TOPOINTS, part, 20000, 0.02 makes a made-up scan to try point cloud work on, or to hand points to another program (new body; the body stays)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -1566,6 +1582,14 @@ Runs: CLASH</source>
             <translation>Kollision</translation>
         </message>
         <message>
+            <source>Clashfix</source>
+            <translation>Clashfix</translation>
+        </message>
+        <message>
+            <source>Clashfix…</source>
+            <translation>Clashfix…</translation>
+        </message>
+        <message>
             <source>Clash…</source>
             <translation>Kollision…</translation>
         </message>
@@ -2209,6 +2233,10 @@ Runs: SECTION, plane, side, offset / SECTION, OFF</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>CUT: cut b's shape out of a; MOVE: move a the shortest way clear of b</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Cutlist</source>
             <translation>Zuschnittliste</translation>
         </message>
@@ -2622,6 +2650,10 @@ Runs: SDEL, ...</source>
         </message>
         <message>
             <source>Do parts touch? CONTACT, a, b says apart (the gap and where), touching (on faces with the area, along a line, or at a point) or overlapping (the volume in common) · CONTACT, bolt checks one body against all others · CONTACT alone checks every pair and lists the groups of bodies that hold together and the ones touching nothing · CONTACT, , , 0, 0.5 also lists gaps up to 0.5. In expressions: TOUCH(a, b), OVERLAP(a, b), CONTACTAREA(a, b), GROUPS()</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>DO, or PREVIEW to only show and say what it would do (not kept)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3212,12 +3244,28 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Fit an exact face to a patch of a point cloud: FITPOINTS, scan, CYLINDER, x, y, z, 15 fits a cylinder to the points within 15 of (x, y, z) and makes it a face trimmed to the patch (new body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fit an exact face to a patch of a point cloud: FITPOINTS, scan, CYLINDER, x, y, z, 15 fits a cylinder to the points within 15 of (x, y, z) and makes it a face trimmed to the patch (new body). It says the fitted sizes (a radius, an axis, a cone's angle) and how far the points are from the face like DEVIATION: the share within ±tolerance, the largest distance out and in, the RMS</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Fit surface</source>
             <translation>Fläche anpassen</translation>
         </message>
         <message>
             <source>Fit surface: pick one mesh body first (Body pick mode)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fitpoints</source>
+            <translation>Fitpoints</translation>
+        </message>
+        <message>
+            <source>Fitpoints…</source>
+            <translation>Fitpoints…</translation>
         </message>
         <message>
             <source>Fits</source>
@@ -3238,6 +3286,14 @@ Runs: FITSURF, b, region, tolerance</source>
         <message>
             <source>Fix</source>
             <translation>Fixieren</translation>
+        </message>
+        <message>
+            <source>Fix a clash: CLASHFIX, a, b, CUT cuts the overlap out of a (b stays); CLASHFIX, a, b, MOVE moves a the shortest way clear of b</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fix a clash: CLASHFIX, a, b, CUT cuts the overlap out of a (b stays); CLASHFIX, a, b, MOVE moves a the shortest way clear of b. Add PREVIEW at the end to see it first: the cut-away piece or the moved part is marked in the view and nothing changes. CLASH lists the clashes</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>FIXED, REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR, or GEAR, BELT, RACK, SCREW</source>
@@ -3332,6 +3388,10 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>for MOVE: X, -X, Y, -Y, Z, -Z, or AUTO (the shortest of those and straight away)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>for revisions: TEXT or JSON</source>
             <translation type="unfinished" />
         </message>
@@ -3340,7 +3400,7 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
+            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3687,6 +3747,10 @@ Runs: SSPLINE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>holes, slits and gaps narrower than about twice this are closed over; loose bits this close are joined</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Hole…</source>
             <translation>Bohrung…</translation>
         </message>
@@ -3798,6 +3862,10 @@ Runs: SDIM, HDIST, ...</source>
         </message>
         <message>
             <source>how many of the last history steps made the feature: 1 for a HOLE, 2 for SEL then THREAD ...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>how many points, spread evenly over its surface</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4809,6 +4877,10 @@ Runs: DRIVE, name, value · MOTION, name, from, to, steps</source>
             <translation>Verschieben um</translation>
         </message>
         <message>
+            <source>move each point up to ± this along the surface (like a scanner's noise)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>move it across the slots</source>
             <translation type="unfinished" />
         </message>
@@ -5630,6 +5702,10 @@ Runs: SCON, FIX, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>PLANE, CYLINDER, SPHERE, CONE, FREEFORM, or AUTO (the simplest shape that fits)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Plane…</source>
             <translation>Ebene…</translation>
         </message>
@@ -5960,7 +6036,7 @@ Runs: SCULPT, body, DRAW, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). Saved projects keep a copy of the file.</source>
+            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. Saved projects keep a copy of the file.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6881,6 +6957,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Shrinkwrap: one clean, closed skin around a messy mesh or a whole assembly: WRAPSKIN, ALL, 2 wraps every shown body with holes, overlaps, inner voids and gaps under about 4 closed over, for printing, a quick outside shape or a simplified look (a new mesh body; the bodies stay)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Side</source>
             <translation>Seite</translation>
         </message>
@@ -7267,7 +7347,7 @@ Runs: SHEET, sketch, t [, bend radius, K-factor]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK or MESH</source>
+            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7697,6 +7777,10 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the body to sample</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the body to split</source>
             <translation type="unfinished" />
         </message>
@@ -7874,6 +7958,10 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the grid step: smaller is finer and slower (0: half the gap, or what fits)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the inside bend radius (default: the sheet's)</source>
             <translation type="unfinished" />
         </message>
@@ -7998,11 +8086,19 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the part it clashes with (it stays as it is)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the part to add the boss to</source>
             <translation type="unfinished" />
         </message>
         <message>
             <source>the part to add the hook to</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the part to change</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8015,6 +8111,14 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>The parts list: one row per part (instances of a part with the same values counted together) and per named solid, with quantity, material, volume and mass: BOM · BOM, parts.csv also writes it as CSV · BOM, , big lists configuration big without switching to it</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the patch's centre: pick a point of the cloud</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the patch: points within this distance of the centre (0: every point)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8224,6 +8328,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the tolerance band, ± (0: 0.1% of the model's size)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the tolerance band, ± (0: 0.1% of the patch's size)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8469,6 +8577,14 @@ Runs: VIEW, TOP</source>
         <message>
             <source>topo bracket</source>
             <translation>Topologie-Halter</translation>
+        </message>
+        <message>
+            <source>Topoints</source>
+            <translation>Topoints</translation>
+        </message>
+        <message>
+            <source>Topoints…</source>
+            <translation>Topoints…</translation>
         </message>
         <message>
             <source>Topology</source>
@@ -9207,6 +9323,14 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
         <message>
             <source>Wrap a sketch's profiles round a cylinder or a cone, raised or cut: WRAP, s3, 7, 1 (stands 1 out of face 7) · WRAP, s3, 7, 0.5, CUT. The sketch's direction across the axis becomes length round the cylinder, so shapes keep their size; it starts where the sketch plane faces the cylinder</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Wrapskin</source>
+            <translation>Wrapskin</translation>
+        </message>
+        <message>
+            <source>Wrapskin…</source>
+            <translation>Wrapskin…</translation>
         </message>
         <message>
             <source>Wrap…</source>
