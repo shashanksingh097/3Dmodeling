@@ -30,7 +30,6 @@ class ViewCube:
     def __init__(self, viewport) -> None:
         from OCP.AIS import AIS_ViewCube
         from OCP.Aspect import Aspect_TypeOfTriedronPosition
-        from OCP.collections import Vec2_int
         from OCP.Graphic3d import Graphic3d_TransformPers, Graphic3d_TransModeFlags
 
         self.vp = viewport
@@ -42,7 +41,7 @@ class ViewCube:
         cube.SetDrawAxes(False)
         cube.SetTransformPersistence(Graphic3d_TransformPers(
             Graphic3d_TransModeFlags.Graphic3d_TMF_TriedronPers, Aspect_TypeOfTriedronPosition.Aspect_TOTP_RIGHT_UPPER,
-            Vec2_int(int(CORNER * r), int(CORNER * r))))
+            _vec2i(int(CORNER * r), int(CORNER * r))))
         self.cube = cube
         self.visible = False
         self.buttons: dict[str, QToolButton] = {}
@@ -112,6 +111,18 @@ class ViewCube:
         if not isinstance(owner, AIS_ViewCubeOwner):
             return ""
         return name_of(owner.MainOrientation())
+
+
+def _vec2i(x: int, y: int):
+    """A 2D integer vector: OCP 8 binds it in OCP.collections, OCP 7 as Graphic3d_Vec2i."""
+    try:
+        from OCP.collections import Vec2_int
+
+        return Vec2_int(x, y)
+    except ImportError:
+        from OCP.Graphic3d import Graphic3d_Vec2i
+
+        return Graphic3d_Vec2i(x, y)
 
 
 def _color(r: float, g: float, b: float):
