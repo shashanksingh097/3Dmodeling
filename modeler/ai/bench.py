@@ -257,6 +257,13 @@ TASKS: list[Task] = [
                "TOMESH, part\nNAME, part, scan",
          reference="SEGMENT, scan\nRECONSTRUCT, scan\nDELETE, scan",
          area="scan-to-cad"),
+    Task("tutorial_holes",
+         "I'm on the 'Drill two holes' step of the first-part tutorial and can't get it to work. Do it for me: "
+         "two 8 mm holes right through the plate, 15 mm in from each end, in the middle of its width.",
+         ["HOLES(plate, 8), GE, 2", "VALID(plate)", "FAILED(), EQ, 0"],
+         setup="BLOCK, 0, 0, 0, 80, 50, 10\nNAME, LAST, plate",
+         reference="HOLE, plate, 15, 25, 10, 8\nHOLE, plate, 65, 25, 10, 8",
+         area="tutor"),
     Task("impossible_shell",
          "Hollow out the cube with 12 mm walls, open at the top.",
          [],

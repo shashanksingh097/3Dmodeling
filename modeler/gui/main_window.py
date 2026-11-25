@@ -64,6 +64,23 @@ def strip_comment_lines(text: str) -> str:
     return "\n".join(lines)
 
 
+CUBE_SETTING = "view/viewCube"
+
+
+def view_cube_enabled(win) -> bool:
+    shell = getattr(win, "shell", None)
+    v = shell.settings.value(CUBE_SETTING, True) if shell is not None else True
+    return v if isinstance(v, bool) else str(v).lower() in ("1", "true", "yes", "on")
+
+
+def set_view_cube_enabled(win, on: bool) -> None:
+    shell = getattr(win, "shell", None)
+    if shell is not None:
+        shell.settings.setValue(CUBE_SETTING, bool(on))
+    win.viewport.cube_wanted = bool(on)
+    win.viewport.show_view_cube(bool(on))
+
+
 def hist_command(action: str, n: int, text: str | None = None) -> str:
     """Command text for a history action, e.g. HIST, EDIT, 3, "W = 60"."""
     return f"HIST, {action}, {n}" + (f", {format_value(text)}" if text is not None else "")
@@ -608,7 +625,15 @@ class MainWindow(QMainWindow):
         split.addWidget(self.model_tree)
         split.addWidget(self.item_panel)
         split.setSizes([480, 320])
+        self.model_split = split
         self.tree_dock = self._dock("Model", split, Qt.LeftDockWidgetArea)
+        from .tutorial_panel import TutorialPanel
+
+        self.tutorial_panel = TutorialPanel(self)  # lessons checked as you go (PLAN item 94)
+        self.tutorial_dock = self._dock("Tutorial", self.tutorial_panel, Qt.LeftDockWidgetArea)
+        self.splitDockWidget(self.tree_dock, self.tutorial_dock, Qt.Vertical)
+        self.tutorial_dock.hide()
+        self.tutorial_dock.visibilityChanged.connect(self._tutorial_dock_shown)
         self.resizeDocks([self.tree_dock], [300], Qt.Horizontal)
         self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)
         self.resizeDocks([hist, params], [520, 260], Qt.Vertical)
@@ -637,6 +662,7 @@ class MainWindow(QMainWindow):
         self.sel_numbers = SelectionNumbers(self)  # the numbers of the pick, always in view (PLAN item 86)
         self.statusBar().addPermanentWidget(self.sel_numbers)
         self.hover_numbers = HoverNumbers(self)
+        self.viewport.cube_wanted = view_cube_enabled(self)  # PLAN item 93 (made with the GL view)
         self._setup_autosave(autosave)
         from .link_watch import LinkWatcher
 
@@ -644,9 +670,14 @@ class MainWindow(QMainWindow):
         self._on_history()
         self.shell.update_title()
         self.shell.restore_layout()
+        self.tutorial_dock.setVisible(False)  # until a tutorial starts (Help > Tutorials)
+        self.processor.ui = self  # LAYOUT and TUTORIAL reach the window through this
         from . import toolbars as _tbs
 
         _tbs.restore(self)
+        from . import picture_tips
+
+        picture_tips.apply(self)  # pictures in the buttons' tooltips (PLAN item 94)
         from . import prefs as _prefs
 
         _prefs.restore(self)
@@ -982,6 +1013,10 @@ class MainWindow(QMainWindow):
         m = self.menuBar().addMenu("&View")
         tbs.style_menu(self, m)
         tbs.ribbon_menu(self, m)
+        from .layouts import Layouts
+
+        self.layouts = Layouts(self)  # View > Layout, the LAYOUT command (PLAN item 94)
+        self.layouts.build_menu(m)
         m.addSeparator()
         a = m.addAction("&Preferences…")
         a.setShortcut("Ctrl+,")
@@ -1000,6 +1035,39 @@ class MainWindow(QMainWindow):
         from .materials_dialog import open_dialog
 
         return open_dialog(self)
+
+    def tutorial_changed(self) -> None:
+        """TUTORIAL started, moved or stopped: the Tutorial panel follows."""
+        self.statusBar().clearMessage()
+        self.tutorial_panel.refresh()
+        if self.processor.tutorial is not None and not self.tutorial_dock.isVisible():
+            self._open_tutorial_dock()
+            self.props_dock.raise_()  # the lessons use the Properties panel
+
+    def show_tutorials(self) -> None:
+        """Help > Tutorials: the Tutorial panel (the list, or the lesson being followed)."""
+        self.tutorial_panel.refresh()
+        self._open_tutorial_dock()
+
+    def _open_tutorial_dock(self) -> None:
+        """Show the Tutorial panel with room to read: most of the left column."""
+        dock = self.tutorial_dock
+        dock.show()
+        dock.raise_()
+        if not dock.isFloating() and self.tree_dock.isVisible():
+            self.item_panel.hide()  # the tree only: the item panel comes back with the tutorial closed
+            QTimer.singleShot(0, self._size_tutorial_dock)  # once the dock has its place
+
+    def _size_tutorial_dock(self) -> None:
+        dock = self.tutorial_dock
+        if dock.isVisible() and not dock.isFloating() and self.tree_dock.isVisible():
+            h = max(400, self.tree_dock.height() + dock.height())
+            self.resizeDocks([self.tree_dock, dock], [int(h * 0.3), int(h * 0.7)], Qt.Vertical)
+
+    def _tutorial_dock_shown(self, on: bool) -> None:
+        if not on and not self.item_panel.isVisible():
+            self.item_panel.show()
+            self.model_split.setSizes([480, 320])
 
     def open_preferences(self):
         from .prefs import open_dialog
@@ -1058,7 +1126,13 @@ class MainWindow(QMainWindow):
             acts = menu.actions()
             first = acts[0] if acts else None
             picked = first is not None and not first.isEnabled() and first.text().startswith("The picked")
-            sep = next((a for a in acts if a.isSeparator()), None) if picked else first
+            titled = not picked and first is not None and first.font().bold()  # the body's name stays first
+            if picked:
+                sep = next((a for a in acts if a.isSeparator()), None)
+            elif titled:
+                sep = acts[1] if len(acts) > 1 else None
+            else:
+                sep = first
             act = QAction(f"Repeat {short}", menu)
             act.triggered.connect(self.repeat_last)
             act.setToolTip("Run it again on the current pick (Enter on an empty command line does the same)")

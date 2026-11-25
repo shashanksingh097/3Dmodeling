@@ -36,6 +36,12 @@ examples += [(p, "modeler/i18n") for p in glob.glob(os.path.join(ROOT, "modeler"
 TEMPLATES = os.path.join(ROOT, "modeler", "templates")  # the start page's project templates (PLAN item 88)
 examples += [(os.path.join(TEMPLATES, n), os.path.join("modeler", "templates"))
              for n in sorted(os.listdir(TEMPLATES)) if n.endswith((".cmd", ".kicad_pcb"))]  # + the bench's board
+TUTORIALS = os.path.join(ROOT, "modeler", "tutorials")  # Help > Tutorials (PLAN item 94)
+examples += [(os.path.join(TUTORIALS, n), os.path.join("modeler", "tutorials"))
+             for n in sorted(os.listdir(TUTORIALS)) if n.endswith(".tut")]
+TIPS = os.path.join(ROOT, "modeler", "gui", "tip_pictures")  # pictures in the buttons' tooltips
+examples += [(os.path.join(TIPS, n), os.path.join("modeler", "gui", "tip_pictures"))
+             for n in sorted(os.listdir(TIPS)) if n.endswith(".png")]
 examples += [(os.path.join(ROOT, "docs", n), "modeler/docs")  # the assistant's search_docs (ai/knowledge.py)
              for n in ("LANGUAGE.md", "USER-GUIDE.md")]
 

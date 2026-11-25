@@ -35,6 +35,8 @@ include = ["modeler*"]
 "modeler.skills" = ["*/SKILL.md", "*/example.cmd"]
 "modeler.i18n" = ["*.ts"]
 "modeler.templates" = ["*.cmd", "*.kicad_pcb"]
+"modeler.tutorials" = ["*.tut"]
+"modeler.gui" = ["tip_pictures/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

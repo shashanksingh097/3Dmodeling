@@ -467,6 +467,8 @@ class AppShell:
           "The basics: mouse, command line, forms, saving")
         a(m, "&Command reference", self.help_for_typed, "Ctrl+F1",
           "Every command with its arguments and examples; opens at the command you are typing")
+        a(m, "&Tutorials", self.win.show_tutorials, None,
+          "Short lessons that check your model as you go: your first part, sketch to solid, fixing a step")
         a(m, "&Guides", self.show_guides, None,
           "Step-by-step guides to whole jobs (sheet metal, enclosures, gears, fixing a failed step ...), "
           "the same ones the assistant uses")

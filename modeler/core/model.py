@@ -316,6 +316,7 @@ class Model:
         self.set_names: dict[str, str] = {}  # NAME -> the name as typed (Inlet_A), for STEP and the tree
         self.last_body: int = 0
         self.units: str = "MM"
+        self.show_units: str = ""  # the units numbers are shown in ("": the model's), /UNITS, IN, SHOW
         self.tolerance: float = 0.0  # extra fuzzy tolerance for booleans (0 = exact)
         self.hidden: set[int] = set()  # body IDs not drawn in the viewport
         self.keep: bool = False  # KEEP, ON: boolean inputs stay as hidden bodies
@@ -429,6 +430,7 @@ class Model:
             "set_names": dict(self.set_names),
             "last_body": self.last_body,
             "units": self.units,
+            "show_units": self.show_units,
             "tolerance": self.tolerance,
             "hidden": set(self.hidden),
             "keep": self.keep,
@@ -471,6 +473,7 @@ class Model:
         self.set_names = dict(snap.get("set_names", {}))
         self.last_body = snap["last_body"]
         self.units = snap["units"]
+        self.show_units = snap.get("show_units", "")
         self.tolerance = snap["tolerance"]
         self.hidden = set(snap.get("hidden", ()))
         self.keep = snap.get("keep", False)

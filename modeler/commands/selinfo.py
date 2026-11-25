@@ -48,7 +48,19 @@ def _vec(v: Iterable[float]) -> list[float]:
 
 
 def _unit(p: "Processor") -> str:
-    return p.model.units.lower()
+    from ..core.units import unit_label
+
+    return unit_label(p.model.show_units or p.model.units)
+
+
+def shown(p: "Processor", d):
+    """d (a row or an answer) with lengths, areas and volumes in the units numbers are shown in."""
+    from ..core.units import factor, scale_info
+
+    m = p.model
+    if not m.show_units or m.show_units == m.units:
+        return d
+    return scale_info(d, factor(m.units, m.show_units))
 
 
 # ---- one entity -------------------------------------------------------------------------
@@ -307,7 +319,7 @@ def selection_info(p: "Processor", kind: str | None = None, ids: list[int] | Non
         pair = _pair(p, kind, ids[0], ids[1])
         if pair:
             out["pair"] = pair
-    return out
+    return shown(p, out)
 
 
 # ---- as text ----------------------------------------------------------------------------
@@ -459,7 +471,7 @@ def hover_text(p: "Processor", kind: str, gid: int) -> str:
         row = entity_numbers(p, kind, gid)
     except Exception:  # noqa: BLE001 - gone or not measurable
         return ""
-    txt = row_text(kind, row, _unit(p))
+    txt = row_text(kind, shown(p, row), _unit(p))
     if kind.upper() != "BODY":
         b = p.model.bodies.get(row.get("body"))
         if b is not None:

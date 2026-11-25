@@ -279,8 +279,10 @@ class Evaluator:
             raise ExprError("empty expression")
         if "^" in src.replace('"', "").replace("'", ""):
             raise ExprError("use ** for powers (2**3), not ^")
+        from ..core.units import expand
+
         try:
-            tree = ast.parse(src, mode="eval")
+            tree = ast.parse(expand(src), mode="eval")  # 25 mm, 1/4 in, 30 deg (PLAN item 92)
         except SyntaxError as exc:
             raise ExprError(f"cannot read {src!r}: {exc.msg}") from None
         return self._node(tree.body)

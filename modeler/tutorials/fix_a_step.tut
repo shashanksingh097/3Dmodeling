@@ -1,0 +1,41 @@
+! tutorial: fix_a_step
+! title: Fixing a step that failed
+! about: A step goes red when it cannot be done. Find out why, fix it, and make the part bigger without breaking it. About 3 minutes.
+! order: 3
+! start: H = 10
+! start: BLOCK, 0, 0, 0, 30, 20, H
+! start: NAME, LAST, tab
+! start: SEL, S, EDGE, AT, 15, 0, H
+! start: FILLET, 5
+! start: SEL, NONE
+! start: HIST, EDIT, 1, "H = 4"
+
+## A step failed
+The **History** panel shows the steps of this small part. Its thickness `H`
+was just changed from 10 to 4, and now the FILLET step is red: a rounding of
+5 does not fit on a plate only 4 thick.
+
+Click the red step. The bar under the 3D view says what went wrong, and the
+edge at fault is shown in red. Click **Why?** for the whole story, then
+**Next**.
+hint: WHY
+
+## Fix it
+Make the fillet smaller. Click **Find fixes** in the bar and choose one, or
+click the FILLET step and change its radius to **2** in the Properties
+panel.
+hint: HIST, EDIT, 5, "FILLET, 2"
+check: FAILED(), EQ, 0 ! no failed steps
+check: NFACES(tab, "cylinder"), GE, 1 ! the edge is rounded
+
+## Make it thicker
+Set `H` back to **10** in the **Parameters** panel (or click the first
+step and change it). The block and the fillet are made again on the thicker
+plate, and both still work.
+hint: HIST, EDIT, 1, "H = 10"
+check: BBOX(tab).dz, EQ, 10, 0.01 ! the plate is 10 thick
+check: FAILED(), EQ, 0 ! no failed steps
+
+## Done
+A red step never loses your work: fix the number, and every step after it
+runs again. UNDO (Ctrl+Z) takes back any change.
