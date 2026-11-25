@@ -170,10 +170,13 @@ def bom_rows(p: Processor) -> list[dict]:
             label = pd.name if pd is not None else part
             detail = ", ".join(f"{k} = {format_value(v)}" for k, v in values.items())
         else:
+            from ..geometry.fasteners import bom_group, group_text
+
             named = not body.name.lower().startswith("body")
-            key = ("body", body.name.upper() if named else bid, body.material.upper())
-            label = body.name
-            detail = ""
+            std = bom_group(body.name) if named else None  # FASTENER's parts: M8x25_CAP_1, _2 ... count together
+            key = ("body", (std or body.name).upper() if named else bid, body.material.upper())
+            label = std or body.name
+            detail = group_text(std) if std else ""
         row = groups.get(key)
         if row is None:
             dens = m.density(bid)

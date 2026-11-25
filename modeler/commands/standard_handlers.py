@@ -10,7 +10,7 @@ from OCP.gp import gp_Ax2, gp_Ax3, gp_Dir, gp_Pnt, gp_Trsf
 from ..geometry import fasteners as fs
 from ..geometry import gears as gr
 from ..lang.expr import fmt_num
-from .processor import Arg, CommandError, Processor, Text, command
+from .processor import Arg, BodyRef, CommandError, Processor, Text, command
 
 GEAR_KINDS = ("EXTERNAL", "INTERNAL", "RACK", "BEVEL", "WORM", "WORMWHEEL")
 
@@ -128,55 +128,79 @@ def gear(p: Processor, x, y, z, module, teeth, width, kind, helix, rim, pressure
 
 @command(
     "FASTENER",
-    Arg("kind", str, help="CAP (ISO 4762 socket head cap screw), HEXBOLT (ISO 4017 hex head screw), NUT "
-                          "(ISO 4032) or WASHER (ISO 7089)"),
-    Arg("size", str, help="M3, M4, M5, M6, M8, M10, M12, M16, M20 or M24"),
-    Arg("x", float, 0.0, "the seat: where the head, nut or washer sits"), Arg("y", float, 0.0),
-    Arg("z", float, 0.0),
-    Arg("length", float, 0.0, "a screw's length under the head"),
+    Arg("kind", str, help="CAP, HEXBOLT, CSK (countersunk), BUTTON, SET (set screw), NUT, WASHER, DOWEL, SPRINGPIN, "
+                          "INSERT (heat-set threaded insert), BEARING, CIRCLIP or KEY"),
+    Arg("size", str, help="M3 ... M24, an inch size (1/4-20, #10-24: CAP, HEXBOLT, NUT, WASHER, SET), a pin's "
+                          "diameter (6), a bearing (608, 6201), a circlip's shaft (20), a key (6x6 or the shaft, 20)"),
+    Arg("x", float, 0.0, "the seat: where the head, nut or washer sits (a pin, insert or bearing goes in from it)"),
+    Arg("y", float, 0.0), Arg("z", float, 0.0),
+    Arg("length", float, 0.0, "a screw's length under the head, a pin's or a key's length"),
     Arg("thread", str, "PLAIN", "PLAIN (a smooth shank, quick) or REAL (cut helical threads, a few seconds)"),
     Arg("dx", float, 0.0, "the way the screw points, into the hole (default -Z: a head or washer sits on top "
                           "of the seat, a nut hangs under it)"),
     Arg("dy", float, 0.0), Arg("dz", float, -1.0),
-    help="A standard fastener from the ISO tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 "
-         "cap screw whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (a nut under a plate whose bottom is "
-         "at z = -12) · FASTENER, WASHER, M8, 0,0,10 (under the head) · "
-         "FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads). The body is named (e.g. M8x25_CAP_1) and made "
-         "of steel; GRAVITY, , \"M8x25_CAP_1\" counts it as holding what it touches.",
+    Arg("hole", BodyRef, 0, "also make the matching hole in this body (the part it goes into)"),
+    Arg("fit", str, "", "the hole: CLEAR (clearance; a countersunk screw also gets its countersink), TAP (a tap "
+                        "drill as deep as the screw), CBORE (a counterbore: the head sinks in) or FIT (the hole a "
+                        "pin, insert or bearing is pressed into; their default)"),
+    help="A standard part from the tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 cap screw "
+         "whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (under a plate whose bottom is at z = -12) · "
+         "FASTENER, WASHER, M8, 0,0,10 · FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads) · FASTENER, CSK, "
+         "M5, 20,10,8, 16, , , , , plate (a countersunk screw and its countersunk hole in plate) · FASTENER, CAP, "
+         "M6, 20,10,8, 20, , , , , plate, CBORE · FASTENER, DOWEL, 6, 0,0,10, 20, , , , , base (a dowel pin and "
+         "its hole) · FASTENER, BEARING, 608, 0,0,10, , , , , , housing · FASTENER, CAP, 1/4-20, 0,0,0, 25.4. "
+         "The body is named (e.g. M8x25_CAP_1), made of steel, and the BOM counts the same parts together.",
 )
-def fastener(p: Processor, kind, size, x, y, z, length, thread, dx, dy, dz):
+def fastener(p: Processor, kind, size, x, y, z, length, thread, dx, dy, dz, hole, fit):
+    from .feature_handlers import hole as drill
     from .handlers import _made
 
-    k = kind.strip().upper()
-    if k in ("BOLT", "HEX"):
-        k = "HEXBOLT"
-    if k in ("SHCS", "SCREW"):
-        k = "CAP"
-    if k not in fs.KINDS:
-        raise CommandError("FASTENER: the kind must be CAP, HEXBOLT, NUT or WASHER")
     thr = thread.strip().upper() or "PLAIN"
     if thr not in ("PLAIN", "REAL"):
         raise CommandError("FASTENER: thread must be PLAIN or REAL")
     if length < 0:
         raise CommandError("FASTENER: the length cannot be negative")
     try:
-        d = fs.size_of(size)
-        if k not in fs.SCREWS and length:
+        k = fs.kind_of(kind)
+        if k not in fs.LENGTHED and length:
             raise fs.FastenerError(f"a {k.lower()} has no length; leave it empty")
-        shape, label = fs.build(k, d, length, thr == "REAL")
+        made = fs.make(k, size, length, thr == "REAL")
+        cut = fs.hole_for(made, fit) if hole else None
+        if fit and not hole:
+            raise fs.FastenerError("give the body to make the hole in (after dx, dy, dz)")
     except fs.FastenerError as exc:
         raise CommandError(f"FASTENER: {exc}") from None
     except Exception as exc:  # a kernel failure while threading
         raise CommandError(f"FASTENER: building it failed ({exc}); try thread PLAIN") from None
-    sign = 1 if k == "NUT" else -1  # a nut goes on the far side, along the screw; the rest stand up from the seat
-    msg = _made(p, _placed(shape, x, y, z, sign * dx, sign * dy, sign * dz, "FASTENER"),
-                f"FASTENER {label}" + (", threaded" if thr == "REAL" else ""))
+    if dx == dy == dz == 0:
+        raise CommandError("FASTENER: the direction cannot be (0, 0, 0)")
+    hole_note = ""
+    sx, sy, sz = x, y, z
+    if cut is not None:
+        n = math.sqrt(dx * dx + dy * dy + dz * dz)
+        u = (dx / n, dy / n, dz / n)
+        try:
+            drill(p, hole, x, y, z, cut["d"], cut["depth"], cut["kind"], cut["d2"], cut["h2"], 0.0, *u)
+        except CommandError as exc:
+            raise CommandError(f"FASTENER: the hole: {str(exc).removeprefix('HOLE: ')}") from None
+        sx, sy, sz = (c + cut["sink"] * ui for c, ui in zip((x, y, z), u))  # the head sits in its counterbore
+        what = {"SIMPLE": "", "CBORE": f", counterbore {fmt_num(cut['d2'])} x {fmt_num(cut['h2'])}",
+                "CSINK": f", countersink {fmt_num(cut['d2'])}"}[cut["kind"]]
+        hole_note = (f"; hole {fmt_num(cut['d'])} " + ("through" if not cut["depth"] else f"x {fmt_num(cut['depth'])} deep")
+                     + what + f" in body {p.model.last_body}")
+        hole = p.model.last_body
+    sign = 1 if made.kind in ("NUT",) else -1  # a nut goes on the far side, along the screw
+    msg = _made(p, _placed(made.shape, sx, sy, sz, sign * dx, sign * dy, sign * dz, "FASTENER"),
+                f"FASTENER {made.label}" + (", threaded" if thr == "REAL" else "") + hole_note)
     m = p.model
     bid = m.last_body
-    base = f"M{d}x{fmt_num(length)}_{k}" if k in fs.SCREWS else f"M{d}_{k}"
-    name = _free_name(p, base.replace(".", "_"))
+    name = _free_name(p, made.name.replace(".", "_"))
     m.rename(bid, name)
-    m.set_style(bid, material="STEEL")
+    m.set_style(bid, material="STEEL" if made.kind != "INSERT" else "BRASS")
+    p.give_report("FASTENER", {"body": bid, "name": name, "kind": made.kind, "label": made.label,
+                               "d": made.d, "pitch": round(made.pitch, 6), "length": made.length,
+                               "hole": ({"body": hole, **{k2: v for k2, v in cut.items() if k2 != "sink"}}
+                                        if cut is not None else None)})
     return msg.replace(f"-> body {bid} ", f"-> body {bid} '{name}' ", 1)
 
 

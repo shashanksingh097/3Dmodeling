@@ -1,6 +1,6 @@
 ---
 name: fasteners-and-threads
-description: Standard screws, bolts, nuts and washers from the ISO tables, real helical threads on shafts and in holes, clearance holes and ISO 286 fits checked with CLEARANCE and FITS. Use for anything bolted, screwed or pinned together.
+description: Standard screws (cap, hex, countersunk, button, set), nuts, washers, pins, threaded inserts, ball bearings, circlips and keys from the ISO/DIN tables (and inch screws), with their matching holes, real helical threads on shafts and in holes, clearance holes and ISO 286 fits checked with CLEARANCE and FITS. Use for anything bolted, screwed or pinned together.
 commands: FASTENER, THREAD, HOLE, CLEARANCE, FITS, CONTACT, NOTE
 ---
 # Fasteners and threads
@@ -12,8 +12,18 @@ commands: FASTENER, THREAD, HOLE, CLEARANCE, FITS, CONTACT, NOTE
    a counterbore for cap screws a little wider and deeper than the head
    (M6: `..., 0, CBORE, 11, 6.5`; M8: `..., 0, CBORE, 15, 8.6`).
 2. **Standard parts**: `FASTENER, kind, size, x,y,z [, length [, thread
-   [, dx,dy,dz]]]` with kind `CAP` (socket head), `HEXBOLT`, `NUT`,
-   `WASHER`, sizes M3 to M24. (x, y, z) is where the part sits: the
+   [, dx,dy,dz [, hole [, fit]]]]]` with kind `CAP` (socket head),
+   `HEXBOLT`, `CSK` (countersunk, flush with the seat), `BUTTON`, `SET`,
+   `NUT`, `WASHER`, sizes M3 to M24; inch sizes `1/4-20`, `#10-24` for CAP,
+   HEXBOLT, SET, NUT, WASHER (lengths stay in mm: 25.4 per inch). Also
+   `DOWEL` and `SPRINGPIN` (size = diameter), `INSERT` (heat-set, M2-M8),
+   `BEARING` (608, 6000-6005, 6200-6205), `CIRCLIP` (shaft 8-40), `KEY`
+   (`8x7`, or the shaft diameter). **Give the part it goes into as
+   `hole`** and FASTENER cuts the matching hole in the same step: `CLEAR`
+   (default for screws; a CSK gets its countersink), `TAP`, `CBORE` (the
+   head sinks into a counterbore) or `FIT` (default for pins, inserts and
+   bearings): `FASTENER, CSK, M5, 20,10,8, 16, , , , , plate`. The BOM
+   counts the same standard parts together. (x, y, z) is where the part sits: the
    underside of a head, the top of a nut under a plate; the default
    direction is down (0,0,-1). Stack them: washer at the plate top `T`,
    screw head at `T + washer thickness` (1.6 for M8).

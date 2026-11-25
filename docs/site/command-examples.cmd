@@ -677,9 +677,16 @@ GEAR, 50,0,0, 2, 30, 10
 CLASH, 1, 2
 
 @ FASTENER pic
-! An M8 x 25 cap screw with a washer under its head, standing on z = 10.
+! An M8 x 25 cap screw with a washer under its head, standing on z = 10; then a plate with a
+! countersunk screw, a cap screw in a counterbore, a dowel pin and a bearing, each cutting its own hole.
 FASTENER, WASHER, M8, 0,0,10
 FASTENER, CAP, M8, 0,0,11.6, 25
+BLOCK, 30, -20, 0, 80, 40, 10
+NAME, LAST, plate
+FASTENER, CSK, M5, 40, -10, 10, 16, , , , , plate
+FASTENER, CAP, M6, 40, 10, 10, 20, , , , , plate, CBORE
+FASTENER, DOWEL, 6, 60, -10, 10, 14, , , , , plate
+FASTENER, BEARING, 6001, 90, 0, 10, , , , , , plate
 
 @ CAM pic
 ! A disc cam that rises 10 over 120 degrees, dwells, falls 10 and dwells, with its roller.
