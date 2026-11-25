@@ -201,6 +201,23 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
     return items
 
 
+def _thin_walled(shape) -> bool:
+    """A quick guess whether a solid is made of walls (a sheet, a housing, a pipe), so the menu offers a
+    middle surface and the fluid inside only where they can work: the mean wall (2 x volume / area) is
+    small beside the body's middle size."""
+    from ..commands.queries import bbox, props
+
+    try:
+        v, a = props("BODY", shape).Mass(), props("FACE", shape).Mass()
+        x0, y0, z0, x1, y1, z1 = bbox(shape)
+    except Exception:  # noqa: BLE001 - offer them; the command says why it cannot
+        return True
+    if a <= 0:
+        return False
+    sides = sorted((x1 - x0, y1 - y0, z1 - z0))
+    return 2 * v / a < 0.25 * sides[1]
+
+
 def analysis_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
     """Getting parts ready for the analysis app (PLAN items 80-82): only for solids."""
     from ..geometry import meshbody as mb
@@ -212,8 +229,9 @@ def analysis_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
         return []
     if len(ids) == 1:
         b = ids[0]
-        return [MenuItem("Analysis: middle surface", [f"MIDSURFACE, {b}"]),
-                MenuItem("Analysis: fluid volume inside", [f"FLUIDVOLUME, {b}"]),
+        thin = _thin_walled(model.bodies[b].shape)
+        return ([MenuItem("Analysis: middle surface", [f"MIDSURFACE, {b}"]),
+                 MenuItem("Analysis: fluid volume inside", [f"FLUIDVOLUME, {b}"])] if thin else []) + [
                 MenuItem("Analysis: air round it…", [f"ENCLOSURE, {b}, BOX, 10"], form="ENCLOSURE"),
                 MenuItem("Analysis: merge faces on one surface", [f"MERGEFACES, {b}"])]
     t = " ".join(map(str, ids))

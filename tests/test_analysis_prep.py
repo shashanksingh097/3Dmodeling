@@ -181,3 +181,14 @@ UNION, part, LAST""")
     assert p.evaluate("VALID(part)")
     r = run(p, "MERGEFACES, part")
     assert "nothing to merge" in r.message
+
+
+def test_menu_offers_middle_surface_only_for_walls(p):
+    from modeler.gui import body_menu as bm
+
+    run(p, BRACKET)
+    run(p, "BLOCK, 200,0,0, 30,30,30\nNAME, LAST, cube")
+    labels = lambda b: [i.label for i in bm.analysis_items(p.model, [b], b)]  # noqa: E731
+    assert "Analysis: middle surface" in labels(body(p, "bracket").id)
+    cube = labels(body(p, "cube").id)
+    assert "Analysis: middle surface" not in cube and "Analysis: merge faces on one surface" in cube
