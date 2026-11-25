@@ -300,6 +300,9 @@ class Processor:
         # the window (gui/main_window.py MainWindow) when there is one: LAYOUT and TUTORIAL tell it
         # what to show; headless runs leave it None and the commands still work
         self.ui = None
+        # SKETCH, name on a sketch features already use: the steps put aside until ENDSKETCH
+        # (commands/sketch_edit.py SketchEdit), or None
+        self.sketch_edit = None
 
         self.history: list[Entry] = []
         self._uid = 0  # the last entry uid handed out
@@ -441,6 +444,16 @@ class Processor:
             cmd = REGISTRY.get(stmts[0].name)
             if cmd is not None and cmd.is_query(stmts[0].args):
                 return self._run_unlogged(cmd, stmts[0], label)
+        edit_note = ""
+        if len(stmts) == 1 and isinstance(stmts[0], Cmd) and stmts[0].name == "SKETCH" and stmts[0].args:
+            from .sketch_edit import begin, wants_edit
+
+            a = stmts[0].args
+            if wants_edit(self, a[0], a[1] if len(a) > 1 else ""):
+                try:
+                    edit_note = begin(self, a[0])
+                except CommandError as exc:
+                    return Result(label, False, str(exc))
         entry = Entry(text)
         if seed:
             entry.pins = {k: [int(i) for i in v] for k, v in (seed.get("pins") or {}).items() if k in ID_KINDS}
@@ -468,11 +481,14 @@ class Processor:
         entry.after = self._snaps[-1]
         self._push_undo({"kind": "cursor", "from": self.cursor - 1, "to": self.cursor})
         self._history_changed()
+        if edit_note:
+            message = f"{edit_note}\n{message}"
         return Result(label, True, message, warning=entry.warning)
 
     def reset(self) -> None:
         """Start a new, empty session (history, parameters, macros and model)."""
         self._buffer = []
+        self.sketch_edit = None
         self.last_tool = ""
         self._scopes = []
         self.params = {}
@@ -518,7 +534,8 @@ class Processor:
         return [e.text for e in self.history[: self.cursor] if not e.suppressed]
 
     def script(self, standalone: bool = False) -> str:
-        """The applied history as a script that rebuilds the model. ``standalone``
+        """The applied history as a script that rebuilds the model (while a used sketch is being
+        edited in place, the history from before the edit). ``standalone``
         also writes the points of the sculpt strokes first (STROKE lines), which a
         project keeps in its own file, so the script works on its own."""
         out = []
@@ -527,7 +544,9 @@ class Processor:
 
             out.append("! the sculpt strokes the SCULPT steps use")
             out += [f'STROKE, {k}, "{format_points(v)}"' for k, v in self.strokes.items()]
-        for e in self.history[: self.cursor]:
+        from .sketch_edit import saved_entries
+
+        for e in saved_entries(self):  # during a sketch edit: the history as it was before it
             if e.suppressed:
                 out.extend("! [suppressed] " + line for line in e.text.splitlines())
             else:
@@ -884,6 +903,12 @@ class Processor:
     # Internals
     # =====================================================================
     def _finish(self, res: Result) -> Result:
+        if self.sketch_edit is not None and not self.model.active_sketch and not self._buffer:
+            from .sketch_edit import finish
+
+            said = finish(self)  # the sketch was closed (or its reopen undone): the later steps come back
+            if said:
+                res.message = f"{res.message}\n{said}" if res.message else said
         for fn in list(self.listeners):
             fn(res)
         return res

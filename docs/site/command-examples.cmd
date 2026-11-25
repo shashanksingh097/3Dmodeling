@@ -2099,6 +2099,17 @@ PICK, FACE, 1 2
 SELINFO
 SELINFO, BODY, 1
 
+@ EDITCHECK
+! Before changing step 4: which later steps would break (nothing changes), and the
+! same change made directly on the finished model instead, as steps added at the end.
+SKETCH, s1, XY
+SRECT, 0, 0, 80, 40
+ENDSKETCH
+EXTRUDE, s1, 10
+HOLE, LAST, 30, 20, 10, 8
+EDITCHECK, 4, "EXTRUDE, s1, 20"
+EDITCHECK, 5, "HOLE, LAST, 30, 20, 10, 12"
+
 @ TEMPLATE
 ! The templates new projects start from (the start page shows them);
 ! TEMPLATE, SAVE, name keeps this project's steps as your own.

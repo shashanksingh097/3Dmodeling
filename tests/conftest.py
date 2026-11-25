@@ -14,3 +14,7 @@ os.environ.setdefault("MODELER_PLUGINS_HOME", os.path.join(tempfile.gettempdir()
 
 # nor read or write the user's own material library (core/matlib.py)
 os.environ.setdefault("MODELER_MATERIALS", os.path.join(tempfile.mkdtemp(prefix="modeler-test-mat-"), "materials.json"))
+
+# a history edit from the window asks first when it would break later steps (gui/edit_guard.py);
+# tests that break steps on purpose run without the question (tests/test_free_edit_gui.py turns it on)
+os.environ.setdefault("MODELER_EDIT_QUESTION", "0")

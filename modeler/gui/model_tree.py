@@ -47,6 +47,25 @@ def set_items(m, key: str) -> list:
             bm.MenuItem("Delete", [f"CMDEL, {name}"])]
 
 
+def sketch_items(m, key: str) -> list:
+    """The right-click menu of a sketch row: open it to change it. A sketch features already use
+    opens where it was drawn, and those features run again when it is closed."""
+    sk = m.sketches.get(key.upper())
+    if sk is None:
+        return []
+    is_open = m.active_sketch == sk.name.upper()
+    used = ", ".join(sk.used_by)
+    items = [bm.MenuItem(f"Sketch {sk.name}" + (f" (used by {used})" if used else ""), enabled=False, title=True)]
+    if is_open:
+        items.append(bm.MenuItem("Close sketch", ["ENDSKETCH"]))
+    else:
+        items.append(bm.MenuItem("Edit sketch" + (" (its features follow)" if used else ""), [f"SKETCH, {sk.name}"],
+                                 enabled=not m.active_sketch))
+    if not used and not is_open:
+        items.append(bm.MenuItem("Delete", [f"SKETCH, {sk.name}, DELETE"]))
+    return items
+
+
 class ModelTree(QTreeWidget):
     def __init__(self, window) -> None:
         super().__init__()
@@ -168,6 +187,9 @@ class ModelTree(QTreeWidget):
 
     def _double_clicked(self, it: QTreeWidgetItem, col: int) -> None:
         n = self.node(it.data(0, KEY))
+        if n is not None and n.kind == "sketch" and not self.win.processor.model.active_sketch:
+            self.win.execute(f"SKETCH, {n.label}")  # open it to change it, even when features use it
+            return
         if n is not None and n.ids:
             self.win.execute(f"FIT, {bm.target_text(n.ids)}")
 
@@ -191,6 +213,8 @@ class ModelTree(QTreeWidget):
             return bm.body_items(m, n.ids[0], self.win.processor.part_files, self.win.processor)
         if n.kind == "set":
             return set_items(m, n.key.split(":", 1)[1])
+        if n.kind == "sketch":
+            return sketch_items(m, n.key.split(":", 1)[1])
         if n.ids:
             head = [bm.MenuItem(n.label, enabled=False, title=True)]
             items = (head + bm.view_items(m, n.ids, "these" if n.kind == "group" else "all of them")

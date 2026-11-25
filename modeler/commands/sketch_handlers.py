@@ -145,12 +145,14 @@ def _sketch_error(what: str):
 
 @command(
     "SKETCH",
-    Arg("name", Text, help="a new name (or an open, unused sketch to carry on with)"),
+    Arg("name", Text, help="a new name, or a sketch to open again (one features use opens where it was drawn)"),
     Arg("on", Raw, "", "a datum plane, XY/YZ/ZX, FACE (then its ID), or DELETE (default: the work plane, or XY)"),
     Arg("id", Raw, "", "the face ID after FACE (SEL = the picked face)"),
     help="Start a 2D sketch on a plane: SKETCH, s1, XY · SKETCH, s1, top (a datum plane) · SKETCH, s1, FACE, 6 "
          "(on a flat face; its body is where EXTRUDE adds or cuts by default). Then draw with SLINE, SRECT, SCIRCLE, "
-         "SARC ..., hold it with SCON and SDIM, and finish with ENDSKETCH. SKETCH, s1, DELETE removes a sketch.",
+         "SARC ..., hold it with SCON and SDIM, and finish with ENDSKETCH. SKETCH, s1, DELETE removes a sketch. "
+         "SKETCH, s1 opens s1 again; when features already use it, the model goes back to where it was drawn, the "
+         "new lines go there in the history, and ENDSKETCH runs the later steps again with the changed sketch.",
 )
 def sketch_(p: Processor, name, on, id):
     m = p.model
@@ -170,7 +172,8 @@ def sketch_(p: Processor, name, on, id):
                                f"or SKETCH, {old.name} (no plane) to carry on drawing in it")
         if old.used_by:
             raise CommandError(f"SKETCH: {old.name} is already used by {', '.join(old.used_by)}. To change it, "
-                               "edit its steps in the history (the features after them follow)")
+                               f"type SKETCH, {old.name} on its own line (not inside a block): it opens where it "
+                               "was drawn, and the features after it follow at ENDSKETCH")
         sk = old.copy()
         sk.closed = False
         m.put_sketch(sk)
