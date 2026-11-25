@@ -27,6 +27,7 @@ from OCP.TopoDS import TopoDS_Shape
 
 from ..lang.script import first_code_line, parse
 from .processor import Arg, CommandError, Path, Processor, Text, command
+from .sketch_edit import saved_entries
 
 PROJECT_VERSION = 1
 _IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH", "XYZ", "PTS",
@@ -491,7 +492,7 @@ def _imports_in(p: Processor) -> list[str]:
                 if isinstance(sub, list):
                     walk(sub)
 
-    for e in p.history[: p.cursor]:
+    for e in saved_entries(p):
         if not e.suppressed:
             try:
                 walk(parse(e.text))
@@ -562,7 +563,7 @@ def _write_project(p: Processor, path: str, tmp: str) -> int:
         # fingerprints, so the reopened model is numbered exactly as it is now
         history = [
             {"text": e.text, "uid": e.uid, "pins": e.pins, "refs": e.refs}
-            for e in p.history[: p.cursor]
+            for e in saved_entries(p)
             if not e.suppressed
         ]
         meta = {
@@ -570,7 +571,7 @@ def _write_project(p: Processor, path: str, tmp: str) -> int:
             "app": "3Dmodeling",
             "saved": time.strftime("%Y-%m-%d %H:%M:%S"),
             "units": p.model.units,
-            "entries": p.cursor,
+            "entries": len(history),
             "files": files,
             "history": history,
             "view": p.model.view_state(),  # hidden and faded by the view (not history)
@@ -725,7 +726,11 @@ def save(p: Processor, file):
     n = save_project(p, file)
     p.project_path = file
     p.project_dir = os.path.dirname(os.path.abspath(file))
-    return f"saved {n} entr{'y' if n == 1 else 'ies'} to {file}"
+    said = f"saved {n} entr{'y' if n == 1 else 'ies'} to {file}"
+    if p.sketch_edit is not None:
+        said += (f" (sketch {p.sketch_edit.name.lower()} is still being edited: saved as it was before "
+                 "the edit; ENDSKETCH and SAVE again to keep the change)")
+    return said
 
 
 @command("OPEN", Arg("file", Path, help="project file (.m3d), or AUTOSAVE"), session=True,

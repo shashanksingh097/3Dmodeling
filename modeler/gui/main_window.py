@@ -264,6 +264,17 @@ class HistoryPanel(QTableWidget):
                 elif e.warning:
                     item.setForeground(amber)
                 self.setItem(i, c, item)
+        se = p.sketch_edit  # a used sketch open where it was drawn: the later steps wait (PLAN item 118)
+        if se is not None:
+            n0 = len(p.history)
+            self.setRowCount(n0 + len(se.tail))
+            for k, e in enumerate(se.tail):
+                for c, text in enumerate(("", e.label, f"waits: runs again at ENDSKETCH of {se.name.lower()}")):
+                    item = QTableWidgetItem(text)
+                    item.setForeground(grey)
+                    item.setToolTip("This step waits while the sketch is edited where it was drawn; "
+                                    "ENDSKETCH brings it back and runs it again")
+                    self.setItem(n0 + k, c, item)
         if p.cursor:
             self.scrollToItem(self.item(p.cursor - 1, 0))
 
@@ -1419,6 +1430,11 @@ class MainWindow(QMainWindow):
             return Result(text.strip(), False, "a rebuild is running")
         self.cmdline.remember(text)
         try:
+            from . import edit_guard
+
+            instead = edit_guard.check(self, text)  # a change that would break later steps: ask first
+            if instead is not None:
+                return instead
             if self.offload.wants(text):
                 res = self.offload.run(text)
                 if res is not None:
@@ -1443,7 +1459,11 @@ class MainWindow(QMainWindow):
         text = self.cmdline.text()
         self.cmdline.clear()
         if text.strip() or self.processor.pending:
-            self.execute(text)
+            self.typing = True  # typed: a HIST, EDIT runs as typed, without the question (gui/edit_guard.py)
+            try:
+                self.execute(text)
+            finally:
+                self.typing = False
         elif self.processor.last_tool:
             self.repeat_last()  # Enter on an empty line: the last step again, on the new pick (PLAN item 90)
 

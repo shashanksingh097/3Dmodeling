@@ -1622,6 +1622,14 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
             <translation>Fase…</translation>
         </message>
         <message>
+            <source>Change it directly</source>
+            <translation>Direkt ändern</translation>
+        </message>
+        <message>
+            <source>Change it in the history</source>
+            <translation>Im Verlauf ändern</translation>
+        </message>
+        <message>
             <source>Change step</source>
             <translation>Schritt ändern</translation>
         </message>
@@ -8249,7 +8257,7 @@ Runs: SECTIONEDIT, plane, offset</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Start a 2D sketch on a plane: SKETCH, s1, XY · SKETCH, s1, top (a datum plane) · SKETCH, s1, FACE, 6 (on a flat face; its body is where EXTRUDE adds or cuts by default). Then draw with SLINE, SRECT, SCIRCLE, SARC ..., hold it with SCON and SDIM, and finish with ENDSKETCH. SKETCH, s1, DELETE removes a sketch.</source>
+            <source>Start a 2D sketch on a plane: SKETCH, s1, XY · SKETCH, s1, top (a datum plane) · SKETCH, s1, FACE, 6 (on a flat face; its body is where EXTRUDE adds or cuts by default). Then draw with SLINE, SRECT, SCIRCLE, SARC ..., hold it with SCON and SDIM, and finish with ENDSKETCH. SKETCH, s1, DELETE removes a sketch. SKETCH, s1 opens s1 again; when features already use it, the model goes back to where it was drawn, the new lines go there in the history, and ENDSKETCH runs the later steps again with the changed sketch.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9597,8 +9605,16 @@ Runs: MOLD, body [, wall, shrink %]</source>
             <translation>Die dieser App</translation>
         </message>
         <message>
+            <source>This change breaks later steps</source>
+            <translation>Diese Änderung bricht spätere Schritte</translation>
+        </message>
+        <message>
             <source>This step is slow to work out, so the preview waits for this button</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>This step waits while the sketch is edited where it was drawn; ENDSKETCH brings it back and runs it again</source>
+            <translation>Dieser Schritt wartet, während die Skizze dort bearbeitet wird, wo sie gezeichnet wurde; ENDSKETCH holt ihn zurück und führt ihn erneut aus</translation>
         </message>
         <message>
             <source>Thread</source>

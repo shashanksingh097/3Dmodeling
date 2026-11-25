@@ -1546,3 +1546,39 @@ read and a skill). Built about three items per pull request, in this order.
      on a face) shown live in the view and used by RENDER.
 117. **Update check and What's new** (P3): an opt-in check for a new release
      and a "What's new" page after an update.
+
+### Free editing and a roomier window (M18)
+
+The user asked (2026-11-25) for a cleaner window now that many tools exist,
+for values that can be changed even when later steps are built on them, and
+for the history to stay (the assistant and replay need it) but out of the
+way. Compared with FreeCAD (the history lives inside the model tree; any
+sketch or feature opens for editing and the rest recomputes, broken steps
+get a mark) and SpaceClaim (no feature history: faces are pulled and moved
+directly, and a script of the actions is kept for replay). Building order:
+118-119 first, then 120-122.
+
+118. **Edit a used sketch in place** (P1): `SKETCH, name` on a sketch that
+    features already use opens it where it was drawn instead of refusing;
+    the later steps wait and run again at ENDSKETCH. One UNDO takes the edit
+    back; SAVE while it is open writes the project as before the edit. Model
+    tree: double-click or right-click > Edit sketch. Done: PR "Edit used
+    sketches in place, and change values without breaking later steps".
+119. **Change a value without breaking later steps** (P1): `EDITCHECK, n,
+    "text"` says which later steps a change would break, and finds the same
+    change made directly on the finished model (PICK + PUSHPULL of the faces
+    the step made, or MOVE of a loose body), checked on a copy. Every value
+    the window changes is checked first; when steps would break, a question
+    offers the direct change, the history change, or Cancel. Done: same PR.
+120. **History out of the way** (P1): the History and Output panels are
+    hidden at first; a status-bar button shows the number of steps and
+    turns red when one fails, Ctrl+H opens the History, and the Output
+    opens by itself on an error. The history is still kept for UNDO, the
+    assistant and replay.
+121. **One left panel** (P1): the model tree with the Properties of the pick
+    under it, in place of the item panel; Parameters lists only what the
+    user set (no loop counters).
+122. **Fewer repeated buttons** (P2): the quick-access row stops repeating
+    Undo/Redo, the views and Fit; Body/Face/Edge/Vertex move behind the Auto
+    pick button; Save log, Run script and Clear move to the File menu; the
+    mouse hint leaves the status bar.
