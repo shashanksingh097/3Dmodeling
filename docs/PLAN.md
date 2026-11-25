@@ -1261,11 +1261,23 @@ done.
     `MIDSURFACE, b` makes the middle surface of a thin part with the
     thickness kept on each face (for shell models), and `BEAMS, b` the centre
     lines of frame members with their profiles (for beam models).
+    *Done (`MIDSURFACE`, `BEAMS`; right click "Analysis: ..."; the
+    analysis-prep skill): MIDSURFACE pairs each face with the face straight
+    across the wall, offsets one side by half the thickness (as one sheet
+    when the thickness is the same, so walls meet at corners) and keeps the
+    thickness per face, written to STEP as face names. BEAMS gives one line
+    per member, joined at shared ends, with area, second moments, torsion
+    constant and main direction.*
 81. **Flow and enclosure volumes** (P2): `FLUIDVOLUME, b, caps` fills the
     inside of a pipe, valve or housing up to picked openings as a new solid,
     and `ENCLOSURE, b|ALL, margins` puts a box, cylinder or sphere round the
     model with the model cut out (for air around a part). Both list the
     openings and faces they used, as data.
+    *Done: FLUIDVOLUME closes each flat end face's hole with a cap (AUTO,
+    SEL or face IDs) and keeps the inside that does not reach the outside;
+    the answer names the cap faces of the new body. ENCLOSURE takes one
+    margin or six; the answer names XMIN ... ZMAX (SIDE/TOP/BOTTOM,
+    OUTER) and the model's walls by face ID.*
 82. **Parts that share faces** (P2): `IMPRINT` and `SHARE, a, b` split
     touching faces of neighbouring parts so they share the same face where
     they touch, written to STEP so the separate app meshes them as one
@@ -1273,6 +1285,12 @@ done.
     still apart. Small
     faces, slivers and short edges that would trouble a mesher are listed by
     `CHECK, b, FLAWS` and can be merged away (`MERGEFACES`).
+    *Done, as `SHAREFACES` (SHARE alone reads like sharing the project):
+    touching parts are split along their contact so both use the same face
+    (one face in BREP; matching faces, edge for edge, in STEP);
+    `SHAREFACES, ALL, CHECK` is not kept. `IMPRINT, a, b` splits only a.
+    `MERGEFACES, b` joins faces on one surface, `..., SMALL, size` also
+    removes slivers.*
 
 ### Easier everyday work (M15)
 

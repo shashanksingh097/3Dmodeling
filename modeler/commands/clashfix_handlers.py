@@ -142,7 +142,7 @@ def _cut(p: Processor, a: int, sa, sb, clearance: float):
          "shortest way clear of b. Add PREVIEW at the end to see it first: the cut-away piece or the moved part "
          "is marked in the view and nothing changes. CLASH lists the clashes",
 )
-def clashfix(p: Processor, a, b, how, clear, dir, show):  # noqa: A002 - the argument's name in the command
+def clashfix(p: Processor, a, b, how, clear, dir, show):
     m = p.model
     marks = getattr(p.view, "set_marks", None) if p.view else None
     if how not in ("CUT", "MOVE"):
