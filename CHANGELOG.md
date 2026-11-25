@@ -5,6 +5,13 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 ## [Unreleased]
 
 ### Added
+- Sketches that features already use can be changed: `SKETCH, s1` (or double-click it in the model
+  tree, or right-click > Edit sketch) opens it where it was drawn; the later steps wait, and
+  ENDSKETCH runs them again with the changed sketch. One Undo takes the edit back.
+- Changing a value no longer breaks later steps by surprise: the window tries the change on a copy
+  first, and when steps would fail it asks: change it directly on the finished model (faces pushed
+  or pulled, or the body moved, added as steps at the end), change it in the history anyway, or
+  Cancel. `EDITCHECK, n, "text"` gives the same answer as text and data.
 - Numbers with units anywhere: `25 mm`, `1/4 in`, `0.5 m`, `2 ft`, `30 deg`, `(W/4) in` in commands,
   form fields and parameters, turned into the model's units. Forms show the unit beside each field;
   `/UNITS, IN, SHOW` shows numbers in other units (status bar, Properties, `SELINFO`) without

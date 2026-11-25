@@ -167,6 +167,8 @@ NO_FORM = {
     "SELINFO", "TEMPLATE",
     # the error bar and Why? (WHY), Enter on an empty line (REPEAT), the Properties panel (PROPS)
     "WHY", "REPEAT", "PROPS",
+    # asked by the window before a change that would break later steps (gui/edit_guard.py)
+    "EDITCHECK",
     # View > Layout (LAYOUT) and the Tutorial panel (TUTORIAL)
     "LAYOUT", "TUTORIAL",
     # the model tree lists the steps of the picked body

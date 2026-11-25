@@ -84,3 +84,4 @@ from . import repeat_handlers  # noqa: F401  (REPEAT: the last step again, on a 
 from . import props_handlers  # noqa: F401  (PROPS: a body's properties, each one changeable)
 from . import tutorial_handlers  # noqa: F401  (TUTORIAL: lessons checked against the model)
 from . import layout_handlers  # noqa: F401  (LAYOUT: the panels for the job at hand)
+from . import edit_impact  # noqa: F401  (EDITCHECK: what a change of a step would break, and the direct way)

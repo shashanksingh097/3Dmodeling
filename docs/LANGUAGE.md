@@ -4210,3 +4210,42 @@ View > Python console opens a Python prompt. It is off until you open it.
 are there to read. Commands run through the console go into the history
 like typed ones. A line that changes the model directly is undone at once,
 so the history stays the whole story of the model.
+
+## 51. Changing what later steps are built on
+
+### A sketch that features already use
+
+    SKETCH, s1                    ! s1 is used by EXTRUDE: it opens where it was drawn
+    SCIRCLE, (30, 20), 5          ! goes into the history right after s1's own lines
+    ENDSKETCH                     ! the EXTRUDE and every step after it run again
+
+`SKETCH, name` on a closed sketch that a feature already used no longer
+refuses. The model goes back to just before the first step that used the
+sketch, and the steps from there on wait. New sketch lines are written
+there, in their place in the history. At `ENDSKETCH` the waiting steps come
+back after them and run again, so the features follow the changed sketch.
+One UNDO takes back the whole edit; UNDO before ENDSKETCH, back over the
+reopen, cancels it. While the edit is open, SAVE writes the project as it
+was before the edit and says so. In the window, double-click a sketch in the
+model tree, or right-click it > Edit sketch.
+
+### Checking a change first, and changing it directly
+
+    EDITCHECK, 4, "EXTRUDE, s1, 20"           ! what would break; nothing changes
+    EDITCHECK, 5, "HOLE, LAST, 30, 20, 10, 12"
+
+(`EDITCHECK`) tries `HIST, EDIT` on a copy of the model and lists the later
+steps that work now and would fail. When some would, it also looks for the
+same change made directly on the finished model, as ordinary steps added at
+the end: the faces the step made, picked and pushed or pulled
+(`PICK, FACE ...` + `PUSHPULL`), or a loose body moved (`MOVE`). A candidate
+is kept only when, tried on a copy, it changes the model's volume and size
+the way the edited step changes its own result. The report has the same as
+data (`breaks`, `direct`).
+
+In the window every changed value (Properties, a step's form, the item panel,
+the Parameters table, sketch sizes) is checked this way first. When later
+steps would break, a question offers: Change it directly (when found), Change
+it in the history (the broken steps turn red), or Cancel. A direct change is
+one UNDO step. Long histories (over 8 seconds of rebuild) are not tried twice;
+their red steps say what broke.
