@@ -25,7 +25,7 @@ _CHOICES = {
 }
 _COMMAND_CHOICES = {
     ("ARRAY", "kind"): ("LINEAR", "POLAR", "PATH"),
-    ("PATTERN", "kind"): ("LINEAR", "POLAR"),
+    ("PATTERN", "kind"): ("LINEAR", "POLAR", "CURVE", "POINTS", "FILL", "MIRROR"),
     ("CURVE", "kind"): ("PARAM",),
     ("SWEEP", "mode"): ("MINTWIST", "FRENET", "FIXED", "NORMAL"),
     ("ANALYZE", "mode"): ("ZEBRA", "CURVATURE", "GAUSS", "DRAFT"),

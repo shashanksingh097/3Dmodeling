@@ -41,7 +41,7 @@ def _face_id(p: Processor, bid: int):
     def gid(face) -> int:
         try:
             return p.model.find_entity(bid, "FACE", face)
-        except Exception:  # noqa: BLE001 - a face the kernel made anew: no ID
+        except Exception:
             return 0
     return gid
 
@@ -82,7 +82,7 @@ def free_sketch_name(p: Processor) -> str:
 
 def report(p: Processor, state: SectionEdit) -> dict:
     d = state.plane
-    r = lambda v: [round(c, 6) + 0.0 for c in v]  # noqa: E731
+    r = lambda v: [round(c, 6) + 0.0 for c in v]
     sketch = free_sketch_name(p)
     return {"plane": state.base, "offset": state.offset, "origin": r(d.origin), "normal": r(d.z),
             "bodies": [{"body": b, "lines": se.lines_as_data(state.lines[b], _face_id(p, b))}

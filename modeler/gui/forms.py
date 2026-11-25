@@ -505,14 +505,33 @@ def _hand() -> dict[str, FormSpec]:
     steps = _F("steps", "Steps that made the feature", required=True, start="1",
                help="how many of the last history steps made the feature: 1 for a HOLE, 2 for SEL then THREAD ...")
     pbody = _F("b", "On body", "body", required=True, pick="BODY")
+    skip = _F("skip", "Leave out copies", "text",
+              help="copy numbers to leave out, like 3 5 (the original is copy 1); a right click on a copy in "
+                   "the 3D view does this too")
     add("PATTERN", [
         Variant("LINEAR", "In a row (or a grid)", [pbody, steps, _F("n", "Count", required=True, start="4"),
                                                     _F("d", "Step", "point", required=True, start="20, 0, 0"),
-                                                    _F("n2", "Count 2 (grid)"), _F("d2", "Step 2", "point")]),
+                                                    _F("n2", "Count 2 (grid)"), _F("d2", "Step 2", "point"), skip]),
         Variant("POLAR", "Around an axis", [replace(pbody), replace(steps), _F("n", "Count", required=True, start="6"),
                                             _F("angle", "Total angle", default="360"),
                                             _F("p", "Axis point", "point", default="0, 0, 0"),
-                                            _F("d", "Axis direction", "point", default="0, 0, 1")]),
+                                            _F("d", "Axis direction", "point", default="0, 0, 1"), replace(skip)]),
+        Variant("CURVE", "Along a curve", [replace(pbody), replace(steps),
+                                           _F("curve", "Curve", "body", required=True, pick="BODY"),
+                                           _F("n", "Count", required=True, start="5"),
+                                           _F("turn", "Turn with the curve", "flag", word="TURN"), replace(skip)]),
+        Variant("POINTS", "At points", [replace(pbody), replace(steps),
+                                        _F("pts", "Sketch, or points", "points", required=True, pick="VERTEX",
+                                           help="a sketch's name (its points, or its circles' centres), or one "
+                                                "point per line: the first is where the feature is now"),
+                                        replace(skip)]),
+        Variant("FILL", "Filling a face", [replace(pbody), replace(steps),
+                                           _F("face", "Flat face", "ids", required=True, pick="FACE"),
+                                           _F("gap", "Spacing", required=True, start="8"),
+                                           _F("margin", "Keep off the edge by", default="0"),
+                                           _F("hex", "Staggered rows", "flag", word="HEX"), replace(skip)]),
+        Variant("MIRROR", "Mirrored", [replace(pbody), replace(steps),
+                                       _F("plane", "Plane", "datum", required=True, start="YZ")]),
     ], word_slot=0)
 
     pts = _F("pts", "Points", "points", required=True, pick="VERTEX",
@@ -1042,6 +1061,10 @@ def build(sp: FormSpec, values: dict[str, str], variant: str = "") -> str:
             if val:
                 words.extend(["CUT", val])
             continue
+        if f.key == "skip" and sp.command == "PATTERN":  # SKIP, 3, 5: written last
+            if val:
+                words.extend(["SKIP", *_list(val.replace(" ", ","))])
+            continue
         if f.key == "guides" and sp.command == "LOFT":  # GUIDE, g1, g2: written last
             if val:
                 words.extend(["GUIDE", *_list(val)])
@@ -1147,6 +1170,12 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
             k = up.index("CUT")
             values["cut"] = args[k + 1] if k + 1 < len(args) else ""
             args = args[:k] + args[k + 2:]
+    if sp.command == "PATTERN":
+        up = [a.strip().upper() for a in args]
+        if "SKIP" in up:
+            k = up.index("SKIP")
+            values["skip"] = " ".join(a.strip() for a in args[k + 1:] if a.strip())
+            args = args[:k]
     if sp.command == "LOFT":
         up = [a.strip().upper() for a in args]
         k = next((i for i, a in enumerate(up) if a in ("GUIDE", "GUIDES")), None)
@@ -1168,6 +1197,7 @@ def parse(text: str) -> tuple[FormSpec, str, dict[str, str]]:
         values[pfield.key] = ", ".join(pvals)
     i = 0
     fields = [f for f in v.fields if f.kind not in ("flag", "params") and not (f.key == "cut" and sp.command == "ARRAY")
+              and not (f.key == "skip" and sp.command == "PATTERN")
               and not (f.key == "guides" and sp.command == "LOFT")]
     for f in fields:
         if f.kind == "point":

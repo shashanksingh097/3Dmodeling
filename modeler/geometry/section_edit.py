@@ -119,7 +119,7 @@ def cut_lines(shape, origin: P3, z: P3, x: P3) -> list[CutLine]:
 
 def lines_as_data(lines: list[CutLine], face_id, digits: int = 6) -> list[dict]:
     """The cut as plain data for reports and the assistant. ``face_id(face)`` gives a face's ID."""
-    r = lambda v: [round(c, digits) + 0.0 for c in v]  # noqa: E731
+    r = lambda v: [round(c, digits) + 0.0 for c in v]
     out = []
     for ln in lines:
         d = {"line": ln.index, "face": face_id(ln.face), "kind": ln.kind, "from": r(ln.start), "to": r(ln.end),

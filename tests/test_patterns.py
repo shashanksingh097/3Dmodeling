@@ -100,7 +100,7 @@ def test_pattern_errors(p):
     assert "only 2 steps" in err(p, "PATTERN, LINEAR, plate, 5, 3, 10,0,0")
     assert "did not change" in err(p, "SEL, NONE\nPATTERN, LINEAR, plate, 1, 3, 10,0,0")
     assert "did not exist" in err(p, "CYL, 0,0,0, 1, 1\nPATTERN, LINEAR, LAST, 1, 3, 10,0,0")
-    assert "LINEAR or POLAR" in err(p, "PATTERN, PATH, plate, 1, 3")
+    assert "along a curve it is CURVE" in err(p, "PATTERN, PATH, plate, 1, 3")
     assert "whole number" in err(p, "PATTERN, LINEAR, plate, 0, 3, 10,0,0")
 
 

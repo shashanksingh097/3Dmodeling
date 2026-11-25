@@ -87,15 +87,15 @@ def test_misses_and_meshes(p):
 def test_nearest_line_in_pixels(p):
     run(p, "BLOCK, 0,0,0, 10,10,10")
     lines = se.cut_lines(p.model.body(1).shape, (0, 0, 5), (0, 0, 1), (1, 0, 0))
-    to_px = lambda q: (q[0] * 10, q[1] * 10)  # noqa: E731 - looking down Z, 10 px per mm
+    to_px = lambda q: (q[0] * 10, q[1] * 10)
     hit = se.nearest(lines, 50, 2, to_px)
     assert hit is not None and hit.start[1] == pytest.approx(0) and hit.end[1] == pytest.approx(0)
     assert se.nearest(lines, 50, 50, to_px) is None
 
 
 # ---- the real 3D view (needs a display: run under xvfb-run) -----------------------------
-import os  # noqa: E402
-import sys  # noqa: E402
+import os
+import sys
 
 gui = pytest.mark.skipif(os.environ.get("MODELER_GUI_TESTS") == "0"
                          or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY")),

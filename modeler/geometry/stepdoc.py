@@ -20,7 +20,12 @@ from OCP.TopAbs import TopAbs_FACE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
-from OCP.XCAFDoc import XCAFDoc_ColorCurv, XCAFDoc_ColorGen, XCAFDoc_ColorSurf, XCAFDoc_DocumentTool
+from OCP.XCAFDoc import (
+    XCAFDoc_ColorCurv,
+    XCAFDoc_ColorGen,
+    XCAFDoc_ColorSurf,
+    XCAFDoc_DocumentTool,
+)
 
 try:
     from OCP.collections import Sequence_TDF_Label as _Labels
@@ -154,7 +159,7 @@ def read(path: str, pmi: list | None = None) -> list[Part]:
 
         try:
             pmi.extend(step_pmi.read(doc))
-        except Exception:  # noqa: BLE001 - annotations a file gets wrong must not stop the shapes
+        except Exception:
             pass
     return out
 
