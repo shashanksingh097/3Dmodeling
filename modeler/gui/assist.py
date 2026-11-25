@@ -65,6 +65,7 @@ _COMMAND_CHOICES = {
     ("SHARECHECK", "fmt"): ("TEXT", "JSON"),
     ("DRAWSHEET", "sizes"): ("ALL", "OVERALL", "HOLES", "NONE"),
     ("DRAWSHEET", "paper"): ("AUTO", "A4", "A3", "A2", "A1", "A0"),
+    ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
     ("LIST", "what"): ("BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "SKETCH", "LAYERS", "MATERIALS"),
     ("LAYER", "action"): ("CURRENT", "NEW", "ON", "OFF", "LOCK", "UNLOCK", "COLOR", "ADD", "RENAME", "DELETE"),
     ("LIB", "action"): ("LOAD",),

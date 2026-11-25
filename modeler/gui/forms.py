@@ -127,7 +127,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "ROTATE", "SCALE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
-    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
+    ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "MATLIB", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL", "CMRENAME")),
     ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "CLASHFIX", "SECTION", "ECHO", "LIST")),
@@ -271,6 +271,9 @@ _COMMAND_LABELS = {
     ("COLOR", "g"): "Green (if r, g, b)",
     ("COLOR", "b"): "Blue (if r, g, b)",
     ("MATERIAL", "target"): "Bodies",
+    ("MATLIB", "kind"): "What to do",
+    ("MATLIB", "name"): "Material",
+    ("MATLIB", "values"): "Values (SET: E=69000 yield=276 ...)",
     ("MATERIAL", "name"): "Material",
     ("MATERIAL", "density"): "Density kg/m3 (new material only)",
     ("MATERIAL", "color"): "Colour (new material only)",
@@ -301,6 +304,9 @@ _EXTRA_CHOICES = {
     ("LIP", "mode"): ("LIP", "GROOVE"),
     ("WRAP", "mode"): ("ADD", "CUT"),
     ("SCULPT", "brush"): ("DRAW", "CLAY", "INFLATE", "SMOOTH", "FLATTEN", "PINCH", "CREASE", "GRAB"),
+    ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
+    ("MATLIB", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
+                         "NYLON", "PLA", "RUBBER", "WOOD", "GLASS"),
     ("LIST", "what"): ("ALL", "BODIES", "PARAMS", "MACROS", "PARTS", "SETS", "DATUMS", "SKETCHES", "LAYERS", "MATERIALS"),
     ("MATERIAL", "name"): ("STEEL", "STAINLESS", "CASTIRON", "ALUMINIUM", "TITANIUM", "COPPER", "BRASS", "ABS",
                            "NYLON", "PLA", "RUBBER", "WOOD", "GLASS", "NONE"),
@@ -342,6 +348,11 @@ def _label(name: str, cmd: str = "") -> str:
 
 def _choices(cmd: str, arg) -> tuple[str, ...]:
     got = _EXTRA_CHOICES.get((cmd, arg.name)) or assist._COMMAND_CHOICES.get((cmd, arg.name))
+    if (cmd, arg.name) in (("MATERIAL", "name"), ("MATLIB", "name")):  # the shared material library too
+        from ..core import matlib
+
+        got = tuple(dict.fromkeys([*[g for g in got if g != "NONE"], *sorted(matlib.library()),
+                                   *(["NONE"] if cmd == "MATERIAL" else [])]))
     if got:
         return tuple(got)
     if arg.type is str:

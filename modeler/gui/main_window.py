@@ -988,7 +988,18 @@ class MainWindow(QMainWindow):
         a.setToolTip("Theme (light, dark or the system's), the 3D view's background and the toolbar buttons")
         a.triggered.connect(self.open_preferences)
         self.preferences_action = a
+        a = m.addAction("&Materials…")
+        a.setToolTip("The material library every project shares: density, stiffness, strength, heat values "
+                     "and looks (MATLIB)")
+        a.triggered.connect(self.open_materials)
+        self.materials_action = a
         self.view_menu = m
+
+    def open_materials(self):
+        """View > Materials…: the material library (gui/materials_dialog.py)."""
+        from .materials_dialog import open_dialog
+
+        return open_dialog(self)
 
     def open_preferences(self):
         from .prefs import open_dialog

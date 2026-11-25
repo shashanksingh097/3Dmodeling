@@ -133,31 +133,70 @@ class Layer:
 
 @dataclass(frozen=True)
 class Material:
+    """A material: what MASSPROP, STRESS, RENDER and the drawing read. Only the density is
+    needed; the rest may be None (not known). The material library (core/matlib.py) holds
+    the ones every project shares."""
+
     name: str
     density: float  # kg/m3
     color: tuple[float, float, float] | None = None
     transparency: float = 0.0  # 0 solid ... 1 invisible; glass is drawn see-through
+    E: float | None = None  # stiffness (Young's modulus), MPa
+    nu: float | None = None  # Poisson's ratio
+    yield_: float | None = None  # yield strength (brittle materials: the strength), MPa
+    k: float | None = None  # heat conduction, W/(m K)
+    cte: float | None = None  # thermal expansion, um/(m K)
+    cp: float | None = None  # specific heat, J/(kg K)
+    tmax: float | None = None  # highest use temperature, deg C
+    look: str = ""  # how RENDER draws it: STEEL, CHROME, PLASTIC ... ("" from the colour alone)
+    shiny: bool = False  # RENDER: reflects the room
+    note: str = ""  # a grade or supplier, free text
+
+    def props(self) -> dict:
+        """Everything known, as plain data (the assistant and MATLIB, LIST read it)."""
+        d = {"name": self.name, "density": self.density}
+        for key, val in (("E_MPa", self.E), ("poisson", self.nu), ("yield_MPa", self.yield_),
+                         ("conductivity", self.k), ("expansion", self.cte), ("specific_heat", self.cp),
+                         ("max_temp_C", self.tmax)):
+            if val is not None:
+                d[key] = val
+        if self.color is not None:
+            d["color"] = [round(c, 4) for c in self.color]
+        if self.transparency:
+            d["transparency"] = self.transparency
+        if self.look:
+            d["look"] = self.look
+            d["shiny"] = self.shiny
+        if self.note:
+            d["note"] = self.note
+        return d
 
 
 def _rgb255(r: int, g: int, b: int) -> tuple[float, float, float]:
     return (r / 255.0, g / 255.0, b / 255.0)
 
 
-# Built-in materials: density in kg/m3 and a colour to draw them in.
+def _m(name, density, rgb, E, nu, yld, k, cte, cp, tmax, look, shiny, transparency=0.0):
+    return Material(name, density, _rgb255(*rgb), transparency, E, nu, yld, k, cte, cp, tmax, look, shiny)
+
+
+# Built-in materials: density kg/m3, colour, stiffness E MPa, Poisson, yield MPa, conduction W/(m K),
+# expansion um/(m K), specific heat J/(kg K), top temperature C, and the render look. Typical values
+# for a quick check, not a grade's data sheet: the material library (MATLIB) keeps your own.
 MATERIALS: dict[str, Material] = {m.name: m for m in (
-    Material("STEEL", 7850, _rgb255(158, 166, 178)),
-    Material("STAINLESS", 8000, _rgb255(196, 200, 206)),
-    Material("CASTIRON", 7200, _rgb255(92, 96, 102)),
-    Material("ALUMINIUM", 2700, _rgb255(214, 218, 224)),
-    Material("TITANIUM", 4430, _rgb255(150, 146, 140)),
-    Material("COPPER", 8960, _rgb255(196, 112, 72)),
-    Material("BRASS", 8500, _rgb255(212, 175, 90)),
-    Material("ABS", 1050, _rgb255(236, 236, 228)),
-    Material("NYLON", 1150, _rgb255(240, 236, 220)),
-    Material("PLA", 1240, _rgb255(90, 160, 220)),
-    Material("RUBBER", 1100, _rgb255(48, 48, 52)),
-    Material("WOOD", 600, _rgb255(178, 128, 76)),
-    Material("GLASS", 2500, _rgb255(170, 210, 220), 0.6),
+    _m("STEEL", 7850, (158, 166, 178), 200_000, 0.29, 250, 50, 12, 490, 400, "STEEL", True),
+    _m("STAINLESS", 8000, (196, 200, 206), 193_000, 0.29, 215, 16, 17, 500, 800, "CHROME", True),
+    _m("CASTIRON", 7200, (92, 96, 102), 110_000, 0.26, 200, 52, 10.5, 460, 350, "PEWTER", False),
+    _m("ALUMINIUM", 2700, (214, 218, 224), 69_000, 0.33, 276, 167, 23, 900, 200, "ALUMINIUM", True),
+    _m("TITANIUM", 4430, (150, 146, 140), 114_000, 0.34, 880, 7, 8.6, 520, 400, "PEWTER", True),
+    _m("COPPER", 8960, (196, 112, 72), 117_000, 0.34, 70, 400, 17, 385, 200, "COPPER", True),
+    _m("BRASS", 8500, (212, 175, 90), 100_000, 0.34, 200, 120, 19, 380, 200, "BRASS", True),
+    _m("ABS", 1050, (236, 236, 228), 2_300, 0.35, 40, 0.17, 90, 1400, 80, "PLASTIC", False),
+    _m("NYLON", 1150, (240, 236, 220), 2_700, 0.39, 50, 0.25, 80, 1700, 100, "PLASTIC", False),
+    _m("PLA", 1240, (90, 160, 220), 3_500, 0.36, 50, 0.13, 70, 1800, 55, "SHINY_PLASTIC", False),
+    _m("RUBBER", 1100, (48, 48, 52), None, None, None, 0.15, 200, 2000, 100, "PLASTER", False),
+    _m("WOOD", 600, (178, 128, 76), 11_000, 0.30, 40, 0.12, 5, 1700, 120, "PLASTER", False),
+    _m("GLASS", 2500, (170, 210, 220), 70_000, 0.22, 33, 1.0, 9, 840, 500, "GLASS", True, 0.6),
 )}
 MATERIAL_ALIASES = {"ALUMINUM": "ALUMINIUM", "AL": "ALUMINIUM", "SS": "STAINLESS", "IRON": "CASTIRON",
                     "CU": "COPPER", "TI": "TITANIUM", "PLASTIC": "ABS"}
@@ -253,6 +292,9 @@ class Model:
         # False while a command that cannot work on mesh bodies runs: it then
         # cannot reach a mesh body's face through a pick (the processor sets it)
         self.mesh_entities_ok = True
+        # library materials an opened project was saved with: they win over this computer's library,
+        # so the project weighs and checks the same everywhere (kept by clear())
+        self.pinned: dict[str, Material] = {}
         self._reset()
 
     def _reset(self) -> None:
@@ -287,7 +329,10 @@ class Model:
         self.layers: dict[str, Layer] = {DEFAULT_LAYER: Layer(DEFAULT_LAYER)}
         self.current_layer: str = DEFAULT_LAYER
         # materials by upper-case name: the built-in ones plus any MATERIAL, NEW
-        self.materials: dict[str, Material] = dict(MATERIALS)
+        # (plus the shared material library, and what an opened project brought with it)
+        from . import matlib
+
+        self.materials: dict[str, Material] = {**MATERIALS, **matlib.library(), **self.pinned}
         # datum planes, axes and points by upper-case name (see core/datum.py)
         self.datums: dict[str, Datum] = {}
         self.workplane: Datum | None = None  # WORKPLANE: where new shapes are drawn

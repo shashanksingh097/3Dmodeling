@@ -44,6 +44,20 @@ def _faces(p: Processor, text: str, bid: int, what: str, role: str) -> list:
     return out
 
 
+def elastic(p: Processor, what: str, mat: str) -> fea.Elastic:
+    """The stiffness and strength of a material, from the model's materials (built in, the
+    material library, or MATERIAL, NEW)."""
+    m = p.model.materials.get(mat.upper())
+    if m is None or not m.E or m.nu is None or not m.yield_:
+        known = ", ".join(k for k, v in p.model.materials.items() if v.E and v.nu is not None and v.yield_)
+        missing = "it is not in the model" if m is None else (
+            "it has no " + " or ".join(n for n, v in (("stiffness E", m.E), ("Poisson's ratio", m.nu),
+                                                       ("yield strength", m.yield_)) if not v and v != 0))
+        raise CommandError(f"{what}: material {mat} cannot be checked ({missing}; give it values with "
+                           f"MATLIB, SET, {mat}, E=... nu=... yield=... or the Materials window); known: {known}")
+    return fea.Elastic(m.E, m.nu, m.yield_)
+
+
 @command(
     "STRESS",
     Arg("b", BodyRef, help="a solid body"),
@@ -72,10 +86,7 @@ def stress(p: Processor, b, fixed, loaded, kind, fx, fy, fz, h):
     if mb.is_mesh(body.shape) or not robust.solids(body.shape):
         raise CommandError(f"STRESS: body {b} is not a solid (a mesh body: make it a solid first, TOSOLID)")
     mat = (body.material or "STEEL").upper()
-    if mat not in fea.ELASTIC:
-        raise CommandError(f"STRESS: no stiffness for material {mat} (it is not linear enough for this check); "
-                           f"known: {', '.join(fea.ELASTIC)}")
-    el = fea.ELASTIC[mat]
+    el = elastic(p, "STRESS", mat)
     vol = robust.volume(body.shape)
     if h < 0:
         raise CommandError("STRESS: the cell size cannot be negative")
@@ -153,8 +164,7 @@ def _setup(p: Processor, what: str, b, fixed, loaded, kind, fx, fy, fz, h, cells
     if mb.is_mesh(body.shape) or not robust.solids(body.shape):
         raise CommandError(f"{what}: body {b} is not a solid (a mesh body: make it a solid first, TOSOLID)")
     mat = (body.material or "STEEL").upper()
-    if mat not in fea.ELASTIC:
-        raise CommandError(f"{what}: no stiffness for material {mat}; known: {', '.join(fea.ELASTIC)}")
+    elastic(p, what, mat)
     if h < 0:
         raise CommandError(f"{what}: the cell size cannot be negative")
     h = h or (robust.volume(body.shape) / cells) ** (1 / 3)
@@ -218,7 +228,7 @@ def topopt(p: Processor, b, fixed, loaded, kind, fx, fy, fz, keep, rounds, h, na
         for nodes, _f in loads:
             touch[nodes] = True
         passive = touch[grid.conn].any(axis=1)
-        res = to.optimise(grid, fea.ELASTIC[mat], fixed_nodes, loads, keep, passive, rounds)
+        res = to.optimise(grid, elastic(p, "TOPOPT", mat), fixed_nodes, loads, keep, passive, rounds)
         pts, t = to.mesh(res)
     except fea.FeaError as exc:
         raise CommandError(f"TOPOPT: body {b}: {exc}") from None

@@ -475,6 +475,7 @@ class Processor:
         self.link_paths = {}
         self.project_dir = ""
         self.part_doc = None
+        self.model.pinned = {}  # library materials an opened project brought (OPEN sets them)
         self.model.clear()
         self.history = []
         self._uid = 0

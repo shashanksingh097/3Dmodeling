@@ -322,6 +322,12 @@ def layers_listing(p: Processor) -> list[str]:
     return lines
 
 
+def _source(p: Processor, key: str) -> str:
+    from .matlib_handlers import source
+
+    return source(p, key)
+
+
 def materials_listing(p: Processor) -> list[str]:
     m = p.model
     used: dict[str, int] = {}
@@ -332,5 +338,5 @@ def materials_listing(p: Processor) -> list[str]:
     for key, mat in m.materials.items():
         n = used.get(key, 0)
         lines.append(f"  {mat.name}: {fmt_num(mat.density)} kg/m3, {color_text(mat.color)}"
-                     + (f", {n} bod{'y' if n == 1 else 'ies'}" if n else "") + ("" if key in MATERIALS else " (yours)"))
+                     + (f", {n} bod{'y' if n == 1 else 'ies'}" if n else "") + ("" if key in MATERIALS and mat == MATERIALS[key] else f" ({_source(p, key)})"))
     return lines

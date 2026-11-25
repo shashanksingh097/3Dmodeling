@@ -11,3 +11,6 @@ os.environ.pop("MODELER_SKILLS", None)
 
 # nor load the user's own plug-ins (modeler/plugins.py)
 os.environ.setdefault("MODELER_PLUGINS_HOME", os.path.join(tempfile.gettempdir(), "modeler-test-no-user-plugins"))
+
+# nor read or write the user's own material library (core/matlib.py)
+os.environ.setdefault("MODELER_MATERIALS", os.path.join(tempfile.mkdtemp(prefix="modeler-test-mat-"), "materials.json"))

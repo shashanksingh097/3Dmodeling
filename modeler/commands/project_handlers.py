@@ -528,8 +528,35 @@ def _write_project(p: Processor, path: str, tmp: str) -> int:
             meta["taken"] = p.taken
         if p.backups_keep != BACKUPS_KEEP:
             meta["backups_keep"] = p.backups_keep
+        kept = _library_materials(p)
+        if kept:  # library materials the bodies use, so the project opens the same without that library
+            meta["materials"] = kept
         z.writestr("project.json", json.dumps(meta, indent=2))
     return p.cursor
+
+
+def _same(a, b) -> bool:
+    """Two materials alike as the library writes them (colours rounded)."""
+    return a is not None and b is not None and a.props() == b.props()
+
+
+def _library_materials(p: Processor) -> list[dict]:
+    """The materials the bodies use (or a step names) that come from the material library (or that an opened
+    project brought), as library entries."""
+    from ..core import matlib
+    from ..core.model import MATERIALS
+
+    lib = {**matlib.library(), **p.model.pinned}
+    import re
+
+    words = set(re.findall(r"[A-Z_][A-Z0-9_]*", p.script().upper()))  # a step may name one no body keeps
+    used = sorted({b.material.upper() for b in p.model.bodies.values() if b.material} | (words & set(lib)))
+    out = []
+    for key in used:
+        mat = p.model.materials.get(key)
+        if mat is not None and key in lib and _same(mat, lib[key]) and not _same(mat, MATERIALS.get(key)):
+            out.append(mat.props())
+    return out
 
 
 def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
@@ -581,6 +608,19 @@ def open_project(p: Processor, path: str) -> tuple[int, list[str]]:
     if isinstance(cfg, dict) and cfg.get("name"):
         p.config = str(cfg["name"]).upper()
         p.config_values = {str(k).upper(): v for k, v in dict(cfg.get("values", {})).items()}
+    pins = {}
+    for d in meta.get("materials", []) or []:
+        from ..core import matlib
+
+        try:
+            mat = matlib.from_dict(d)
+        except matlib.LibraryError:
+            continue
+        pins[mat.name] = mat
+    if pins:
+        p.model.pinned = pins
+        p.model.materials.update(pins)
+        p._snaps[0] = p._state()
     results = p.run_script(script, meta.get("history"))
     p.model.set_view_state(meta.get("view"))
     p.saved_script = p.script()
