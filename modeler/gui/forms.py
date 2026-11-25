@@ -136,7 +136,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Make", ("PRINTCHECK", "MILL")),
     ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES", "SPOTWELD")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
                             "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
 ]
 

@@ -42,6 +42,7 @@ _COMMAND_CHOICES = {
     ("FITPOINTS", "fmt"): ("TEXT", "JSON"),
     ("CLASHFIX", "how"): ("CUT", "MOVE"),
     ("ENCLOSURE", "shape"): ("BOX", "CYLINDER", "SPHERE"),
+    ("SHEETNOTE", "kind"): ("CENTRES", "THREADS", "FINISH", "WELD", "LEADER", "DELETE", "LIST"),
     ("SHAREFACES", "how"): ("DO", "CHECK"),
     ("MERGEFACES", "what"): ("SAME", "SMALL"),
     ("CLASHFIX", "dir"): ("AUTO", "X", "-X", "Y", "-Y", "Z", "-Z"),

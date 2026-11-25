@@ -445,6 +445,13 @@ def pick_tools(p) -> list[MenuItem]:
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
         add(MenuItem("Mass and volume", short="Mass", commands=["MASSPROP"], icon="measure"))
         _ = names
+        welds = [b for b in sel if b in getattr(m, "welds", {})]
+        sheets = list(getattr(m, "drawsheets", {}).values())
+        if len(welds) == 1 and sheets:
+            add(MenuItem(f"Weld symbol on sheet {sheets[0]['name']}", short="Weld symbol",
+                         commands=[f"SHEETNOTE, {sheets[0]['name']}, WELD, {welds[0]}"], icon="measure"))
+    if kind in ("FACE", "EDGE", "VERTEX"):
+        items += sheet_detail_items(m, kind, sel)
     return items
 
 
@@ -540,7 +547,33 @@ def sheet_items(model) -> list[MenuItem]:
             else:
                 items.append(MenuItem(f"Sheet {name}: add a {label}",
                                       [f"SHEETTABLE, {name}, {'+'.join(have + [word])}"]))
+        # drawing details (PLAN item 100)
+        kinds = [d["kind"] for d in s.get("notes", [])]
+        for word, label in (("CENTRES", "centre marks on the holes"), ("THREADS", "cosmetic threads")):
+            if word in kinds:
+                n = kinds.index(word) + 1
+                items.append(MenuItem(f"Sheet {name}: take off the {label}", [f"SHEETNOTE, {name}, DELETE, {n}"]))
+            else:
+                items.append(MenuItem(f"Sheet {name}: add {label}", [f"SHEETNOTE, {name}, {word}"]))
     return items
+
+
+def sheet_detail_items(model, kind: str, sel: list[int]) -> list[MenuItem]:
+    """A picked face or edge with drawing sheets: put a surface finish, a leader note or a weld symbol
+    on a sheet (PLAN item 100)."""
+    sheets = list(getattr(model, "drawsheets", {}).values())
+    if not sheets or len(sel) != 1:
+        return []
+    name, g = sheets[0]["name"], sel[0]
+    out = []
+    if kind == "FACE":
+        out.append(MenuItem(f"Surface finish on sheet {name}…", [f"SHEETNOTE, {name}, FINISH, {g}, 1.6"],
+                            form="SHEETNOTE", short="Finish", icon="pick_face"))
+    if kind in ("FACE", "EDGE", "VERTEX"):
+        on = str(g) if kind == "FACE" else f"{kind} {g}"
+        out.append(MenuItem(f"Note on sheet {name}…", [f'SHEETNOTE, {name}, LEADER, {on}, "note"'],
+                            form="SHEETNOTE", short="Sheet note", icon="pick_" + kind.lower()))
+    return out
 
 
 def entry_bodies(processor, row: int) -> list[int]:
