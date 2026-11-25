@@ -1385,3 +1385,58 @@ Built in this order, about three per pull request.
     assembly, drawing, sculpt) that show the panels that fit, saved per
     user. Commands: `TUTORIAL, name` and `LAYOUT, name`. Assistant: a
     `tutor` skill that walks a person through a tutorial in the chat.
+
+### What is still missing (M16)
+
+From a third comparison (2026-11-25), made after items 68-82 were built,
+of our commands with the tools other open and commercial modellers offer.
+The same rule as M14: each item works by mouse, by command (one history
+step and a form) and for the assistant (data it can read and a skill).
+Built about three items per pull request, in this order.
+
+95. **Face sets for the analysis app** (P1): `EXPORT, STEP` writes every
+    CM face set as named faces, so the analysis app gets the inlet, the
+    fixed face and the loaded face without picking them again. FLUIDVOLUME
+    and ENCLOSURE make their sets themselves (inlet_1, XMIN ...). The
+    Layers panel lists face sets with Rename and Delete on a right click;
+    `DESCRIBE` gives them to the assistant.
+96. **Editing in a cross-section** (P1): `SECTIONEDIT, plane` shows the cut
+    of the solids as lines linked to their faces. Dragging a line (with a
+    typed value, like the drag handles of item 68) moves the face behind
+    it; drawing in the section adds or removes material. Finishing writes
+    ordinary MOVEFACE / PUSHPULL steps. The assistant reads the cut as a
+    list of lines with their face IDs.
+97. **More kinds of pattern** (P1): PATTERN gets CURVE (along a curve, with
+    or without turning), POINTS (at sketch points or a list), FILL (inside
+    a face's region at a spacing, for vents and perforations) and MIRROR,
+    and a SKIP list of copies left out. The copies are previewed first; a
+    right click on a copy skips it.
+98. **More standard parts** (P1): countersunk and button-head screws, set
+    screws, dowel and spring pins, threaded inserts, ball bearings,
+    circlips and parallel keys, and inch sizes, from the standard tables.
+    `FASTENER, ..., HOLE` also cuts the matching clearance, tapped or
+    countersunk hole in the part it sits on. The BOM lists them.
+99. **Middle surfaces without gaps, and spot welds** (P2): where the
+    thickness changes, MIDSURFACE extends the middle faces until they meet.
+    `SPOTWELD, a, b, edge, pitch` puts weld points along an edge, written
+    to STEP as named points for the analysis app.
+100. **Drawing details** (P2): centre marks and centre lines on holes,
+    cosmetic threads (the thin circle), surface finish and weld symbols, and
+    leader notes placed on the sheet, all kept on DRAWSHEET sheets.
+101. **More file formats** (P2): SVG paths into a sketch, OpenSCAD `.scad`
+    files (CSG) as bodies, and VRML and AMF export.
+102. **A material library** (P2): a library file of materials (stiffness,
+    strength, heat, appearance) shared by every project, with a Materials
+    window to edit it; STRESS, MASSPROP and RENDER read it.
+103. **Circuit boards for enclosures** (P2): read IDF or KiCad board files:
+    the board outline as a plate, each part as a named box at its place,
+    ready for the enclosure skill.
+104. **Repairing imported curves** (P2): `SREPAIR` closes small gaps,
+    removes duplicates and tiny pieces, and refits chains of short lines as
+    splines; SCHECK says when it would help.
+105. **Motion studies** (P3): MOTION also gives the position, speed and
+    acceleration of chosen points and the drive force or torque, as tables
+    and plots.
+106. **A Python console** (P3): a console dock with the model and the
+    processor at hand, off by default; what it changes goes to the history
+    as commands.
