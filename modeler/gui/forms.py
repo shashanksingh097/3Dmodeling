@@ -124,21 +124,30 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Moulds", ("PARTING", "MOLD")),
     ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE", "FEATURES", "DEFEATURE", "RESIZE", "HANDLES")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
-    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "IMPLICIT", "LATTICE")),
+    ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "TOPOINTS", "FITPOINTS", "WRAPSKIN", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
     ("Move and copy", ("MOVE", "ROTATE", "SCALE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
     ("Select", ("SEL", "CM", "CMSEL", "CMDEL")),
-    ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "SECTION", "ECHO", "LIST")),
+    ("Measure", ("DIST", "ANGLE", "MASSPROP", "BOM", "CLASH", "CLASHFIX", "SECTION", "ECHO", "LIST")),
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
-                            "BACKUPS", "FILES", "RELINK", "SHARECHECK")),
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
 ]
+
+PLUGIN_CATEGORY = "Plug-ins"
+
+
+def categories() -> list[tuple[str, tuple[str, ...]]]:
+    """CATEGORIES with the commands the loaded plug-ins add (modeler/plugins.py) at the end."""
+    added = tuple(sorted(n for n, c in REGISTRY.items() if getattr(c, "plugin", "")))
+    return CATEGORIES + ([(PLUGIN_CATEGORY, added)] if added else [])
+
 
 # Commands with no form, and why: the GUI already does them another way.
 NO_FORM = {
@@ -745,7 +754,13 @@ def specs() -> dict[str, FormSpec]:
                             f.start = STARTS[n][f.key]
                 out[n] = sp
         _SPECS = out
-    return _SPECS
+    plug = [n for n, c in REGISTRY.items() if getattr(c, "plugin", "")]
+    if not plug:
+        return _SPECS
+    out = dict(_SPECS)  # plug-ins come and go (Preferences > Plug-ins): never cached
+    for n in sorted(plug):
+        out[n] = FormSpec(n, n.title(), REGISTRY[n].help, PLUGIN_CATEGORY, [Variant("", "", _generic(n))])
+    return out
 
 
 def spec(name: str) -> FormSpec:
@@ -949,17 +964,18 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
     if sp.command == "HOLE" and m.selection and m.selection_kind in ("FACE", "VERTEX"):
         vals["x"] = _centre_of_selection(p)
     # a body list after a first body: the rest of the selection
-    if sp.command in ("UNION", "SUBTRACT", "INTERSECT", "CLASH"):
+    if sp.command in ("UNION", "SUBTRACT", "INTERSECT", "CLASH", "CLASHFIX"):
         first, rest = v.fields[0].key, v.fields[1].key
         try:
             labels = [s.strip() for s in from_selection(p, Field("b", "", "bodies")).split(",")]
         except FormError:
             labels = []
-        if sp.command == "CLASH" and m.selection_kind != "BODY":
+        two = sp.command in ("CLASH", "CLASHFIX")
+        if two and m.selection_kind != "BODY":
             labels = []
         if len(labels) >= 2:
-            vals[first], vals[rest] = labels[0], ", ".join(labels[1:] if sp.command != "CLASH" else labels[1:2])
-        elif sp.command != "CLASH":
+            vals[first], vals[rest] = labels[0], ", ".join(labels[1:] if not two else labels[1:2])
+        elif not two:
             # the picked body (or the last one) first, then the newest other body
             others = [body_label(p, b) for b in sorted(m.bodies) if body_label(p, b) != vals.get(first)]
             if vals.get(first) == "LAST" and len(m.bodies) >= 2:

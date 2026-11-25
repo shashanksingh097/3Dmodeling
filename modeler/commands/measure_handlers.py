@@ -270,6 +270,9 @@ def clash(p: Processor, a, b):
             lines.append(f"bodies {x} and {y} " + ("touch (no overlap)" if d < 1e-7 else f"are clear: gap {_n(d)}"))
     if len(pairs) > 1:
         lines.append(f"{len(pairs)} pairs checked: " + (f"{hits} overlap" if hits else "no overlaps"))
+    if hits:
+        lines.append("CLASHFIX, a, b, CUT (or MOVE) [, clearance [, direction [, PREVIEW]]] fixes one: cuts b's shape "
+                     "out of a, or moves a clear of b")
     return "\n".join(lines)
 
 

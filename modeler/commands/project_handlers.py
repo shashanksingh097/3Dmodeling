@@ -15,6 +15,8 @@ import tempfile
 import time
 import zipfile
 
+import numpy as np
+
 from OCP.BRep import BRep_Builder
 from OCP.BRepTools import BRepTools
 from OCP.IFSelect import IFSelect_ReturnStatus
@@ -27,7 +29,9 @@ from ..lang.script import first_code_line, parse
 from .processor import Arg, CommandError, Path, Processor, Text, command
 
 PROJECT_VERSION = 1
-_IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
+_IMPORT_FORMATS = ("STEP", "IGES", "BREP", "STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH", "XYZ", "PTS",
+                   "E57")
+POINT_FORMATS = ("XYZ", "PTS", "E57")
 # formats read as triangles (a faceted body); MESH takes any file meshio reads, by its extension
 MESH_FORMATS = ("STL", "OBJ", "3MF", "GLTF", "PLY", "OFF", "VTK", "MESH")
 
@@ -70,6 +74,42 @@ def _read_triangles(fmt: str, path: str, units: str):
     if len(tris) == 0:
         raise CommandError(f"IMPORT: {name} has no surface triangles (only points or lines)")
     return pts, tris
+
+
+def _ply_faces(path: str) -> int:
+    from ..geometry import pointcloud as pc
+
+    try:
+        return pc.read_ply(path)[1]
+    except (pc.CloudError, OSError, ValueError, KeyError):
+        return -1  # let the mesh reader say what is wrong
+
+
+def _import_points(p: Processor, fmt: str, path: str, name: str) -> str:
+    from ..geometry import pointcloud as pc
+    from .handlers import _added
+
+    fname = os.path.basename(path)
+    try:
+        if fmt in POINT_FORMATS or fmt == "PLY":
+            pts = pc.read(path) if fmt != "PLY" else pc.read_ply(path)[0]
+        else:
+            pts, _t = _read_triangles(fmt, path, p.model.units)
+    except pc.CloudError as exc:
+        raise CommandError(f"IMPORT: {fname}: {exc}") from None
+    except (OSError, ValueError) as exc:
+        raise CommandError(f"IMPORT: {fname} cannot be read: {exc}") from None
+    pts = np.asarray(pts, float)
+    pts = pts[np.isfinite(pts).all(axis=1)]
+    if not len(pts):
+        raise CommandError(f"IMPORT: {fname} has no points")
+    n = len(pts)
+    pts = pc.thin(pts, pc.MOST_POINTS)
+    body = p.model.add_body(pc.make_shape(pts), name)
+    if len(pts) < n:
+        p.warn(f"IMPORT: {fname} has {n:,} points; thinned evenly to {len(pts):,} (one per {pc.MOST_POINTS:,}th of "
+               "the space) so the cloud stays quick to show and pick")
+    return _added(p, body, "IMPORT")
 
 
 # each triangle becomes a face of the body: past this the body gets too slow to work with
@@ -165,16 +205,18 @@ def _solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
 
 @command(
     "IMPORT",
-    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK or MESH"),
+    Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57"),
     Arg("file", Path),
     Arg("name", Text, "", "name for the (first) imported body"),
-    Arg("kind", str, "AUTO", "for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body) "
-                             "or AUTO (SOLID up to 100,000 triangles, MESH above)"),
+    Arg("kind", str, "AUTO", "for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), "
+                             "POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, "
+                             "MESH above)"),
     help="Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, "
          "GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; "
          "volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH "
          "reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). "
-         "Saved projects keep a copy of the file.",
+         "XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, "
+         "thinned to at most 200,000 points. Saved projects keep a copy of the file.",
 )
 def import_(p: Processor, format, file, name, kind):
     if format not in _IMPORT_FORMATS:
@@ -185,8 +227,11 @@ def import_(p: Processor, format, file, name, kind):
     from .handlers import _added
 
     msgs = []
-    if kind not in ("AUTO", "SOLID", "MESH"):
-        raise CommandError("IMPORT: kind is AUTO, SOLID or MESH")
+    if kind not in ("AUTO", "SOLID", "MESH", "POINTS"):
+        raise CommandError("IMPORT: kind is AUTO, SOLID, MESH or POINTS")
+    if format in POINT_FORMATS or (format == "PLY" and (kind == "POINTS" or _ply_faces(path) == 0)) \
+            or (kind == "POINTS" and format in MESH_FORMATS):
+        return _import_points(p, format, path, name)
     if format in MESH_FORMATS:
         from ..geometry import meshbody, meshfiles
 

@@ -63,8 +63,15 @@ def serve(inp: BinaryIO, out: BinaryIO) -> int:
             return 0
         if msg[0] != "run":
             continue
-        _, state, text = msg
+        _, state, text = msg[:3]
         try:
+            if len(msg) > 3 and msg[3] is not None:
+                # the window's plug-ins (modeler/plugins.py): the steps may use their commands
+                from .. import plugins
+
+                where, off = msg[3]
+                plugins.configure(off)
+                plugins.load_all(where)
             p = Processor()
             transfer.set_processor_state(p, state)
 
@@ -146,8 +153,12 @@ class Helper:
             box.put(msg)
 
     def submit(self, state: dict, text: str) -> None:
+        from .. import plugins
+
         self.start()
-        _send(self.proc.stdin, ("run", state, text))
+        # the plug-ins the window has loaded, so their commands run in the helper too
+        info = (plugins.folder(), sorted(plugins._disabled)) if plugins.plugins() else None
+        _send(self.proc.stdin, ("run", state, text, info))
 
     def cancel(self) -> None:
         """Stop the helper now (the next submit starts a fresh one)."""

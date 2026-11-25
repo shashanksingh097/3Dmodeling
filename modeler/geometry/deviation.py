@@ -369,7 +369,7 @@ def _spacing(q: np.ndarray, tris) -> float:
     from scipy.spatial import cKDTree
 
     d, _ = cKDTree(q).query(q[:20000], k=2)
-    return float(np.median(d[:, 1]))
+    return 2 * float(np.median(d[:, 1]))  # loose points: the gap between them is about twice the nearest one
 
 
 class Field:

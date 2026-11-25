@@ -678,7 +678,9 @@ The language in short:
 def command_families() -> str:
     """Every command name, grouped by family (the command menu's headings), for the small first prompt."""
     try:
-        from ..gui.forms import CATEGORIES  # no Qt: plain data
+        from ..gui.forms import categories  # no Qt: plain data
+
+        CATEGORIES = categories()
     except Exception:  # noqa: BLE001
         CATEGORIES = []
     seen: set[str] = set()
