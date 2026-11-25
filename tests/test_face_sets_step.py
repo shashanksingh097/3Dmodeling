@@ -85,7 +85,10 @@ FLUIDVOLUME, pipe""")
 
 
 def test_tree_menu_of_a_set(p):
-    from modeler.gui import model_tree, tree_model
+    try:  # the tree's menu needs Qt's GUI library, which needs libEGL; CI's plain Linux runners lack it
+        from modeler.gui import model_tree, tree_model
+    except ImportError as exc:
+        pytest.skip(f"needs Qt's GUI library here: {exc}")
 
     run(p, "BLOCK, 0,0,0, 10,10,10\nSEL, S, FACE, NORMAL, 0,0,1\nCM, Inlet, FACE")
     nodes = tree_model.tree_nodes(p)
