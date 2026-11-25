@@ -944,6 +944,71 @@ WRAPSKIN, ALL, 2
 HIDE, 3
 HIDE, 4
 
+@ MIDSURFACE pic
+! The middle surface of a 2 mm bent bracket for a shell model: one sheet, walls meeting at the corner, thickness 2 kept on its faces.
+BLOCK, 0,0,0, 100, 50, 2
+NAME, LAST, bracket
+BLOCK, 0,0,0, 2, 50, 40
+UNION, bracket, LAST
+MIDSURFACE, bracket
+FADE, bracket
+
+@ BEAMS pic
+! Centre lines of a welded frame for a beam model, joined where the members meet, with each section's area and stiffness in the answer.
+POLYLINE, (0,0,0), (400,0,0), (400,0,300), (0,0,300)
+NAME, LAST, path
+MEMBER, path, SQUARE, 40x3
+HIDE, path
+BEAMS, "member_1 member_2 member_3"
+FADE, member_1
+FADE, member_2
+FADE, member_3
+
+@ FLUIDVOLUME pic
+! The water inside a tee pipe, closed off at its three ends: the answer names the end faces (inlets and outlets).
+CYL, 0,0,0, 12, 100
+NAME, LAST, tee
+CYL, 0,0,50, 12, 50, 1,0,0
+UNION, tee, LAST
+CYL, 0,0,0, 10, 100
+SUBTRACT, tee, LAST
+CYL, 0,0,50, 10, 50, 1,0,0
+SUBTRACT, tee, LAST
+FLUIDVOLUME, tee
+FADE, tee
+
+@ ENCLOSURE pic
+! Air round a part for a flow model, with more room behind it (+X): the outer faces are named XMIN ... ZMAX in the answer.
+BLOCK, 0,0,0, 30, 20, 10
+NAME, LAST, part
+ENCLOSURE, part, BOX, "20 60 20 20 0 20"
+FADE, enclosure
+
+@ SHAREFACES
+! Two touching parts split where they meet so they use the same face there, then checked.
+BLOCK, 0,0,0, 20, 20, 20
+BLOCK, 20, 5, 5, 10, 10, 10
+SHAREFACES, ALL, CHECK
+SHAREFACES, ALL
+SHAREFACES, ALL, CHECK
+
+@ IMPRINT
+! A pad's outline marked on a plate, so the patch under it is a face of its own (for a load in the analysis app).
+BLOCK, 0,0,0, 60, 40, 5
+NAME, LAST, plate
+BLOCK, 20, 10, 5, 20, 20, 10
+NAME, LAST, pad
+IMPRINT, plate, pad
+
+@ MERGEFACES
+! A thin sliver face left by a block that sticks out 0.05 removed, so it does not trouble the mesher.
+BLOCK, 0,0,0, 50, 40, 20
+NAME, LAST, part
+BLOCK, 0, 0, 20, 50.05, 40, 0.05
+UNION, part, LAST
+CHECK, part, FLAWS, 0.2
+MERGEFACES, part, SMALL, 0.2
+
 @ IMPLICIT pic
 ! Two balls blended smoothly into one shape, from an equation.
 IMPLICIT, blob, SMIN(BALL(0,0,0,10), BALL(14,0,0,7), 4), -12,-12,-12, 24,12,12

@@ -59,6 +59,7 @@ from . import plugin_handlers  # noqa: F401  (PLUGINS: the plug-ins found)
 from . import pointcloud_handlers  # noqa: F401  (TOPOINTS, FITPOINTS: point clouds)
 from . import wrap_handlers  # noqa: F401  (WRAPSKIN: shrinkwrap)
 from . import clashfix_handlers  # noqa: F401  (CLASHFIX: cut out or move clear)
+from . import prep_handlers  # noqa: F401  (MIDSURFACE, BEAMS, FLUIDVOLUME, ENCLOSURE, SHARE, IMPRINT, MERGEFACES)
 
 # counts that would take hours or all the memory are refused with a clear message (PLAN item 63;
 # found by trying every command's example with extreme values, tests/test_kernel_messages.py)

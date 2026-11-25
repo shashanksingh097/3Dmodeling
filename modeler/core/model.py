@@ -301,6 +301,9 @@ class Model:
         self.sheets: dict = {}
         # body ID -> frame member record (geometry/frames.py Member): its profile and cut, for CUTLIST
         self.members: dict = {}
+        # body ID -> {face global ID: wall thickness}: a middle surface's thickness per face (MIDSURFACE),
+        # written with the faces to STEP for the separate analysis app
+        self.thickness: dict = {}
         # exploded views by upper-case name: a list of (body IDs, (dx, dy, dz)) steps (XSTEP, XSHOW)
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
@@ -378,6 +381,7 @@ class Model:
             "masks": dict(self.masks),
             "sheets": dict(self.sheets),
             "members": dict(self.members),
+            "thickness": {k: dict(v) for k, v in self.thickness.items()},
             "xviews": {k: list(v) for k, v in self.xviews.items()},
             "properties": dict(self.properties),
             "notes": list(self.notes),
@@ -417,6 +421,7 @@ class Model:
         self.masks = dict(snap.get("masks", {}))
         self.sheets = dict(snap.get("sheets", {}))
         self.members = dict(snap.get("members", {}))
+        self.thickness = {k: dict(v) for k, v in snap.get("thickness", {}).items()}
         self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
@@ -570,6 +575,7 @@ class Model:
         self.instances.pop(bid, None)
         self.sheets.pop(bid, None)
         self.members.pop(bid, None)
+        self.thickness.pop(bid, None)
         self.routes.pop(bid, None)
         if emit:
             self._drop_stale_selection()

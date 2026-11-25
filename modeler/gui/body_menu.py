@@ -144,6 +144,7 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(MenuItem("Layer…", [f"LAYER, , ADD, {sel}"], form="LAYER"))
     items.append(MenuItem("Material…", [f"MATERIAL, {sel}, "], form="MATERIAL"))
     items.append(MenuItem("Wrap in one closed skin…", [f"WRAPSKIN, {sel}, 1"], form="WRAPSKIN"))
+    items += analysis_items(model, ids, bid)
     if one:
         if bid in model.instances:
             part = model.instances[bid][0]
@@ -157,6 +158,31 @@ def body_items(model, bid: int, sources: dict | None = None) -> list[MenuItem]:
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
     return items
+
+
+def analysis_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
+    """Getting parts ready for the analysis app (PLAN items 80-82): only for solids."""
+    from ..geometry import meshbody as mb
+    from ..geometry import robust
+
+    solid = [b for b in ids if b in model.bodies and not mb.is_mesh(model.bodies[b].shape)
+             and robust.solids(model.bodies[b].shape)]
+    if len(solid) != len(ids) or not ids:
+        return []
+    if len(ids) == 1:
+        b = ids[0]
+        return [MenuItem("Analysis: middle surface", [f"MIDSURFACE, {b}"]),
+                MenuItem("Analysis: fluid volume inside", [f"FLUIDVOLUME, {b}"]),
+                MenuItem("Analysis: air round it…", [f"ENCLOSURE, {b}, BOX, 10"], form="ENCLOSURE"),
+                MenuItem("Analysis: merge faces on one surface", [f"MERGEFACES, {b}"])]
+    t = " ".join(map(str, ids))
+    out = [MenuItem("Analysis: share faces where they touch", [f'SHAREFACES, "{t}"']),
+           MenuItem("Analysis: beam lines", [f'BEAMS, "{t}"'])]
+    if len(ids) == 2:
+        a = clicked if clicked in ids else ids[0]
+        b = ids[1] if ids[0] == a else ids[0]
+        out.append(MenuItem(f"Analysis: imprint {_name(model, b)} on {_name(model, a)}", [f"IMPRINT, {a}, {b}"]))
+    return out
 
 
 def clash_items(model, ids: list[int], clicked: int) -> list[MenuItem]:

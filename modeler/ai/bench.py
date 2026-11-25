@@ -158,6 +158,13 @@ TASKS: list[Task] = [
          setup="BLOCK, 0, 0, 20, 40, 40, 5\nNAME, LAST, part\nBLOCK, 15, 15, 0, 10, 10, 20\nUNION, part, LAST",
          reference="ROTATE, part, 180, 20, 20, 12.5, 1, 0, 0",
          area="manufacturing"),
+    Task("shell_model",
+         "The analysis app needs a shell model of this 2 mm bracket: make its middle surface, keeping the "
+         "thickness on the faces.",
+         ["COUNT(\"BODY\"), GE, 2", "AREA(bracket_mid, \"BODY\"), BETWEEN, 6890, 6910"],
+         setup="BLOCK, 0, 0, 0, 100, 50, 2\nNAME, LAST, bracket\nBLOCK, 0, 0, 0, 2, 50, 40\nUNION, bracket, LAST",
+         reference="MIDSURFACE, bracket",
+         area="analysis-prep"),
     Task("strength",
          "The aluminium bracket carries 400 N straight down on its tip face (set tip) with the wall face (set "
          "wall) fixed. Make its plates thick enough for a safety factor of at least 2, keeping its 60 x 40 x 50 "

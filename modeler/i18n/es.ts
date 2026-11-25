@@ -473,6 +473,10 @@ Runs: ROUTE, path, PIPE/CABLE, size [, bend radius]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>a pipe, valve or housing</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>a plane (datum or XY/YZ/ZX) or a body</source>
             <translation type="unfinished" />
         </message>
@@ -625,6 +629,10 @@ Runs: BOSS, body, x,y,z, h, od [, hole, ribs]</source>
         <message>
             <source>A temporary folder</source>
             <translation>Una carpeta temporal</translation>
+        </message>
+        <message>
+            <source>a thin part (sheet metal, a shelled housing, a tube, a plate)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>A thin wall from an open sketch line down to the part's faces
@@ -876,6 +884,10 @@ Runs: FASTENER, kind, size, x,y,z [, length]</source>
             <translation>Análisis</translation>
         </message>
         <message>
+            <source>Analysis prep</source>
+            <translation>Preparación para análisis</translation>
+        </message>
+        <message>
             <source>Analyze</source>
             <translation>Analizar</translation>
         </message>
@@ -1110,6 +1122,14 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Beams</source>
+            <translation>Vigas</translation>
+        </message>
+        <message>
+            <source>Beams…</source>
+            <translation>Vigas…</translation>
+        </message>
+        <message>
             <source>BELOW (default: keep the part under the plane) or ABOVE</source>
             <translation type="unfinished" />
         </message>
@@ -1297,6 +1317,10 @@ Runs: CHAMFER, ...</source>
             <translation>Caja desde la esquina (x,y,z) con medidas dx,dy,dz.</translation>
         </message>
         <message>
+            <source>BOX, CYLINDER (along Z) or SPHERE</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>bracket features</source>
             <translation>operaciones del soporte</translation>
         </message>
@@ -1402,6 +1426,14 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
         </message>
         <message>
             <source>Carry a surface on past an edge the way it was going: pick its edge, then EXTEND, s, 5 · EXTEND, s, 5, ALL · EXTEND, s, 3, V1. POLES and the edge's place tell which side is U0 (start of u) and so on.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Centre lines of frame members with their sections, for a beam model in the analysis app: BEAMS, ALL</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Centre lines of frame members with their sections, for a beam model in the analysis app: BEAMS, ALL. Each member becomes a line (one new curve body holds them all), with its section's area, second moments, torsion constant and main direction in the answer, and where the ends meet. MEMBER bodies keep their profile name and size</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2637,6 +2669,10 @@ Runs: SDEL, ...</source>
             <translation>Hacer:</translation>
         </message>
         <message>
+            <source>DO: split them where they touch so they use the same face there; CHECK: only list the touching pairs and whether they share their faces yet (not kept)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Double-click a step to change it; the model rebuilds.</source>
             <translation>Haz doble clic en un paso para cambiarlo; el modelo se reconstruye.</translation>
         </message>
@@ -2854,8 +2890,16 @@ Runs: ROUTES</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Enclosure</source>
+            <translation>Recinto</translation>
+        </message>
+        <message>
             <source>enclosure halves</source>
             <translation>mitades de la carcasa</translation>
+        </message>
+        <message>
+            <source>Enclosure…</source>
+            <translation>Recinto…</translation>
         </message>
         <message>
             <source>End the section view</source>
@@ -2864,6 +2908,10 @@ Runs: ROUTES</source>
         <message>
             <source>Ends</source>
             <translation>Extremos</translation>
+        </message>
+        <message>
+            <source>ends closer than this are one joint (0: half the largest section's size)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>English</source>
@@ -3088,6 +3136,14 @@ Runs: EXPORT, format, file</source>
             <translation>Operaciones…</translation>
         </message>
         <message>
+            <source>Fewer, cleaner faces for meshing: MERGEFACES, part joins faces that lie on one surface (seams left by booleans and imports); MERGEFACES, part, SMALL, 0.5 also removes sliver faces under 0.5 wide, the faces round them growing to close the gap</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Fewer, cleaner faces for meshing: MERGEFACES, part joins faces that lie on one surface (seams left by booleans and imports); MERGEFACES, part, SMALL, 0.5 also removes sliver faces under 0.5 wide, the faces round them growing to close the gap. Says what is left</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>File</source>
             <translation>Archivo</translation>
         </message>
@@ -3274,6 +3330,14 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation>Flujo…</translation>
         </message>
         <message>
+            <source>Fluidvolume</source>
+            <translation>Fluidvolume</translation>
+        </message>
+        <message>
+            <source>Fluidvolume…</source>
+            <translation>Fluidvolume…</translation>
+        </message>
+        <message>
             <source>Fold the ribbon to its tab names (double-click a tab does the same)</source>
             <translation type="unfinished" />
         </message>
@@ -3346,6 +3410,10 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>for SMALL: faces narrower than this go (0: a hundredth of the body's size)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
             <translation type="unfinished" />
         </message>
@@ -3368,6 +3436,10 @@ Runs: FITSURF, b, region, tolerance</source>
         <message>
             <source>Frame</source>
             <translation>Estructura</translation>
+        </message>
+        <message>
+            <source>frame members or long parts: a body, several ("3 7" or names), SEL, or ALL</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Frames</source>
@@ -3918,6 +3990,14 @@ Runs: IMPORT, format, file</source>
         <message>
             <source>Import…</source>
             <translation>Importar…</translation>
+        </message>
+        <message>
+            <source>Imprint</source>
+            <translation>Imprimir</translation>
+        </message>
+        <message>
+            <source>Imprint…</source>
+            <translation>Imprimir…</translation>
         </message>
         <message>
             <source>IN (the wall grows inwards, default) or OUT</source>
@@ -4532,6 +4612,14 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
             <translation>margen</translation>
         </message>
         <message>
+            <source>Mark where another part touches this one: IMPRINT, plate, pad splits the plate's face along the pad's outline, so the contact patch is its own face (for a load or a fixed patch in the analysis app)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Mark where another part touches this one: IMPRINT, plate, pad splits the plate's face along the pad's outline, so the contact patch is its own face (for a load or a fixed patch in the analysis app). SHAREFACES splits both parts</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Mask</source>
             <translation>Máscara</translation>
         </message>
@@ -4592,6 +4680,14 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
             <translation>Perfil…</translation>
         </message>
         <message>
+            <source>Mergefaces</source>
+            <translation>Mergefaces</translation>
+        </message>
+        <message>
+            <source>Mergefaces…</source>
+            <translation>Mergefaces…</translation>
+        </message>
+        <message>
             <source>Mesh bodies</source>
             <translation>Cuerpos de malla</translation>
         </message>
@@ -4614,6 +4710,14 @@ Runs: SCONSTRUCT, n, ON/OFF</source>
         <message>
             <source>Midpoint</source>
             <translation>Punto medio</translation>
+        </message>
+        <message>
+            <source>Midsurface</source>
+            <translation>Superficie media</translation>
+        </message>
+        <message>
+            <source>Midsurface…</source>
+            <translation>Superficie media…</translation>
         </message>
         <message>
             <source>Mill</source>
@@ -5397,6 +5501,14 @@ Runs: MASK, body, PAINT, ..., stroke</source>
         </message>
         <message>
             <source>parts closer than this but not touching are reported as a gap (0: 0.5% of the assembly's size)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Parts that share faces, so the analysis app meshes them as one connected piece: SHAREFACES, ALL splits every pair of touching parts along the outline of their contact, so both use the very same face there (kept as one face in BREP; in STEP both get the same face, edge for edge)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Parts that share faces, so the analysis app meshes them as one connected piece: SHAREFACES, ALL splits every pair of touching parts along the outline of their contact, so both use the very same face there (kept as one face in BREP; in STEP both get the same face, edge for edge). SHAREFACES, ALL, CHECK lists the touching pairs still apart. IMPRINT marks one part only</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6384,6 +6496,10 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>SAME: join neighbouring faces on the same surface; SMALL: also remove faces narrower than the size (the slivers CHECK, b, FLAWS lists)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>samples (the curve is fitted through them)</source>
             <translation type="unfinished" />
         </message>
@@ -6687,6 +6803,14 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
         <message>
             <source>Sharecheck…</source>
             <translation>Comprobación para compartir…</translation>
+        </message>
+        <message>
+            <source>Sharefaces</source>
+            <translation>Sharefaces</translation>
+        </message>
+        <message>
+            <source>Sharefaces…</source>
+            <translation>Sharefaces…</translation>
         </message>
         <message>
             <source>Sheet</source>
@@ -7537,6 +7661,14 @@ Runs: MASK, body, INVERT</source>
             <translation>Esa pieza</translation>
         </message>
         <message>
+            <source>The air round a model, for a flow or field model: ENCLOSURE, ALL, BOX, 20 puts a box 20 bigger on every side round the shown bodies, with them cut out, as a new solid</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The air round a model, for a flow or field model: ENCLOSURE, ALL, BOX, 20 puts a box 20 bigger on every side round the shown bodies, with them cut out, as a new solid. ENCLOSURE, car, BOX, "50 200 50 50 0 50" leaves more room behind. The answer names the outer faces (XMIN ... ZMAX, SIDE, TOP, BOTTOM, OUTER) and the walls of the model, by face ID</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the angle of the catch (90: it holds for good, less: it can be pulled apart)</source>
             <translation type="unfinished" />
         </message>
@@ -7814,6 +7946,14 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The inside of a pipe, valve or housing up to its openings, as a new solid for a flow model: FLUIDVOLUME, valve</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The inside of a pipe, valve or housing up to its openings, as a new solid for a flow model: FLUIDVOLUME, valve. Each opening is closed by a flat cap across the hole in its end face; the answer lists the openings and the faces of the new body that close them (inlets and outlets). A closed housing gives its inner space</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the item that stays where it is (XY, YZ, ZX need no ID)</source>
             <translation type="unfinished" />
         </message>
@@ -7862,6 +8002,14 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The middle surface of a thin part, for a shell model in the analysis app: MIDSURFACE, bracket</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>The middle surface of a thin part, for a shell model in the analysis app: MIDSURFACE, bracket. Each wall's two sides are paired, one side is pulled half the thickness into the wall, and the thickness is kept on each face of the new surface body (in the answer, and on the faces in STEP). With one thickness the walls meet at their corners; with several, each face is its own piece</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>The model can see pictures (the assistant may then look at the 3D view)</source>
             <translation>El modelo puede ver imágenes (el asistente podrá mirar la vista 3D)</translation>
         </message>
@@ -7871,6 +8019,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the model to measure against (an exact body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the model: a body, several ("3 7" or names), SEL, or ALL (every shown body)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7895,6 +8047,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the nominal size (0: the diameter of the picked round face)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the openings: AUTO (every flat face with a hole that leads out), SEL (the end faces picked), or face IDs "12 15"</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7934,6 +8090,10 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the part that touches it (it stays as it is)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the part to add the boss to</source>
             <translation type="unfinished" />
         </message>
@@ -7950,11 +8110,19 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the part whose faces are split</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the part's parameters for this copy; left empty, they keep the part's defaults</source>
             <translation type="unfinished" />
         </message>
         <message>
             <source>The parts list: one row per part (instances of a part with the same values counted together) and per named solid, with quantity, material, volume and mass: BOM · BOM, parts.csv also writes it as CSV · BOM, , big lists configuration big without switching to it</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the parts: two or more bodies ("3 7" or names), SEL, or ALL</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8136,6 +8304,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the sketch to turn</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the space round the model: one number, or six "-X +X -Y +Y -Z +Z" (more behind a part in a flow)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8880,6 +9052,10 @@ Runs: MASSPROP</source>
         </message>
         <message>
             <source>wall thickness, or strut diameter</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>walls up to this thick only (0: any wall thinner than its faces are wide)</source>
             <translation type="unfinished" />
         </message>
         <message>

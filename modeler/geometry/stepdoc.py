@@ -8,7 +8,7 @@ and colour, and an assembly's tree of parts. ``read`` walks that tree down to th
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from OCP.Quantity import Quantity_Color, Quantity_TOC_sRGB
 from OCP.STEPCAFControl import STEPCAFControl_Reader, STEPCAFControl_Writer
@@ -35,6 +35,7 @@ class Part:
     shape: TopoDS_Shape
     name: str = ""
     color: Colour | None = None
+    faces: list = field(default_factory=list)  # (face, name): faces named in the file (a wall's thickness)
 
 
 def _doc() -> TDocStd_Document:
@@ -158,6 +159,12 @@ def write(path: str, parts: list[Part], units: str = "MM", pmi: list | None = No
     setc = getattr(Interface_Static, "SetCVal_s", None) or Interface_Static.SetCVal
     getc = getattr(Interface_Static, "CVal_s", None) or Interface_Static.CVal
     setc("write.step.unit", units)
+    seti = getattr(Interface_Static, "SetIVal_s", None) or Interface_Static.SetIVal
+    if any(part.faces for part in parts):
+        from OCP.STEPCAFControl import STEPCAFControl_Controller
+
+        (getattr(STEPCAFControl_Controller, "Init_s", None) or STEPCAFControl_Controller.Init)()
+    seti("write.stepcaf.subshapes.name", 1 if any(part.faces for part in parts) else 0)  # named faces
     doc = _doc()
     st = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
     ct = XCAFDoc_DocumentTool.ColorTool_s(doc.Main())
@@ -169,6 +176,10 @@ def write(path: str, parts: list[Part], units: str = "MM", pmi: list | None = No
             TDataStd_Name.Set_s(label, TCollection_ExtendedString(part.name))
         if part.color is not None:
             ct.SetColor(label, Quantity_Color(*part.color, Quantity_TOC_sRGB), XCAFDoc_ColorGen)
+        for face, text in part.faces:
+            sub = st.AddSubShape(label, face)
+            if not sub.IsNull():
+                TDataStd_Name.Set_s(sub, TCollection_ExtendedString(text))
     schema = None
     if pmi:
         from OCP.STEPCAFControl import STEPCAFControl_Controller

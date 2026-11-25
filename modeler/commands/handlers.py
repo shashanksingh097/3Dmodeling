@@ -1341,6 +1341,16 @@ def _compound(shapes):
     return comp
 
 
+def _named_faces(m, body) -> list:
+    """Faces that carry a name into STEP: a middle surface's wall thickness (MIDSURFACE), read by the
+    analysis app as each face's shell thickness."""
+    out = []
+    for gid, t in sorted(m.thickness.get(body.id, {}).items()):
+        if gid in body.entity_ids["FACE"]:
+            out.append((m.entity_shape("FACE", gid), f"thickness {fmt_num(round(t, 6))}"))
+    return out
+
+
 @command(
     "EXPORT",
     Arg("format", str, help="STEP, IGES, BREP, STL, OBJ, 3MF or GLTF"),
@@ -1376,7 +1386,8 @@ def export(p: Processor, format, file, b):
         from ..geometry import stepdoc
 
         # each body a named part in its own colour
-        parts = [stepdoc.Part(x.shape, "" if x.name == f"body{x.id}" else x.name, m.display_color(x.id)) for x in bodies]
+        parts = [stepdoc.Part(x.shape, "" if x.name == f"body{x.id}" else x.name, m.display_color(x.id),
+                              _named_faces(m, x)) for x in bodies]
         from .pmi_notes import notes_to_records
 
         # sizes, tolerances and datums pinned to the bodies go in too, as AP242 annotations

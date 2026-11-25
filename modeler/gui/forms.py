@@ -133,6 +133,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Notes and fits", ("NOTE", "FITS", "STACKUP")),
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
+    ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
     ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
                             "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
@@ -925,13 +926,13 @@ def initial(p: Processor, sp: FormSpec, variant: str = "") -> dict[str, str]:
     if sp.command == "HOLE" and m.selection and m.selection_kind in ("FACE", "VERTEX"):
         vals["x"] = _centre_of_selection(p)
     # a body list after a first body: the rest of the selection
-    if sp.command in ("UNION", "SUBTRACT", "INTERSECT", "CLASH", "CLASHFIX"):
+    if sp.command in ("UNION", "SUBTRACT", "INTERSECT", "CLASH", "CLASHFIX", "IMPRINT"):
         first, rest = v.fields[0].key, v.fields[1].key
         try:
             labels = [s.strip() for s in from_selection(p, Field("b", "", "bodies")).split(",")]
         except FormError:
             labels = []
-        two = sp.command in ("CLASH", "CLASHFIX")
+        two = sp.command in ("CLASH", "CLASHFIX", "IMPRINT")
         if two and m.selection_kind != "BODY":
             labels = []
         if len(labels) >= 2:
