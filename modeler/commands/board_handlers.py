@@ -199,7 +199,5 @@ def board(p: Processor, file, name, holes, height, lib, at):
             f"tallest {fmt_num(r(top))} above, {fmt_num(r(bottom))} below; "
             f"{len(mounting)} mounting hole{'s' if len(mounting) != 1 else ''}"
             + (f", {len(cut)} holes cut" if cut else ""))
-    out = [head, "  " + lines[0]]
-    if b.notes or failed:
-        out += ["  note: " + n for n in report["notes"]]
-    return "\n".join(out)
+    out = [lines[0]] + ["note: " + n for n in report["notes"]]
+    return "\n".join(out + [head])  # the summary last: the history shows the last line

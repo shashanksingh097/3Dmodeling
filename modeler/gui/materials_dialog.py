@@ -45,14 +45,14 @@ COLUMNS = (
     ("Up to\n°C", "max_temp_C", "tmax", "the highest temperature it is used at"),
     ("Render look", "look", "look", "how RENDER draws it (metal, plastic, glass ...)"),
     ("Colour", "color", "color", "the colour bodies of this material are drawn in"),
-    ("Note", "note", "note", "a grade or supplier"),
     ("From", "", "", "built in, the material library (every project), or this project only"),
+    ("Note", "note", "note", "a grade or supplier"),
 )
 _NUM = {i for i, c in enumerate(COLUMNS) if c[1] in dict(matlib.FIELDS)}
 LOOK_COL = 9
 COLOR_COL = 10
-NOTE_COL = 11
-FROM_COL = 12
+FROM_COL = 11
+NOTE_COL = 12
 
 
 def _num(v) -> str:
@@ -160,6 +160,7 @@ class MaterialsDialog(QDialog):
                     self.table.selectRow(r)
             self.table.resizeColumnsToContents()
             self.table.setColumnWidth(COLOR_COL, 60)
+            self.table.setColumnWidth(FROM_COL, min(self.table.columnWidth(FROM_COL), 230))
             err = matlib.problem()
             self.status.setText(f"Library file: {matlib.path()}" + (f" — {err}" if err else ""))
         finally:
