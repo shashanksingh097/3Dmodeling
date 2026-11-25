@@ -120,7 +120,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Standard parts", ("GEAR", "FASTENER", "CAM")),
     ("Plastic parts", ("BOSS", "SNAP", "VENT")),
     ("Moulds", ("PARTING", "MOLD")),
-    ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE", "FEATURES", "DEFEATURE", "RESIZE", "HANDLES")),
+    ("Edit faces", ("PUSHPULL", "DELFACE", "MOVEFACE", "REPLACEFACE", "FEATURES", "DEFEATURE", "RESIZE", "HANDLES",
+                    "SECTIONEDIT")),
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "TOPOINTS", "FITPOINTS", "WRAPSKIN", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
@@ -205,6 +206,7 @@ STARTS: dict[str, dict[str, str]] = {
     "TEXT": {"text": "TEXT", "x": "0, 0, 0", "size": "10", "depth": "2"},
     "SURFACE": {"kind": "PARAM", "fx": "u", "fy": "v", "fz": "3*sin(6*u)*cos(6*v)", "u1": "60", "v1": "40"},
     "PUSHPULL": {"d": "2"},
+    "SECTIONEDIT": {"plane": "XY"},
     "DRAFT": {"angle": "3"},
     "OFFSET": {"d": "1"},
     "PIPE": {"r": "2"},
@@ -315,6 +317,7 @@ _KINDS = {
     ("SPLIT", "by"): "datum",
     ("WORKPLANE", "plane"): "datum",
     ("SECTION", "plane"): "datum",
+    ("SECTIONEDIT", "plane"): "datum",
     ("DRAFT", "neutral"): "datum",
     ("REVOLVE", "axis"): "datum",
     ("EXTRUDE", "sketch"): "sketch",
@@ -814,7 +817,7 @@ def options(p: Processor, f: Field, command: str = "") -> list[str]:
         if f.key == "axis":
             return axes + ["X", "Y", "Z"]
         base = planes + ["XY", "YZ", "ZX"]
-        if command in ("WORKPLANE", "SECTION"):
+        if command in ("WORKPLANE", "SECTION", "SECTIONEDIT"):
             base = base + ["OFF"]
         return base
     if f.kind == "sketch":
