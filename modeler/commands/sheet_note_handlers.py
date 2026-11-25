@@ -12,9 +12,9 @@ from ..core.model import UNITS
 from ..lang.expr import fmt_num
 from .processor import Arg, CommandError, Processor, Raw, Text, command
 
-KINDS = ("CENTRES", "THREADS", "FINISH", "WELD", "LEADER", "DELETE", "LIST")
+KINDS = ("CENTRES", "THREADS", "FINISH", "WELD", "LEADER", "SIZE", "DELETE", "LIST")
 _ALIASES = {"CENTERS": "CENTRES", "CENTRE": "CENTRES", "CENTER": "CENTRES", "THREAD": "THREADS",
-            "NOTE": "LEADER", "SURFACE": "FINISH"}
+            "NOTE": "LEADER", "SURFACE": "FINISH", "DIM": "SIZE", "DIMENSION": "SIZE"}
 _TARGET = re.compile(r"^\s*(?:(FACE|EDGE|VERTEX|F|E|V)\s*)?(\d+)\s*$", re.I)
 
 
@@ -45,6 +45,8 @@ def _describe(d: dict) -> str:
                 + (f" ({d['text']})" if d.get("text") else ""))
     if k == "WELD":
         return f"weld symbol on {d['body_name']}"
+    if k == "SIZE":
+        return f"size of edge {d['id']}"
     return f"leader on {d['on'].lower()} {d['id']}: {d['text']}"
 
 
@@ -60,8 +62,9 @@ def _sheet(p: Processor, name: str) -> tuple[str, dict]:
 @command(
     "SHEETNOTE",
     Arg("sheet", str, help="the sheet's name (DRAWSHEET)"),
-    Arg("kind", str, "LIST", "CENTRES, THREADS, FINISH, WELD, LEADER; DELETE or LIST"),
-    Arg("on", Raw, "", "FINISH and LEADER: the face (12) or FACE 12, EDGE 5, VERTEX 3; WELD: the weld bead; "
+    Arg("kind", str, "LIST", "CENTRES, THREADS, FINISH, WELD, LEADER, SIZE; DELETE or LIST"),
+    Arg("on", Raw, "", "FINISH and LEADER: the face (12) or FACE 12, EDGE 5, VERTEX 3; SIZE: the edge (EDGE 5); "
+                       "WELD: the weld bead; "
                        "DELETE: the detail's number, or ALL"),
     Arg("value", Raw, "", "FINISH: the roughness Ra; LEADER: the note's text"),
     Arg("text", Text, "", "FINISH: how it is made (ground, lapped ...)"),
@@ -69,7 +72,9 @@ def _sheet(p: Processor, name: str) -> tuple[str, dict]:
          "SHEETNOTE, front, CENTRES (centre marks and centre lines on the holes) · SHEETNOTE, front, THREADS "
          "(cosmetic threads on holes with a thread noted on them) · SHEETNOTE, front, FINISH, 12, 1.6, ground "
          "(a surface finish symbol on face 12) · SHEETNOTE, front, WELD, weld_1 (the weld symbol of a WELD bead, "
-         "with its size and length) · SHEETNOTE, front, LEADER, EDGE 5, \"Break sharp edges\" · SHEETNOTE, "
+         "with its size and length) · SHEETNOTE, front, LEADER, EDGE 5, \"Break sharp edges\" · SHEETNOTE, front, "
+         "SIZE, EDGE 5 (the length of a straight edge, or the diameter of a round one, in a view that shows it "
+         "true) · SHEETNOTE, "
          "front lists them; SHEETNOTE, front, DELETE, 2 (or ALL) removes them.",
 )
 def sheetnote(p: Processor, sheet, kind, on, value, text):
@@ -129,6 +134,13 @@ def sheetnote(p: Processor, sheet, kind, on, value, text):
         if bid not in m.welds:
             raise CommandError(f"SHEETNOTE: body {bid} is not a weld bead (WELD, a, b makes one)")
         d = {"kind": k, "body": bid, "body_name": m.bodies[bid].name}
+    elif k == "SIZE":
+        txt = str(on).strip()
+        on_kind, gid = _target(txt if not txt.isdigit() else f"EDGE {txt}")
+        if on_kind != "EDGE":
+            raise CommandError("SHEETNOTE: a SIZE goes on an edge: SHEETNOTE, front, SIZE, EDGE 5")
+        _check(m, "EDGE", gid)
+        d = {"kind": k, "on": "EDGE", "id": gid}
     else:  # LEADER
         on_kind, gid = _target(str(on))
         _check(m, on_kind, gid)
@@ -207,6 +219,27 @@ def resolve(p: Processor, notes: list[dict], bodies) -> tuple[list[dict], list[d
                     w["point"], w["normal"] = (q.X(), q.Y(), q.Z()), (n.X(), n.Y(), n.Z())
             if "point" not in w:
                 w["point"] = tuple(centre(d["on"], shape))
+        elif d["kind"] == "SIZE":
+            from OCP.BRepAdaptor import BRepAdaptor_Curve
+            from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+
+            from ..geometry.features import as_edge
+
+            try:
+                c = BRepAdaptor_Curve(as_edge(m.entity_shape("EDGE", d["id"])))
+            except Exception:  # noqa: BLE001 - the edge went away
+                w["missing"] = f"the size on edge {d['id']} is left off: it is gone"
+                out.append(w)
+                continue
+            if c.GetType() == GeomAbs_Circle:
+                ci = c.Circle()
+                loc, ax = ci.Location(), ci.Axis().Direction()
+                w["circle"] = {"centre": (loc.X(), loc.Y(), loc.Z()), "r": ci.Radius(), "axis": (ax.X(), ax.Y(), ax.Z())}
+            elif c.GetType() == GeomAbs_Line:
+                a, b = c.Value(c.FirstParameter()), c.Value(c.LastParameter())
+                w["line"] = ((a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z()))
+            else:
+                w["missing"] = f"the size on edge {d['id']} is left off: only straight and round edges get one"
         elif d["kind"] == "WELD":
             if d["body"] not in m.bodies or d["body"] not in m.welds:
                 w["missing"] = f"the weld symbol for {d['body_name']} is left off: the bead is gone"

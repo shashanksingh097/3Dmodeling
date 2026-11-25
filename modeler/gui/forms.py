@@ -127,7 +127,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Deform", ("BEND", "TWIST", "TAPER", "STRETCH", "FLOW", "SWEEPVOL")),
     ("Mesh bodies", ("TOMESH", "TOSOLID", "SMOOTH", "REMESH", "SIMPLIFY", "FITSURF", "SEGMENT", "RECONSTRUCT", "DEVIATION", "TOPOINTS", "FITPOINTS", "WRAPSKIN", "IMPLICIT", "LATTICE")),
     ("Sculpt", ("SCULPT", "MASK", "STROKE")),
-    ("Move and copy", ("MOVE", "ROTATE", "SCALE", "COPY", "MIRROR", "ARRAY", "PATTERN")),
+    ("Move and copy", ("MOVE", "UPTO", "ROTATE", "SCALE", "COPY", "PASTE", "MIRROR", "ARRAY", "PATTERN")),
     ("Bodies", ("NAME", "DELETE", "HIDE", "SHOW", "CHECK", "HEAL", "CLEAN", "CLEAR")),
     ("Layers, colours, materials", ("LAYER", "COLOR", "MATERIAL", "MATLIB", "ISOLATE", "FADE", "UNFADE", "DISPLAY")),
     ("Datums", ("PLANE", "AXIS", "POINT", "DATUM", "WORKPLANE")),
@@ -138,8 +138,8 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Make", ("PRINTCHECK", "MILL")),
     ("Analysis prep", ("MIDSURFACE", "BEAMS", "FLUIDVOLUME", "ENCLOSURE", "SHAREFACES", "IMPRINT", "MERGEFACES", "SPOTWELD")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "BOARD", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
-                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS")),
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "BOARD", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "SHEETNOTE", "SHEETVIEW", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
+                            "BACKUPS", "FILES", "RELINK", "SHARECHECK", "PLUGINS", "SPACEMOUSE", "DETAIL")),
 ]
 
 PLUGIN_CATEGORY = "Plug-ins"
@@ -303,6 +303,21 @@ _COMMAND_LABELS = {
     ("SURFACE", "fz"): "z(u,v)",
     ("SURFACE", "thick"): "Wall thickness, 0 = surface only",
     ("PUSHPULL", "d"): "Distance (+ adds, - removes)",
+    ("UPTO", "what"): "Body to move (or FACES 6 7: faces to pull)",
+    ("UPTO", "kind"): "Up to a",
+    ("UPTO", "n"): "Its number (pick it, then Use picked)",
+    ("UPTO", "axis"): "Move along (empty: the face's normal)",
+    ("UPTO", "offset"): "Stop short by",
+    ("PASTE", "key"): "Copied geometry (CLIP1 ..., LIST)",
+    ("SHEETVIEW", "view"): "View (FRONT, TOP, ISO, SECTION A-A ...)",
+    ("SHEETVIEW", "dx"): "Moved across by (or RESET)",
+    ("SHEETVIEW", "dy"): "Moved up by",
+    ("SPACEMOUSE", "what"): "Setting",
+    ("SPACEMOUSE", "value"): "Value",
+    ("SPACEMOUSE", "command"): "Button's command",
+    ("DETAIL", "mode"): "Detail",
+    ("DETAIL", "px"): "Leave out bodies smaller than (pixels)",
+    ("PASTE", "name"): "Name of the new body",
     ("SWEEP", "on"): "Surface to follow (mode NORMAL)",
     ("PROJECT", "dx"): "Direction, all 0 = along the normal",
 }
@@ -319,6 +334,10 @@ _EXTRA_CHOICES = {
     ("WRAP", "mode"): ("ADD", "CUT"),
     ("SCULPT", "brush"): ("DRAW", "CLAY", "INFLATE", "SMOOTH", "FLATTEN", "PINCH", "CREASE", "GRAB"),
     ("SREPAIR", "refit"): ("YES", "NO"),
+    ("UPTO", "kind"): ("FACE", "EDGE", "VERTEX"),
+    ("SPACEMOUSE", "what"): ("", "ON", "OFF", "SPEED", "ROTATE", "PAN", "ZOOM", "DOMINANT", "INVERT", "BUTTON", "RESET"),
+    ("DETAIL", "mode"): ("", "AUTO", "FINE", "FAST"),
+    ("UPTO", "axis"): ("", "NORMAL", "X", "Y", "Z"),
     ("BOARD", "holes"): ("MOUNT", "ALL", "NONE"),
     ("BOARD", "at"): ("ORIGIN", "CENTRE", "FILE"),
     ("MATLIB", "kind"): ("LIST", "SHOW", "SET", "DELETE", "KEEP", "FILE"),
@@ -444,7 +463,7 @@ def _generic(name: str) -> list[Field]:
 
 
 # whole-number arguments that are an ID picked in the view
-_PICKS = {("SPOTWELD", "edge"): "EDGE"}
+_PICKS = {("SPOTWELD", "edge"): "EDGE", ("UPTO", "n"): "ANY"}
 
 
 # ---- hand-written forms ----------------------------------------------------------

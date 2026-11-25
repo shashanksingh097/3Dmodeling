@@ -1093,6 +1093,23 @@ SCALE, LAST, 1, 30,0,0, 1, 2
 CYL, 0,0,0, 5, 20
 COPY, 1, 30, 0, 0
 
+@ PASTE
+! Geometry copied from another project (Ctrl+C there, Ctrl+V here) is kept with this project as CLIP1 and
+! pasted as a step; PASTE, LIST shows what is kept.
+PASTE, LIST
+
+@ UPTO pic
+! Move a block up until it touches the underside of a shelf (face 11, whose normal points down), then a
+! peg along X until its side lines up with the block's corner.
+BLOCK, 0, 0, 0, 10, 10, 10
+NAME, LAST, box
+BLOCK, 0, 0, 50, 40, 40, 5
+NAME, LAST, shelf
+CYL, 30, 5, 0, 3, 10
+NAME, LAST, peg
+UPTO, box, FACE, 11
+UPTO, peg, VERTEX, 1, X, 2
+
 @ MIRROR pic
 ! A mirror copy of a wedge in the YZ plane.
 WEDGE, 5,0,0, 30, 15, 10, 10
@@ -1820,6 +1837,34 @@ SHEETNOTE, s1, CENTRES
 SHEETNOTE, s1, THREADS
 SHEETNOTE, s1, FINISH, 6, 1.6, ground
 SHEETNOTE, s1, LEADER, EDGE 3, "Break sharp edges"
+SHEETNOTE, s1, SIZE, EDGE 1
+
+@ SHEETVIEW
+! Move the top view of a sheet 15 higher than its own place (the Drawing sheets window writes this
+! when a view is dragged), then the iso view to the left, then put the iso view back.
+BLOCK, 0,0,0, 60, 40, 10
+DRAWSHEET, s1, STANDARD, 0, OVERALL, A3
+SHEETVIEW, s1, TOP, 0, 15
+SHEETVIEW, s1, ISO, -20, 0
+SHEETVIEW, s1, ISO, RESET
+
+@ SPACEMOUSE
+! The 3D mouse's settings: slower, no turning, and button 1 fits the view.
+SPACEMOUSE, SPEED, 0.5
+SPACEMOUSE, ROTATE, OFF
+SPACEMOUSE, BUTTON, 1, FIT
+SPACEMOUSE, RESET
+
+@ DETAIL
+! A hundred copies of a pin share one mesh; FAST leaves out bodies under 4 pixels while drawing.
+*PART, pin, D=4
+  CYL, 0, 0, 0, D/2, 20
+*ENDPART
+*DO, i, 1, 100
+INST, pin, (i-1-10*FLOOR((i-1)/10))*10, FLOOR((i-1)/10)*10, 0
+*ENDDO
+DETAIL, FAST, 4
+DETAIL
 
 @ REVISION
 ! Rows of the sheets' revision table; the newest is the title block's REV.

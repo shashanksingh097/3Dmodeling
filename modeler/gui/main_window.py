@@ -574,6 +574,8 @@ class MainWindow(QMainWindow):
         central = QWidget()
         lay = QVBoxLayout(central)
         lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        self._central_layout = lay
         lay.addWidget(self.viewport, 1)
         row = QHBoxLayout()
         row.setContentsMargins(4, 0, 0, 0)
@@ -657,8 +659,13 @@ class MainWindow(QMainWindow):
         from .app_shell import AppShell
 
         self.shell = AppShell(self, settings, guard)
+        from .project_tabs import ProjectTabs
+
+        self.project_tabs = ProjectTabs(self)  # several projects open at once (PLAN item 109)
+        self._central_layout.insertWidget(0, self.project_tabs.bar)
         self._build_toolbar()
         self.shell.build_file_menu()
+        self.shell.build_edit_menu()
         self.commands_menu = self.menuBar().addMenu("&Commands")
         fd.command_menu(self, self.commands_menu)
         from .sketch_ui import SketchUI
@@ -694,11 +701,18 @@ class MainWindow(QMainWindow):
 
         _prefs.restore(self)
         _prefs.load_plugins(self)
+        from . import spacemouse_input
+
+        self.spacemouse = spacemouse_input.attach(self)  # a 3D mouse moves the view (PLAN item 111)
         self.shell.report_last_session()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt name
         if self.offload.busy:
             self.offload.helper.cancel()
+        tabs = getattr(self, "project_tabs", None)
+        if tabs is not None and tabs.count() > 1 and not tabs.confirm_close_all():
+            event.ignore()
+            return
         self.shell.close_event(event)
         if event.isAccepted():
             from .form_dialog import FormDialog
@@ -1046,6 +1060,28 @@ class MainWindow(QMainWindow):
                      "and looks (MATLIB)")
         a.triggered.connect(self.open_materials)
         self.materials_action = a
+        a = m.addAction("&Drawing sheets…")
+        a.setToolTip("The drawing sheets as they print, kept up to date: drag views, add sizes and notes on what "
+                     "you pick, save a PDF (DRAWSHEET, SHEETVIEW, SHEETNOTE)")
+        a.triggered.connect(self.open_sheets)
+        self.sheets_action = a
+        sub = m.addMenu("Detail")  # big assemblies stay quick to turn (DETAIL, PLAN item 112)
+        sub.setToolTipsVisible(True)
+        from PySide6.QtGui import QActionGroup
+
+        grp = QActionGroup(sub)
+        self.detail_actions = {}
+        for mode, text, tip in (("AUTO", "Automatic", "Everything until 300 bodies are shown, then fast"),
+                                ("FINE", "Everything", "Every body at full detail, however many there are"),
+                                ("FAST", "Fast (big assemblies)", "Coarser meshes, and bodies smaller than a few "
+                                                                  "pixels left out while drawing")):
+            a = sub.addAction(text)
+            a.setCheckable(True)
+            a.setToolTip(tip + f" (DETAIL, {mode})")
+            a.setChecked(mode == "AUTO")
+            grp.addAction(a)
+            a.triggered.connect(lambda _c=False, md=mode: self.execute(f"DETAIL, {md}"))
+            self.detail_actions[mode] = a
         self.view_menu = m
 
     def toggle_console(self, on: bool | None = None):
@@ -1059,6 +1095,12 @@ class MainWindow(QMainWindow):
         from .materials_dialog import open_dialog
 
         return open_dialog(self)
+
+    def open_sheets(self):
+        """View > Drawing sheets…: the live sheet window (gui/sheet_window.py)."""
+        from .sheet_window import open_window
+
+        return open_window(self)
 
     def tutorial_changed(self) -> None:
         """TUTORIAL started, moved or stopped: the Tutorial panel follows."""
@@ -1167,6 +1209,14 @@ class MainWindow(QMainWindow):
                 menu.insertAction(sep, act)
                 if not picked:
                     menu.insertSeparator(sep)
+        tabs = getattr(self, "project_tabs", None)
+        if tabs is not None and tabs.count() > 1 and bid in m.bodies:  # PLAN item 109
+            sel = list(m.selection) if m.selection_kind == "BODY" and bid in m.selection else [bid]
+            sub = menu.addMenu("Copy to")
+            for k, label in enumerate(tabs.labels()):
+                if k != tabs.current:
+                    act = sub.addAction(label)
+                    act.triggered.connect(lambda _=False, k=k, sel=sel: tabs.copy_to(sel, k))
         self._body_menu = menu  # tests read it
         menu.popup(global_pos)
 

@@ -4211,7 +4211,112 @@ are there to read. Commands run through the console go into the history
 like typed ones. A line that changes the model directly is undone at once,
 so the history stays the whole story of the model.
 
-## 51. Changing what later steps are built on
+## 51. Copy and paste, up-to moves, projects in tabs
+
+### Copy, paste and duplicate
+
+Edit > Copy (Ctrl+C) takes the picked bodies, the picked faces, or, while
+sketching, the picked sketch geometry. Edit > Paste (Ctrl+V) makes copies
+under the mouse (on the model, or on the ground plane Z = 0; in a sketch, on
+the sketch plane). Edit > Duplicate (Ctrl+D) makes copies beside the
+originals. Each copy is an ordinary history step:
+
+    COPY, 1, 11, 0, 0                         ! a body pasted in its own project
+    PASTE, CLIP1, 50, 0, 0                    ! from another project, or faces
+    STRANSFORM, MOVE, 11, 0, 1, 2, 3, COPY    ! sketch geometry, same sketch
+    SLINE, 20, 0, 30, 0                       ! sketch geometry, another sketch
+
+Geometry from another project (or picked faces, which paste as one sheet
+body) is kept with this project under a name (CLIP1, CLIP2 ...), so the
+PASTE step rebuilds without the clipboard. The pasted body keeps its name
+(when it is free), colour and material. `PASTE, LIST` lists what is kept.
+A text field with the focus keeps its own Ctrl+C and Ctrl+V.
+
+### Snapping and up-to moves
+
+While a drag handle moves a body or pulls faces, a corner, edge middle,
+circle centre or flat-face middle of what is dragged snaps level with the
+same kinds of points on the other bodies when it comes within 10 pixels; a
+ring marks the point and the label names it. Shift drags freely.
+
+    UPTO, box, FACE, 11              ! along the face's normal until it touches it
+    UPTO, box, VERTEX, 7, Z, 2       ! along Z, stopping 2 short of vertex 7
+    UPTO, SEL, FACE, 11              ! pull the picked flat faces level with face 11
+    UPTO, FACES 6 9, FACE, 11        ! the same, faces named
+
+`UPTO` moves a body (along X, Y, Z, or NORMAL, the target face's normal,
+the default for a face target) just far enough that its side facing the
+target touches the plane through it: a face's middle, an edge's middle (a
+round edge's centre) or a vertex. Round sides count exactly. Picked faces
+move along their own normals instead (a PUSHPULL with the distance worked
+out). `offset` stops short (negative: past). A right click on a body gives
+Move up to… and Duplicate; on flat faces, Pull up to….
+
+### Several projects in tabs
+
+File > New tab (Ctrl+T) and Open in new tab… (Ctrl+Shift+O) keep the
+project you have open and add another; a tab bar shows above the 3D view
+while more than one is open. Each tab keeps its own history, undo, file and
+view. Ctrl+Tab and Ctrl+Shift+Tab move between tabs and Ctrl+W closes one
+(asking to save its changes first). A body goes to another tab with Ctrl+C
+there and Ctrl+V here, or from its right-click menu, Copy to ▸ (a `PASTE`
+step in that tab, where the body stands). Closing the window asks about each
+tab with unsaved changes. The assistant works on the shown tab; its
+`user_context` names the open tabs.
+
+
+## 52. The drawing-sheet window, the 3D mouse, big assemblies
+
+### The drawing-sheet window
+
+View > Drawing sheets… shows a sheet (`DRAWSHEET`) as it prints, made from
+the model as it is now, and draws it again a moment after every change. A
+dashed box marks each view: drag it to move the view, which writes one
+history step:
+
+    SHEETVIEW, front, TOP, 0, 15          ! the top view 15 higher than its own place
+    SHEETVIEW, front, TOP, RESET          ! back in its own place
+    SHEETNOTE, front, SIZE, EDGE 5        ! the length of a straight edge, or a round edge's diameter
+
+`SHEETVIEW`'s move is in the model's units before the sheet's scale, and it
+is where the view is, not a step: the same view again replaces it. Moving a
+view does not move the others or change the scale. A `SIZE` goes into a
+view that shows the edge at its true length (across, up or slanted), or, for
+a round edge, a view that looks along its axis. The window's buttons: Size
+of picked edge, Note on pick… (a leader note), Centre marks, Parts list…
+(`SHEETTABLE`), Views back and Save PDF… (`DRAWINGS`). A right click on an
+edge also offers Size on sheet.
+
+### The 3D mouse
+
+A 3D mouse (a SpaceMouse or another six-axis cap) moves the view: the model
+follows the cap, so slide it to pan, push or pull to zoom, tilt and twist to
+turn. On Linux it is read through the spacenavd service; anywhere, through
+the pyspacemouse package (`pip install pyspacemouse`, which needs the hidapi
+library). Preferences > Mouse sets it, and so does `SPACEMOUSE` (the
+settings are the app's, not the project's, and are not history steps):
+
+    SPACEMOUSE                     ! found or not, and how it is set
+    SPACEMOUSE, SPEED, 2           ! 0.1 ... 5
+    SPACEMOUSE, ROTATE, OFF        ! pan and zoom only (PAN, ZOOM the same way)
+    SPACEMOUSE, DOMINANT, ON       ! only the strongest axis counts
+    SPACEMOUSE, INVERT, RY TZ      ! these axes the other way (NONE: none)
+    SPACEMOUSE, BUTTON, 1, FIT     ! what a button runs (FIT and VIEW, ISO to start)
+    SPACEMOUSE, OFF                ! ON, OFF, RESET
+
+### Big assemblies
+
+Copies of a part (`INST`) share one shape, moved into place, so the mesh the
+view draws is made once however many copies there are. A script that adds
+many bodies redraws the view once at its end. View > Detail, or `DETAIL`,
+sets how much the view draws:
+
+    DETAIL                         ! how it is now
+    DETAIL, FAST, 6                ! coarser meshes; bodies under 6 pixels left out
+    DETAIL, FINE                   ! everything
+    DETAIL, AUTO                   ! FINE until 300 bodies are shown, then FAST (the start)
+
+## 53. Changing what later steps are built on
 
 ### A sketch that features already use
 

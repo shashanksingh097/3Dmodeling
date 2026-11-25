@@ -223,6 +223,47 @@ class OccViewport(QWidget):
             self._apply_background()
             self.view.Redraw()
 
+    # ---- big assemblies (PLAN item 112) ---------------------------------------------------------
+    DETAIL_MODES = ("AUTO", "FINE", "FAST")
+    BIG_AFTER = 300  # AUTO draws fast from this many shown bodies
+    FINE_DEVIATION, FAST_DEVIATION = 0.001, 0.004  # mesh sag per size of the body (OCCT's default first)
+
+    def set_detail(self, mode: str, cull_px: float | None = None) -> None:
+        """How much detail the view draws: FINE (all of it), FAST (coarser meshes for new bodies, and bodies
+        smaller than cull_px pixels left out), AUTO (FAST once BIG_AFTER bodies are shown)."""
+        if mode not in self.DETAIL_MODES:
+            raise ValueError(mode)
+        self.detail_mode = mode
+        if cull_px is not None:
+            self.cull_px = max(float(cull_px), 0.0)
+        self._apply_detail(force=True)
+        if getattr(self, "_initialized", False):
+            self.view.Redraw()
+
+    def detail_fast(self) -> bool:
+        if self.detail_mode == "AUTO":
+            return len(self._ais) >= self.BIG_AFTER  # the bodies drawn
+        return self.detail_mode == "FAST"
+
+    def _apply_detail(self, force: bool = False) -> None:
+        if not getattr(self, "_initialized", False):
+            return
+        fast = self.detail_fast()
+        if fast == self._fast_now and not force:
+            return
+        self._fast_now = fast
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Default
+
+        self.context.DefaultDrawer().SetDeviationCoefficient(self.FAST_DEVIATION if fast else self.FINE_DEVIATION)
+        ls = self.viewer.ZLayerSettings(Graphic3d_ZLayerId_Default)
+        ls.SetCullingSize(self.cull_px if fast and self.cull_px > 0 else -1.0)
+        self.viewer.SetZLayerSettings(Graphic3d_ZLayerId_Default, ls)
+
+    def detail_state(self) -> dict:
+        shown = sum(1 for b in self.model.bodies if self.model.is_shown(b))
+        return {"mode": self.detail_mode, "fast": self.detail_fast(), "cull_px": self.cull_px, "shown": shown,
+                "big_after": self.BIG_AFTER}
+
     def _apply_background(self) -> None:
         lo, hi = BACKGROUNDS.get(self.background, BACKGROUNDS["grey"])
         self.view.SetBgGradientColors(_rgb(*lo), _rgb(*hi),
@@ -290,6 +331,9 @@ class OccViewport(QWidget):
         self._mask_ais = None  # frozen areas, drawn dark over the body
         self._hover_at = 0.0
         self._initialized = False
+        self._update_pending = False  # a redraw waits for a burst of model events to end (_update_soon)
+        self._last_update = 0.0
+        self.detail_mode, self.cull_px, self._fast_now = "AUTO", 3.0, False  # big assemblies (set_detail)
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point), "cube"
         self.mouse_style = ms.get(ms.DEFAULT)  # which drags orbit, pan and zoom (set_mouse_style)
@@ -341,6 +385,7 @@ class OccViewport(QWidget):
         self.view.SetProj(_VIEWS["ISO"])
         self.view.MustBeResized()
         self._initialized = True
+        self._apply_detail(force=True)
         try:  # PLAN item 93: the view cube in the top right corner
             from .view_cube import ViewCube
 
@@ -568,6 +613,7 @@ class OccViewport(QWidget):
             QTimer.singleShot(0, self._section_edit_again)
 
     def _apply_body_event(self, ev: Event) -> None:
+        self._apply_detail()
         if ev.kind == "body_added":
             first = not self._ais
             self._display_body(ev.body_id, update=False)
@@ -642,7 +688,30 @@ class OccViewport(QWidget):
                 self._display_body(bid, update=False)
             self._show_datums()
             self._sync_selection()
-        self.context.UpdateCurrentViewer()
+        self._update_soon()
+
+    def _update_soon(self) -> None:
+        """Redraw now, unless a redraw was just made: then once when the events stop coming. A script that
+        adds hundreds of bodies redraws a few times, not once per body (PLAN item 112)."""
+        import time as _t
+
+        if self._update_pending:
+            return
+        now = _t.monotonic()
+        if now - self._last_update > 0.05:
+            self._last_update = now
+            self.context.UpdateCurrentViewer()
+            return
+        self._update_pending = True
+        QTimer.singleShot(0, self, self._update_now)
+
+    def _update_now(self) -> None:
+        import time as _t
+
+        self._update_pending = False
+        if self._initialized and self.isVisible():  # not once its window has closed: its GL window is gone
+            self._last_update = _t.monotonic()
+            self.context.UpdateCurrentViewer()
 
     def _look(self, bid: int) -> tuple:
         """What a body's drawing depends on besides its shape: colour and see-through."""
@@ -1613,6 +1682,7 @@ class OccViewport(QWidget):
         if self._hd_ghost is not None:
             ctx.Remove(self._hd_ghost, False)
             self._hd_ghost = None
+        self._show_snap_marker(hd)
         if hd is None:
             return
         pv = hd.preview()
@@ -1643,8 +1713,34 @@ class OccViewport(QWidget):
         self._show_handle_label()
         ctx.UpdateCurrentViewer()
 
+    def _show_snap_marker(self, hd) -> None:
+        """A marker on the point a drag snapped to (PLAN item 108)."""
+        from OCP.Aspect import Aspect_TypeOfMarker
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+        from OCP.gp import gp_Pnt
+        from OCP.Prs3d import Prs3d_PointAspect
+
+        ctx = self.context
+        old = getattr(self, "_snap_ais", None)
+        if old is not None:
+            ctx.Remove(old, False)
+            self._snap_ais = None
+        g = hd.drag if hd is not None else None
+        if g is None or g.snapped is None or g.typed:
+            return
+        ais = AIS_Shape(BRepBuilderAPI_MakeVertex(gp_Pnt(*g.snapped[0])).Vertex())
+        colour = _rgb(1.0, 0.2, 0.9)
+        ais.SetColor(colour)
+        ais.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TypeOfMarker.Aspect_TOM_RING1, colour, 3.0))
+        ctx.Display(ais, 0, -1, False)
+        _on_top(ctx, ais)
+        ctx.Deactivate(ais)
+        self._snap_ais = ais
+
     def _end_handle_preview(self) -> None:
         from OCP.TopLoc import TopLoc_Location
+
+        self._show_snap_marker(None)
 
         hd = self._hd
         if hd is not None and hd.mode == "BODY":
@@ -1669,7 +1765,10 @@ class OccViewport(QWidget):
         self._hd_label.setText(self._hd.readout() + "   (type a value, Enter; Esc cancels)")
         self._hd_label.adjustSize()
         pos = self.mapFromGlobal(self.cursor().pos())
-        self._hd_label.move(pos.x() + 16, pos.y() + 16)
+        lw, lh = self._hd_label.width(), self._hd_label.height()
+        x = pos.x() + 16 if pos.x() + 16 + lw <= self.width() else max(0, pos.x() - 16 - lw)  # inside the view
+        y = min(max(0, pos.y() + 16), max(0, self.height() - lh))
+        self._hd_label.move(x, y)
         self._hd_label.show()
 
     def _ray(self, x: int, y: int):
@@ -1692,6 +1791,33 @@ class OccViewport(QWidget):
         hit = (X + t * vx, Y + t * vy, Z + t * vz)
         u, v, _ = f.local(hit)
         return u, v
+
+    def paste_point(self):
+        """Where a paste goes: under the mouse (a sketch point (u, v) while sketching; else the
+        point of the model under it, or where it meets the ground plane Z = 0). None when the
+        mouse is not over the view."""
+        if not self._initialized:
+            return None
+        pos = self.mapFromGlobal(self.cursor().pos())
+        if not self.rect().contains(pos):
+            return None
+        x, y = self._px(pos)
+        if self._sketching():
+            return self.plane_point(x, y)
+        try:
+            self.context.MoveTo(x, y, self.view, False)
+            if self.context.HasDetected():
+                sel = self.context.MainSelector()
+                if sel.NbPicked() > 0:
+                    pt = sel.PickedPoint(1)
+                    return (pt.X(), pt.Y(), pt.Z())
+        except Exception:  # noqa: BLE001 - fall back to the ground plane
+            pass
+        X, Y, Z, vx, vy, vz = self.view.ConvertWithProj(x, y)
+        if abs(vz) < 1e-9:
+            return None
+        t = -Z / vz
+        return (X + t * vx, Y + t * vy, 0.0)
 
     def pixel_of(self, u: float, v: float) -> tuple[int, int]:
         """Device pixel of sketch point (u, v) of the open sketch."""
@@ -2484,7 +2610,8 @@ class OccViewport(QWidget):
             return  # no hover highlight while sculpting: the brush circle shows where it acts
         if self._drag == "handle":
             if moved and self._hd is not None:
-                self._hd.move(self._ray(x, y), free=bool(e.modifiers() & Qt.ShiftModifier))
+                self._hd.move(self._ray(x, y), free=bool(e.modifiers() & Qt.ShiftModifier),
+                              to_pixel=lambda q: self.view.Convert(*q))
                 self._handle_preview()
             return
         if self._drag == "point":

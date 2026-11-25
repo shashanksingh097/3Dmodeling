@@ -294,6 +294,7 @@ class PreferencesDialog(QDialog):
         self.mouse.currentIndexChanged.connect(self._mouse_changed)
         self.invert_wheel.toggled.connect(self._mouse_changed)
         self._mouse_text()
+        lay.addWidget(self._spacemouse_box())
         keys = QPushButton("Keyboard shortcuts…")
         keys.setToolTip("Give any menu item, toolbar button or command form a key of your own")
         keys.clicked.connect(self._shortcuts)
@@ -303,6 +304,66 @@ class PreferencesDialog(QDialog):
         lay.addLayout(row)
         lay.addStretch(1)
         return page
+
+    def _spacemouse_box(self) -> QWidget:
+        """The 3D mouse (PLAN item 111): on/off, speed, which motions, axes turned round."""
+        from PySide6.QtWidgets import QDoubleSpinBox, QGroupBox
+
+        from ..viewport import spacemouse as sm
+
+        box = QGroupBox("3D mouse")
+        form = QFormLayout(box)
+        s = sm.settings
+        self.sm_on = QCheckBox("Use a 3D mouse (SpaceMouse) to move the view")
+        self.sm_on.setChecked(s.on)
+        form.addRow(self.sm_on)
+        self.sm_speed = QDoubleSpinBox()
+        self.sm_speed.setRange(0.1, 5.0)
+        self.sm_speed.setSingleStep(0.1)
+        self.sm_speed.setValue(s.speed)
+        form.addRow("Speed:", self.sm_speed)
+        moves = QHBoxLayout()
+        self.sm_moves = {}
+        for key, label in (("rotate", "Turn"), ("pan", "Pan"), ("zoom", "Zoom"), ("dominant", "Strongest axis only")):
+            c = QCheckBox(label)
+            c.setChecked(getattr(s, key))
+            moves.addWidget(c)
+            self.sm_moves[key] = c
+        moves.addStretch(1)
+        form.addRow("Moves:", moves)
+        inv = QHBoxLayout()
+        self.sm_invert = {}
+        for a in sm.AXES:
+            c = QCheckBox(a)
+            c.setToolTip(f"Turn {a} the other way (T: slide, R: turn; X across, Y up, Z toward you)")
+            c.setChecked(a in s.invert)
+            inv.addWidget(c)
+            self.sm_invert[a] = c
+        inv.addStretch(1)
+        form.addRow("Other way:", inv)
+        drv = getattr(self.win, "spacemouse", None)
+        st = drv.status() if drv is not None else {"found": False, "notes": []}
+        self.sm_status = QLabel(f"Connected through {st['via']}." if st["found"] else
+                                "No 3D mouse found. On Linux it is read through spacenavd; anywhere else install "
+                                "pyspacemouse (pip install pyspacemouse).")
+        self.sm_status.setWordWrap(True)
+        form.addRow(self.sm_status)
+        for w in (self.sm_on, *self.sm_moves.values(), *self.sm_invert.values()):
+            w.toggled.connect(self._spacemouse_changed)
+        self.sm_speed.valueChanged.connect(self._spacemouse_changed)
+        return box
+
+    def _spacemouse_changed(self, *_args) -> None:
+        from ..viewport import spacemouse as sm
+
+        s = sm.settings
+        s.on, s.speed = self.sm_on.isChecked(), round(self.sm_speed.value(), 2)
+        for key, c in self.sm_moves.items():
+            setattr(s, key, c.isChecked())
+        s.invert = {a for a, c in self.sm_invert.items() if c.isChecked()}
+        drv = getattr(self.win, "spacemouse", None)
+        if drv is not None:
+            drv.settings_changed()
 
     def _mouse_text(self) -> None:
         st = ms.get(self.mouse.currentData())
