@@ -1174,13 +1174,27 @@ done.
     thickness, the bends and their radii in a solid that was not made with
     `SHEET`, so `UNFOLD`, `SHEETINFO` and `FLANGE` work on it. Refused with a
     plain reason when the walls are not of one thickness.
+    *Done (geometry/sheet_detect.py, `TOSHEET`, skill sheet-metal): a flat
+    base with flanges bent straight off it, up or down, at any angle and
+    radius. Bends off other bends, and walls of several thicknesses, are
+    refused with the reason (the flat pattern must explain the volume).*
 72. **More on drawing sheets** (P1): balloons that follow the parts list,
     a parts-list table, a hole table (position, size, thread, depth) and a
     revision table, all made again when the model changes. Added by command
     (`DRAWSHEET` options) and by right click on a view.
+    *Done (geometry/sheet_tables.py, `DRAWSHEET` tables, `SHEETTABLE`,
+    `REVISION`, `SHEETDATA`, right click in the 3D view): parts list with
+    balloons, hole table with tags (one letter per kind of hole; the thread
+    from a NOTE on the hole), revision table; the newest revision is the
+    title block's REV.*
 73. **Sizes and tolerances in STEP** (P1): `NOTE` sizes, hole notes,
     geometric tolerances and datums written to STEP (AP242) so other
     programs read them, and read back when such a file is imported.
+    *Done (geometry/step_pmi.py, commands/pmi_notes.py, `EXPORT, STEP`,
+    `IMPORT, STEP`): sizes, diameters with fits (found again from their
+    limits), all GD&T kinds with round zones and up to three datums. Plain
+    text notes stay in the project; a datum no tolerance uses is written but
+    not read back.*
 74. **Plug-ins** (P1): a folder where people put their own Python commands
     (one file each, with a form, help and a skill made from their arguments),
     a plug-in list in Preferences to turn them on or off, and a check that a

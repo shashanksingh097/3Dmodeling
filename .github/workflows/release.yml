@@ -236,6 +236,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release
+          # only the builds: the desktop-check reports are artifacts too, and their folders
+          # (named with spaces and non-English letters on purpose) are not release files
+          pattern: 3Dmodeling-*
           merge-multiple: true
       - name: Checksums
         run: (cd release && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)

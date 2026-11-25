@@ -168,6 +168,7 @@ class Hole:
     mouth: P3 = (0.0, 0.0, 0.0)  # the open end (the start of a through hole's axis)
     # a wider hole on the same axis that starts where this one ends: (diameter, depth)
     counterbore: tuple[float, float] | None = None
+    cb_top: P3 | None = None  # where the counterbore opens (its end away from this hole)
 
     @property
     def depth(self) -> float:
@@ -254,6 +255,8 @@ def _join_counterbores(found: list[Hole], tol: float) -> list[Hole]:
             if _norm(_sub(off, tuple(c * _dot(off, small.axis) for c in small.axis))) > close * 10:
                 continue
             small.counterbore = (big.d, big.depth)
+            near = min((big.start, big.end), key=lambda q: min(_norm(_sub(q, small.start)), _norm(_sub(q, small.end))))
+            small.cb_top = big.end if near is big.start else big.start
             small.faces = sorted(small.faces + big.faces)
             gone.add(j)
             break

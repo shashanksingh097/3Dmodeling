@@ -113,6 +113,13 @@ TASKS: list[Task] = [
          refuse=("too large", "too big", "cannot", "can't", "not possible", "impossible", "larger than",
                  "at most", "maximum"), area="fixing-failed-steps"),
     # ---- one or more per skill area (PLAN item 47) ----
+    Task("imported_holes",
+         "This plate came from another program with no history. Make every 6 mm hole in it 8 mm, and leave "
+         "the 10 mm hole as it is.",
+         ["VALID(plate)", "HOLES(plate, 8, 1), EQ, 4", "HOLES(plate, 6, 1), EQ, 0", "HOLES(plate, 10, 1), EQ, 1"],
+         setup="BLOCK, 0,0,0, 80,50,8\nNAME, LAST, plate\nHOLE, plate, 10, 10, 8, 6\nHOLE, plate, 70, 10, 8, 6\n"
+               "HOLE, plate, 10, 40, 8, 6\nHOLE, plate, 70, 40, 8, 6\nHOLE, plate, 40, 25, 8, 10",
+         reference="RESIZE, plate, HOLE, EQ, 6, 8", area="imported-parts"),
     Task("sheet_bracket",
          "Make a sheet metal bracket from 2 mm sheet: a flat 60 x 40 mm base with a 25 mm wall bent up along "
          "one of its 60 mm edges (bend radius 2), and its flat blank as a separate body beside it.",

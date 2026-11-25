@@ -116,7 +116,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Combine", ("UNION", "SUBTRACT", "INTERSECT", "KEEP")),
     ("Features", ("FILLET", "CHAMFER", "HOLE", "THREAD", "SHELL", "DRAFT", "OFFSET", "SPLIT", "KNIFE", "RIB",
                   "LIP", "WRAP")),
-    ("Sheet metal", ("SHEET", "FLANGE", "SBEND", "UNFOLD", "SHEETINFO")),
+    ("Sheet metal", ("SHEET", "FLANGE", "SBEND", "UNFOLD", "SHEETINFO", "TOSHEET")),
     ("Frames", ("MEMBER", "WELD", "CUTLIST")),
     ("Pipes and cables", ("ROUTE", "ROUTES")),
     ("Standard parts", ("GEAR", "FASTENER", "CAM")),
@@ -136,7 +136,7 @@ CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
     ("Check", ("DESCRIBE", "ASSERT", "CONTACT", "CLEARANCE", "RELATE", "COMPARE", "DESIGNCHECK", "PROBE", "PROFILE", "THICK", "SELFOR", "REFS", "DIFF", "LINT", "MOTION", "STRESS", "TOPOPT", "GRAVITY")),
     ("Make", ("PRINTCHECK", "MILL")),
     ("Parts", ("INST", "MATE", "JOINT", "JOINTS", "EXPLODE", "XSTEP", "XSHOW", "LIB", "LIBSAVE", "TAKE", "DEPENDS", "MATES", "CSYS")),
-    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "DRAWINGS", "PROPERTY", "RENDER",
+    ("Settings and files", ("/UNITS", "/TOL", "IMPORT", "EXPORT", "DRAWING", "DRAWSHEET", "SHEETTABLE", "REVISION", "SHEETDATA", "DRAWINGS", "PROPERTY", "RENDER",
                             "BACKUPS", "FILES", "RELINK", "SHARECHECK")),
 ]
 

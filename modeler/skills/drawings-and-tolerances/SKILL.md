@@ -1,7 +1,7 @@
 ---
 name: drawings-and-tolerances
 description: 2D drawings and sheets (views, sections, details, sizes, title block) as SVG, DXF or PDF, notes and sizes pinned to the 3D model, ISO 286 fits, geometric tolerances with datums, and tolerance stack-ups. Use for "make a drawing", "add tolerances", "will these parts always fit".
-commands: DRAWING, PROPERTY, NOTE, FITS, STACKUP, SECTION
+commands: DRAWING, DRAWSHEET, SHEETTABLE, SHEETDATA, REVISION, PROPERTY, NOTE, FITS, STACKUP, SECTION
 ---
 # Drawings and tolerances
 
@@ -30,6 +30,19 @@ commands: DRAWING, PROPERTY, NOTE, FITS, STACKUP, SECTION
    `"FRONT 20 0 5 8 3"` go in the section and detail arguments.
    DRAWING writes a file: in the assistant, propose it for the user to run
    (files are refused in the sandbox).
+6. **Sheets kept with the model, with tables**: `DRAWSHEET, front,
+   STANDARD, 0, ALL, A3` keeps a sheet; `SHEETTABLE, front, PARTS+HOLES`
+   (or ALL) adds a parts list with numbered balloons, a hole table with a
+   tag beside each hole (position, size, depth, thread from a NOTE on the
+   hole such as `"M6x1"`) and a revision table. Rows come from the model
+   each time the sheets are written. `REVISION, B, "Hole moved"` adds a
+   revision (the newest is the title block's REV). Check the rows with
+   `SHEETDATA, front` (data, writes nothing).
+7. **Sizes and tolerances to other programs**: `EXPORT, STEP, "part.step"`
+   writes the NOTE sizes, hole diameters and fits, GD&T frames and datums
+   on the exported bodies as AP242 annotations (the reply says how many).
+   `IMPORT, STEP` of such a file makes them notes again. Plain text notes
+   are not written.
 
 ```cmd
 BLOCK, 0, 0, 0, 60, 40, 10
@@ -45,6 +58,8 @@ FITS, H7/g6, 20
 * The STACKUP answer says "always within" for worst case (or for the
   statistical range, if the user accepts that).
 * `FITS` says clearance, transition or interference as the user wants.
+* Tables: `SHEETDATA, sheet` lists the parts, hole tags and revisions the
+  sheet will show; a hole missing from it is not a round hole.
 * Notes: `LIST` or the notes in the view; every GD&T frame that names a
   datum needs that datum letter on a face.
 

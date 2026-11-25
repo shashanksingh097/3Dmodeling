@@ -87,9 +87,9 @@ def test_bad_uses_say_what_to_do(p):
 
 def test_parts_use_parts(p):
     ok(p, BOLT)
-    ok(p, "*PART, joint, N=4\n  BLOCK, -20,-20,0, 40, 40, 5\n  *DO, i, 1, N\n"
+    ok(p, "*PART, hub, N=4\n  BLOCK, -20,-20,0, 40, 40, 5\n  *DO, i, 1, N\n"
           "    INST, bolt, 12*cos(90*i), 12*sin(90*i), 5, D=4, L=10\n  *ENDDO\n*ENDPART")
-    ok(p, "INST, joint, 0, 0, 0")
+    ok(p, "INST, hub, 0, 0, 0")
     assert len(p.model.bodies) == 1
     assert vol(p, 1) == pytest.approx(40 * 40 * 5 + 4 * bolt_volume(4, 10), rel=1e-6)
 

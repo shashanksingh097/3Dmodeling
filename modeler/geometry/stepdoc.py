@@ -85,13 +85,20 @@ def _face_colour(ct, shape: TopoDS_Shape) -> Colour | None:
     return found.pop() if found else None
 
 
-def read(path: str) -> list[Part]:
+def read(path: str, pmi: list | None = None) -> list[Part]:
     """Every single part in the file, placed, with its name and colour (None where the file has
-    none). An empty list when the file holds no shapes; IOError when it cannot be read."""
+    none). An empty list when the file holds no shapes; IOError when it cannot be read.
+    With a list for ``pmi``, the sizes, tolerances and datums in the file (AP242) are added to it
+    as records (geometry/step_pmi.py)."""
     r = STEPCAFControl_Reader()
     r.SetNameMode(True)
     r.SetColorMode(True)
     r.SetLayerMode(False)
+    if pmi is not None:
+        from OCP.STEPCAFControl import STEPCAFControl_Controller
+
+        (getattr(STEPCAFControl_Controller, "Init_s", None) or STEPCAFControl_Controller.Init)()
+        r.SetGDTMode(True)
     if int(r.ReadFile(path)) != 1:  # IFSelect_RetDone
         raise OSError(f"could not read STEP file {path}")
     doc = _doc()
@@ -126,6 +133,13 @@ def read(path: str) -> list[Part]:
     st.GetFreeShapes(free)
     for i in range(1, free.Length() + 1):
         walk(free.Value(i), TopLoc_Location(), "", None)
+    if pmi is not None:
+        from . import step_pmi
+
+        try:
+            pmi.extend(step_pmi.read(doc))
+        except Exception:  # noqa: BLE001 - annotations a file gets wrong must not stop the shapes
+            pass
     return out
 
 
@@ -136,23 +150,46 @@ def _is_generic(name: str) -> bool:
             or n.startswith("OPEN CASCADE"))
 
 
-def write(path: str, parts: list[Part], units: str = "MM") -> bool:
-    """Write ``parts`` as one STEP file, each with its name and colour."""
+def write(path: str, parts: list[Part], units: str = "MM", pmi: list | None = None, unit_mm: float = 1.0) -> bool:
+    """Write ``parts`` as one STEP file, each with its name and colour. With ``pmi`` records (sizes,
+    tolerances, datums: geometry/step_pmi.py) the file is AP242 and carries them on the faces."""
     from OCP.Interface import Interface_Static
 
-    (getattr(Interface_Static, "SetCVal_s", None) or Interface_Static.SetCVal)("write.step.unit", units)
+    setc = getattr(Interface_Static, "SetCVal_s", None) or Interface_Static.SetCVal
+    getc = getattr(Interface_Static, "CVal_s", None) or Interface_Static.CVal
+    setc("write.step.unit", units)
     doc = _doc()
     st = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
     ct = XCAFDoc_DocumentTool.ColorTool_s(doc.Main())
+    labels = []
     for part in parts:
         label = st.AddShape(part.shape, False)
+        labels.append((label, part.shape))
         if part.name:
             TDataStd_Name.Set_s(label, TCollection_ExtendedString(part.name))
         if part.color is not None:
             ct.SetColor(label, Quantity_Color(*part.color, Quantity_TOC_sRGB), XCAFDoc_ColorGen)
+    schema = None
+    if pmi:
+        from OCP.STEPCAFControl import STEPCAFControl_Controller
+
+        from . import step_pmi
+
+        # the annotation writer needs the document controller set up: without it, it crashes on
+        # datums
+        (getattr(STEPCAFControl_Controller, "Init_s", None) or STEPCAFControl_Controller.Init)()
+        if step_pmi.add(doc, st, labels, pmi, unit_mm):
+            schema = getc("write.step.schema")
+            setc("write.step.schema", "AP242DIS")  # the schema that carries annotations
     w = STEPCAFControl_Writer()
     w.SetNameMode(True)
     w.SetColorMode(True)
-    if not w.Transfer(doc):
-        return False
-    return int(w.Write(path)) == 1
+    if schema is not None:
+        w.SetDimTolMode(True)
+    try:
+        if not w.Transfer(doc):
+            return False
+        return int(w.Write(path)) == 1
+    finally:
+        if schema is not None:
+            setc("write.step.schema", schema)

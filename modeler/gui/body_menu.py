@@ -172,6 +172,7 @@ def body_items(model, bid: int, sources: dict | None = None, processor=None) -> 
         uid = model.origin("BODY", bid)
         items.append(MenuItem("Find the step that made it", find_entry=uid, enabled=uid > 0))
         items += feature_items(model, bid)
+    items += sheet_items(model)
     items.append(SEPARATOR)
     items.append(MenuItem("Delete" if one else f"Delete {len(ids)} bodies", [f"DELETE, {b}" for b in ids]))
     return items
@@ -366,7 +367,34 @@ def feature_items(model, bid: int) -> list[MenuItem]:
 
 def empty_items(model) -> list[MenuItem]:
     """The menu for a right click on empty space in the 3D view."""
-    return everything_items(model) + [SEPARATOR, MenuItem("Fit all", ["FIT"])]
+    return everything_items(model) + [SEPARATOR, MenuItem("Fit all", ["FIT"])] + sheet_items(model)
+
+
+TABLE_LABELS = (("PARTS", "parts list and balloons"), ("HOLES", "hole table"), ("REVISIONS", "revision table"))
+
+
+def sheet_items(model) -> list[MenuItem]:
+    """Drawing sheets (PLAN item 72): add or take off a sheet's tables, or start a sheet."""
+    sheets = list(getattr(model, "drawsheets", {}).values())
+    if not sheets and not model.bodies:
+        return []
+    items = [SEPARATOR]
+    if not sheets:
+        items.append(MenuItem("New drawing sheet with tables…",
+                              ["DRAWSHEET, sheet1, STANDARD, 0, ALL, AUTO, , , , , ALL"], form="DRAWSHEET"))
+        return items
+    for s in sheets[:4]:
+        have = [w for w in (s.get("tables") or "").split("+") if w]
+        name = s["name"]
+        for word, label in TABLE_LABELS:
+            if word in have:
+                left = [w for w in have if w != word and not (word == "PARTS" and w == "BALLOONS")]
+                items.append(MenuItem(f"Sheet {name}: take off the {label}",
+                                      [f"SHEETTABLE, {name}, {'+'.join(left) or 'NONE'}"]))
+            else:
+                items.append(MenuItem(f"Sheet {name}: add a {label}",
+                                      [f"SHEETTABLE, {name}, {'+'.join(have + [word])}"]))
+    return items
 
 
 def entry_bodies(processor, row: int) -> list[int]:

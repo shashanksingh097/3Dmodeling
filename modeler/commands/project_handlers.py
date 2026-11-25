@@ -92,13 +92,14 @@ def read_shape(fmt: str, path: str) -> TopoDS_Shape:
     raise CommandError(f"IMPORT: {fmt} is not an exact format")
 
 
-def _exact_pieces(fmt: str, path: str) -> list[tuple[TopoDS_Shape, str, tuple | None]]:
-    """(shape, name, colour) for each body an exact file gives. STEP keeps part names and colours."""
+def _exact_pieces(fmt: str, path: str, pmi: list | None = None) -> list[tuple[TopoDS_Shape, str, tuple | None]]:
+    """(shape, name, colour) for each body an exact file gives. STEP keeps part names and colours, and
+    puts its sizes and tolerances (AP242) in ``pmi`` when given."""
     if fmt == "STEP":
         from ..geometry import robust, stepdoc
 
         try:
-            parts = stepdoc.read(path)
+            parts = stepdoc.read(path, pmi)
         except OSError:
             raise CommandError(f"IMPORT: could not read STEP file {path}") from None
         if not parts:
@@ -223,8 +224,11 @@ def import_(p: Processor, format, file, name, kind):
         from ..geometry import robust
 
         unclean = []
-        for k, (s, own, colour) in enumerate(_exact_pieces(format, path)):
+        pmi: list = []
+        new_ids = []
+        for k, (s, own, colour) in enumerate(_exact_pieces(format, path, pmi)):
             body = p.model.add_body(s, name if (name and k == 0) else _free_name(p.model, own))
+            new_ids.append(body.id)
             if colour is not None:
                 p.model.set_style(body.id, color=colour)
             msgs.append(_added(p, body, "IMPORT"))
@@ -235,6 +239,13 @@ def import_(p: Processor, format, file, name, kind):
             which = f"body {b0} is" if len(unclean) == 1 else f"bodies {', '.join(map(str, unclean))} are"
             p.warn(f"IMPORT: {which} not a clean solid (open edges, loose faces or invalid faces); "
                    f"CHECK, {b0}, FLAWS lists the flaws and HEAL, {b0} repairs what it can")
+        if pmi:
+            from ..geometry import step_pmi
+            from .pmi_notes import records_to_notes
+
+            made = records_to_notes(p, pmi, new_ids)
+            msgs.append(f"{made} note{'s' if made != 1 else ''} from the file's annotations "
+                        f"({step_pmi.summary(pmi)}; LIST, NOTES shows them)")
     if len(msgs) == 1:
         return msgs[0]
     return f"IMPORT {file}: {len(msgs)} bodies\n  " + "\n  ".join(msgs)
