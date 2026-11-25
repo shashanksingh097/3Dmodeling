@@ -144,6 +144,11 @@ def _gui(script: str | None) -> int:
             text = f.read()
         # run after the view exists so FIT/VIEW apply
         win.viewport.call_when_ready(lambda: win.processor.run_script(text))
+    else:
+        from .gui import start_page
+
+        if start_page.enabled(win):  # nothing to open: the start page (PLAN item 88)
+            win.viewport.call_when_ready(win.shell.show_start_page)
     return app.exec()
 
 

@@ -26,7 +26,10 @@ from ..lang.expr import fmt_num
 from ..sketch import edit as sedit
 from ..sketch import ellipse as sel
 from ..sketch.sketch import Sketch, SketchError
+from . import sketch_typed as st
 
+_MAKERS = {"SLINE", "SRECT", "SRECTC", "SCIRCLE", "SARC3", "SSLOT", "SNGON", "SRECT3", "SCIRCLE3", "SARCT",
+           "SSLOTARC", "SELLIPSE", "SEARC", "SPOINT", "SCIRCLET"}  # steps that make geometry
 TOOLS = ("SELECT", "LINE", "CENTRELINE", "RECT", "CRECT", "RECT3", "CIRCLE", "CIRCLE3", "ARC", "TARC", "SLOT",
          "ARCSLOT", "POLYGON", "ELLIPSE", "EARC", "CIRCLET", "POINT", "FREEHAND", "TRIM", "EXTEND", "FILLET", "CHAMFER", "SPLIT", "CORNER")
 DRAW_TOOLS = TOOLS[1:TOOLS.index("TRIM")]
@@ -123,6 +126,11 @@ class SketchController:
         self.no_auto = False
         self.click_on: list[str | None] = []  # the curve each click landed on (parallel to clicks)
         self.chain_on: str | None = None  # LINE: the curve the chain's first point is on
+        # typed values (PLAN item 87): the boxes beside the cursor while drawing
+        self.typed = st.Typed(evaluate=processor.evaluate)
+        self.fields: list[st.Field] = []  # the boxes now, with their live values
+        self.last_at: tuple[float, float] | None = None  # where the mouse puts the next point (after typed values)
+        self.typed_error = ""  # the last typed value that could not be used
 
     # ---- state -------------------------------------------------------------
     @property
@@ -146,6 +154,90 @@ class SketchController:
         self.stroke_snap = None
         self.picked = []
         self.preview = Preview()
+        self.typed.clear()
+        self.fields = []
+
+    # ---- typed values (item 87) -------------------------------------------------------
+    def stage(self) -> int:
+        """How many points of the shape are placed (a LINE chain going on: 1)."""
+        if self.tool == "LINE" and self.chain_end:
+            return 1
+        return len(self.clicks)
+
+    def _placed(self) -> list:
+        pts = [c[0] for c in self.clicks]
+        if self.tool == "LINE" and self.chain_end and self.sketch is not None:
+            pts = [self.sketch.pt(self.sketch.ref(self.chain_end).point)]
+        return pts
+
+    def typing_fields(self) -> tuple[tuple[str, str], ...]:
+        return self.typed.keys(self.tool, self.stage())
+
+    def _typed_at(self, at, snap):
+        """The point the fixed values give (the mouse only sets what is not fixed)."""
+        if self.typed.values and self.typing_fields():
+            return self.typed.constrain(self.tool, self._placed(), at), None
+        return at, snap
+
+    def _live_fields(self, at) -> None:
+        pts = self._placed()
+        self.fields = self.typed.live(self.tool, pts, at) if pts and self.typing_fields() else []
+
+    def type_key(self, text: str) -> bool:
+        """A key typed in the view while drawing; True when a box took it."""
+        if not self.typing_fields():
+            return False
+        used = self.typed.type_key(self.tool, self.stage(), text)
+        if used and self.last_at is not None:
+            self._live_fields(self.last_at)
+        return used
+
+    def type_tab(self, raw_at=None) -> None:
+        """Tab: fix what is typed, go on to the next box."""
+        if not self.typing_fields():
+            return
+        self.typed_error = ""
+        try:
+            self.typed.tab(self.tool, self.stage())
+        except st.TypedError as exc:
+            self.typed_error = str(exc)
+        self._refresh_typed(raw_at)
+
+    def type_value(self, key: str, text: str) -> None:
+        """Fix one box (``key`` L, A, W, H or R) to ``text``; raises TypedError."""
+        self.typed.fix(key, text, self.tool)
+        self._refresh_typed(None)
+
+    def _refresh_typed(self, raw_at) -> None:
+        at = raw_at if raw_at is not None else self.last_at
+        if at is None:
+            return
+        at = self.typed.constrain(self.tool, self._placed(), at) if self._placed() else at
+        self.last_at = at
+        self._live_fields(at)
+
+    def type_escape(self) -> bool:
+        """Esc while values are typed: drop them (True); a second Esc ends the drawing."""
+        if self.typed.active:
+            self.typed.values = {}
+            self.typed.focus, self.typed.buffer = -1, ""
+            if self.last_at is not None:
+                self._live_fields(self.last_at)
+            return True
+        return False
+
+    def enter(self, tol: float) -> list[str]:
+        """Enter: fix what is typed and place the point the values give."""
+        self.typed_error = ""
+        if not self.typing_fields() or self.last_at is None:
+            return []
+        try:
+            self.typed.commit(self.tool, self.stage())
+        except st.TypedError as exc:
+            self.typed_error = str(exc)
+            return []
+        at = self.typed.constrain(self.tool, self._placed(), self.last_at)
+        return self.click(at[0], at[1], tol)
 
     # ---- finding things under the mouse -----------------------------------------
     def snap(self, u: float, v: float, tol: float) -> tuple[tuple[float, float], str | None]:
@@ -275,6 +367,12 @@ class SketchController:
         """The mouse moved: update the preview."""
         pv = Preview()
         at, snap = self.snap(u, v, tol)
+        if self.typing_fields():
+            at, snap = self._typed_at(at, snap)
+            self.last_at = at
+            self._live_fields(at)
+        else:
+            self.fields = []
         if snap:
             pv.snap = at
         if self.tool == "SELECT" and self.drag:
@@ -315,7 +413,7 @@ class SketchController:
                 pv.circles.append(((u, v), r))
         elif self.clicks or (self.tool == "LINE" and self.chain_end):
             pv = self._rubber(at, pv)
-        if self.tool in AUTO_TOOLS:
+        if self.tool in AUTO_TOOLS and not self.typed.values:
             self._marks(at, self.on_curve(u, v, tol, snap), pv, tol)
             if self.tool == "LINE" and (self.clicks or self.chain_end):
                 start, a = self._line_start()
@@ -451,11 +549,29 @@ class SketchController:
 
     def click(self, u: float, v: float, tol: float, add: bool = False) -> list[str]:
         """A left click (press and release without moving)."""
+        tool, stage, n0 = self.tool, self.stage(), self._next_geo()
+        typing = bool(self.typed.values) and bool(self.typing_fields())
+        fixed = self.typed.all_fixed()  # this stage's values and the earlier stages'
+        cmds = self._click(u, v, tol, add, typing)
+        made = any(c.split(",")[0].strip() in _MAKERS for c in cmds)
+        if made:
+            if fixed:
+                cmds = cmds + self.typed.sizes(tool, n0, fixed)
+            self.typed.clear()
+        elif self.stage() > stage:
+            self.typed.next_stage()
+        self.fields = []
+        return cmds
+
+    def _click(self, u: float, v: float, tol: float, add: bool = False, typing: bool = False) -> list[str]:
         self.drag = None
         self.stroke = None
         at, snap = self.snap(u, v, tol)
         t = self.tool
         on = self.on_curve(u, v, tol, snap) if t in AUTO_TOOLS else None
+        if typing:
+            at, snap = self.typed.constrain(t, self._placed(), at), None
+            on = None
         if on:  # the click goes onto the curve, not off by a hair
             at = _foot_on(self.sketch, self.sketch.geos[int(on)], (u, v)) if on.isdigit() else \
                 ((u, 0.0) if on == "H" else (0.0, v))
@@ -497,7 +613,8 @@ class SketchController:
             self.clicks, self.click_on = [], []
             step = nice_step(tol)
             r = max(step, round(math.hypot(b[0] - c[0], b[1] - c[1]) / step) * step)
-            return ([f"SCIRCLE, {_snapped(c, sc)}, {_r(r)}"] + self._on_lines(f"{n}.C", ons[0])) if r > 0 else []
+            r_text = self.typed.exact("R") or _r(r)
+            return ([f"SCIRCLE, {_snapped(c, sc)}, {r_text}"] + self._on_lines(f"{n}.C", ons[0])) if r > 0 else []
         if t == "ARC" and len(self.clicks) == 3:
             (a, sa), (b, sb), (m, _) = self.clicks
             self.clicks, self.click_on = [], []
@@ -507,7 +624,8 @@ class SketchController:
             self.clicks, self.click_on = [], []
             step = nice_step(tol)
             r = max(step, round(_point_line_distance(s, a, b) / step) * step)
-            return [f"SSLOT, {_snapped(a, sa)}, {_snapped(b, sb)}, {_r(r)}"] if r > 0 else []
+            r_text = self.typed.exact("R") or _r(r)
+            return [f"SSLOT, {_snapped(a, sa)}, {_snapped(b, sb)}, {r_text}"] if r > 0 else []
         return []
 
     def _circlet_click(self, u: float, v: float, tol: float) -> list[str]:
@@ -564,7 +682,9 @@ class SketchController:
         if t == "POLYGON":
             r = math.dist(pts[0], pts[1])
             ang = math.degrees(math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]))
-            return [f"SNGON, {names[0]}, {self.polygon_sides}, {_r(r)}, {_r(round(ang, 2))}"]
+            r_text = self.typed.exact("R") or _r(r)
+            a_text = self.typed.exact("A") or _r(round(ang, 2))
+            return [f"SNGON, {names[0]}, {self.polygon_sides}, {r_text}, {a_text}"]
         # ARCSLOT: centre, start of the middle, its end, a point on the side
         c, a, b, w = pts
         r = math.dist(c, a)
@@ -657,7 +777,7 @@ class SketchController:
         elif abs(ang - 90) <= SNAP_ANGLE:
             flag = ", V"
             at = (start_at[0], at[1]) if not end_arg else at
-        rel = None if flag else self.line_relation(start_name, start_at, at)
+        rel = None if (flag or self.typed.value("A") is not None) else self.line_relation(start_name, start_at, at)
         a = start_name if start_name else _uv(start_at)
         b = end_arg if end_arg else _uv(at)
         n = self._next_geo()

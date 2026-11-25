@@ -71,3 +71,9 @@ for _name, _limits in {
     "SMOOTH": {"steps": 1000},
 }.items():
     REGISTRY[_name].limits.update(_limits)
+from . import preview_handlers  # noqa: F401  (PREVIEW: what a step would make, on a copy)
+from . import easy_handlers  # noqa: F401  (TOOLS, SELINFO: what fits the pick, its numbers; M15 everyday commands)
+from . import template_handlers  # noqa: F401  (TEMPLATE, and NEW, template: projects start from templates)
+from . import why_handlers  # noqa: F401  (WHY: why a step failed, with the faces at fault in red)
+from . import repeat_handlers  # noqa: F401  (REPEAT: the last step again, on a new pick)
+from . import props_handlers  # noqa: F401  (PROPS: a body's properties, each one changeable)

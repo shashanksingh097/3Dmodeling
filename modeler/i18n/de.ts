@@ -68,8 +68,8 @@
             <translation>&amp;Teiledatei verknüpfen…</translation>
         </message>
         <message>
-            <source>&amp;New</source>
-            <translation>&amp;Neu</translation>
+            <source>&amp;New…</source>
+            <translation>&amp;Neu…</translation>
         </message>
         <message>
             <source>&amp;Open…</source>
@@ -175,6 +175,14 @@ Runs: MILL, body, FACE/POCKET/OUTLINE, faces, tool, step down</source>
         <message>
             <source>3Dmodeling</source>
             <translation>3Dmodeling</translation>
+        </message>
+        <message>
+            <source>&lt;b&gt;Recent projects&lt;/b&gt;</source>
+            <translation>&lt;b&gt;Letzte Projekte&lt;/b&gt;</translation>
+        </message>
+        <message>
+            <source>&lt;h2 style='margin:0'&gt;What would you like to make?&lt;/h2&gt;</source>
+            <translation>&lt;h2 style='margin:0'&gt;Was möchten Sie erstellen?&lt;/h2&gt;</translation>
         </message>
         <message>
             <source>a .csv file to write it to (none: just show it)</source>
@@ -1050,6 +1058,10 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Auto</source>
+            <translation>Automatisch</translation>
+        </message>
+        <message>
             <source>Auto constraints</source>
             <translation>Automatische Bedingungen</translation>
         </message>
@@ -1293,6 +1305,10 @@ Runs: CHAMFER, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Box</source>
+            <translation>Rechteck</translation>
+        </message>
+        <message>
             <source>Box from corner (x,y,z) with sizes dx,dy,dz.</source>
             <translation>Quader ab Ecke (x,y,z) mit den Maßen dx,dy,dz.</translation>
         </message>
@@ -1451,6 +1467,10 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
         <message>
             <source>Change what the view shows without adding history steps (saved with the project): DISPLAY, HIDE, bracket · DISPLAY, SHOW, 5 · DISPLAY, ONLY, SEL (show only these) · DISPLAY, FADE, SEL · DISPLAY, UNFADE, ALL · DISPLAY, ALL (every body shown and solid) · DISPLAY, MODEL (drop the view's changes: back to what the history shows).</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Changed: press Update preview to see it</source>
+            <translation>Geändert: Vorschau aktualisieren drücken</translation>
         </message>
         <message>
             <source>Changes apply at once and are kept for next time.</source>
@@ -1973,6 +1993,10 @@ Runs: SCIRCLET</source>
         </message>
         <message>
             <source>control points (along u, for a surface)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Copied the numbers of the pick</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2657,6 +2681,11 @@ Runs: SDEL, ...</source>
             <translation>Formschräge…</translation>
         </message>
         <message>
+            <source>Drag a box to pick: left to right picks what is wholly inside, right to left what it touches (Ctrl+drag does this any time, adding to the pick; Esc ends)
+Runs: PICKREGION, BOX</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Drag a handle to change the law there (left/right moves it along the path).
 Double-click to add a handle, right-click a handle to remove it.</source>
             <translation type="unfinished" />
@@ -2677,6 +2706,11 @@ Runs: SCULPT, body, GRAB, radius, strength, stroke</source>
         <message>
             <source>Draw</source>
             <translation>Zeichnen</translation>
+        </message>
+        <message>
+            <source>Draw a loop to pick what is wholly inside it (Esc ends)
+Runs: PICKREGION, LASSO</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Draw a stroke across a body to cut it straight through, along the view direction; end where you started to cut out the inside (Esc ends the tool)
@@ -2706,6 +2740,14 @@ Each stroke runs: SPLINE, ... then KNIFE, body, LAST, 0, view direction (a width
         <message>
             <source>Draw new shapes on the picked flat face (press again to go back to world XY)
 Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Draw what a form's step would make before OK</source>
+            <translation>Vor OK zeigen, was der Schritt des Formulars erzeugt</translation>
+        </message>
+        <message>
+            <source>Draw what this step would make, see-through, before you press OK (worked out on a copy of the model; nothing is added until OK)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2870,6 +2912,10 @@ Runs: ROUTES</source>
             <translation>English</translation>
         </message>
         <message>
+            <source>Enter repeats</source>
+            <translation>Enter wiederholt</translation>
+        </message>
+        <message>
             <source>EQ NE LT GT LE GE or BETWEEN (left out: the value must be true)</source>
             <translation type="unfinished" />
         </message>
@@ -2928,6 +2974,10 @@ Runs: SCULPT, body, SMOOTH, radius, strength, stroke</source>
         </message>
         <message>
             <source>Every pick the history holds (PICK, and SEL by IDs) and whether it still points at what was picked: ok, repaired (its ID changed and it was found again by its shape) or broken (not found; its step failed). REFS · REFS, PROBLEMS · REFS, ALL, JSON</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Every tool for the pick, and the body's menu (the right-click menu)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3146,6 +3196,10 @@ Runs: EXPORT, format, file</source>
         <message>
             <source>Find any command by name or by what it does, and fill in its form (Ctrl+K)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Find fixes</source>
+            <translation>Lösungen suchen</translation>
         </message>
         <message>
             <source>Find material without looking: PROBE, RAY, x,y,z, dx,dy,dz [, body] lists every face the ray crosses and how much material it passes through (wall thickness along a line, does a hole go through) · PROBE, POINT, x,y,z [, body] says whether the point is inside, on or outside, and the nearest face</source>
@@ -3643,6 +3697,10 @@ Runs: VIEW, FRONT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Hide this (Esc in the command line)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>HIDE, SHOW, ONLY, FADE, UNFADE, ALL, MODEL</source>
             <translation type="unfinished" />
         </message>
@@ -4097,6 +4155,15 @@ Runs: SCON, COINCIDENT/ON, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Keep the steps of the project open now as a template for new ones.
+Runs: TEMPLATE, SAVE, name</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Keep this form open after OK: pick the next faces or edges in the view, press OK again, and so on. Esc closes it. (Enter on an empty command line repeats the last step too.)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Keep what bodies share: opens its form
 Runs: INTERSECT, ...</source>
             <translation type="unfinished" />
@@ -4172,6 +4239,10 @@ Runs: INTERSECT, ...</source>
         <message>
             <source>largest distance from the mesh allowed (0: 0.1% of the body's size)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Lasso</source>
+            <translation>Lasso</translation>
         </message>
         <message>
             <source>Lattice</source>
@@ -4960,6 +5031,10 @@ Runs: STRANSFORM, ...</source>
             <translation>Neu</translation>
         </message>
         <message>
+            <source>New &amp;empty project</source>
+            <translation>&amp;Neues leeres Projekt</translation>
+        </message>
+        <message>
             <source>New &amp;part…</source>
             <translation>&amp;Neues Teil…</translation>
         </message>
@@ -4974,6 +5049,10 @@ Runs: STRANSFORM, ...</source>
         <message>
             <source>New chat</source>
             <translation>Neuer Chat</translation>
+        </message>
+        <message>
+            <source>New empty project</source>
+            <translation>Neues leeres Projekt</translation>
         </message>
         <message>
             <source>New part</source>
@@ -5074,6 +5153,10 @@ Runs: STRANSFORM, ...</source>
         <message>
             <source>number of turns, end coils included</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Numbers on hover:</source>
+            <translation>Zahlen beim Überfahren:</translation>
         </message>
         <message>
             <source>Nurbs</source>
@@ -5295,6 +5378,10 @@ Runs: OPEN, AUTOSAVE</source>
             <translation>Öffnen…</translation>
         </message>
         <message>
+            <source>or type a command</source>
+            <translation>oder einen Befehl eingeben</translation>
+        </message>
+        <message>
             <source>orbit</source>
             <translation>drehen</translation>
         </message>
@@ -5432,21 +5519,24 @@ Runs: MASK, body, PAINT, ..., stroke</source>
             <translation>Auswählen</translation>
         </message>
         <message>
+            <source>Pick a body (or a face of it) to see its properties here, or click a step in History. Values in white can be changed.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Pick a body in the tree or the view to see the steps that made it.</source>
             <translation>Einen Körper im Baum oder in der Ansicht wählen, um die Schritte zu sehen, die ihn erzeugt haben.</translation>
         </message>
         <message>
-            <source>Pick bodys
-Runs: PICKMODE, BODY</source>
+            <source>Pick a face, an edge, a vertex or a body to see its numbers here</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Pick edges
+            <source>Pick edges only
 Runs: PICKMODE, EDGE</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Pick faces
+            <source>Pick faces only
 Runs: PICKMODE, FACE</source>
             <translation type="unfinished" />
         </message>
@@ -5455,8 +5545,18 @@ Runs: PICKMODE, FACE</source>
             <translation>Genau einen Körper im Baum oder in der Ansicht wählen, um die Schritte zu sehen, die ihn erzeugt haben.</translation>
         </message>
         <message>
-            <source>Pick vertexs
+            <source>Pick vertices only
 Runs: PICKMODE, VERTEX</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Pick whatever is nearest the cursor: a vertex, an edge or a face. Double-click an edge for the loop round its face (again for the tangent chain), a face for the faces that meet it smoothly; Tab picks the one behind
+Runs: PICKMODE, AUTO</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Pick whole bodies
+Runs: PICKMODE, BODY</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -5735,6 +5835,10 @@ Runs: SCULPT, body, FLATTEN, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Preview in forms:</source>
+            <translation>Vorschau in Formularen:</translation>
+        </message>
+        <message>
             <source>Print check</source>
             <translation>Druckprüfung</translation>
         </message>
@@ -5785,6 +5889,10 @@ Runs: SCULPT, body, FLATTEN, radius, strength, stroke</source>
         <message>
             <source>Project…</source>
             <translation>Projizieren…</translation>
+        </message>
+        <message>
+            <source>Properties</source>
+            <translation>Eigenschaften</translation>
         </message>
         <message>
             <source>Property</source>
@@ -5845,6 +5953,10 @@ Runs: LAYER, name, ADD, SEL</source>
         <message>
             <source>Quick access</source>
             <translation>Schnellzugriff</translation>
+        </message>
+        <message>
+            <source>Quick start</source>
+            <translation>Schnellstart</translation>
         </message>
         <message>
             <source>Quit</source>
@@ -6319,6 +6431,10 @@ Runs: RUN, file</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Run it again on the current pick (Enter on an empty command line does the same)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Run it and keep the form open for another</source>
             <translation type="unfinished" />
         </message>
@@ -6450,6 +6566,10 @@ Runs: SCON, EQUAL, a, b</source>
         <message>
             <source>Save the project. Runs: SAVE, file</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Save this project as a template…</source>
+            <translation>Dieses Projekt als Vorlage speichern…</translation>
         </message>
         <message>
             <source>Saves tokens on small plans and helps small local models. 'copilot bench --modes full,small' compares the two.</source>
@@ -6604,7 +6724,7 @@ Runs: SCON, EQUAL, a, b</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Select by criterion. SEL, S, FACE, ID, 3, 6 (IDs 3..6; 'ID' may be left out) · SEL, S, FACE, NORMAL, 0,0,1 · SEL, R, FACE, LOC, Z, 10 [, 20] · SEL, A, EDGE, SIZE, GT, 10 · SEL, S, FACE, BOX, x0,y0,z0, x1,y1,z1 · SEL, S, FACE, AT, x,y,z · SEL, S, FACE, TYPE, CYLINDER · SEL, S, EDGE, RADIUS, EQ, 4 · SEL, S, EDGE, OF, FACE (edges of the selected faces) · SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, S, BODY, LAYER, pipes · SEL, S, BODY, MAT, STEEL · SEL, S, FACE, LIKE, 12 [, ALL] (faces like face 12: every hole or round of its size) · SEL, S, FACE, FEATURE, FILLET, LT, 2 · SEL, NONE · SEL, ALL, FACE · SEL, INVE</source>
+            <source>Select by criterion. SEL, S, FACE, ID, 3, 6 (IDs 3..6; 'ID' may be left out) · SEL, S, FACE, NORMAL, 0,0,1 · SEL, R, FACE, LOC, Z, 10 [, 20] · SEL, A, EDGE, SIZE, GT, 10 · SEL, S, FACE, BOX, x0,y0,z0, x1,y1,z1 · SEL, S, FACE, AT, x,y,z · SEL, S, FACE, TYPE, CYLINDER · SEL, S, EDGE, RADIUS, EQ, 4 · SEL, S, EDGE, OF, FACE (edges of the selected faces) · SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, S, BODY, LAYER, pipes · SEL, S, BODY, MAT, STEEL · SEL, S, FACE, LIKE, 12 [, ALL] (faces like face 12: every hole or round of its size) · SEL, S, FACE, FEATURE, FILLET, LT, 2 · SEL, S, EDGE, LOOP, 7 [, face] (the edges round a face that edge 7 is on) · SEL, S, EDGE, CHAIN, 7 [, deg] (edges joined to 7 without a corner) · SEL, S, FACE, TANGENT, 3 [, deg] (face 3 and the faces that meet it smoothly) · SEL, NONE · SEL, ALL, FACE · SEL, INVE</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6783,6 +6903,10 @@ Runs: IMAGE, file, plane, width</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Show in 3D</source>
+            <translation>In 3D zeigen</translation>
+        </message>
+        <message>
             <source>Show in History</source>
             <translation>Im Verlauf zeigen</translation>
         </message>
@@ -6803,6 +6927,22 @@ Runs: ISOLATE, name</source>
             <source>Show the control points of the picked curve or surface; drag one to move it (press again to hide them)
 Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Show the size of what the mouse rests on in the 3D view</source>
+            <translation>Größe dessen zeigen, worauf die Maus in der 3D-Ansicht ruht</translation>
+        </message>
+        <message>
+            <source>Show the start page (templates, recent projects) when the app starts</source>
+            <translation>Startseite (Vorlagen, letzte Projekte) beim Programmstart zeigen</translation>
+        </message>
+        <message>
+            <source>Show the tools that fit next to what you pick</source>
+            <translation>Passende Werkzeuge neben der Auswahl zeigen</translation>
+        </message>
+        <message>
+            <source>Show this page when the app starts</source>
+            <translation>Diese Seite beim Programmstart zeigen</translation>
         </message>
         <message>
             <source>Show…</source>
@@ -7125,6 +7265,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Start</source>
+            <translation>Start</translation>
+        </message>
+        <message>
             <source>Start a 2D sketch on a plane: SKETCH, s1, XY · SKETCH, s1, top (a datum plane) · SKETCH, s1, FACE, 6 (on a flat face; its body is where EXTRUDE adds or cuts by default)</source>
             <translation type="unfinished" />
         </message>
@@ -7135,6 +7279,10 @@ Runs: CPOINTS, body; each drag runs MOVEPT</source>
         <message>
             <source>Start a 2D sketch on the picked flat face, or on a plane you choose
 Runs: SKETCH, name, FACE, id / SKETCH, name, plane</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Start a new project from a template (part, assembly, sheet metal, drawing, your own) or empty; open a recent project or an example. Runs: NEW, template</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7157,6 +7305,10 @@ Runs: SHEET, sketch, t [, bend radius, K-factor]</source>
         <message>
             <source>Start over: Copilot forgets this conversation (the sign-in stays)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Start page:</source>
+            <translation>Startseite:</translation>
         </message>
         <message>
             <source>Starting Copilot… (the first start downloads it, about 190 MB)</source>
@@ -7765,6 +7917,10 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The first steps: views, picking, sketching and the command line</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the flat rim face (the open edge of a shelled half); 0: the selected face</source>
             <translation type="unfinished" />
         </message>
@@ -8240,6 +8396,10 @@ Runs: MOLD, body [, wall, shrink %]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>The whole reason, the fixes tried and the guide (WHY in the command line)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>The window's words; commands, scripts and the log stay in English</source>
             <translation type="unfinished" />
         </message>
@@ -8274,6 +8434,10 @@ Runs: MOLD, body [, wall, shrink %]</source>
         <message>
             <source>This app's own</source>
             <translation>Die dieser App</translation>
+        </message>
+        <message>
+            <source>This step is slow to work out, so the preview waits for this button</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Thread</source>
@@ -8380,6 +8544,10 @@ Runs: DRAFT, angle</source>
         <message>
             <source>Tools</source>
             <translation>Werkzeuge</translation>
+        </message>
+        <message>
+            <source>Tools beside a pick:</source>
+            <translation>Werkzeuge neben der Auswahl:</translation>
         </message>
         <message>
             <source>tooth length per unit of curvature (0: the longest tooth a tenth of the size)</source>
@@ -8518,6 +8686,10 @@ Runs: STRACE, file, width [, threshold, du, dv]</source>
         <message>
             <source>Trim…</source>
             <translation>Stutzen…</translation>
+        </message>
+        <message>
+            <source>Try the usual fixes on a copy of the model; each one that works becomes a button</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Tube</source>
@@ -8667,6 +8839,10 @@ Runs: SCON, SYMMETRIC, p, q, line</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Type a size, Tab: next box, Enter: place it, Esc: clear</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Type to search guides, names, help and arguments, e.g. fillet, hole, sheet metal</source>
             <translation>Tippen, um Anleitungen, Namen, Hilfe und Argumente zu durchsuchen, z. B. fillet, hole, sheet metal</translation>
         </message>
@@ -8739,6 +8915,10 @@ Runs: MASK, body, CLEAR</source>
         <message>
             <source>Up scale law</source>
             <translation>Gesetz der Skalierung nach oben</translation>
+        </message>
+        <message>
+            <source>Update preview</source>
+            <translation>Vorschau aktualisieren</translation>
         </message>
         <message>
             <source>Up…</source>
@@ -9063,6 +9243,10 @@ Adds: SCON, ON / TANGENT / PERPENDICULAR</source>
             <translation>Warum ist es fehlgeschlagen?</translation>
         </message>
         <message>
+            <source>Why?</source>
+            <translation>Warum?</translation>
+        </message>
+        <message>
             <source>Width</source>
             <translation>Breite</translation>
         </message>
@@ -9233,6 +9417,10 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
             <translation>Eigene Fähigkeiten-Ordner (jede Fähigkeit ist ein Ordner mit einer SKILL.md):</translation>
         </message>
         <message>
+            <source>Your own: set a project up, then &lt;i&gt;TEMPLATE, SAVE, name&lt;/i&gt; (or the button below).</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>z(t)</source>
             <translation>z(t)</translation>
         </message>
@@ -9265,6 +9453,10 @@ Runs: FIT</source>
         <message>
             <source>← Selection</source>
             <translation>← Auswahl</translation>
+        </message>
+        <message>
+            <source>📌 Keep open</source>
+            <translation>📌 Offen lassen</translation>
         </message>
     </context>
 </TS>

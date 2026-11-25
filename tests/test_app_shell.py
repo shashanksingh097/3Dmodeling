@@ -51,7 +51,7 @@ def menu_titles(win):
 def test_menus_in_order(win):
     assert menu_titles(win) == ["File", "Commands", "View", "Help"]
     labels = [a.text().replace("&", "") for a in win.shell.file_menu.actions() if a.text()]
-    for want in ("New", "Open…", "Open recent", "Open example", "Save", "Save as…", "Import…", "Export…", "Quit"):
+    for want in ("New…", "New empty project", "Open…", "Open recent", "Open example", "Save", "Save as…", "Import…", "Export…", "Quit"):
         assert want in labels
 
 

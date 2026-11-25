@@ -4,6 +4,45 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Added
+- Forms show what their step would make before OK: a see-through ghost in the 3D view and a line
+  saying what changes, or why it would fail with the faces or edges at fault in red (`PREVIEW`,
+  and the assistant's `preview_step`).
+- Picking: the new default `PICKMODE, AUTO` picks the vertex, edge or face nearest the cursor;
+  Tab picks the one behind; Box and Lasso picks (`PICKREGION`, or Ctrl+drag) write one
+  `PICK, FACE, 3 5 7`; double-click picks an edge loop, then the tangent chain, or a face and the
+  faces that meet it smoothly (`SEL ... LOOP`, `CHAIN`, `TANGENT`).
+- The tools that fit a pick: a small toolbar beside a fresh pick and the start of the right-click
+  menu (Sketch on this face, Pull, Hole, Fillet, Loop, Mate ...); `TOOLS` and the assistant's
+  `suggest_tools` list the same.
+- The numbers of the pick at the right of the status bar: a face's type and area (radius for a
+  round one), an edge's length (radius and arc angle), a body's volume, area, size and mass; for
+  several picks the total, for two the distance and angle between them. A click copies them,
+  resting the mouse on something shows its numbers, `SELINFO` prints them and the assistant gets
+  them in `user_context` and `selection_numbers`.
+- Typed sizes while sketching: after the first click of a line, rectangle, circle, arc, slot or
+  polygon, boxes beside the cursor show its length and angle (or width and height, or radius);
+  type a number (or a parameter, after Tab), Tab to the next box, Enter to place it. Each typed
+  value becomes a size on the sketch (an ordinary `SDIM` step).
+- A start page (at start and File > New): New part, New assembly, New sheet metal part and New
+  drawing from templates that set units, layers, parameters and the title block (and the drawing
+  paper), recent projects with a picture of each, the examples and the quick start. `NEW, part`
+  starts from a template; `TEMPLATE, SAVE, name` keeps a project's steps as your own; the
+  assistant's `templates` lists them. A `PROPERTY, SHEET, A3` sets the paper `DRAWING` uses.
+- Errors that point at the problem: when a line or a step fails, a bar above the command line
+  gives the reason and lights up the faces, edges or bodies at fault in red; "Find fixes" tries
+  the usual fixes on a copy of the model and offers each one that works as a button, "Why?"
+  opens the whole answer. Failed history rows are tinted red; a click shows them in the bar.
+  A misspelt command or name gets "did you mean ..." with a button that puts the fixed line back
+  on the command line. `WHY, n` prints the same; the assistant's `diagnose` gives the IDs at fault.
+- Repeat: Enter on an empty command line (or right click > Repeat) runs the last step that
+  changed the model again on the new pick; `REPEAT` (`REPEAT, EDGE, 5 9` picks first). A form's
+  "Keep open" pin keeps it open after OK, taking each new pick, until Esc.
+- A Properties panel: the picked body's name, where it is, colour, layer, material, size, volume,
+  area and mass, and the values of the steps that made it (a part copy's values too), or the
+  values of the history step clicked. Changing a value writes the ordinary step (`MOVE`, `COLOR`,
+  `HIST, EDIT` ...). `PROPS, b [, key, value]` and the assistant's `properties` give the same.
+
 ## [0.6.0] - 2026-11-24
 
 This release makes what is there dependable (PLAN items 50-67): stable references, saved

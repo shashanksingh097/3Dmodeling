@@ -228,6 +228,9 @@ SEL, S, FACE, AT, x,y,z                    ! the face through a point
 SEL, S, EDGE, OF, FACE                     ! edges of the selected faces
 SEL, S, FACE, BODY, 3                      ! all faces of body 3
 SEL, S, FACE, ID, 3, 6                     ! IDs 3 to 6 (ID may be left out)
+SEL, S, EDGE, LOOP, 7 [, face]             ! the edges round the face edge 7 is on (default: the flat face with the longer outline)
+SEL, S, EDGE, CHAIN, 7 [, deg]             ! edges joined to 7 without a corner (tangent within deg, default 5)
+SEL, S, FACE, TANGENT, 3 [, deg]           ! face 3 and every face that meets it smoothly, and so on
 SEL, U, ...   SEL, ALL, FACE   SEL, NONE   SEL, INVE
 CM, top, FACE                              ! save the selection as a named set
 CMSEL, S, top    SEL, S, FACE, SET, top    CMDEL, top
@@ -316,7 +319,8 @@ IDs. In scripts you write to keep, select by geometry or by name.
 | Edit faces | `PUSHPULL, d` · `DELFACE` (on the selected faces, section 20) |
 | Bodies | `NAME, b, name` · `DELETE, b` · `CLEAR` · `HIDE, b` · `SHOW [, b]` · `ISOLATE [, b/SEL/layer]` |
 | Layers and looks | `LAYER, name [, CURRENT/NEW/ON/OFF/LOCK/UNLOCK/COLOR/ADD/RENAME/DELETE [, value]]` · `COLOR, b/SEL/ALL, colour` · `MATERIAL, b/SEL/ALL, name [, density [, colour]]` (section 22) |
-| Selection | `PICK, kind, id [, S/A/U]` · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, kind` |
+| Selection | `PICK, kind, id [, S/A/U]` (several: `PICK, FACE, 3 5 7`) · `SEL ...` · `CM` · `CMSEL` · `CMDEL` · `PICKMODE, AUTO/BODY/FACE/EDGE/VERTEX` · `PICKREGION, BOX/LASSO/OFF` · `TOOLS [, JSON]` (section 46) |
+| Previews | `PREVIEW, "step"` · `PREVIEW, OFF` (section 46) |
 | Settings | `/UNITS, MM/CM/M/IN` · `/TOL, value` (fuzzy booleans and selection tolerance) |
 | Pictures | `RENDER, file.png [, width, height, view, frames, ON/OFF]` (a ray-traced picture or a turntable, section 40) |
 | Files | `EXPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF, file [, body]` · `DRAWING, file.pdf/.svg/.dxf [, views, body, sizes, sheet, scale, section, detail]` · `DRAWSHEET, name, views [, body, sizes, paper, scale, section, detail, template]` · `DRAWINGS [, file [, AUTO/OFF]]` · `PROPERTY, key, value` · `BACKUPS [, n]` · `FILES` · `RELINK, name, file` · `SHARECHECK` · `IMPORT, STEP/IGES/BREP/STL/OBJ/3MF/GLTF/PLY/OFF/VTK/MESH, file [, name [, AUTO/SOLID/MESH]]` (section 10) · `RUN, file` |
@@ -3672,3 +3676,219 @@ hidden. It is a suggestion to model a real part after on a coarse grid with
 one load case: check the part you make with `STRESS`.
 
 Examples are `scripts/cam_follower.cmd` and `scripts/topo_bracket.cmd`.
+
+## 46. Everyday work: previews, picking, numbers, typed sizes, templates, errors, repeat and properties
+
+### See a step before it runs: PREVIEW
+
+Every fill-in form draws what its step would make before you press OK: new
+and changed bodies see-through in blue (the bodies they replace drawn faint),
+bodies it would remove in red. When the step would fail, the form says why in
+red and the faces or edges it was given are drawn in red in the 3D view. The
+preview is worked out on a copy of the model 0.3 s after you stop typing, and
+again when you pick something else while the form is open; nothing reaches
+the history until OK. A step that takes longer than 1.5 s to work out switches
+the form to an **Update preview** button. **Show in 3D** on the form (or
+Preferences > Preview in forms) turns it off.
+
+```text
+PREVIEW, "FILLET, 2"          ! draws the result and says: changes plate, volume 8,000 -> 7,770.36 (-229.64)
+PREVIEW, "FILLET, 30"         ! Would fail: FILLET: radius 30 is too large ... (shown in red: edges 1, 2)
+PREVIEW, OFF                  ! clears the ghost
+```
+
+`PREVIEW` is not a history step. The assistant's `preview_step` tool gives
+the same answer as data (bodies added, changed with their volumes, removed,
+or the reason and the faces or edges at fault), also for a changed history
+entry (`entry`).
+
+### Picking
+
+`PICKMODE, AUTO` (the default) picks whatever is nearest the cursor: a
+vertex near a corner, an edge near an edge, else the face. `PICKMODE, FACE`
+(or BODY, EDGE, VERTEX) picks only that kind, as before.
+
+* **Tab** in the 3D view picks the next thing under the cursor, further
+  back each time: the face behind the one in front, then round again.
+* **Double-click** an edge: the loop of edges round the face that faces
+  you (`SEL, S, EDGE, LOOP, e, f`); double-click it again: the tangent chain
+  (`SEL, S, EDGE, CHAIN, e`). Double-click a face: it and the faces that meet
+  it smoothly (`SEL, S, FACE, TANGENT, f`). Ctrl adds to the pick.
+* **Box** (Pick group, or `PICKREGION, BOX`): drag left to right to pick
+  what lies wholly inside, right to left to pick what the box touches.
+  **Lasso** (`PICKREGION, LASSO`): draw a loop round what you want. Hidden
+  faces behind are picked too, as in a wireframe. **Ctrl+drag** makes a box
+  any time, adding to the pick. Esc ends the tool. A box or lasso writes one
+  step, `PICK, FACE, 3 5 7` (several IDs separated by spaces), which keeps
+  pointing at the same faces when the history changes, like a single pick.
+
+### The tools beside a pick: TOOLS
+
+After a click picks something, a small toolbar beside the cursor offers the
+tools that fit it, and the right-click menu starts with the full list:
+
+| Picked | Tools |
+| --- | --- |
+| a flat face | Sketch on this face, Pull, Hole, Fillet its edges, Shell (open this face), Move face, Work plane on it, Faces that meet it smoothly, Delete face |
+| a round face | Pull, Thread, Fillet its edges, Shell, Move face, Axis through it ... |
+| two faces | Pull, Fillet their edges, Shell, Move faces, Distance and angle, Mate, Joint ... |
+| an edge | Fillet, Chamfer, Loop round its face, Tangent chain, Axis along it |
+| two edges | Fillet, Chamfer, Distance and angle, Joint |
+| vertices | Distance (two), Work plane through the three (three) |
+| bodies | Move, Rotate, Mirror, Array, Union, Subtract the others, Intersect, Distance, Check, Mass and volume |
+
+Each tool opens its form filled in from the pick, or runs its commands.
+`TOOLS` lists the same for the current pick (`TOOLS, JSON` as data), and the
+assistant's `suggest_tools` tool returns it. The toolbar goes when the mouse
+moves away, after a few seconds, on Esc or with the next pick;
+Preferences > Tools beside a pick turns it off.
+
+### The numbers of the pick: SELINFO
+
+The right of the status bar always shows the numbers of what is picked:
+
+| Picked | The line says |
+| --- | --- |
+| a face | its type and area; radius and diameter for a cylinder, cone, sphere or torus |
+| an edge | line, arc or circle, its length; an arc's radius and angle |
+| a vertex | where it is |
+| a body | volume, area, mass (from its `MATERIAL`) and size |
+| several | how many, and the total area, length, volume or mass |
+| two | also the distance between them (dx, dy, dz when it is along one or two axes), and the angle, or "parallel" |
+
+A click on the line copies it (with every row). Resting the mouse on a face,
+edge or vertex for a moment shows its numbers in a tooltip, without picking it
+(Preferences > Numbers on hover turns that off). `SELINFO` prints the same:
+
+    SELINFO                        ! the picked things
+    SELINFO, FACE, "3 5"           ! any faces
+    SELINFO, BODY, plate, JSON     ! as data
+
+It is a query, not a history step. The assistant gets the line, the totals and
+the distance and angle of two picks in `user_context`, and any of them with
+`selection_numbers`.
+
+### Typed sizes while sketching
+
+After the first click of a line, centreline, rectangle, centre rectangle,
+circle, arc, slot or polygon, boxes beside the cursor show its sizes as the
+mouse moves: length and angle (a line, the first two clicks of an arc or a
+slot, a polygon's radius and turn), width and height, or radius. Type a number
+and it goes into the first box; Tab fixes it and moves to the next (Tab first
+to type a parameter name, such as `W` or `D*2`); Enter places the point; Esc
+clears what was typed (a second Esc ends the drawing). Clicking a box types into
+it. The mouse still sets whatever is not typed: with only a length typed, a
+line still turns with the mouse.
+
+Each typed value becomes a size on the sketch, written as the ordinary steps:
+
+    SLINE, 5, 5, 39.641, 25
+    SDIM, LENGTH, 1, 40
+    SDIM, ANGLE, 1, 30
+
+A level or upright line gets `H` or `V` rather than an angle size, an arc its
+`DIST` between the ends and its `RADIUS`, a slot the `DIST` between its centres
+and its `RADIUS`, and a polygon's radius and angle go into `SNGON` itself. A
+size typed as an expression keeps it, so editing the parameter later resizes
+the sketch.
+
+### Starting a project: the start page, NEW and TEMPLATE
+
+The start page opens when the app starts with nothing to open (and from
+File > New). It has a card per template, the recent projects with a picture
+of each (taken when it was saved), the examples and the quick start.
+
+The built-in templates:
+
+| Template | Sets |
+| --- | --- |
+| `part` | mm; a construction layer; parameters W, D, T; title and material in the title block |
+| `assembly` | mm; layers frame, parts and fasteners; a clearance parameter; a title |
+| `sheet_metal` | mm; thickness T, bend radius R and K-factor K for `SHEET` and `FLANGE`; the sketch `base` open on XY for the outline |
+| `drawing` | mm; A3 paper (`PROPERTY, SHEET, A3`, which `DRAWING` then uses); title, number, revision and author |
+
+    NEW, sheet_metal               ! clears the session; the template's steps are the first entries
+    TEMPLATE                       ! lists them, with what each sets (TEMPLATE, JSON as data)
+    TEMPLATE, SHOW, part           ! its steps
+    TEMPLATE, SAVE, my_bracket, "My bracket", "A bracket to start from"
+    TEMPLATE, DELETE, my_bracket
+
+A template's steps are ordinary history entries, so each can be edited later.
+`TEMPLATE, SAVE` keeps the current history as your own template, in the
+per-user app data folder (`MODELER_TEMPLATES` names another folder); one of
+yours with a built-in name is used instead of it, until you delete it. The
+assistant's `templates` tool lists them all with what each sets.
+
+### When a step fails: the error bar and WHY
+
+A line or step that fails changes nothing. The bar above the command line
+says why and lights up the faces, edges or bodies at fault in red: the ones
+its message names, else the pick it used, else the bodies it names.
+
+* A misspelt command or name gets "did you mean ..." in the message
+  (`BLOK` gives BLOCK, `plaet` gives plate). A "Use BLOCK" button puts the
+  fixed line back on the command line, so Enter runs it.
+* "Find fixes" tries the usual fixes on a copy of the model (a radius under
+  the limit, the nearest name, HEAL before a boolean ...); each one that
+  works becomes a button. Undo takes a fix back.
+* "Why?" opens the whole answer. Esc in the command line (or the ✕) hides
+  the bar; the next line that works hides it too.
+* Failed history rows are tinted red, with the reason as a tool tip; a
+  click on one shows it in the bar.
+
+The same as commands:
+
+    WHY                    ! the first failed step, else the last line that failed
+    WHY, 5                 ! history step 5: the reason, the fixes, the IDs at fault (red in the view)
+    WHY, 5, JSON           ! as data
+    WHY, OFF               ! clears the red
+
+The assistant's `diagnose` gives the same, with `fault` (kind and IDs).
+
+### The same step again: REPEAT
+
+`REPEAT` runs the last step that changed the model again, on the current
+pick (picking, undo and history edits do not count):
+
+    PICK, EDGE, 1
+    FILLET, 2
+    REPEAT, EDGE, 3 7      ! picks edges 3 and 7, then FILLET, 2 again
+    SEL, S, EDGE, RADIUS, EQ, 4
+    REPEAT                 ! the same fillet on every edge the rule found
+    REPEAT, SHOW           ! what it would run
+
+In the window, Enter on an empty command line is `REPEAT` (the command
+line says what it would repeat), and so is right click > Repeat. A form's
+"Keep open" pin keeps it open after OK: pick the next faces or edges and
+press OK again, until Esc. The pin is remembered for each command.
+
+### One table of properties: PROPS and the Properties panel
+
+The Properties panel (beside Parameters) shows the picked body, or the
+history step clicked in History. White values can be changed; each change
+is the ordinary step, so Undo takes it back:
+
+| Row | Changing it writes |
+| --- | --- |
+| name | `NAME, b, new` |
+| x, y, z (the centre of its box) | `MOVE, b, dx, dy, dz` |
+| turn (`Z 90`) | `ROTATE, b, 90, centre, 0, 0, 1` |
+| colour | `COLOR, b, value` |
+| layer | `LAYER, name, ADD, b` (the layer is made if new) |
+| material | `MATERIAL, b, name` |
+| `5.dx` (argument dx of step 5) | `HIST, EDIT, 5, ...` |
+
+Size, volume, area, mass and the centre of mass are shown too. For a copy
+of a part (`INST`) the rows are its place and the part's values, including
+the ones left at their defaults (a change adds `L=25`).
+
+    PROPS, plate                 ! the table (PROPS alone: the pick)
+    PROPS, plate, x, 50          ! moves its centre to x = 50
+    PROPS, plate, 1.dz, 15       ! changes the BLOCK of step 1
+    PROPS, plate, colour, red
+    PROPS, STEP 1                ! the values of step 1 (or #1)
+    PROPS, STEP 1, dx, 60
+    PROPS, plate, JSON
+
+The assistant's `properties` tool gives the same table as data.
+

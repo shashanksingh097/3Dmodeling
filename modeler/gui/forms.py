@@ -157,6 +157,12 @@ NO_FORM = {
     "RELOAD",
     # what clicks and view buttons send
     "PICK", "PICKMODE", "VIEW", "FIT", "HELP",
+    # the Box and Lasso buttons, Show in 3D on every form, the tools beside a pick and the right-click menu
+    "PICKREGION", "PREVIEW", "TOOLS",
+    # the status bar's numbers of the pick (SELINFO), File > New's start page (TEMPLATE)
+    "SELINFO", "TEMPLATE",
+    # the error bar and Why? (WHY), Enter on an empty line (REPEAT), the Properties panel (PROPS)
+    "WHY", "REPEAT", "PROPS",
     # the model tree lists the steps of the picked body
     "STEPS",
     # the Control points button (Features toolbar); dragging a point sends MOVEPT

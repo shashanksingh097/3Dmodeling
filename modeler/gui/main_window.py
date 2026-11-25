@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer
+from PySide6.QtCore import QStandardPaths, QStringListModel, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QActionGroup, QBrush, QColor, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -77,6 +77,8 @@ class CommandLine(QLineEdit):
     parameter and body names. Tab or Enter in the list takes a word.
     """
 
+    escaped = Signal()  # Esc with no completion list open (hides the error bar)
+
     def __init__(self, processor: Processor | None = None, parent=None) -> None:
         super().__init__(parent)
         self.setPlaceholderText("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP")
@@ -142,6 +144,9 @@ class CommandLine(QLineEdit):
             if e.key() == Qt.Key_Escape:
                 popup.hide()
                 return
+        if e.key() == Qt.Key_Escape:
+            self.escaped.emit()
+            return
         if e.key() == Qt.Key_Up and self.history:
             self._pos = max(0, self._pos - 1)
             self.setText(self.history[self._pos])
@@ -198,6 +203,13 @@ class HistoryPanel(QTableWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._menu)
         self.cellDoubleClicked.connect(lambda row, _c: self.edit_row(row))
+        self.cellClicked.connect(self._clicked)
+
+    def _clicked(self, row: int, _col: int = 0) -> None:
+        """A click on a row: its failure in the error bar, its values in Properties."""
+        self.win.error_bar.show_step(row)
+        if 0 <= row < self.win.processor.cursor:
+            self.win.props_panel.show_step(row + 1)
 
     def refresh(self) -> None:
         p = self.win.processor
@@ -205,6 +217,7 @@ class HistoryPanel(QTableWidget):
         grey = QBrush(QColor(140, 140, 140))
         red = QBrush(QColor(200, 40, 40))
         amber = QBrush(QColor(176, 108, 0))
+        red_bg = QBrush(QColor(253, 236, 236))
         inside = False
         for i, e in enumerate(p.history):
             label = e.label + ("  …" if "\n" in e.text.strip() and not e.text.strip().startswith("!") else "")
@@ -227,6 +240,10 @@ class HistoryPanel(QTableWidget):
                     item.setForeground(grey)
                 elif not e.ok:
                     item.setForeground(red)
+                    item.setBackground(red_bg)
+                    if c != 1:
+                        item.setToolTip((e.message or "") + "\n\nClick: show it in the error bar, with the "
+                                        "faces at fault in red · right-click: Why did it fail?")
                 elif e.warning:
                     item.setForeground(amber)
                 self.setItem(i, c, item)
@@ -499,6 +516,17 @@ class MainWindow(QMainWindow):
         self.repick_step: int | None = None  # set while a history pick step is being picked again
         self.viewport.command.connect(self._view_command)
         self.viewport.body_menu.connect(self.show_body_menu)
+        self.viewport.region_changed.connect(self._region_changed)
+        from .pick_bar import PickBar
+
+        self.pick_bar = PickBar(self)  # the tools beside a fresh pick (PLAN item 85)
+        self.viewport.picked_at.connect(self.pick_bar.show_for_pick)
+        self.viewport.pressed.connect(self.pick_bar.hide)
+        from .value_boxes import ValueBoxes
+
+        self.value_boxes = ValueBoxes(self)  # typed sizes while sketching (PLAN item 87)
+        self.viewport.sketch_values.connect(self.value_boxes.show_fields)
+        self.viewport.pick_note.connect(lambda t: self.statusBar().showMessage(t, 6000))
         self.processor.view = self.viewport
         self.rebuild_progress = RebuildProgress(self)
         self.processor.progress = self.rebuild_progress
@@ -528,6 +556,11 @@ class MainWindow(QMainWindow):
         self.form_button.setShortcut(QKeySequence("F2"))
         self.form_button.clicked.connect(self.form_for_typed)
         row.addWidget(self.form_button)
+        from .error_bar import ErrorBar
+
+        self.error_bar = ErrorBar(self)  # what failed, the faces at fault, the fixes (PLAN item 89)
+        self.cmdline.escaped.connect(self.error_bar.dismiss)
+        lay.addWidget(self.error_bar)
         lay.addWidget(self.cmdline.hint)  # above the line, so the completion list never covers it
         lay.addLayout(row)
         self.setCentralWidget(central)
@@ -555,6 +588,11 @@ class MainWindow(QMainWindow):
         assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
         self.tabifyDockWidget(params, assistant)
         self.assistant_dock = assistant
+        from .props_panel import PropsPanel
+
+        self.props_panel = PropsPanel(self)  # the picked body's or step's values, changeable (PLAN item 91)
+        self.props_dock = self._dock("Properties", self.props_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(params, self.props_dock)
         params.raise_()
         self.layers_dock = layers
         from .model_tree import ModelTree
@@ -577,6 +615,7 @@ class MainWindow(QMainWindow):
         self.resizeDocks([out], [170], Qt.Vertical)
 
         self.processor.listeners.append(self._on_result)
+        self.processor.listeners.append(self.error_bar.on_result)
         self.processor.history_listeners.append(self._on_history)
         from .app_shell import AppShell
 
@@ -593,6 +632,11 @@ class MainWindow(QMainWindow):
         from ..viewport import mouse_styles as _ms
 
         self.statusBar().showMessage(_ms.get(_ms.DEFAULT).status_text())  # Preferences may change the style
+        from .sel_numbers import HoverNumbers, SelectionNumbers
+
+        self.sel_numbers = SelectionNumbers(self)  # the numbers of the pick, always in view (PLAN item 86)
+        self.statusBar().addPermanentWidget(self.sel_numbers)
+        self.hover_numbers = HoverNumbers(self)
         self._setup_autosave(autosave)
         from .link_watch import LinkWatcher
 
@@ -614,7 +658,19 @@ class MainWindow(QMainWindow):
             self.offload.helper.cancel()
         self.shell.close_event(event)
         if event.isAccepted():
+            from .form_dialog import FormDialog
+
+            for dlg in self.findChildren(FormDialog):  # while the 3D view still draws: they clear their previews
+                dlg.close()
+            self.model_preview_off()
+            self.viewport.closing = True
+            self.viewport._rest.stop()
             self.offload.close()
+
+    def model_preview_off(self) -> None:
+        """No more preview drawing from this window's model (it is closing)."""
+        m = self.processor.model
+        m.preview, m.preview_bodies = [], []
 
     def _dock(self, title: str, widget: QWidget, area) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -683,12 +739,25 @@ class MainWindow(QMainWindow):
         group = QActionGroup(self)
         group.setExclusive(True)
         self._mode_actions: dict[str, QAction] = {}
-        for kind in ("BODY", "FACE", "EDGE", "VERTEX"):
-            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", f"Pick {kind.lower()}s")
+        tips = {"AUTO": "Pick whatever is nearest the cursor: a vertex, an edge or a face. Double-click an edge "
+                        "for the loop round its face (again for the tangent chain), a face for the faces that "
+                        "meet it smoothly; Tab picks the one behind",
+                "BODY": "Pick whole bodies", "FACE": "Pick faces only", "EDGE": "Pick edges only",
+                "VERTEX": "Pick vertices only"}
+        for kind in ("AUTO", "BODY", "FACE", "EDGE", "VERTEX"):
+            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", tips[kind])
             act.setCheckable(True)
             group.addAction(act)
             self._mode_actions[kind] = act
-        self._mode_actions["FACE"].setChecked(True)
+        self._mode_actions["AUTO"].setChecked(True)
+        self._region_actions: dict[str, QAction] = {}
+        for kind, tip in (("BOX", "Drag a box to pick: left to right picks what is wholly inside, right to left "
+                                  "what it touches (Ctrl+drag does this any time, adding to the pick; Esc ends)"),
+                          ("LASSO", "Draw a loop to pick what is wholly inside it (Esc ends)")):
+            act = tbs.action(self, tb, kind.title(), f"pick_{kind.lower()}", f"{tip}\nRuns: PICKREGION, {kind}",
+                             None, checkable=True)
+            act.toggled.connect(lambda on, k=kind: self._region_toggled(k, on))
+            self._region_actions[kind] = act
         handles = tbs.action(self, tb, "Drag handles", "handles",
                              "Arrows and rings on the picked body, a pull arrow on picked faces: drag one to move, "
                              "turn or pull (snaps to the grid, Shift drags freely, type a value while dragging, "
@@ -939,12 +1008,44 @@ class MainWindow(QMainWindow):
         return open_editor(self, row)
 
     # ---- right-click menus on bodies (gui/body_menu.py says what they hold) ----
+    def _region_toggled(self, kind: str, on: bool) -> None:
+        current = getattr(self.viewport, "region_tool", "")
+        if on and current != kind:
+            self.execute(f"PICKREGION, {kind}")
+        elif not on and current == kind:
+            self.execute("PICKREGION, OFF")
+
+    def _region_changed(self, kind: str) -> None:
+        for k, act in getattr(self, "_region_actions", {}).items():
+            if act.isChecked() != (k == kind):
+                act.blockSignals(True)
+                act.setChecked(k == kind)
+                act.blockSignals(False)
+
     def show_body_menu(self, bid: int, global_pos) -> None:
         """The menu for a right click in the 3D view: on a body, or on empty space."""
         m = self.processor.model
-        items = bm.body_items(m, bid, self.processor.part_files) if bid in m.bodies else bm.empty_items(m)
+        items = (bm.body_items(m, bid, self.processor.part_files, self.processor) if bid in m.bodies
+                 else bm.empty_items(m))
         menu = QMenu(self)
         self.fill_menu(menu, items)
+        last = self.processor.last_tool
+        if last:  # PLAN item 90: after the tools for the pick (they come first), else at the top
+            short = last if len(last) <= 40 else last[:39] + "…"
+            acts = menu.actions()
+            first = acts[0] if acts else None
+            picked = first is not None and not first.isEnabled() and first.text().startswith("The picked")
+            sep = next((a for a in acts if a.isSeparator()), None) if picked else first
+            act = QAction(f"Repeat {short}", menu)
+            act.triggered.connect(self.repeat_last)
+            act.setToolTip("Run it again on the current pick (Enter on an empty command line does the same)")
+            act.setObjectName("repeat")
+            if sep is None:
+                menu.addAction(act)
+            else:
+                menu.insertAction(sep, act)
+                if not picked:
+                    menu.insertSeparator(sep)
         self._body_menu = menu  # tests read it
         menu.popup(global_pos)
 
@@ -1070,6 +1171,9 @@ class MainWindow(QMainWindow):
             if self.history_panel.select_entry(item.find_entry):
                 self.history_panel.setFocus()
             return
+        for c in getattr(item, "first", []) or []:
+            if not self.execute(c).ok:
+                return
         if item.form:
             self.open_form(item.form, item.commands[0] if item.commands else "")
             return
@@ -1180,6 +1284,16 @@ class MainWindow(QMainWindow):
         self.cmdline.clear()
         if text.strip() or self.processor.pending:
             self.execute(text)
+        elif self.processor.last_tool:
+            self.repeat_last()  # Enter on an empty line: the last step again, on the new pick (PLAN item 90)
+
+    def repeat_last(self) -> Result:
+        """REPEAT: the last step that changed the model, run again on the current pick."""
+        line = self.processor.last_tool
+        res = self.execute("REPEAT")
+        if res.ok:
+            self.statusBar().showMessage(f"Repeated {line}: pick again and press Enter for another", 6000)
+        return res
 
     def _on_result(self, res: Result) -> None:
         if res.pending:
@@ -1188,7 +1302,12 @@ class MainWindow(QMainWindow):
             self.cmdline.setPlaceholderText(i18n.tr("Block continues: type its lines, then the closing *END... line"))
             return
         self.prompt.setText(">")
-        self.cmdline.setPlaceholderText(i18n.tr("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP"))
+        last = self.processor.last_tool
+        if last:
+            short = last if len(last) <= 40 else last[:39] + "…"
+            self.cmdline.setPlaceholderText(f"{i18n.tr('Enter repeats')} {short}   ·   {i18n.tr('or type a command')}")
+        else:
+            self.cmdline.setPlaceholderText(i18n.tr("Type a command, e.g.  BLOCK, 0,0,0, W, 10, 10   ·   W = 40   ·   HELP"))
         if not res.line:
             return
         self.output.appendPlainText("> " + "\n  ".join(res.line.splitlines()))
