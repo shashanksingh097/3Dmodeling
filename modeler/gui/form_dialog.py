@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -39,6 +39,23 @@ if TYPE_CHECKING:
     from .main_window import MainWindow
 
 _BAD = "border: 1px solid #c62828;"
+PREVIEW_SETTING = "forms/preview3d"  # Show in 3D on the fill-in forms (on unless turned off)
+PIN_SETTING = "forms/pin/"  # + the command: the form stays open after OK (PLAN item 90)
+PREVIEW_DELAY_MS = 300  # wait this long after the last key before working out the preview
+
+
+def _setting(win, key: str, default: bool) -> bool:
+    shell = getattr(win, "shell", None)
+    if shell is None:
+        return default
+    v = shell.settings.value(key, default)
+    return v if isinstance(v, bool) else str(v).lower() in ("1", "true", "yes", "on")
+
+
+def _set_setting(win, key: str, value: bool) -> None:
+    shell = getattr(win, "shell", None)
+    if shell is not None:
+        shell.settings.setValue(key, value)
 
 
 def _mono() -> QFont:
@@ -294,7 +311,48 @@ class FormDialog(QDialog):
         self.error.setStyleSheet("color: #c62828;")
         lay.addWidget(self.error)
 
+        # PLAN item 83: what the step would make, drawn see-through in the 3D view
+        prow = QHBoxLayout()
+        self.preview_box = QCheckBox("Show in 3D")
+        self.preview_box.setToolTip("Draw what this step would make, see-through, before you press OK "
+                                    "(worked out on a copy of the model; nothing is added until OK)")
+        self.preview_box.setChecked(_setting(win, PREVIEW_SETTING, True))
+        self.preview_box.toggled.connect(self._preview_toggled)
+        prow.addWidget(self.preview_box)
+        prow.addStretch(1)
+        self.effect = QLabel()
+        self.effect.setObjectName("form_effect")
+        self.effect.setWordWrap(True)
+        self.effect.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.update_button = QPushButton("Update preview")
+        self.update_button.setToolTip("This step is slow to work out, so the preview waits for this button")
+        self.update_button.clicked.connect(self.preview_now)
+        self.update_button.setVisible(False)
+        prow.addWidget(self.update_button)
+        lay.addLayout(prow)
+        lay.addWidget(self.effect)  # its own full-width row: a reason can be long
+        self._manual = False  # True once a preview took longer than SLOW seconds
+        self._last_preview = None  # the last preview_handlers.Preview
+        self._preview_timer = QTimer(self)
+        self._preview_timer.setSingleShot(True)
+        self._preview_timer.setInterval(PREVIEW_DELAY_MS)
+        self._preview_timer.timeout.connect(self.preview_now)
+        # a new pick while the form is open (FILLET on other edges, say) changes what it would make
+        self._listener = self._on_result
+        win.processor.listeners.append(self._listener)
+
         buttons = QHBoxLayout()
+        # PLAN item 90: a pinned form stays open after OK and takes each new pick, so a FILLET or
+        # HOLE goes on pick after pick until Esc
+        self.pin_box = QCheckBox("📌 Keep open")
+        self.pin_box.setObjectName("pin")
+        self.pin_box.setToolTip("Keep this form open after OK: pick the next faces or edges in the view, press "
+                                "OK again, and so on. Esc closes it. (Enter on an empty command line repeats "
+                                "the last step too.)")
+        self.pin_box.setChecked(_setting(win, PIN_SETTING + spec.command, False))
+        self.pin_box.toggled.connect(lambda on: _set_setting(win, PIN_SETTING + spec.command, on))
+        if edit_row is None:
+            buttons.addWidget(self.pin_box)
         buttons.addStretch(1)
         self.run_button = QPushButton("Run")
         self.run_button.setToolTip("Run it and keep the form open for another")
@@ -389,11 +447,132 @@ class FormDialog(QDialog):
         ok = "" not in problems and not [k for k in problems if k]
         self.ok_button.setEnabled(bool(text) and ok)
         self.run_button.setEnabled(bool(text) and ok)
+        self._schedule_preview(text if (text and ok) else "")
+
+    # ---- the 3D preview (PLAN item 83) -----------------------------------------------
+    def _schedule_preview(self, text: str) -> None:
+        if not hasattr(self, "preview_box"):
+            return
+        self._pending_text = text
+        if not text or not self.preview_box.isChecked():
+            self._preview_timer.stop()
+            self.clear_3d_preview()
+            if not text:
+                self.effect.setText("")
+            return
+        if self._manual:
+            self.effect.setText("Changed: press Update preview to see it")
+            self.effect.setStyleSheet("color: #555;")
+            return
+        self._preview_timer.start()
+
+    def _step_text(self, text: str) -> str:
+        """The text the preview runs: the new entry when this form edits one."""
+        if self.edit_row is None:
+            return text
+        old = self.win.processor.history[self.edit_row].text
+        return F.replace_line(old, self.edit_line, text) if self.edit_line is not None else _replace_code_line(old, text)
+
+    def preview_now(self):
+        """Work out the step on a copy and show it; returns the Preview (or None)."""
+        from ..commands import preview_handlers as ph
+
+        self._preview_timer.stop()
+        text = getattr(self, "_pending_text", "")
+        if not text or not self.preview_box.isChecked():
+            self.clear_3d_preview()
+            return None
+        p = self.win.processor
+        try:
+            pv = ph.preview_step(p, self._step_text(text), self.edit_row)
+        except Exception as exc:  # noqa: BLE001 - a preview must never break the form
+            self.clear_3d_preview()
+            self.effect.setText(f"No preview: {exc}")
+            self.effect.setStyleSheet("color: #555;")
+            return None
+        self._last_preview = pv
+        ph.show(p, pv)
+        if pv.seconds > ph.SLOW and not self._manual:
+            self._manual = True
+            self.update_button.setVisible(True)
+        note = f"  ({pv.seconds:.1f} s: the preview now waits for Update preview)" if self._manual else ""
+        self.effect.setText(pv.text() + note)
+        colour = "#555" if pv.skipped else ("#2e7d32" if pv.ok else "#c62828")
+        self.effect.setStyleSheet(f"color: {colour};")
+        self._fit()
+        return pv
+
+    def _fit(self) -> None:
+        """Grow (never shrink) to show a long reason in full."""
+        want = self.sizeHint()
+        if want.height() > self.height() or want.width() > self.width():
+            self.resize(max(want.width(), self.width()), max(want.height(), self.height()))
+
+    def clear_3d_preview(self) -> None:
+        from ..commands import preview_handlers as ph
+
+        self._last_preview = None
+        ph.show(self.win.processor, None)
+
+    def _preview_toggled(self, on: bool) -> None:
+        _set_setting(self.win, PREVIEW_SETTING, on)
+        if on:
+            self.update_preview()
+        else:
+            self._preview_timer.stop()
+            self.clear_3d_preview()
+            self.effect.setText("")
+
+    def _on_result(self, res) -> None:
+        if not res.ok or not res.line or not self.preview_box.isChecked():
+            return
+        word = res.line.split(",", 1)[0].strip().upper()
+        if word in ("PICK", "SEL", "CMSEL") and self.pinned:
+            self.take_pick()
+        if word in ("PICK", "SEL", "CMSEL") and getattr(self, "_pending_text", ""):
+            self._schedule_preview(self._pending_text)
+
+    @property
+    def pinned(self) -> bool:
+        return self.edit_row is None and self.pin_box.isChecked()
+
+    def take_pick(self) -> list[str]:
+        """Pinned: put a new pick into the fields that are filled from the pick."""
+        took = []
+        for name, w in self.fields.items():
+            if w.f.kind in ("ids", "bodies"):  # a single-body field (SUBTRACT's a, b) is left as typed
+                try:
+                    got = F.from_selection(self.win.processor, w.f)
+                except (F.FormError, Exception):  # noqa: BLE001 - a pick of another kind: leave the field
+                    continue
+                w.set_value(got)
+                took.append(name)
+        return took
+
+    def _unlisten(self) -> None:
+        try:
+            self.win.processor.listeners.remove(self._listener)
+        except (ValueError, AttributeError):
+            pass
+
+    def done(self, r: int) -> None:  # OK, Cancel, Esc and the close button all end here
+        self._unlisten()
+        self._preview_timer.stop()
+        self.clear_3d_preview()
+        super().done(r)
+
+    def closeEvent(self, e) -> None:
+        self._unlisten()
+        self._preview_timer.stop()
+        self.clear_3d_preview()
+        super().closeEvent(e)
 
     def show_error(self, msg: str) -> None:
         self.error.setText(msg)
 
     def submit(self, close: bool) -> bool:
+        self._preview_timer.stop()
+        self.clear_3d_preview()  # the real step replaces the ghost
         try:
             text = self.command_text()
         except F.FormError as exc:
@@ -411,9 +590,13 @@ class FormDialog(QDialog):
         if not res.ok:
             self.show_error(res.message or "the command failed")
             return False
-        if close:
+        if close and not self.pinned:
             self.accept()
         else:
+            if self.pinned:
+                self.win.statusBar().showMessage(
+                    f"{self.spec.title}: done. Pick the next ones and press OK again (Esc closes the form)", 6000)
+                self.error.setText("")
             self._refresh_options()
             self.update_preview()
         return True

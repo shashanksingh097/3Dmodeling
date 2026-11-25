@@ -860,15 +860,59 @@ def clear(p: Processor):
 @command(
     "PICK",
     Arg("kind", str, help="BODY, FACE, EDGE or VERTEX"),
-    Arg("id", int),
+    Arg("id", Raw, help="an ID, or several separated by spaces (3 5 7) as a box or lasso pick writes them"),
     Arg("mode", str, "S", help="S = new selection, A = add, U = remove"),
-    help="What a viewport click emits: select one entity by its ID.",
+    help="What a viewport click emits: select one entity by its ID (PICK, FACE, 12), or several "
+         "(PICK, FACE, 3 5 7, A) from a box or lasso pick.",
 )
 def pick(p: Processor, kind, id, mode):
     m = p.model
     k = check_kind(kind)
-    target = id
+    words = str(id).strip().strip('"').split()
+    if not words:
+        raise CommandError("PICK: give an ID")
+    if len(words) == 1:
+        try:
+            ids = [int(p.evaluate(words[0]))]
+        except Exception:  # noqa: BLE001 - a name or a bad expression
+            raise CommandError(f"PICK: {words[0]!r} is not an ID") from None
+    else:
+        try:
+            ids = [int(w) for w in words]
+        except ValueError:
+            raise CommandError("PICK: several IDs are whole numbers separated by spaces, e.g. PICK, FACE, 3 5 7") from None
+    ids = list(dict.fromkeys(ids))
     old = p.refs.take() if p.refs else None
+    if len(ids) == 1:
+        olds = [old] if old else [None]
+    else:
+        olds = old.get("fps") if (old and old.get("multi") == k and len(old.get("fps") or []) == len(ids)) else None
+        olds = olds or [None] * len(ids)
+    targets, fps = [], []
+    try:
+        for gid, o in zip(ids, olds):
+            t, o2 = _pick_target(p, k, gid, o)
+            targets.append((t, gid, o2))
+        m.select(k, list(dict.fromkeys(t for t, _g, _o in targets)), mode)
+    except (ModelError, CommandError):
+        if p.refs:
+            p.refs.record(old)
+        raise
+    if p.refs:
+        for t, gid, o in targets:
+            fp = refs.fingerprint(m, k, t)
+            if t != gid and o:
+                fp["how"] = o.get("how", "same place")
+            fps.append(fp)
+        p.refs.record(fps[0] if len(ids) == 1 else {"multi": k, "fps": fps})
+    return _describe_selection(p)
+
+
+def _pick_target(p: Processor, k: str, id: int, old: dict | None) -> tuple[int, dict | None]:
+    """Where a PICK of ``id`` points this time: the same entity as last time, found
+    again by its fingerprint when its ID moved (see core/refs.py)."""
+    m = p.model
+    target = id
     if old and old.get("kind") == k:
         exists = m._in_use(k, id)
         last = old.get("id", id)  # where this pick really pointed last time (differs after a repair)
@@ -888,29 +932,19 @@ def pick(p: Processor, kind, id, mode):
                      else "the only one with the same shape, size and direction")
             state = "is now a different entity" if exists else "no longer exists"
             p.warn(f"{k} {id} {state}; picked {k} {target} instead ({where}). Check it, then edit this entry.")
-    try:
-        m.select(k, [target], mode)
-    except ModelError:
-        if p.refs:
-            p.refs.record(old)
-        raise
-    if p.refs:
-        fp = refs.fingerprint(m, k, target)
-        if target != id and old:
-            fp["how"] = old.get("how", "same place")
-        p.refs.record(fp)
-    return _describe_selection(p)
+    return target, old
 
 
 CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS", "OF", "SET", "LAYER", "MAT",
-            "LIKE", "FEATURE")
+            "LIKE", "FEATURE", "LOOP", "CHAIN", "TANGENT")
 
 
 @command(
     "SEL",
     Arg("mode", str, help="S new, R reselect, A add, U unselect, ALL, NONE, INVE"),
     Arg("kind", str, "", help="BODY, FACE, EDGE or VERTEX"),
-    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET, LAYER, MAT, LIKE, FEATURE"),
+    Arg("crit", str, "", help="ID, BODY, NORMAL, LOC, BOX, AT, TYPE, SIZE, RADIUS, OF, SET, LAYER, MAT, LIKE, FEATURE, "
+                              "LOOP, CHAIN, TANGENT"),
     *[Arg(f"v{i}", Raw, "") for i in range(1, 7)],
     help=(
         "Select by criterion. SEL, S, FACE, ID, 3, 6 (IDs 3..6; 'ID' may be left out) · "
@@ -920,6 +954,9 @@ CRITERIA = ("ID", "BODY", "NORMAL", "LOC", "BOX", "AT", "TYPE", "SIZE", "RADIUS"
         "SEL, S, FACE, BODY, 3 · SEL, S, FACE, SET, top · SEL, S, BODY, LAYER, pipes · SEL, S, BODY, MAT, STEEL · "
         "SEL, S, FACE, LIKE, 12 [, ALL] (faces like face 12: every hole or round of its size) · "
         "SEL, S, FACE, FEATURE, FILLET, LT, 2 · "
+        "SEL, S, EDGE, LOOP, 7 [, face] (the edges round a face that edge 7 is on) · "
+        "SEL, S, EDGE, CHAIN, 7 [, deg] (edges joined to 7 without a corner) · "
+        "SEL, S, FACE, TANGENT, 3 [, deg] (face 3 and the faces that meet it smoothly) · "
         "SEL, NONE · SEL, ALL, FACE · SEL, INVE"
     ),
 )
@@ -1015,6 +1052,45 @@ def _sel_ids_kept(p: Processor, k: str, ids: list[int], vals: list[str]) -> list
             fps.append(fp)
     p.refs.record({"sel": k, "range": span, "fps": fps})
     return out
+
+
+def _topo_group(p: Processor, kind: str, crit: str, vals: list[str]) -> list[int]:
+    """SEL LOOP / CHAIN (edges) and TANGENT (faces): PLAN item 84."""
+    from ..geometry import topo_select as ts
+
+    m = p.model
+    want = "FACE" if crit == "TANGENT" else "EDGE"
+    if kind != want:
+        raise CommandError(f"SEL: {crit} picks {want.lower()}s: SEL, S, {want}, {crit}, id")
+    gid = int(_num(p, vals[0], f"the {want.lower()} ID"))
+    try:
+        bid, _idx = m.entity_owner(want, gid)
+        start = m.entity_shape(want, gid)
+    except ModelError as exc:
+        raise CommandError(f"SEL: {exc}") from None
+    shape = m.bodies[bid].shape
+    try:
+        if crit == "LOOP":
+            face = None
+            if vals[1]:
+                fid = int(_num(p, vals[1], "the face ID"))
+                try:
+                    face = m.entity_shape("FACE", fid)
+                except ModelError as exc:
+                    raise CommandError(f"SEL: {exc}") from None
+            subs = ts.loop(shape, start, face)
+        else:
+            tol = _num(p, vals[1], "the angle") if vals[1] else ts.TANGENT_DEG
+            subs = ts.chain(shape, start, tol) if crit == "CHAIN" else ts.tangent_faces(shape, start, tol)
+    except ts.SelectError as exc:
+        raise CommandError(f"SEL: {crit}: {exc}") from None
+    out = []
+    for sub in subs:
+        try:
+            out.append(m.find_entity(bid, want, sub))
+        except ModelError:
+            continue
+    return sorted(dict.fromkeys(out))
 
 
 def _num(p: Processor, text: str, what: str) -> float:
@@ -1137,6 +1213,8 @@ def _match(p: Processor, kind: str, crit: str, vals: list[str]) -> list[int]:
             return fh.like(p, kind, gid, scope)
         except ModelError as exc:
             raise CommandError(f"SEL: {exc}") from None
+    if crit in ("LOOP", "CHAIN", "TANGENT"):
+        return _topo_group(p, kind, crit, vals)
     if crit == "FEATURE":
         from . import found_handlers as fh
 
@@ -1612,16 +1690,35 @@ def _history_text(p: Processor) -> str:
 # =============================================================================
 
 
-@command("PICKMODE", Arg("kind", str, help="BODY, FACE, EDGE or VERTEX"), logged=False,
-         help="What a viewport click selects.")
+@command("PICKMODE", Arg("kind", str, help="AUTO, BODY, FACE, EDGE or VERTEX"), logged=False,
+         help="What a viewport click selects: AUTO (the vertex, edge or face nearest the cursor), "
+              "BODY, FACE, EDGE or VERTEX (only that kind).")
 def pickmode(p: Processor, kind):
-    try:
-        kind = check_kind(kind)
-    except ModelError:
-        raise CommandError(f"PICKMODE: use one of {', '.join(SELECT_KINDS)}") from None
+    if str(kind).upper() == "AUTO":
+        kind = "AUTO"
+    else:
+        try:
+            kind = check_kind(kind)
+        except ModelError:
+            raise CommandError(f"PICKMODE: use AUTO or one of {', '.join(SELECT_KINDS)}") from None
     if p.view:
         p.view.set_pick_mode(kind)
+    if kind == "AUTO":
+        return "picking whatever is nearest the cursor: vertex, edge or face"
     return f"picking {kind}"
+
+
+@command("PICKREGION", Arg("tool", str, "BOX", help="BOX, LASSO or OFF"), logged=False,
+         help="Pick by dragging a region in the 3D view: PICKREGION, BOX (left to right picks what is wholly "
+              "inside, right to left what it touches) · PICKREGION, LASSO (draw a loop) · PICKREGION, OFF. "
+              "Ctrl+drag makes a box that adds without this. The pick itself is one PICK, kind, 3 5 7.")
+def pickregion(p: Processor, tool):
+    t = str(tool).strip().upper()
+    if t not in ("BOX", "LASSO", "OFF", ""):
+        raise CommandError("PICKREGION: use BOX, LASSO or OFF")
+    if p.view and hasattr(p.view, "set_region_tool"):
+        p.view.set_region_tool("" if t in ("OFF", "") else t)
+    return {"BOX": "box pick on: drag a box", "LASSO": "lasso pick on: draw a loop"}.get(t, "region pick off")
 
 
 @command("VIEW", Arg("name", str, "ISO", help=", ".join(VIEWS)), logged=False, help="Standard view direction.")

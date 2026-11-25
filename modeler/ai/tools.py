@@ -159,7 +159,8 @@ class Toolbox:
             Tool("diagnose", "Why a step failed and which usual fixes work: tries them on a copy of the model "
                  "(a size under the limit the message gives, smaller numbers, a fillet moved before the shell, HEAL "
                  "before a boolean, the nearest name) and gives the exact line to run for each one that passes. "
-                 "No step and no line: the first failed history step, else the last failed line typed.",
+                 "No step and no line: the first failed history step, else the last failed line typed. fault: the "
+                 "faces, edges or bodies at fault (kind + ids), the ones the user sees in red.",
                  {"step": {"type": "integer", "description": "history step number"},
                   "line": {"type": "string", "description": "a command line to look at instead"},
                   "where": _WHERE}, (), self.diagnose),
@@ -195,6 +196,35 @@ class Toolbox:
                  "survive history edits. Says when only the ID works.",
                  {"kind": {"type": "string", "enum": KINDS}, "id": {"type": "integer"}, "where": _WHERE},
                  ("kind", "id"), self.selector_for),
+            Tool("preview_step", "What one step would do, worked out on a copy of the model (the same as the "
+                 "see-through preview the user's forms show): bodies added, changed (volume before and after) or "
+                 "removed; or why it would fail, with the faces or edges at fault. entry (1-based) previews a "
+                 "changed history entry instead (HIST, EDIT on a copy). Nothing changes.",
+                 {"step": {"type": "string"}, "entry": {"type": "integer"}, "where": _WHERE}, ("step",),
+                 self.preview_step),
+            Tool("suggest_tools", "The modelling tools that fit the user's pick (or the sandbox's), best first, "
+                 "each with what it runs: the list their right-click menu and the small toolbar beside a pick "
+                 "show (Sketch on this face, Pull, Hole, Fillet, Loop, Tangent chain, Mate ...).",
+                 {"where": _WHERE}, (), self.suggest_tools),
+            Tool("templates", "The project templates the user can start from (start page, File > New, NEW, name): "
+                 "each with its title, what it is for and what it sets (units, layers, parameters, materials, "
+                 "title block, a first sketch). Starting one clears the model, so suggest it to the user (or "
+                 "use it in the sandbox: sandbox then run NEW, name) rather than running it on their model.",
+                 {}, (), self.templates),
+            Tool("selection_numbers", "The numbers of the user's pick (or of kind + ids): a face's type, area and "
+                 "radius; an edge's length, radius and arc angle; a vertex's position; a body's volume, area, size "
+                 "and mass; totals for several, and the distance and angle between two. The same line their "
+                 "status bar shows (status_line). Use it for 'how big is this', 'how far apart are these'.",
+                 {"kind": {"type": "string", "enum": KINDS}, "ids": {"type": "array", "items": {"type": "integer"}},
+                  "where": _WHERE}, (), self.selection_numbers),
+            Tool("properties", "One table of a body's properties (default: the user's pick), or of a history step's "
+                 "values (step): name, where (x, y, z of its centre), colour, layer, material, size, volume, area, "
+                 "mass, and the values of the steps that made it (key 5.dx: argument dx of step 5; a part copy's "
+                 "values too). Rows with edit set can be changed with PROPS, b, key, value, which writes the "
+                 "ordinary step (MOVE, COLOR, HIST, EDIT ...): the same table as the user's Properties panel.",
+                 {"body": {"type": "string", "description": "a body name or ID (default: the pick)"},
+                  "step": {"type": "integer", "description": "a history step instead of a body"},
+                  "where": _WHERE}, (), self.properties),
             Tool("preview_selection", "What SEL lines would select, without changing the selection.",
                  {"lines": {"type": "array", "items": {"type": "string"}}, "where": _WHERE}, ("lines",),
                  self.preview_selection),
@@ -407,6 +437,15 @@ class Toolbox:
                     out["selection"]["selector"] = {"error": str(exc)}
             if len(m.selection) > 20:
                 out["selection"]["note"] = f"first 20 of {len(m.selection)} described"
+            try:  # the numbers the user sees in the status bar: totals, distance and angle of two picks
+                from ..commands import selinfo as si
+
+                info = si.selection_info(p, limit=0)
+                out["selection"]["numbers"] = {k: info[k] for k in ("total", "pair") if k in info}
+                out["selection"]["numbers"]["status_line"] = si.line(info, pretty=False) if len(m.selection) > 1 \
+                    else si.line(si.selection_info(p), pretty=False)
+            except Exception:  # noqa: BLE001 - numbers are a help, never a failure
+                pass
         else:
             out["selection"]["note"] = "nothing is selected; ask_pick asks the user to click"
         view = getattr(p, "view", None)
@@ -424,6 +463,62 @@ class Toolbox:
 
     def selector_for(self, kind: str, id: int, where: str = "model"):
         return sl.selector_for(self._p(where), kind, int(id))
+
+    def preview_step(self, step: str, entry: int | None = None, where: str = "model") -> dict[str, Any]:
+        from ..commands import preview_handlers as ph
+
+        p = self._p(where)
+        if entry is not None and not 1 <= int(entry) <= p.cursor:
+            raise ToolError(f"entry is 1 to {p.cursor}")
+        return ph.preview_step(p, step, int(entry) - 1 if entry is not None else None).data()
+
+    def suggest_tools(self, where: str = "model") -> dict[str, Any]:
+        from ..gui import body_menu as bm
+
+        p = self._p(where)
+        return {"selection": {"kind": p.model.selection_kind, "ids": list(p.model.selection)},
+                "tools": bm.tools_rows(p)}
+
+    def templates(self) -> dict[str, Any]:
+        from ..commands import template_handlers as th
+
+        return {"templates": [t.data() for t in th.all_templates()], "user_folder": th.user_dir(),
+                "start": "NEW, name (clears the model: the template's steps become the first history entries)",
+                "save_own": "TEMPLATE, SAVE, name [, title [, about]]"}
+
+    def selection_numbers(self, kind: str | None = None, ids: list[int] | None = None,
+                          where: str = "model") -> dict[str, Any]:
+        from ..commands import selinfo as si
+
+        p = self._p(where)
+        if ids is not None and not kind:
+            raise ToolError("give the kind with the ids")
+        if kind and kind.upper() not in KINDS:
+            raise ToolError("kind is BODY, FACE, EDGE or VERTEX")
+        try:
+            info = si.selection_info(p, kind, [int(i) for i in ids] if ids is not None else (None if not kind or
+                                     kind.upper() == p.model.selection_kind else []))
+        except KeyError:
+            raise ToolError("kind is BODY, FACE, EDGE or VERTEX") from None
+        info["status_line"] = si.line(info, pretty=False)
+        return info
+
+    def properties(self, body: str | None = None, step: int | None = None, where: str = "model") -> dict[str, Any]:
+        from ..commands import props_handlers as ph
+        from ..commands.processor import CommandError
+
+        p = self._p(where)
+        try:
+            if step is not None:
+                if not 1 <= int(step) <= p.cursor:
+                    raise ToolError(f"there are {p.cursor} history steps; give 1 to {p.cursor}")
+                d = ph.step_properties(p, int(step))
+            else:
+                d = ph.properties(p, ph.body_of(p, str(body) if body not in (None, "") else "SEL"))
+        except CommandError as exc:
+            raise ToolError(str(exc)) from None
+        d["change"] = "PROPS, b, key, value (b: the body, or STEP n): one ordinary step, Undo takes it back"
+        return d
 
     def preview_selection(self, lines: list[str], where: str = "model"):
         return sl.preview_selection(self._p(where), lines)

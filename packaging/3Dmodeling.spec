@@ -33,6 +33,9 @@ examples += [(os.path.join(SKILLS, d, f), os.path.join("modeler", "skills", d))
              for f in ("SKILL.md", "example.cmd") if os.path.isfile(os.path.join(SKILLS, d, f))]
 examples += [(os.path.join(ROOT, "modeler", "plugin_examples", "bolt_ring.py"), "modeler/plugin_examples")]  # plugins.py
 examples += [(p, "modeler/i18n") for p in glob.glob(os.path.join(ROOT, "modeler", "i18n", "*.ts"))]  # i18n language files
+TEMPLATES = os.path.join(ROOT, "modeler", "templates")  # the start page's project templates (PLAN item 88)
+examples += [(os.path.join(TEMPLATES, n), os.path.join("modeler", "templates"))
+             for n in sorted(os.listdir(TEMPLATES)) if n.endswith(".cmd")]
 examples += [(os.path.join(ROOT, "docs", n), "modeler/docs")  # the assistant's search_docs (ai/knowledge.py)
              for n in ("LANGUAGE.md", "USER-GUIDE.md")]
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -270,6 +271,7 @@ class Processor:
         self.autosave_path: str | None = None  # where the GUI autosaves (OPEN, AUTOSAVE)
         self.project_path: str | None = None  # the last SAVE/OPEN file
         self.last_failure: dict | None = None  # the last typed step that failed
+        self.last_tool = ""  # the last typed step that changed the model (REPEAT runs it again)
         self.last_report: dict | None = None  # give_report: the data of the line being run
         self.reports: dict[str, dict] = {}  # the newest report of each check (STRESS, GRAVITY ...)
         self.part_doc = None  # a part document (commands/partdoc_handlers.py PartDoc), or None for a project
@@ -326,8 +328,22 @@ class Processor:
             if needs_more(text):
                 return self._finish(Result(line.strip(), True, pending=True))
             self._buffer = []
-            return self._finish(self.run_unit(text))
-        return self._finish(self.run_unit(line))
+            return self._finish(self._note_tool(self.run_unit(text)))
+        return self._finish(self._note_tool(self.run_unit(line)))
+
+    # commands REPEAT never runs again: picking, undo, history edits and itself
+    NOT_REPEATED = frozenset({"PICK", "SEL", "CMSEL", "PICKMODE", "PICKREGION", "REPEAT", "UNDO", "REDO", "HIST",
+                              "NEW", "OPEN", "SAVE", "RESUME", "PARAM", "NAME"})
+
+    def _note_tool(self, res: Result) -> Result:
+        """Remember the last typed or clicked step that changed the model, for REPEAT (PLAN item 90)."""
+        if res.ok and res.line and not res.pending:
+            line = first_code_line(res.line).strip()
+            word = line.split(",", 1)[0].strip().upper()
+            cmd = REGISTRY.get(word)
+            if cmd is not None and cmd.logged and word not in self.NOT_REPEATED and "\n" not in res.line.strip():
+                self.last_tool = res.line.strip()
+        return res
 
     def unexplode(self) -> bool:
         """Put the model back as it was before XSHOW (True if it was exploded)."""
@@ -414,6 +430,8 @@ class Processor:
             ok, message = True, f"off in configuration {self.config}"
         else:
             ok, message = self._run_entry(entry, stmts)
+        if not ok:
+            message = self.did_you_mean(message)
         entry.ok, entry.message = ok, message
         if not ok:
             self.last_failure = {"line": label, "message": message}  # for diagnose (ai/diagnose.py)
@@ -431,6 +449,7 @@ class Processor:
     def reset(self) -> None:
         """Start a new, empty session (history, parameters, macros and model)."""
         self._buffer = []
+        self.last_tool = ""
         self._scopes = []
         self.params = {}
         self.macros = {}
@@ -763,10 +782,12 @@ class Processor:
                     try:
                         stmts = parse(e.text)
                     except ScriptError as exc:
-                        e.ok, e.message, e.warning = False, str(exc), ""
+                        e.ok, e.message, e.warning = False, self.did_you_mean(str(exc)), ""
                     else:
                         self.entry_index = j
                         e.ok, e.message = self._run_entry(e, stmts)
+                        if not e.ok:
+                            e.message = self.did_you_mean(e.message)
                     if not e.ok:
                         errors.append(f"entry {j + 1}: {e.message}")
                     elif e.warning:
@@ -931,6 +952,45 @@ class Processor:
         self.last_report = data
         self.reports[name] = data
 
+    _NEAR_RE = re.compile(r"(unknown command|unknown name|no body or parameter named|no body named|"
+                          r"no sketch named|no part named) '([^']+)'")
+
+    def did_you_mean(self, message: str) -> str:
+        """A misspelt command or name: add "did you mean ..." with the nearest real ones
+        (PLAN item 89). The message is returned unchanged when nothing is near."""
+        import difflib
+
+        if not message or "did you mean" in message:
+            return message
+        m = self._NEAR_RE.search(message)
+        if not m:
+            return message
+        what, bad = m.group(1), m.group(2)
+        if what == "unknown command":
+            pool = list(REGISTRY) + list(self.macros)
+            near = difflib.get_close_matches(bad.upper(), pool, n=3, cutoff=0.6)
+        else:
+            names: dict[str, str] = {}
+            if what in ("unknown name", "no body or parameter named"):
+                for k in self.params:
+                    names[str(k).lower()] = str(k)
+            if what != "no sketch named" and what != "no part named":
+                for b in self.model.bodies.values():
+                    if b.name:
+                        names[b.name.lower()] = b.name
+            if what in ("no sketch named", "unknown name", "no body or parameter named"):
+                for k in self.model.sketches:
+                    names.setdefault(str(k).lower(), str(k))
+            if what == "no part named":
+                for k in self.parts:
+                    names[str(k).lower()] = str(k)
+            near = [names[n] for n in difflib.get_close_matches(bad.lower(), list(names), n=3, cutoff=0.6)]
+        if not near:
+            return message
+        lines = message.split("\n")
+        lines[0] = lines[0].rstrip(".") + "; did you mean " + " or ".join(near) + "?"
+        return "\n".join(lines)
+
     def _run_unlogged(self, cmd: Command, st: Cmd, label: str) -> Result:
         self._trace = []
         self.last_report = None
@@ -939,7 +999,7 @@ class Processor:
             msg = self._call(cmd, values)
             return Result(label, True, msg, report=self.last_report)
         except (CommandError, ModelError, ExprError, ScriptError) as exc:
-            return Result(label, False, str(exc))
+            return Result(label, False, self.did_you_mean(str(exc)))
         except Exception as exc:  # kernel failures should not kill the app
             return Result(label, False, f"{type(exc).__name__}: {exc}")
 
