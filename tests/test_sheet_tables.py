@@ -137,3 +137,76 @@ def test_sheetdata_without_sheets():
     p = Processor()
     assert not p.run("SHEETDATA").ok
     assert os.path.basename(__file__)
+
+
+# ---- drawing details (PLAN item 100) -------------------------------------------------------
+
+DETAILS = """BLOCK, 0,0,0, 100, 60, 10
+NAME, LAST, plate
+HOLE, plate, 20, 20, 10, 8
+HOLE, plate, 80, 20, 10, 6.8
+NOTE, "M8", 90, 30, 15, 80, 20, 10
+BLOCK, 0,50,10, 100, 10, 30
+NAME, LAST, wall
+WELD, plate, wall, 4
+DRAWSHEET, s1, STANDARD, 0, ALL, A3
+"""
+
+
+def test_sheet_details_are_drawn(tmp_path):
+    p = Processor()
+    ok(p, DETAILS)
+    ok(p, 'SHEETNOTE, s1, CENTRES\nSHEETNOTE, s1, THREADS\nSHEETNOTE, s1, FINISH, 6, 1.6, ground\n'
+          'SHEETNOTE, s1, WELD, weld_1\nSHEETNOTE, s1, LEADER, EDGE 3, "Break sharp edges"')
+    assert p.run("SHEETNOTE, s1").ok
+    assert [d["kind"] for d in p.reports["SHEETNOTE"]["notes"]] == ["CENTRES", "THREADS", "FINISH", "WELD", "LEADER"]
+    r = p.run(f'DRAWINGS, "{tmp_path / "d.svg"}"')
+    assert "12 details" in r.message
+    got = p.reports["drawings"]["details"]["s1"]
+    kinds = [d["kind"] for d in got]
+    marks = [d for d in got if d["kind"] == "centre_mark"]
+    assert len(marks) == 2 and {d["view"] for d in marks} == {"TOP"}  # both holes, seen end on
+    assert kinds.count("centre_line") == 4  # front and right, each hole
+    threads = [d for d in got if d["kind"] == "thread"]
+    assert threads and all(d["thread"] == "M8" and d["major"] == pytest.approx(8) for d in threads)  # 6.8 tapped
+    fin = next(d for d in got if d["kind"] == "finish")
+    assert fin["ra"] == 1.6 and fin["view"] == "FRONT"  # the top face seen edge on
+    weld = next(d for d in got if d["kind"] == "weld")
+    assert weld["size"] == 4 and weld["length"] == pytest.approx(220)
+    svg = (tmp_path / "d_s1.svg").read_text()
+    assert "Ra 1.6" in svg and "Break sharp edges" in svg and "ground" in svg
+    # changing the sheet keeps its details; DELETE takes one off
+    ok(p, "DRAWSHEET, s1, TOP+FRONT, 0, ALL, A3")
+    assert len(p.model.drawsheets["S1"]["notes"]) == 5
+    ok(p, "SHEETNOTE, s1, DELETE, 2")
+    assert [d["kind"] for d in p.model.drawsheets["S1"]["notes"]] == ["CENTRES", "FINISH", "WELD", "LEADER"]
+    assert p.run("UNDO").ok and len(p.model.drawsheets["S1"]["notes"]) == 5
+
+
+def test_sheet_details_refuse_bad_input():
+    p = Processor()
+    ok(p, DETAILS)
+    for line, words in (("SHEETNOTE, s2, CENTRES", "no sheet s2"), ("SHEETNOTE, s1, ARROW", "the kind is one of"),
+                        ("SHEETNOTE, s1, FINISH, EDGE 3, 1.6", "goes on a face"),
+                        ("SHEETNOTE, s1, WELD, plate", "not a weld bead"),
+                        ("SHEETNOTE, s1, LEADER, 9999, \"x\"", "no face 9999"),
+                        ("SHEETNOTE, s1, DELETE, 1", "has no details")):
+        r = p.run(line)
+        assert not r.ok and words in r.message, (line, r.message)
+
+
+def test_sheet_detail_menus():
+    p = Processor()
+    ok(p, DETAILS)
+    labels = [i.label for i in bm.sheet_items(p.model)]
+    assert "Sheet s1: add centre marks on the holes" in labels and "Sheet s1: add cosmetic threads" in labels
+    ok(p, "SHEETNOTE, s1, CENTRES")
+    items = {i.label: i.commands for i in bm.sheet_items(p.model)}
+    assert items["Sheet s1: take off the centre marks on the holes"] == ["SHEETNOTE, s1, DELETE, 1"]
+    p.model.select("FACE", [6])
+    tools = {i.label: i for i in bm.pick_tools(p)}
+    assert tools["Surface finish on sheet s1…"].commands == ["SHEETNOTE, s1, FINISH, 6, 1.6"]
+    assert tools["Note on sheet s1…"].form == "SHEETNOTE"
+    weld = p.model.body_by_name("weld_1").id
+    p.model.select("BODY", [weld])
+    assert any(i.commands == [f"SHEETNOTE, s1, WELD, {weld}"] for i in bm.pick_tools(p))

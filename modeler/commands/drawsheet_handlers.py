@@ -41,6 +41,9 @@ def _sheets_text(p: Processor) -> list[str]:
             bits.append(f"template {os.path.basename(s['template'])}")
         if s.get("tables"):
             bits.append(f"tables {s['tables'].lower()}")
+        if s.get("notes"):
+            n = len(s["notes"])
+            bits.append(f"{n} drawing detail{'s' if n != 1 else ''} (SHEETNOTE, {s['name']} lists them)")
         out.append(f"  sheet {i} {s['name']}: " + ", ".join(bits))
     return out
 
@@ -101,7 +104,8 @@ def drawsheet(p: Processor, name, views, b, sizes, paper, scale, section, detail
     m.drawsheets = {**m.drawsheets, key: {"name": name, "views": views, "b": b, "sizes": sizes, "paper": paper,
                                           "scale": scale, "section": section, "detail": detail,
                                           "template": os.path.abspath(template) if template else "",
-                                          "tables": "+".join(words)}}
+                                          "tables": "+".join(words),
+                                          "notes": list(m.drawsheets.get(key, {}).get("notes", []))}}
     n = list(m.drawsheets).index(key) + 1
     return f"sheet {n} {name} " + ("added" if new else "changed") + "\n" + "\n".join(_sheets_text(p)[n - 1:n])
 
@@ -120,6 +124,8 @@ def write_all(p: Processor, path: str) -> list[str]:
     if ext not in (".pdf", ".svg"):
         raise CommandError("DRAWINGS: the file must end in .pdf (a page per sheet) or .svg (a file per sheet)")
     pages, lines = [], []
+    details: dict[str, list] = {}
+    p.sheet_details = details  # what SHEETNOTE details were drawn where, for DRAWINGS's answer
     total = len(m.drawsheets)
     for i, s in enumerate(m.drawsheets.values(), 1):
         tpl = sh.read_template(s["template"]) if s.get("template") else None
@@ -127,15 +133,19 @@ def write_all(p: Processor, path: str) -> list[str]:
         b = s.get("b") or 0
         if b and b not in m.bodies:
             raise CommandError(f"DRAWINGS: sheet {s['name']} draws body {b}, which no longer exists")
+        placed: list = []
         out, _bounds, page, _bodies, nsizes, _nn = make_sheet(
             p, f"DRAWINGS, sheet {s['name']}", ".pdf", s["views"], b, s["sizes"], paper, s["scale"], s["section"],
             s["detail"], extra={"SHEET": f"{i} of {total}", "SHEETNAME": s["name"]}, template=tpl,
-            tables=s.get("tables", ""))
+            tables=s.get("tables", ""), sheet_notes=s.get("notes"), placed=placed)
         pages.append(page)
         for w in page.warnings:
             p.warn(f"DRAWINGS, sheet {s['name']}: {w}")
+        details[s["name"]] = placed
         lines.append(f"  sheet {i} {s['name']}: {', '.join(v.title.lower() for v in out)}, {nsizes} "
-                     f"size{'s' if nsizes != 1 else ''}, {page.paper} at {sh.scale_text(page.scale)}")
+                     f"size{'s' if nsizes != 1 else ''}"
+                     + (f", {len(placed)} detail{'s' if len(placed) != 1 else ''}" if placed else "")
+                     + f", {page.paper} at {sh.scale_text(page.scale)}")
     full = os.path.abspath(path)
     os.makedirs(os.path.dirname(full) or ".", exist_ok=True)
     try:
@@ -332,6 +342,8 @@ def drawings(p: Processor, file, mode):
                 lines.append(f"written again after every rebuild and save to {p.drawings_auto}")
         return "\n".join(lines + sizes_text(checked))
     lines = write_all(p, file)
+    if "drawings" in p.reports:
+        p.reports["drawings"]["details"] = dict(getattr(p, "sheet_details", {}))
     if mode == "AUTO":
         p.drawings_auto = os.path.abspath(file)
         lines.append("they will be written again after every rebuild and save")

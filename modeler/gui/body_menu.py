@@ -218,6 +218,35 @@ def _thin_walled(shape) -> bool:
     return 2 * v / a < 0.25 * sides[1]
 
 
+def lap_partner(model, edge: int, owner: int) -> int:
+    """Another body that lies against an edge (within a wall's thickness of its middle): the part a
+    flange is spot welded to. 0 when there is none."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    from ..geometry import meshbody as mb
+    from ..geometry import robust
+
+    es = model.entity_shape("EDGE", edge)
+    eb = Bnd_Box()
+    BRepBndLib.Add_s(es, eb)
+    reach = max(1.0, 0.02 * robust.diagonal(model.bodies[owner].shape))
+    eb.Enlarge(reach)
+    best = (reach, 0)
+    for bid, body in model.bodies.items():
+        if bid == owner or not model.is_shown(bid) or mb.is_mesh(body.shape) or not body.entity_ids["FACE"]:
+            continue
+        bb = Bnd_Box()
+        BRepBndLib.Add_s(body.shape, bb)
+        if eb.IsOut(bb):
+            continue
+        d = BRepExtrema_DistShapeShape(es, body.shape)
+        if d.IsDone() and d.Value() <= best[0]:
+            best = (d.Value(), bid)
+    return best[1]
+
+
 def analysis_items(model, ids: list[int], clicked: int) -> list[MenuItem]:
     """Getting parts ready for the analysis app (PLAN items 80-82): only for solids."""
     from ..geometry import meshbody as mb
@@ -382,6 +411,14 @@ def pick_tools(p) -> list[MenuItem]:
                 name = _next_name(p, "AXIS") or "A1"
                 add(MenuItem("Axis along it" if ctype == "LINE" else "Axis through its centre", short="Axis",
                              commands=[f"AXIS, {name}, EDGE, {sel[0]}"], icon="axis"))
+            try:
+                a = m.entity_owner("EDGE", sel[0])[0]
+                b = lap_partner(m, sel[0], a)
+            except Exception:  # noqa: BLE001 - a stale pick
+                b = 0
+            if b:
+                add(MenuItem(f"Spot welds along it to {_name(m, b)}…", short="Spot welds",
+                             commands=[f"SPOTWELD, {a}, {b}, {sel[0]}, 25"], form="SPOTWELD", icon="pick_edge"))
         if n == 2:
             add(MenuItem("Distance and angle", short="Measure", commands=["DIST", "ANGLE"], icon="measure"))
             add(MenuItem("Joint between the two…", short="Joint", form="JOINT", icon="joint"))
@@ -408,6 +445,13 @@ def pick_tools(p) -> list[MenuItem]:
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
         add(MenuItem("Mass and volume", short="Mass", commands=["MASSPROP"], icon="measure"))
         _ = names
+        welds = [b for b in sel if b in getattr(m, "welds", {})]
+        sheets = list(getattr(m, "drawsheets", {}).values())
+        if len(welds) == 1 and sheets:
+            add(MenuItem(f"Weld symbol on sheet {sheets[0]['name']}", short="Weld symbol",
+                         commands=[f"SHEETNOTE, {sheets[0]['name']}, WELD, {welds[0]}"], icon="measure"))
+    if kind in ("FACE", "EDGE", "VERTEX"):
+        items += sheet_detail_items(m, kind, sel)
     return items
 
 
@@ -503,7 +547,33 @@ def sheet_items(model) -> list[MenuItem]:
             else:
                 items.append(MenuItem(f"Sheet {name}: add a {label}",
                                       [f"SHEETTABLE, {name}, {'+'.join(have + [word])}"]))
+        # drawing details (PLAN item 100)
+        kinds = [d["kind"] for d in s.get("notes", [])]
+        for word, label in (("CENTRES", "centre marks on the holes"), ("THREADS", "cosmetic threads")):
+            if word in kinds:
+                n = kinds.index(word) + 1
+                items.append(MenuItem(f"Sheet {name}: take off the {label}", [f"SHEETNOTE, {name}, DELETE, {n}"]))
+            else:
+                items.append(MenuItem(f"Sheet {name}: add {label}", [f"SHEETNOTE, {name}, {word}"]))
     return items
+
+
+def sheet_detail_items(model, kind: str, sel: list[int]) -> list[MenuItem]:
+    """A picked face or edge with drawing sheets: put a surface finish, a leader note or a weld symbol
+    on a sheet (PLAN item 100)."""
+    sheets = list(getattr(model, "drawsheets", {}).values())
+    if not sheets or len(sel) != 1:
+        return []
+    name, g = sheets[0]["name"], sel[0]
+    out = []
+    if kind == "FACE":
+        out.append(MenuItem(f"Surface finish on sheet {name}…", [f"SHEETNOTE, {name}, FINISH, {g}, 1.6"],
+                            form="SHEETNOTE", short="Finish", icon="pick_face"))
+    if kind in ("FACE", "EDGE", "VERTEX"):
+        on = str(g) if kind == "FACE" else f"{kind} {g}"
+        out.append(MenuItem(f"Note on sheet {name}…", [f'SHEETNOTE, {name}, LEADER, {on}, "note"'],
+                            form="SHEETNOTE", short="Sheet note", icon="pick_" + kind.lower()))
+    return out
 
 
 def entry_bodies(processor, row: int) -> list[int]:

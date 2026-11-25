@@ -118,6 +118,7 @@ class Mid:
     unpaired: list[int]  # faces with nothing across them within reach (thick parts)
     joined: bool  # one sheet offset as a whole (corners meet), not faces offset one by one
     faces: list = field(default_factory=list)  # (mid face, thickness) for each face of ``shape``
+    closed: int = 0  # gaps closed where the thickness changes (strips added between middle faces)
 
 
 def across(shape, faces) -> list[tuple[int, float] | None]:
@@ -181,6 +182,9 @@ def walls(shape, max_t: float = 0.0) -> tuple[list[Wall], list[int], list[int], 
             if any(e.IsSame(x) for e in edges_of[i] for x in edges_of[j]):
                 near[i].add(j)
                 near[j].add(i)
+    back: dict[int, list[int]] = {}
+    for i, (j, _) in pair.items():
+        back.setdefault(j, []).append(i)
     side: dict[int, int] = {}
     order = sorted(pair, key=lambda i: -areas[i])
     chosen: list[int] = []
@@ -196,6 +200,13 @@ def walls(shape, max_t: float = 0.0) -> tuple[list[Wall], list[int], list[int], 
                 side[j] = 1 - side[i]
                 group.append(j)
                 todo.append(j)
+            # faces whose ray lands on this one are across from it too (the two tops of a stepped
+            # plate both land on its one bottom)
+            for k in back.get(i, ()):
+                if k not in side:
+                    side[k] = 1 - side[i]
+                    group.append(k)
+                    todo.append(k)
             for k in near[i]:
                 if k in pair and k not in side and k != j:
                     side[k] = side[i]
@@ -206,6 +217,12 @@ def walls(shape, max_t: float = 0.0) -> tuple[list[Wall], list[int], list[int], 
         s0 = [i for i in group if side[i] == 0]
         s1 = [i for i in group if side[i] == 1]
         chosen += s1 if len(s1) > len(s0) else s0
+    # a wall left with neither side chosen (the plate beside the foot of a rib in a T, whose
+    # bottom face looks up into the rib): its own side is added
+    for i in sorted(pair, key=lambda i: -areas[i]):
+        mine = set(chosen)
+        if i not in mine and pair[i][0] not in mine and not any(pair[c][0] == i for c in mine):
+            chosen.append(i)
     chosen.sort(key=lambda i: -areas[i])
     out = []
     for i in chosen:
@@ -234,6 +251,7 @@ def midsurface(shape, max_t: float = 0.0) -> Mid:
     same = max(ts) - min(ts) <= 1e-3 * max(ts)
     joined = False
     result = None
+    closed = 0
     if same:
         sew = BRepBuilderAPI_Sewing(1e-6 * max(1.0, robust.diagonal(shape)))
         for w in ws:
@@ -249,8 +267,9 @@ def midsurface(shape, max_t: float = 0.0) -> Mid:
                 joined = True
         except Exception:  # noqa: BLE001 - the kernel refuses some sheets; offset face by face then
             result = None
+    per = []
     if result is None:
-        pieces = []
+        pieces = []  # (face, thickness)
         for w in ws:
             mo = BRepOffsetAPI_MakeOffsetShape()
             try:
@@ -259,30 +278,213 @@ def midsurface(shape, max_t: float = 0.0) -> Mid:
             except Exception:  # noqa: BLE001, S112 - a face the kernel cannot offset is left out
                 continue
             if mo.IsDone() and not robust.is_empty(mo.Shape()):
-                pieces.extend(_explore(mo.Shape(), TopAbs_FACE))
+                pieces.extend((_face(x), w.thickness) for x in _explore(mo.Shape(), TopAbs_FACE))
         if not pieces:
             raise PrepError("the walls could not be offset to their middle")
-        sew = BRepBuilderAPI_Sewing(max(ts) * 0.55)
-        for f in pieces:
+        kept, closed = meet([f for f, _ in pieces], [t for _, t in pieces], max(ts))
+        sew = BRepBuilderAPI_Sewing(1e-3 * min(ts))
+        for f, _ in kept:
             sew.Add(f)
         sew.Perform()
         result = sew.SewedShape()
-    # the thickness of each face of the result: the wall its middle lies in
-    mids = _explore(result, TopAbs_FACE)
-    per = []
-    for mf in mids:
-        got = inside_point(mf)
-        t = ts[0]
-        if got is not None and not same:
-            p = got[0]
-            best = None
-            for w in ws:
-                d = _face_distance(faces[w.face], p)
-                if best is None or abs(d - w.thickness / 2) < best[0]:
-                    best = (abs(d - w.thickness / 2), w.thickness)
-            t = best[1] if best else ts[0]
-        per.append((mf, t))
-    return Mid(robust.unwrap(result), ws, rims, unpaired, joined, per)
+        for f, t in kept:
+            g = sew.Modified(f) if sew.IsModified(f) else f
+            per.append((g, t))
+        mids = _explore(result, TopAbs_FACE)
+        per = [(mf, next((t for g, t in per if g.IsSame(mf)), _nearest_t(mf, ws, faces, ts))) for mf in mids]
+    else:
+        per = [(mf, ts[0]) for mf in _explore(result, TopAbs_FACE)]
+    return Mid(robust.unwrap(result), ws, rims, unpaired, joined, per, closed)
+
+
+def _nearest_t(mf, ws, faces, ts) -> float:
+    """The thickness of a middle face: the wall whose side lies half that thickness away."""
+    got = inside_point(mf)
+    if got is None:
+        return ts[0]
+    best = None
+    for w in ws:
+        d = _face_distance(faces[w.face], got[0])
+        if best is None or abs(d - w.thickness / 2) < best[0]:
+            best = (abs(d - w.thickness / 2), w.thickness)
+    return best[1] if best else ts[0]
+
+
+def meet(pieces: list, ts: list[float], reach: float) -> tuple[list, int]:
+    """Make middle faces offset one by one meet: close the gaps between them (``close_gaps``),
+    split them where they cross, and drop the short ends that stick out past the meeting line
+    (a narrow piece joined to the rest along one edge only). Returns ([(face, thickness)], gaps
+    closed)."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_BuilderAlgo
+    from OCP.TopExp import TopExp
+
+    strips = close_gaps(pieces, reach)
+    src = list(zip(pieces, ts)) + [(f, ts[i]) for f, i in strips]
+    gf = BRepAlgoAPI_BuilderAlgo()
+    gf.SetArguments(_list([f for f, _ in src]))
+    gf.SetFuzzyValue(1e-4 * min(ts))
+    gf.SetRunParallel(False)
+    gf.Build()
+    if not gf.IsDone():
+        return src, len(strips)
+    out = []
+    for f, t in src:
+        if gf.IsDeleted(f):
+            continue
+        imgs = list(gf.Modified(f)) or [f]
+        out.extend((_face(g), t) for g in imgs)
+    # short ends past a meeting line: narrow, joined to the rest along one edge only
+    comp = _compound([f for f, _ in out])
+    emap = robust._EdgeFaceMap()
+    TopExp.MapShapesAndAncestors_s(comp, TopAbs_EDGE, TopAbs_FACE, emap)
+    keep = []
+    for f, t in out:
+        shared, length = 0, 0.0
+        for e in _explore(f, TopAbs_EDGE):
+            k = emap.FindIndex(e)
+            if k and emap.FindFromIndex(k).Size() > 1:
+                shared += 1
+                length += _length(e)
+        if shared == 1 and length > 0 and area(f) / length < 0.75 * reach:
+            continue
+        keep.append((f, t))
+    return keep, len(strips)
+
+
+def _length(edge) -> float:
+    g = GProp_GProps()
+    BRepGProp.LinearProperties_s(edge, g)
+    return g.Mass()
+
+
+def _plane_of(face):
+    s = BRepAdaptor_Surface(face)
+    if s.GetType() != GeomAbs_SurfaceType.GeomAbs_Plane:
+        return None
+    pl = s.Plane()
+    n, o = pl.Axis().Direction(), pl.Location()
+    return np.array([o.X(), o.Y(), o.Z()]), np.array([n.X(), n.Y(), n.Z()])
+
+
+def _line_ends(edge):
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_CurveType
+
+    c = BRepAdaptor_Curve(edge)
+    if c.GetType() != GeomAbs_CurveType.GeomAbs_Line:
+        return None
+    a, b = c.Value(c.FirstParameter()), c.Value(c.LastParameter())
+    return np.array([a.X(), a.Y(), a.Z()]), np.array([b.X(), b.Y(), b.Z()])
+
+
+def _on_face(face, x: np.ndarray, tol: float) -> bool:
+    return _face_distance(face, gp_Pnt(*map(float, x))) <= tol
+
+
+def _quad(pts) -> object | None:
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakePolygon
+
+    poly = BRepBuilderAPI_MakePolygon()
+    for q in pts:
+        poly.Add(gp_Pnt(*map(float, q)))
+    poly.Close()
+    if not poly.IsDone():
+        return None
+    mk = BRepBuilderAPI_MakeFace(poly.Wire(), True)
+    return mk.Face() if mk.IsDone() else None
+
+
+def _off(face, a, b, n, reach) -> np.ndarray:
+    """The way off a flat face across its straight edge a-b, in the face's plane."""
+    d = (b - a) / np.linalg.norm(b - a)
+    out = np.cross(d, n)
+    if _on_face(face, (a + b) / 2 + out * (1e-3 * reach), 1e-6 * max(1.0, reach)):
+        out = -out
+    return out
+
+
+def close_gaps(pieces: list, reach: float) -> list:
+    """Where the thickness changes, middle faces offset one by one stop short of each other. For
+    flat faces this adds the strips that close the gaps: an edge of one face is carried on in its
+    own plane until it meets the plane of a neighbour (walls at an angle: an L or a T), or, when
+    the two faces are parallel (a stepped plate), a strip joins the two facing edges straight
+    across. Only gaps narrower than ``reach`` (the largest wall thickness) are closed. Returns
+    [(strip, index of the piece it carries on)]."""
+    planes = [_plane_of(f) for f in pieces]
+    tol = 1e-6 * max(1.0, reach)
+    strips = []
+    edges = []  # (piece, a, b) for each straight boundary edge
+    for i, f in enumerate(pieces):
+        if planes[i] is None:
+            continue
+        for e in _explore(f, TopAbs_EDGE):
+            ab = _line_ends(_edge(e))
+            if ab is not None and np.linalg.norm(ab[1] - ab[0]) > tol:
+                edges.append((i, ab[0], ab[1]))
+    # an edge already lying on another piece is joined there
+    def touching(i, a, b):
+        m = (a + b) / 2
+        return any(k != i and _on_face(pieces[k], m, 10 * tol) for k in range(len(pieces)))
+
+    free = [(i, a, b) for i, a, b in edges if not touching(i, a, b)]
+    bridged: set[tuple[int, int]] = set()
+    for i, a, b in free:
+        o_i, n_i = planes[i]
+        d = (b - a) / np.linalg.norm(b - a)
+        out = _off(pieces[i], a, b, n_i, reach)
+        m = (a + b) / 2
+        best = None
+        for j in range(len(pieces)):
+            if j == i or planes[j] is None:
+                continue
+            o_j, n_j = planes[j]
+            k = float(np.dot(n_j, out))
+            if abs(float(np.dot(n_i, n_j))) > 1 - 1e-6:
+                continue  # parallel: bridged below
+            if abs(k) < 1e-6:
+                continue
+            sa = -float(np.dot(n_j, a - o_j)) / k
+            sb = -float(np.dot(n_j, b - o_j)) / k
+            if not (tol < sa <= reach and tol < sb <= reach):
+                continue
+            a2, b2 = a + out * sa, b + out * sb
+            # the strip has to end on the neighbour or on its own carrying on towards it
+            if not (_face_distance(pieces[j], gp_Pnt(*map(float, (a2 + b2) / 2))) <= reach):
+                continue
+            s = max(sa, sb)
+            if best is None or s < best[0]:
+                best = (s, a2, b2)
+        if best is not None:
+            q = _quad([a, b, best[2], best[1]])
+            if q is not None:
+                strips.append((q, i))
+            continue
+        # parallel neighbours: join facing edges straight across (the step of a stepped plate)
+        for j2, a2, b2 in free:
+            if j2 == i or (min(i, j2), max(i, j2)) in bridged or planes[j2] is None:
+                continue
+            if abs(float(np.dot(n_i, planes[j2][1]))) < 1 - 1e-6:
+                continue
+            gap = (a2 + b2) / 2 - m
+            across = abs(float(np.dot(gap, n_i)))
+            sideways = np.linalg.norm(gap - np.dot(gap, n_i) * n_i - np.dot(gap, d) * d)
+            d2 = (b2 - a2) / np.linalg.norm(b2 - a2)
+            if float(np.dot(out, _off(pieces[j2], a2, b2, planes[j2][1], reach))) > -0.9:
+                continue  # the two edges look the same way: layers, not a step
+            if across < tol or across > reach or sideways > reach or abs(float(np.dot(d, d2))) < 1 - 1e-6:
+                continue
+            # the part of both edges that overlaps along d
+            t0, t1 = 0.0, float(np.dot(b - a, d))
+            u0, u1 = sorted((float(np.dot(a2 - a, d)), float(np.dot(b2 - a, d))))
+            lo, hi = max(t0, u0), min(t1, u1)
+            if hi - lo <= tol:
+                continue
+            shift = a2 - a - np.dot(a2 - a, d) * d
+            q = _quad([a + d * lo, a + d * hi, a + d * hi + shift, a + d * lo + shift])
+            if q is not None:
+                strips.append((q, i))
+                bridged.add((min(i, j2), max(i, j2)))
+    return strips
 
 
 def _face_distance(face, p: gp_Pnt) -> float:
@@ -681,3 +883,54 @@ def matching_area(a, b, tol: float) -> float:
             total += ar
     return total
 
+
+
+# ---- spot welds (PLAN item 99) ----------------------------------------------------------------
+
+
+@dataclass
+class Spot:
+    at: P3  # the weld point: halfway between the two parts there
+    on_edge: P3  # the point on the edge it was laid out from
+    gap: float  # how far apart the two parts are at that point
+
+
+def spot_places(length: float, pitch: float, margin: float) -> list[float]:
+    """Distances along an edge for spot welds ``pitch`` apart, kept ``margin`` from both ends and
+    centred on the edge (the left-over length shared between the two ends)."""
+    if pitch <= 0:
+        raise PrepError("the pitch must be more than 0")
+    usable = length - 2 * margin
+    if usable < -1e-9:
+        raise PrepError(f"the edge ({length:g} long) is shorter than twice the end distance ({margin:g})")
+    n = int(math.floor(max(usable, 0.0) / pitch + 1e-9)) + 1
+    start = (length - (n - 1) * pitch) / 2
+    return [start + k * pitch for k in range(n)]
+
+
+def spot_welds(edge, a, b, pitch: float, margin: float) -> list[Spot]:
+    """Spot weld points along ``edge`` joining shapes ``a`` and ``b``: laid out every ``pitch``
+    along the edge, each moved to halfway between the nearest points of the two parts."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    from OCP.GCPnts import GCPnts_AbscissaPoint
+
+    c = BRepAdaptor_Curve(_edge(edge))
+    t0 = c.FirstParameter()
+    length = GCPnts_AbscissaPoint.Length_s(c)
+    out = []
+    for s in spot_places(length, pitch, margin):
+        ap_ = GCPnts_AbscissaPoint(c, s, t0)
+        q = c.Value(ap_.Parameter() if ap_.IsDone() else t0)
+        v = BRepBuilderAPI_MakeVertex(q).Vertex()
+        near = []
+        for shape in (a, b):
+            d = BRepExtrema_DistShapeShape(v, shape)
+            if not d.IsDone() or d.NbSolution() < 1:
+                raise PrepError("the nearest point on a part could not be found")
+            near.append(d.PointOnShape2(1))
+        pa, pb = near
+        mid = ((pa.X() + pb.X()) / 2, (pa.Y() + pb.Y()) / 2, (pa.Z() + pb.Z()) / 2)
+        out.append(Spot(mid, _p(q), pa.Distance(pb)))
+    return out

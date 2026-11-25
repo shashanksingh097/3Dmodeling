@@ -26,7 +26,8 @@ def _exact_extent(bodies) -> dict[str, float] | None:
 
 
 def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale, section, detail,
-               extra: dict | None = None, template=None, tables: str = ""):
+               extra: dict | None = None, template=None, tables: str = "", sheet_notes: list | None = None,
+               placed: list | None = None):
     """The views of one sheet, laid out (and on paper when there is one): (views, bounds, page or None,
     bodies, sizes written, notes placed)."""
     from ..geometry import drawing as dr
@@ -116,6 +117,16 @@ def make_sheet(p: Processor, what: str, ext: str, views, b, sizes, sheet, scale,
     except ValueError as exc:
         raise CommandError(f"{what}: {exc}") from None
     nnotes = dr.add_notes(out, m.notes, size) if getattr(m, "notes", None) else 0
+    if sheet_notes:  # SHEETNOTE: centre marks, threads, finish and weld symbols, leaders (PLAN item 100)
+        from ..geometry import sheet_details as sd
+        from .sheet_note_handlers import resolve
+
+        holes, wanted = resolve(p, sheet_notes, bodies)
+        got, warns = sd.draw(out, holes, wanted, size)
+        for w in warns:
+            p.warn(f"{what}: {w}")
+        if placed is not None:
+            placed.extend(got)
     bounds = dr.layout(out)
     page = None
     sheet_tables, marks = [], []

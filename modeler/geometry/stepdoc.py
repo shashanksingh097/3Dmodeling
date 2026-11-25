@@ -8,6 +8,8 @@ and colour, and an assembly's tree of parts. ``read`` walks that tree down to th
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 
 from OCP.Quantity import Quantity_Color, Quantity_TOC_sRGB
@@ -164,6 +166,60 @@ def read(path: str, pmi: list | None = None) -> list[Part]:
     return out
 
 
+_POINT = re.compile(r"^(#\d+) = CARTESIAN_POINT\('',\(([^)]*)\)\);$", re.M)
+_CURVE_SET = re.compile(r"GEOMETRIC_CURVE_SET\('[^']*',\(([^)]*)\)\)", re.S)
+
+
+def _name_points(path: str, parts: list[Part]) -> None:
+    """Loose points (a body of points, such as SPOTWELD's) go into STEP as the bare points of a
+    GEOMETRIC_CURVE_SET, which the writer leaves without names; their names are written in here,
+    matched by position."""
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    from OCP.TopoDS import TopoDS
+
+    as_vertex = getattr(TopoDS, "Vertex_s", None) or TopoDS.Vertex
+    named = []
+    for part in parts:
+        for sub, text in part.faces:
+            if sub.ShapeType() == TopAbs_VERTEX:
+                q = BRep_Tool.Pnt_s(as_vertex(sub))
+                named.append(((q.X(), q.Y(), q.Z()), text))
+    if not named:
+        return
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    members = set()
+    for m in _CURVE_SET.finditer(text):
+        members.update(x.strip() for x in m.group(1).split(","))
+
+    def rename(m):
+        if m.group(1) not in members:
+            return m.group(0)
+        try:
+            xyz = [float(v) for v in m.group(2).replace("\n", "").split(",")]
+        except ValueError:
+            return m.group(0)
+        for k, (p, name) in enumerate(named):
+            if len(xyz) == 3 and max(abs(a - b) for a, b in zip(xyz, p)) <= 1e-6 * max(1.0, *map(abs, p)):
+                del named[k]
+                return f"{m.group(1)} = CARTESIAN_POINT('{_step_text(name)}',({m.group(2)}));"
+        return m.group(0)
+
+    new = _POINT.sub(rename, text)
+    if new != text:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(new)
+
+
+def _step_text(s: str) -> str:
+    """A string as STEP writes it: quotes doubled, plain ASCII (others in \\X2\\ form)."""
+    out = []
+    for ch in s.replace("'", "''"):
+        out.append(ch if 32 <= ord(ch) < 127 and ch != "\\" else f"\\X2\\{ord(ch):04X}\\X0\\")
+    return "".join(out)
+
+
 def _is_generic(name: str) -> bool:
     """Names the writer of a file made up rather than a person (SOLID, Open CASCADE STEP translator ...)."""
     n = name.strip().upper()
@@ -220,7 +276,10 @@ def write(path: str, parts: list[Part], units: str = "MM", pmi: list | None = No
     try:
         if not w.Transfer(doc):
             return False
-        return int(w.Write(path)) == 1
+        if int(w.Write(path)) != 1:
+            return False
+        _name_points(path, parts)
+        return True
     finally:
         if schema is not None:
             setc("write.step.schema", schema)

@@ -322,6 +322,8 @@ class Model:
         self.pictures: list[Picture] = []  # IMAGE: pictures shown on planes to sketch over
         self.routes: dict = {}  # body ID -> geometry/routing.Route of a pipe or cable (ROUTE), for ROUTES
         self.welds: dict = {}  # body ID -> (length, size) of a weld bead (WELD), for CUTLIST
+        # body ID -> spot weld points (SPOTWELD): {a, b, a_name, b_name, edge, pitch, diameter}, for STEP
+        self.spotwelds: dict = {}
         self.active_sketch: str | None = None  # the open sketch (between SKETCH and ENDSKETCH)
         self.sketch_selection: list[str] = []  # SSEL: GUI helper only, not history, not in snapshots
 
@@ -409,6 +411,7 @@ class Model:
             "drawsheets": dict(self.drawsheets),
             "revisions": [dict(r) for r in self.revisions],
             "welds": dict(self.welds),
+            "spotwelds": dict(self.spotwelds),
             "routes": dict(self.routes),
             "pictures": list(self.pictures),
         }
@@ -451,6 +454,7 @@ class Model:
         self.drawsheets = dict(snap.get("drawsheets", {}))
         self.revisions = [dict(r) for r in snap.get("revisions", [])]
         self.welds = dict(snap.get("welds", {}))
+        self.spotwelds = dict(snap.get("spotwelds", {}))
         self.routes = dict(snap.get("routes", {}))
         self.pictures = list(snap.get("pictures", []))
         self.sketch_selection = []
@@ -596,6 +600,7 @@ class Model:
         self.sheets.pop(bid, None)
         self.members.pop(bid, None)
         self.thickness.pop(bid, None)
+        self.spotwelds.pop(bid, None)
         self.routes.pop(bid, None)
         if emit:
             self._drop_stale_selection()

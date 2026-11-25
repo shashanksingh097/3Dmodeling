@@ -551,7 +551,7 @@ Runs: BOSS, body, x,y,z, h, od [, hole, ribs]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>a screw's length under the head</source>
+            <source>a screw's length under the head, a pin's or a key's length</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -631,11 +631,11 @@ Runs: BOSS, body, x,y,z, h, od [, hole, ribs]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>A standard fastener from the ISO tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 cap screw whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (a nut under a plate whose bottom is at z = -12) · FASTENER, WASHER, M8, 0,0,10 (under the head) · FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads)</source>
+            <source>A standard part from the tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 cap screw whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (under a plate whose bottom is at z = -12) · FASTENER, WASHER, M8, 0,0,10 · FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads) · FASTENER, CSK, M5, 20,10,8, 16, , , , , plate (a countersunk screw and its countersunk hole in plate) · FASTENER, CAP, M6, 20,10,8, 20, , , , , plate, CBORE · FASTENER, DOWEL, 6, 0,0,10, 20, , , , , base (a dowel pin and its hole) · FASTENER, BEARING, 608, 0,0,10, , , , , , housing · FASTENER, CAP, 1/4-20, 0,0,0, 25.4</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>A standard fastener from the ISO tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 cap screw whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (a nut under a plate whose bottom is at z = -12) · FASTENER, WASHER, M8, 0,0,10 (under the head) · FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads). The body is named (e.g. M8x25_CAP_1) and made of steel; GRAVITY, , "M8x25_CAP_1" counts it as holding what it touches.</source>
+            <source>A standard part from the tables, sitting at (x,y,z): FASTENER, CAP, M8, 0,0,10, 25 (an M8x25 cap screw whose head sits on z = 10) · FASTENER, NUT, M8, 0,0,-12 (under a plate whose bottom is at z = -12) · FASTENER, WASHER, M8, 0,0,10 · FASTENER, HEXBOLT, M6, 0,0,0, 20, REAL (real threads) · FASTENER, CSK, M5, 20,10,8, 16, , , , , plate (a countersunk screw and its countersunk hole in plate) · FASTENER, CAP, M6, 20,10,8, 20, , , , , plate, CBORE · FASTENER, DOWEL, 6, 0,0,10, 20, , , , , base (a dowel pin and its hole) · FASTENER, BEARING, 608, 0,0,10, , , , , , housing · FASTENER, CAP, 1/4-20, 0,0,0, 25.4. The body is named (e.g. M8x25_CAP_1), made of steel, and the BOM counts the same parts together.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -860,6 +860,10 @@ Runs: TORUS, ...</source>
         <message>
             <source>Also make the flat blank body</source>
             <translation>Auch den flachen Zuschnitt als Körper erzeugen</translation>
+        </message>
+        <message>
+            <source>also make the matching hole in this body (the part it goes into)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>also report walls thinner than this</source>
@@ -1453,12 +1457,12 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <source>CAP (ISO 4762 socket head cap screw), HEXBOLT (ISO 4017 hex head screw), NUT (ISO 4032) or WASHER (ISO 7089)</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <source>cap mould</source>
             <translation>Kappen-Form</translation>
+        </message>
+        <message>
+            <source>CAP, HEXBOLT, CSK (countersunk), BUTTON, SET (set screw), NUT, WASHER, DOWEL, SPRINGPIN, INSERT (heat-set threaded insert), BEARING, CIRCLIP or KEY</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>car body</source>
@@ -1491,6 +1495,10 @@ Runs: SCULPT, body, CLAY, radius, strength, stroke</source>
         <message>
             <source>Centreline</source>
             <translation>Mittellinie</translation>
+        </message>
+        <message>
+            <source>CENTRES, THREADS, FINISH, WELD, LEADER; DELETE or LIST</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Chamfer</source>
@@ -2852,6 +2860,10 @@ Runs: PLANE, WP1, FACE, id then WORKPLANE, WP1</source>
             <translation>Zeichnung</translation>
         </message>
         <message>
+            <source>Drawing details on a sheet, drawn again from the model each time DRAWINGS writes the sheets: SHEETNOTE, front, CENTRES (centre marks and centre lines on the holes) · SHEETNOTE, front, THREADS (cosmetic threads on holes with a thread noted on them) · SHEETNOTE, front, FINISH, 12, 1.6, ground (a surface finish symbol on face 12) · SHEETNOTE, front, WELD, weld_1 (the weld symbol of a WELD bead, with its size and length) · SHEETNOTE, front, LEADER, EDGE 5, "Break sharp edges" · SHEETNOTE, front lists them; SHEETNOTE, front, DELETE, 2 (or ALL) removes them.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>drawing sketches: history and properties beside a big view (LAYOUT, sketch)</source>
             <translation type="unfinished" />
         </message>
@@ -3372,8 +3384,20 @@ Runs: EXTRUDE, sketch, d [, mode, body]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>FINISH and LEADER: the face (12) or FACE 12, EDGE 5, VERTEX 3; WELD: the weld bead; DELETE: the detail's number, or ALL</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Finish sketch</source>
             <translation>Skizze beenden</translation>
+        </message>
+        <message>
+            <source>FINISH: how it is made (ground, lapped ...)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>FINISH: the roughness Ra; LEADER: the note's text</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>First is a</source>
@@ -4727,7 +4751,7 @@ Runs: STRIM, n, u, v, AXES</source>
             <translation>m2-Schalen-Demo</translation>
         </message>
         <message>
-            <source>M3, M4, M5, M6, M8, M10, M12, M16, M20 or M24</source>
+            <source>M3 ... M24, an inch size (1/4-20, #10-24: CAP, HEXBOLT, NUT, WASHER, SET), a pin's diameter (6), a bearing (608, 6201), a circlip's shaft (20), a key (6x6 or the shaft, 20)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -5511,6 +5535,10 @@ Runs: SOFFSET2, d, ...</source>
         </message>
         <message>
             <source>ON: a floor under the model catches the shadows · OFF</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>one part (a sheet metal part, a plate, or a middle surface)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7138,6 +7166,14 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
             <translation>Blechinfo…</translation>
         </message>
         <message>
+            <source>Sheetnote</source>
+            <translation>Zeichnungsdetail</translation>
+        </message>
+        <message>
+            <source>Sheetnote…</source>
+            <translation>Zeichnungsdetail…</translation>
+        </message>
+        <message>
             <source>Sheettable</source>
             <translation>Blatttabelle</translation>
         </message>
@@ -7549,6 +7585,22 @@ Runs: SECTIONEDIT, plane, offset</source>
         <message>
             <source>Split…</source>
             <translation>Teilen…</translation>
+        </message>
+        <message>
+            <source>Spot welds along an edge: SPOTWELD, lid, box, 12, 25</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Spot welds along an edge: SPOTWELD, lid, box, 12, 25. Points are laid out every pitch along the edge, centred on it, and each is moved halfway between the two parts there. They become one body of points (spotwelds) and a named set; EXPORT, STEP writes each point with its name, the two parts and the nugget size, for the analysis app to make its connectors.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Spotweld</source>
+            <translation>Punktschweißung</translation>
+        </message>
+        <message>
+            <source>Spotweld…</source>
+            <translation>Punktschweißung…</translation>
         </message>
         <message>
             <source>Spring</source>
@@ -8216,7 +8268,15 @@ Runs: MASK, body, INVERT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the distance from one weld to the next</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the distance on the other face (0: the same)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the edge the welds run along (a flange's edge, or the line where the parts lap)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8313,6 +8373,10 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the hole: CLEAR (clearance; a countersunk screw also gets its countersink), TAP (a tap drill as deep as the screw), CBORE (a counterbore: the head sinks in) or FIT (the hole a pin, insert or bearing is pressed into; their default)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the inside bend radius (default: the sheet's)</source>
             <translation type="unfinished" />
         </message>
@@ -8342,6 +8406,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>The last session did not close normally: see the Output panel</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the least distance from the ends of the edge (0: half the pitch)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8381,7 +8449,7 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>The middle surface of a thin part, for a shell model in the analysis app: MIDSURFACE, bracket. Each wall's two sides are paired, one side is pulled half the thickness into the wall, and the thickness is kept on each face of the new surface body (in the answer, and on the faces in STEP). With one thickness the walls meet at their corners; with several, each face is its own piece</source>
+            <source>The middle surface of a thin part, for a shell model in the analysis app: MIDSURFACE, bracket. Each wall's two sides are paired, one side is pulled half the thickness into the wall, and the thickness is kept on each face of the new surface body (in the answer, and on the faces in STEP). With one thickness the walls meet at their corners; with several, each face is offset on its own and the flat ones are carried on (or cut back) until they meet, so steps, L and T joins stay closed</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8470,6 +8538,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the part it clashes with (it stays as it is)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the part it is welded to</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8626,7 +8698,7 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>the seat: where the head, nut or washer sits</source>
+            <source>the seat: where the head, nut or washer sits (a pin, insert or bearing goes in from it)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -8792,6 +8864,10 @@ Runs: MOLD, body [, wall, shrink %]</source>
         </message>
         <message>
             <source>the weight: 1 is normal, more pulls the shape closer to the point, less lets it go</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the weld nugget's diameter, kept with the points for the analysis app</source>
             <translation type="unfinished" />
         </message>
         <message>

@@ -55,6 +55,7 @@ from . import found_handlers  # noqa: F401  (FEATURES, DEFEATURE, RESIZE: editin
 from . import joint_handlers  # noqa: F401  (JOINT, JOINTS: joints that stay solved)
 from . import handle_handlers  # noqa: F401  (HANDLES: the drag handles, as data)
 from . import sheet_table_handlers  # noqa: F401  (SHEETTABLE, REVISION, SHEETDATA: tables on drawing sheets)
+from . import sheet_note_handlers  # noqa: F401  (SHEETNOTE: centre marks, threads, finish/weld symbols, leaders)
 from . import plugin_handlers  # noqa: F401  (PLUGINS: the plug-ins found)
 from . import pointcloud_handlers  # noqa: F401  (TOPOINTS, FITPOINTS: point clouds)
 from . import wrap_handlers  # noqa: F401  (WRAPSKIN: shrinkwrap)
