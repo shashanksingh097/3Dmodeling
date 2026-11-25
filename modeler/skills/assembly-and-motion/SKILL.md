@@ -27,7 +27,12 @@ commands: *PART, INST, MATE, JOINT, JOINTS, ROTATE, DRIVE, MOTION, GRAVITY, CONT
    value now, what it leaves free and any that fight, as data. Hold a joint
    with one parameter per motion (`A = 30`). `DRIVE, A, 75` holds a value
    without touching the history; `MOTION, A, 0, 120, 12` checks every pair
-   of parts at each position and puts A back.
+   of parts at each position and puts A back. A motion study adds points
+   and a time: `MOTION, A, 0, 360, 36, "rod 120,0,10", 0.5` gives the
+   point's position, speed and acceleration at each position and the drive
+   torque (or force, for a length) that lifts and speeds up the parts. Give
+   the parts a MATERIAL first, or they weigh nothing. Read the numbers from
+   the report `MOTION` (`study`), not from a picture.
 5. **Will it stand up**: `GRAVITY, ground [, "fastened parts"]`: floating
    parts, parts that tip off, parts only held at their sides, gaps and
    overlaps. List bolted or hinged parts as fastened.

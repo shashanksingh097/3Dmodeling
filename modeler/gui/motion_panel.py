@@ -81,7 +81,9 @@ class Plot(QWidget):
         for i, (name, xs, ys, unit) in enumerate(self.series):
             top, bot = i * h + 16, (i + 1) * h - 16
             x0, x1 = min(xs), max(xs) if max(xs) > min(xs) else min(xs) + 1
-            y0, y1 = min(ys), max(ys)
+            from ..geometry.kinematics import _yrange
+
+            y0, y1 = _yrange(ys)
             if y1 - y0 < 1e-12:
                 y0, y1 = y0 - 1, y1 + 1
             w = self.width() - left - right

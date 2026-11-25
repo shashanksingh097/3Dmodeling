@@ -211,6 +211,9 @@ def toggle(win: MainWindow, on: bool | None = None):
             return None
         win.console = Console(win)
         dock = win._dock("Python console", win.console, _Qt.BottomDockWidgetArea)
+        out = getattr(win, "output_dock", None)
+        if out is not None and not out.isFloating():
+            win.tabifyDockWidget(out, dock)  # a tab beside Output, full width
         win.console_dock = dock
         dock.visibilityChanged.connect(lambda vis: win.console_action.setChecked(vis)
                                        if hasattr(win, "console_action") else None)

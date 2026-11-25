@@ -585,6 +585,7 @@ class MainWindow(QMainWindow):
         self.history_panel = HistoryPanel(self)
         self.param_panel = ParamPanel(self)
         out = self._dock("Output", self.output, Qt.BottomDockWidgetArea)
+        self.output_dock = out
         hist = self._dock("History", self.history_panel, Qt.RightDockWidgetArea)
         self.config_bar = ConfigBar(self)
         box = QWidget()

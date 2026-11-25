@@ -69,7 +69,7 @@ def angular_velocity(rs: list[np.ndarray], t: np.ndarray) -> np.ndarray:
 def _diff(x: np.ndarray, t: np.ndarray) -> np.ndarray:
     if len(t) < 2:
         return np.zeros_like(x)
-    return np.gradient(x, t, axis=0, edge_order=1)
+    return np.gradient(x, t, axis=0, edge_order=2 if len(t) > 2 else 1)
 
 
 def study(values: list[float], time: float, frames: dict[int, list[tuple[np.ndarray, np.ndarray]]],
@@ -159,7 +159,7 @@ def svg_plot(series: list[tuple[str, list[float], list[float], str]], title: str
     for i, (name, xs, ys, unit) in enumerate(series):
         top = pad_t + i * (ph + pad_b)
         x0, x1 = min(xs), max(xs)
-        y0, y1 = min(ys), max(ys)
+        y0, y1 = _yrange(ys)
         if y1 - y0 < 1e-12:
             y0, y1 = y0 - 1, y1 + 1
         if x1 - x0 < 1e-12:
@@ -185,6 +185,15 @@ def svg_plot(series: list[tuple[str, list[float], list[float], str]], title: str
         out.append(f'<text x="{pad_l + w / 2:.1f}" y="{top + ph + 26}" text-anchor="middle">{_esc(xlabel)}</text>')
     out.append("</svg>")
     return "\n".join(out) + "\n"
+
+
+def _yrange(ys) -> tuple[float, float]:
+    """The plot's range: from 0 when the values hardly change (a steady speed is a flat line, not noise)."""
+    y0, y1 = min(ys), max(ys)
+    big = max(abs(y0), abs(y1))
+    if big > 0 and y1 - y0 < 0.05 * big:
+        y0, y1 = (min(0.0, y0), max(0.0, y1))
+    return y0, y1
 
 
 def _esc(s: str) -> str:

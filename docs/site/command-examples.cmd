@@ -1549,6 +1549,9 @@ ROTATE, lid, -A, 0,0,5, 0,1,0
 CYL, -20,15,0, 3, 30
 NAME, LAST, post
 MOTION, A, 0, 180, 12
+! a motion study: where the lid's front edge goes, how fast, and the torque to lift the aluminium lid in 2 s
+MATERIAL, lid, ALUMINIUM
+MOTION, A, 0, 90, 18, "lid 40,15,7", 2
 
 @ STRESS
 ! A first strength check: a bracket held at its wall, 400 N down at its tip.
@@ -2252,6 +2255,21 @@ SLINE, 2.E, 42, 20
 SCON, HORIZONTAL, 2
 SCON, PERPENDICULAR, 2, 3
 ENDSKETCH
+
+@ SREPAIR pic
+! Repair an outline that came in broken: ends that miss each other, a line drawn twice and a round end
+! drawn as 12 short lines (each under 6 long) become a closed outline with one spline, ready to extrude.
+SKETCH, s, XY
+SLINE, 0, 0, 40, 0
+SLINE, 40, 0, 40, 20
+SLINE, 40, 0, 40, 20
+SLINE, 0.05, 0, 0, 20
+*DO, k, 0, 11
+SLINE, 20+20*cos(15*k), 20+20*sin(15*k), 20+20*cos(15*(k+1)), 20+20*sin(15*(k+1))
+*ENDDO
+SREPAIR, 0.1, 0, 6
+ENDSKETCH
+EXTRUDE, s, 4
 
 @ SCHECK
 ! What is wrong with a sketch, or still loose: repeated constraints, curves drawn twice, free geometry.

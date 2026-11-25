@@ -1,7 +1,7 @@
 ---
 name: sketch-to-solid
 description: Make a part from a 2D sketch - draw on a plane or a face, hold it with constraints and sizes until no freedom is left, then EXTRUDE or REVOLVE it as a new body, a boss or a cut. Use for plates with outlines, bosses on faces, pockets, slots and turned parts.
-commands: SKETCH, SRECT, SCIRCLE, SLINE, SPOLY, SSLOT, SARC, SFILLET, SCON, SDIM, ENDSKETCH, EXTRUDE, REVOLVE
+commands: SKETCH, SRECT, SCIRCLE, SLINE, SPOLY, SSLOT, SARC, SFILLET, SCON, SDIM, SREPAIR, SCHECK, ENDSKETCH, EXTRUDE, REVOLVE
 ---
 # Sketch to solid
 
@@ -21,6 +21,10 @@ commands: SKETCH, SRECT, SCIRCLE, SLINE, SPOLY, SSLOT, SARC, SFILLET, SCON, SDIM
    and names them.
 4. **Round corners** in the sketch with `SFILLET, 1.E, r` rather than with
    `FILLET` on the solid later: it is cheaper and always works.
+   Curves read from a file (`SDXF`, `SSVG`, `STRACE`) that will not make
+   a profile: `SCHECK` says what is wrong, and `SREPAIR` (or `SREPAIR, gap`)
+   closes small gaps, removes curves drawn twice and specks, and turns
+   chains of short lines into splines.
 5. `ENDSKETCH`, then:
    * `EXTRUDE, s, 10` (new body), `EXTRUDE, s, 5, ADD` (a boss on the
      sketch's body), `EXTRUDE, s, -8, CUT` (a pocket), `EXTRUDE, s, 0, CUT,

@@ -180,6 +180,14 @@ TASKS: list[Task] = [
          setup="BLOCK, 0, 0, 0, 100, 40, 2\nNAME, LAST, tray\nBLOCK, 0, 20, 2, 100, 40, 2\nNAME, LAST, lid",
          reference="SPOTWELD, lid, tray, 21, 25",
          area="analysis-prep"),
+    Task("repair_outline",
+         "Sketch s came from a drawing file and will not make a profile: some ends miss each other and a line is "
+         "drawn twice. Repair it and make it a plate 5 thick.",
+         ["VALID({b})", "VOL({b}), BETWEEN, 4990, 5010"],
+         setup="SKETCH, s, XY\nSLINE, 0, 0, 40, 0\nSLINE, 40, 0, 40, 25\nSLINE, 40, 0, 40, 25\n"
+               "SLINE, 40, 25.04, 0, 25\nSLINE, 0.03, 25, 0, 0",
+         reference="SREPAIR, 0.1\nENDSKETCH\nEXTRUDE, s, 5",
+         area="sketch-to-solid"),
     Task("board_case",
          "Make a closed case named case around the circuit board and all its parts (the battery holder is "
          "underneath), with 2 mm walls and at least 1 mm of room round the parts; nothing may touch the board or "

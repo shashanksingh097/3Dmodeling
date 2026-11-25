@@ -538,6 +538,10 @@ Runs: SCON, MIDPOINT, p, line</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>A Python prompt with the model at hand (off until you open it): run("...") or c.COMMAND(...) runs commands, which go into the history</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>A rebuild is running: wait for it, or press Cancel in its dialog</source>
             <translation type="unfinished" />
         </message>
@@ -891,6 +895,10 @@ Runs: TORUS, ...</source>
         </message>
         <message>
             <source>also write the flat pattern to this .dxf (cut outline, bend lines, bend notes)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>also write the table (.csv) or plots (.svg)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -1871,6 +1879,14 @@ Runs: SCIRCLET</source>
         <message>
             <source>Close</source>
             <translation>Cerrar</translation>
+        </message>
+        <message>
+            <source>Close gaps up to (0: automatic)</source>
+            <translation>Cerrar huecos hasta (0: automático)</translation>
+        </message>
+        <message>
+            <source>close gaps up to this size (0: 0.2 % of the sketch's size)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Close the app</source>
@@ -3522,6 +3538,11 @@ Runs: FITSURF, b, region, tolerance</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Fix imported curves: close small gaps, remove curves drawn twice and tiny pieces, and turn chains of short lines into splines
+Runs: SREPAIR [, gap, tiny, refit]</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>FIXED, REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR, or GEAR, BELT, RACK, SCREW</source>
             <translation type="unfinished" />
         </message>
@@ -4120,6 +4141,10 @@ Runs: SDIM, HDIST, ...</source>
         </message>
         <message>
             <source>how full the blend is: 1 even, more swings out further</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>How long the motion takes: speeds, accelerations and the drive torque follow from it</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6180,6 +6205,14 @@ Runs: SCON, FIX, ...</source>
             <translation>Puntos</translation>
         </message>
         <message>
+            <source>Points to follow for Study: a body and a point on it as it is now; ; between them</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>points to follow: "rod 120,0,10; crank 40,0,0" (a body and a point on it now)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Point…</source>
             <translation>Punto…</translation>
         </message>
@@ -6210,6 +6243,10 @@ Runs: SCON, FIX, ...</source>
         <message>
             <source>Position</source>
             <translation>Posición</translation>
+        </message>
+        <message>
+            <source>Position, speed and acceleration of the points, and the drive torque or force, at every step, as plots (MOTION with points)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Preferences</source>
@@ -6351,6 +6388,18 @@ Runs: LAYER, name, ADD, SEL</source>
         <message>
             <source>putting parts together: the model tree, properties and parameters (LAYOUT, assembly)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Python &amp;console</source>
+            <translation>&amp;Consola de Python</translation>
+        </message>
+        <message>
+            <source>Python console</source>
+            <translation>Consola de Python</translation>
+        </message>
+        <message>
+            <source>Python: c.BLOCK(0, 0, 0, 10, 10, 10) · report('MASSPROP') · help(c)</source>
+            <translation>Python: c.BLOCK(0, 0, 0, 10, 10, 10) · report('MASSPROP') · help(c)</translation>
         </message>
         <message>
             <source>Quick access</source>
@@ -6604,6 +6653,14 @@ Runs: REDO</source>
             <translation>Quitar carpeta</translation>
         </message>
         <message>
+            <source>remove lines and arcs shorter than this (0: 0.05 % of its size)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Remove pieces shorter than (0: automatic)</source>
+            <translation>Quitar piezas más cortas que (0: automático)</translation>
+        </message>
+        <message>
             <source>Remove the selected faces and close the gap (a hole, boss or fillet goes away)
 Runs: DELFACE</source>
             <translation type="unfinished" />
@@ -6634,6 +6691,22 @@ Runs: DELFACE</source>
         </message>
         <message>
             <source>Repair a body that CHECK reports as broken (after an import, say): HEAL, body [, tolerance]. In turn: removes duplicate faces, sews loose faces and gaps into a skin (and a closed skin into a solid), turns flipped faces, merges tiny edges and fixes faces the kernel finds invalid. Says what it fixed and what is left.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Repair curves</source>
+            <translation>Reparar curvas</translation>
+        </message>
+        <message>
+            <source>Repair curves…</source>
+            <translation>Reparar curvas…</translation>
+        </message>
+        <message>
+            <source>Repair imported curves in the open sketch: SREPAIR · SREPAIR, 0.5 · SREPAIR, 0.5, 0.01, NO</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Repair imported curves in the open sketch: SREPAIR · SREPAIR, 0.5 · SREPAIR, 0.5, 0.01, NO. Curves drawn twice go, tiny pieces go, loose ends closer than the gap meet and are tied, and chains of six or more short lines that turn gently become one spline. SCHECK says when it would help.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6759,6 +6832,10 @@ Runs: VIEW, RIGHT</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>rod 120,0,10; crank 40,0,0</source>
+            <translation>rod 120,0,10; crank 40,0,0</translation>
+        </message>
+        <message>
             <source>roller</source>
             <translation>rodillo</translation>
         </message>
@@ -6849,7 +6926,7 @@ Runs: RUN, file</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Run an assembly through its range of motion and look for parts running into each other: MOTION, A, 0, 90, 18 puts A at 0, 5 ... 90, checks every pair of shown solids at each position, reports where they overlap and the smallest gap, and puts A back. The history does not change</source>
+            <source>Run an assembly through its range of motion and look for parts running into each other: MOTION, A, 0, 90, 18 puts A at 0, 5 ... 90, checks every pair of shown solids at each position, reports where they overlap and the smallest gap, and puts A back. The history does not change. A motion study: MOTION, A, 0, 360, 36, "rod 120,0,10", 0.5 also gives the position, speed and acceleration of the point at each position (the motion taking 0.5 s) and the drive torque (or force) that lifts and speeds up the parts (their MATERIAL's mass, gravity along -Z, no friction); a file gets the table or the plots</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -6972,6 +7049,10 @@ Runs: SCON, EQUAL, a, b</source>
         <message>
             <source>Save pictures…</source>
             <translation>Guardar imágenes…</translation>
+        </message>
+        <message>
+            <source>Save table…</source>
+            <translation>Guardar tabla…</translation>
         </message>
         <message>
             <source>Save the current selection as a named set: CM, top_faces [, FACE].</source>
@@ -7100,6 +7181,10 @@ Runs: SCON, EQUAL, a, b</source>
         <message>
             <source>Second is a</source>
             <translation>El segundo es un</translation>
+        </message>
+        <message>
+            <source>seconds the motion takes (the parameter moves at a steady rate)</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Section</source>
@@ -7329,6 +7414,10 @@ Edits the step selected in History, or the last SWEEP; Apply runs HIST, EDIT</so
         <message>
             <source>Short lessons that check your model as you go: your first part, sketch to solid, fixing a step</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Short lines into splines (YES, NO or a length)</source>
+            <translation>Líneas cortas a splines (YES, NO o una longitud)</translation>
         </message>
         <message>
             <source>Shortcut</source>
@@ -7744,6 +7833,14 @@ Runs: SECTIONEDIT, plane, offset</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Srepair</source>
+            <translation>Reparar curvas</translation>
+        </message>
+        <message>
+            <source>Srepair…</source>
+            <translation>Reparar curvas…</translation>
+        </message>
+        <message>
             <source>Ssvg</source>
             <translation>Ssvg</translation>
         </message>
@@ -7986,6 +8083,10 @@ Runs: MEMBER, path, profile, size [, MITRE/BUTT]</source>
         <message>
             <source>Structural members along the lines of a path, one per straight piece: MEMBER, frame, SQUARE, 40x3 (square tube 40 wide, 3 wall, mitred corners) · MEMBER, frame, IBEAM, 100x200x8, BUTT · MEMBER, s2, ROUND, 30x2. CUTLIST lists their lengths and end cuts</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Study</source>
+            <translation>Estudio</translation>
         </message>
         <message>
             <source>Style</source>
@@ -9146,6 +9247,10 @@ Runs: DRAFT, angle</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Time</source>
+            <translation>Tiempo</translation>
+        </message>
+        <message>
             <source>TITLE, NUMBER, MATERIAL, AUTHOR, COMPANY, REVISION, DATE, or any word (none: list them)</source>
             <translation type="unfinished" />
         </message>
@@ -9824,6 +9929,10 @@ Runs: WELD, a, b [, size]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>what the parameter is: ANGLE (degrees: a drive torque) or LENGTH (a drive force); AUTO looks at the steps that use it</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>what to check: an expression, e.g. VOL(b), BBOX(b).dz, HOLES(b, 8), VALID(b)</source>
             <translation type="unfinished" />
         </message>
@@ -10057,6 +10166,10 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Write the study as a table (.csv) or as plots (.svg)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>x(t)</source>
             <translation>x(t)</translation>
         </message>
@@ -10098,6 +10211,10 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
         </message>
         <message>
             <source>YES: also make the flat blank as a body beside the part · NO: only the file</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>YES: chains of short lines that turn gently become splines; NO: keep them; or the longest line to refit (a number)</source>
             <translation type="unfinished" />
         </message>
         <message>
