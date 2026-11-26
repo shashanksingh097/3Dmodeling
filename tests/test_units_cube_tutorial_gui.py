@@ -307,19 +307,19 @@ def _visible(win):
 
 def test_built_in_layouts(win):
     run(win, "LAYOUT, sculpt")
-    assert _visible(win) == {"output"} and win.ribbon.current_title() == "Sculpt"
+    assert _visible(win) == set() and win.ribbon.current_title() == "Sculpt"
     run(win, "LAYOUT, sketch")
-    assert _visible(win) == {"output", "history", "properties"}
+    assert _visible(win) == {"model", "properties"}
     assert win.ribbon.current_title() == "Features"  # no sketch open
     run(win, "SKETCH, s, XY\nLAYOUT, sketch")
     assert win.ribbon.current_title() == "Sketch"
     run(win, "ENDSKETCH\nLAYOUT, drawing")
     assert _visible(win) == {"output", "history", "parameters"} and win.ribbon.current_title() == "Inspect"
     run(win, "LAYOUT, modelling")
-    assert {"model", "history", "properties", "parameters", "output"} == _visible(win)
+    assert {"model", "properties", "parameters"} == _visible(win)
     assert win.layouts.current == "modelling"
     run(win, "LAYOUT, RESET")
-    assert {"model", "history", "properties", "parameters", "output", "layers", "assistant"} <= _visible(win)
+    assert {"model", "properties", "parameters"} == _visible(win)
     assert "tutorial" not in _visible(win)
 
 
@@ -330,7 +330,7 @@ def test_saved_layouts_last_between_sessions(app, tmp_path, monkeypatch):
         w.layouts.docks()["model"].show()
         run(w, "LAYOUT, SAVE, Review")
         run(w, "LAYOUT, RESET")
-        assert "layers" in _visible(w)
+        assert _visible(w) == {"model", "properties", "parameters"}  # History, Layers ... open on demand
     finally:
         w.shell.confirm_discard = lambda *_: True
         w.close()
@@ -359,7 +359,7 @@ def test_layout_menu_runs_the_command(win):
     act = next(a for a in menu.actions() if a.text() == "Sculpt")
     act.trigger()
     wait()
-    assert last_output(win) == "LAYOUT, sculpt" and _visible(win) == {"output"}
+    assert last_output(win) == "LAYOUT, sculpt" and _visible(win) == set()
 
 
 # ---- item 94: pictures in tooltips -----------------------------------------------------------------
@@ -371,7 +371,7 @@ def test_ribbon_tooltips_have_pictures(win):
     assert "<img" in acts["Block…"].toolTip() and "block.png" in acts["Block…"].toolTip()
     assert "Runs: BLOCK" in acts["Block…"].toolTip()
     assert "<img" in acts["Fillet…"].toolTip()
-    assert "<img" not in acts["Undo"].toolTip()  # nothing to show for undo
+    assert "<img" not in win.undo_action.toolTip()  # nothing to show for undo (a quick-access icon)
     with_pictures = sum("<img" in a.toolTip() for a in acts.values())
     assert with_pictures >= 100
     pt.set_enabled(win, False)

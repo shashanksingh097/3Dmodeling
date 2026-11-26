@@ -4032,11 +4032,15 @@ View > Layout shows the panels for the job at hand:
 
 | Layout | Panels | Ribbon tab |
 | --- | --- | --- |
-| modelling | Model tree, History, Properties, Parameters, Output | Model |
-| sketch | History, Properties, Output (a bigger view) | Sketch |
-| assembly | Model tree, History, Properties, Parameters (in front), Output | Model |
+| modelling | Model tree, Properties, Parameters | Model |
+| sketch | Model tree, Properties (a bigger view) | Sketch |
+| assembly | Model tree, Properties, Parameters (in front) | Model |
 | drawing | History, Parameters, Output | Inspect |
-| sculpt | only a small Output (the most room) | Sculpt |
+| sculpt | none (the most room) | Sculpt |
+
+History, Output and Assistant open and close from their buttons at the right
+of the status bar (Ctrl+H for the History) in any layout; the history is kept
+whether its panel is open or not.
 
 Arrange the panels your own way and keep it with **Save this layout…**:
 
@@ -4044,7 +4048,7 @@ Arrange the panels your own way and keep it with **Save this layout…**:
     LAYOUT, SAVE, mine           ! the window as it is now
     LAYOUT, mine                 ! back to it
     LAYOUT, DELETE, mine
-    LAYOUT, RESET                ! the panels as the window first opens
+    LAYOUT, RESET                ! the panels as the window first opens (tree, Properties, Parameters)
     LAYOUT                       ! the list (LAYOUT, JSON as data)
 
 Layouts are kept with your settings, not in the project, and `LAYOUT` is

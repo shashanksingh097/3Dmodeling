@@ -1574,11 +1574,22 @@ directly, and a script of the actions is kept for replay). Building order:
     hidden at first; a status-bar button shows the number of steps and
     turns red when one fails, Ctrl+H opens the History, and the Output
     opens by itself on an error. The history is still kept for UNDO, the
-    assistant and replay.
+    assistant and replay. Done: History, Output and Assistant buttons at the
+    right of the status bar (the History one counts steps and turns red on a
+    failure), Ctrl+H, View > Panels; the Output opens by itself when a typed
+    command answers with text (errors have the error bar); a window state
+    saved before this change gives way once. The 3D view went from about 35 %
+    of a 1600 x 960 window to about 63 %.
 121. **One left panel** (P1): the model tree with the Properties of the pick
     under it, in place of the item panel; Parameters lists only what the
-    user set (no loop counters).
+    user set (no loop counters). Done: Properties and Parameters are tabs
+    under the Model dock; the item panel folds to one line with nothing
+    picked; LAYOUT built-ins and RESET follow.
 122. **Fewer repeated buttons** (P2): the quick-access row stops repeating
     Undo/Redo, the views and Fit; Body/Face/Edge/Vertex move behind the Auto
     pick button; Save log, Run script and Clear move to the File menu; the
-    mouse hint leaves the status bar.
+    mouse hint leaves the status bar. Done: the quick-access icons (Undo,
+    Redo, pick modes, Fit) stay, as they cost no room; the Home tab drops
+    Undo/Redo, the View group (View > Look from and the view cube have them),
+    Save log, Run script and Clear (Commands…); Auto has a drop-down for
+    Body/Face/Edge/Vertex; the mouse hint shows for 10 seconds.

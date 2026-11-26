@@ -437,10 +437,15 @@ class ParamPanel(QTableWidget):
             from ..commands.partdoc_handlers import part_inputs
 
             inputs = {k for k, _ in part_inputs(p)}
+        # only what the user set: a parameter of its own step, a configuration's or a part input; loop
+        # counters and values set inside blocks stay out (the History shows them) (PLAN item 121)
+        shown = [(k, v) for k, v in sorted(p.params.items())
+                 if k in inputs or k in p.config_values or p.entry_for_param(k) is not None]
+        self.hidden_count = len(p.params) - len(shown)
         self._filling = True
         try:
-            self.setRowCount(len(p.params))
-            for row, (name, value) in enumerate(sorted(p.params.items())):
+            self.setRowCount(len(shown))
+            for row, (name, value) in enumerate(shown):
                 key = QTableWidgetItem(name)
                 key.setFlags(key.flags() & ~Qt.ItemIsEditable)
                 if name in inputs:
@@ -607,25 +612,10 @@ class MainWindow(QMainWindow):
         col.setSpacing(0)
         col.addWidget(self.config_bar)
         col.addWidget(self.param_panel, 1)
-        params = self._dock("Parameters", box, Qt.RightDockWidgetArea)
-        from .layer_panel import LayerPanel
-
-        self.layer_panel = LayerPanel(self)
-        layers = self._dock("Layers", self.layer_panel, Qt.RightDockWidgetArea)
-        self.tabifyDockWidget(params, layers)
-        from .assistant_panel import AssistantPanel
-
-        self.assistant_panel = AssistantPanel(self)
-        assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
-        self.tabifyDockWidget(params, assistant)
-        self.assistant_dock = assistant
-        from .props_panel import PropsPanel
-
-        self.props_panel = PropsPanel(self)  # the picked body's or step's values, changeable (PLAN item 91)
-        self.props_dock = self._dock("Properties", self.props_panel, Qt.RightDockWidgetArea)
-        self.tabifyDockWidget(params, self.props_dock)
-        params.raise_()
-        self.layers_dock = layers
+        # PLAN items 120-121: the 3D view gets the room. On the left, the model tree (with the steps of
+        # the picked body under it) over Properties and Parameters; History, Layers and the Assistant
+        # share the right side and the Output the bottom, all closed until wanted (status bar buttons,
+        # Ctrl+H, View menu). The history is kept as always; only its panel is out of the way.
         from .model_tree import ModelTree
 
         from PySide6.QtWidgets import QSplitter
@@ -641,6 +631,27 @@ class MainWindow(QMainWindow):
         split.setSizes([480, 320])
         self.model_split = split
         self.tree_dock = self._dock("Model", split, Qt.LeftDockWidgetArea)
+        from .props_panel import PropsPanel
+
+        self.props_panel = PropsPanel(self)  # the picked body's or step's values, changeable (PLAN item 91)
+        self.props_dock = self._dock("Properties", self.props_panel, Qt.LeftDockWidgetArea)
+        self.splitDockWidget(self.tree_dock, self.props_dock, Qt.Vertical)
+        params = self._dock("Parameters", box, Qt.LeftDockWidgetArea)
+        self.tabifyDockWidget(self.props_dock, params)
+        self.params_dock = params
+        from .layer_panel import LayerPanel
+
+        self.layer_panel = LayerPanel(self)
+        layers = self._dock("Layers", self.layer_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(hist, layers)
+        from .assistant_panel import AssistantPanel
+
+        self.assistant_panel = AssistantPanel(self)
+        assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(hist, assistant)
+        self.assistant_dock = assistant
+        self.history_dock = hist
+        self.layers_dock = layers
         from .tutorial_panel import TutorialPanel
 
         self.tutorial_panel = TutorialPanel(self)  # lessons checked as you go (PLAN item 94)
@@ -649,9 +660,12 @@ class MainWindow(QMainWindow):
         self.tutorial_dock.hide()
         self.tutorial_dock.visibilityChanged.connect(self._tutorial_dock_shown)
         self.resizeDocks([self.tree_dock], [300], Qt.Horizontal)
-        self.resizeDocks([hist, params], [460, 460], Qt.Horizontal)
-        self.resizeDocks([hist, params], [520, 260], Qt.Vertical)
+        self.resizeDocks([self.tree_dock, self.props_dock], [520, 300], Qt.Vertical)
+        self.resizeDocks([hist], [440], Qt.Horizontal)
         self.resizeDocks([out], [170], Qt.Vertical)
+        self.props_dock.raise_()
+        for d in (hist, layers, assistant, out):
+            d.hide()  # opened on demand (DEFAULT_SHOWN in gui/layouts.py)
 
         self.processor.listeners.append(self._on_result)
         self.processor.listeners.append(self.error_bar.on_result)
@@ -675,11 +689,15 @@ class MainWindow(QMainWindow):
         self.shell.build_help_menu()
         from ..viewport import mouse_styles as _ms
 
-        self.statusBar().showMessage(_ms.get(_ms.DEFAULT).status_text())  # Preferences may change the style
+        # the mouse buttons, for a moment at the start (Help and the tooltips keep them) (PLAN item 122)
+        self.statusBar().showMessage(_ms.get(_ms.DEFAULT).status_text(), 10000)
         from .sel_numbers import HoverNumbers, SelectionNumbers
 
         self.sel_numbers = SelectionNumbers(self)  # the numbers of the pick, always in view (PLAN item 86)
         self.statusBar().addPermanentWidget(self.sel_numbers)
+        from .panel_buttons import PanelButtons
+
+        self.panel_buttons = PanelButtons(self)  # History, Output, Assistant: open on demand (PLAN item 120)
         self.hover_numbers = HoverNumbers(self)
         self.viewport.cube_wanted = view_cube_enabled(self)  # PLAN item 93 (made with the GL view)
         self._setup_autosave(autosave)
@@ -762,16 +780,15 @@ class MainWindow(QMainWindow):
                                      "Runs: EXPORT, format, file", lambda: self.shell.export_file())
         self.recover_action = cmd(tb, "Recover", "recover", "OPEN, AUTOSAVE", "Open the autosave from the last session")
         self.recover_action.setVisible(False)
-        dlg(tb, "Save log…", "savelog", "Save the history as a script that rebuilds this model", self._save_log)
-        dlg(tb, "Run script…", "runscript", "Run a .cmd script\nRuns: RUN, file", self._run_file)
+        # Save log and Run script are in the File menu, Clear in Commands (Ctrl+K) (PLAN item 122)
 
         tb = tbs.group(self, "Edit", "edit", "Home")
-        self.undo_action = cmd(tb, "Undo", "undo", "UNDO", "Undo the last step", QKeySequence.Undo)
-        self.redo_action = cmd(tb, "Redo", "redo", "REDO", "Redo", QKeySequence.Redo)
+        # Undo and Redo sit in the quick-access icons at the right of the tabs, on every tab
+        self.undo_action = cmd(None, "Undo", "undo", "UNDO", "Undo the last step", QKeySequence.Undo)
+        self.redo_action = cmd(None, "Redo", "redo", "REDO", "Redo", QKeySequence.Redo)
         tbs.action(self, tb, "Commands…", "commands",
                    "Find any command by name or by what it does, and fill in its form (Ctrl+K)",
                    lambda: fd.find_command(self), "Ctrl+K")
-        cmd(tb, "Clear", "clear", "CLEAR", "Delete every body")
 
         tb = tbs.group(self, "Shapes", "shapes", "Model")
         form(tb, "Block…", "block", "BLOCK", "Add a block")
@@ -802,11 +819,22 @@ class MainWindow(QMainWindow):
                 "BODY": "Pick whole bodies", "FACE": "Pick faces only", "EDGE": "Pick edges only",
                 "VERTEX": "Pick vertices only"}
         for kind in ("AUTO", "BODY", "FACE", "EDGE", "VERTEX"):
-            act = cmd(tb, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}", tips[kind])
+            # only Auto is a big button; the others are its drop-down and the quick-access icons
+            act = cmd(tb if kind == "AUTO" else None, kind.title(), f"pick_{kind.lower()}", f"PICKMODE, {kind}",
+                      tips[kind])
             act.setCheckable(True)
             group.addAction(act)
             self._mode_actions[kind] = act
         self._mode_actions["AUTO"].setChecked(True)
+        auto_button = tb.widgetForAction(self._mode_actions["AUTO"])
+        if auto_button is not None:
+            from PySide6.QtWidgets import QMenu, QToolButton
+
+            only = QMenu(self)
+            for kind in ("BODY", "FACE", "EDGE", "VERTEX"):
+                only.addAction(self._mode_actions[kind])
+            auto_button.setMenu(only)
+            auto_button.setPopupMode(QToolButton.MenuButtonPopup)
         self._region_actions: dict[str, QAction] = {}
         for kind, tip in (("BOX", "Drag a box to pick: left to right picks what is wholly inside, right to left "
                                   "what it touches (Ctrl+drag does this any time, adding to the pick; Esc ends)"),
@@ -824,10 +852,8 @@ class MainWindow(QMainWindow):
         self.handles_action = handles
         self.viewport.handles_wanted.connect(handles.setChecked)
 
-        tb = tbs.group(self, "View", "view", "Home")
-        for name in ("ISO", "TOP", "FRONT", "RIGHT"):
-            cmd(tb, name.title(), name.lower(), f"VIEW, {name}", f"{name.title()} view")
-        fit = cmd(tb, "Fit", "fit", "FIT", "Zoom to fit", "F")
+        # the views are on the view cube (and View menu); Fit is a quick-access icon (PLAN item 122)
+        fit = cmd(None, "Fit", "fit", "FIT", "Zoom to fit", "F")
         self._build_feature_toolbar()
         tbs.quick_access(self, [self.undo_action, self.redo_action, None,
                                 *self._mode_actions.values(), None, fit])
@@ -1037,6 +1063,15 @@ class MainWindow(QMainWindow):
         from . import toolbars as tbs
 
         m = self.menuBar().addMenu("&View")
+        views = m.addMenu("&Look from")  # the ribbon's view buttons moved here and onto the view cube
+        for name, key in (("Iso", "ISO"), ("Top", "TOP"), ("Front", "FRONT"), ("Right", "RIGHT"),
+                          ("Bottom", "BOTTOM"), ("Back", "BACK"), ("Left", "LEFT")):
+            views.addAction(name, lambda k=key: self.execute(f"VIEW, {k}"))
+        panels = m.addMenu("&Panels")  # every panel, open or closed (PLAN item 120)
+        for d in (self.tree_dock, self.props_dock, self.params_dock, self.history_dock, self.layers_dock,
+                  self.assistant_dock, self.output_dock):
+            panels.addAction(d.toggleViewAction())
+        m.addSeparator()
         tbs.style_menu(self, m)
         tbs.ribbon_menu(self, m)
         from .layouts import Layouts
@@ -1459,11 +1494,14 @@ class MainWindow(QMainWindow):
         text = self.cmdline.text()
         self.cmdline.clear()
         if text.strip() or self.processor.pending:
+            at = self.processor.cursor
             self.typing = True  # typed: a HIST, EDIT runs as typed, without the question (gui/edit_guard.py)
             try:
-                self.execute(text)
+                res = self.execute(text)
             finally:
                 self.typing = False
+            if res.ok and res.message and not res.pending and self.processor.cursor == at:
+                self.panel_buttons.show_output()  # an answer to read (a query, LIST, DESCRIBE ...)
         elif self.processor.last_tool:
             self.repeat_last()  # Enter on an empty line: the last step again, on the new pick (PLAN item 90)
 
