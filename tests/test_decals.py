@@ -18,17 +18,26 @@ def ok(p, line):
     return r
 
 
+def _png(path, w, h, pixel):
+    """A small RGBA PNG written by hand (the CI machine without a display has no Qt GUI library)."""
+    import struct
+    import zlib
+
+    rows = b"".join(b"\x00" + b"".join(bytes(pixel(x, y)) for x in range(w)) for y in range(h))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    with open(path, "wb") as fh:
+        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+                 + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
 @pytest.fixture
 def picture(tmp_path):
     """A 200 x 100 picture with a see-through half."""
-    from PySide6.QtGui import QColor, QImage
-    img = QImage(200, 100, QImage.Format_ARGB32)
-    img.fill(QColor(200, 30, 30))
-    for x in range(100, 200):
-        for y in range(100):
-            img.setPixelColor(x, y, QColor(0, 0, 0, 0))
     path = str(tmp_path / "logo.png")
-    assert img.save(path)
+    _png(path, 200, 100, lambda x, y: (200, 30, 30, 255) if x < 100 else (0, 0, 0, 0))
     return path
 
 
