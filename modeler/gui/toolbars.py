@@ -219,7 +219,10 @@ def action(win, tb: QToolBar, label: str, icon: str, tip: str, slot=None, shortc
     a.setCheckable(checkable)
     if slot is not None:
         a.triggered.connect(slot)
-    tb.addAction(a)
+    if tb is not None:
+        tb.addAction(a)
+    else:  # not on the ribbon (the quick-access icons and the menus show it): its shortcut still works
+        win.addAction(a)
     return a
 
 

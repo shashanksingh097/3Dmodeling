@@ -39,8 +39,6 @@ class Layouts:
         for name in spec.get("front", ()):
             if name in docks:
                 docks[name].raise_()
-        if key == "sculpt" and "output" in docks:
-            self.win.resizeDocks([docks["output"]], [110], _vertical())
         self._tab(spec.get("tab", ""), spec.get("tab_else", ""))
         self.current = key
         self._mark()
@@ -112,10 +110,15 @@ class Layouts:
         return True
 
     def reset(self) -> None:
+        from ..commands.layout_handlers import DEFAULT_SHOWN
+
         self.win.restoreState(self.first)
         for d in self.docks().values():
             if d.objectName() != "tutorial":
-                d.setVisible(True)
+                d.setVisible(d.objectName() in DEFAULT_SHOWN)
+        props = self.docks().get("properties")
+        if props is not None:
+            props.raise_()
         tut = self.docks().get("tutorial")
         if tut is not None:
             tut.setVisible(self.win.processor.tutorial is not None)

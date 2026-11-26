@@ -4,6 +4,16 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+### Changed
+- A roomier window: the History, Output, Layers and Assistant panels are closed at first (the
+  history is still kept). Buttons at the right of the status bar open them; the History one says how
+  many steps there are and turns red when one failed; Ctrl+H opens the History. Properties and
+  Parameters sit under the model tree. The 3D view gets about 63 % of the window, was 35 %.
+- Parameters lists only the values you set (no loop counters).
+- The Home tab is shorter: Undo/Redo and the pick modes stay in the icons at the right of the tabs,
+  views are in View > Look from and on the view cube, Save log, Run script and Clear are in the
+  menus, and Auto has a drop-down for Body, Face, Edge and Vertex.
+
 ### Added
 - Sketches that features already use can be changed: `SKETCH, s1` (or double-click it in the model
   tree, or right-click > Edit sketch) opens it where it was drawn; the later steps wait, and
