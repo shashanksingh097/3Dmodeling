@@ -1605,3 +1605,108 @@ directly, and a script of the actions is kept for replay). Building order:
     Undo/Redo, the View group (View > Look from and the view cube have them),
     Save log, Run script and Clear (Commands…); Auto has a drop-down for
     Body/Face/Edge/Vertex; the mouse hint shows for 10 seconds.
+
+### Cleaning up models (M19)
+
+The user asked (2026-11-26) for cleanup tools: the work people do on a
+model before they reuse, share, export or analyse it, such as taking off
+extra fillets, faces left in many pieces, logos and tiny details. Compared
+with the repair and prepare tools of FreeCAD (Part check, Defeaturing),
+SpaceClaim (Repair and Prepare tabs), Fusion (Remove, Simplify), Onshape
+(Delete face, Simplify) and others.
+
+Already here, so not in this list: `FEATURES` / `DEFEATURE` / `RESIZE`
+(holes, rounds, chamfers, hole rows), `DELFACE`, `REPLACEFACE`, `PUSHPULL`,
+`CLEAN` and `MERGEFACES` (faces on one surface, slivers), `CHECK, b, FLAWS`
+and `HEAL` (gaps, loose, flipped and duplicate faces, tiny edges),
+`SREPAIR` (curves), `SIMPLIFY` / `REMESH` (meshes), `WRAPSKIN`, `CLASHFIX`,
+`MIDSURFACE`, `SHAREFACES`, `FLUIDVOLUME`.
+
+Every item has the three parts of M14: by mouse (pick, right click, a
+preview that shows what goes in a colour before anything changes), by
+command (one history step, a form), and for the assistant (a listing as
+data, a skill note, benchmark tasks). Every removal is checked like a
+boolean: the body stays a valid solid, or the step is refused and names
+the faces that would not close. Ranked by how often people need it; built
+about three per pull request, in this order.
+
+123. **Fillets that come off cleanly** (P0): taking off a fillet today
+    leaves trouble where fillets meet. `DEFEATURE, b, FILLETS` also takes
+    off corner blends (the patch where three rounds meet), fillets on top of
+    fillets (a second round over the first), variable and set-back rounds,
+    and a round cut into several faces by an import, so one pick of any of
+    them removes the whole tangent chain. `..., CHAIN, face` removes one
+    chain only. Rounds that are in several faces are first joined into one
+    (`MERGEFACES, b, FILLETS`), which also makes `RESIZE` work on them.
+    Mouse: click one round > right click > Remove fillet chain (the chain
+    shows in a colour first). Assistant: `features` lists chains with their
+    faces, radii and corner blends.
+124. **Bosses, pockets, ribs and slots** (P0, left over from item 70):
+    `FEATURES` also finds bosses, pockets, slots, ribs and steps on bodies
+    with no history, with sizes, and `DEFEATURE, b, POCKETS, LT, 5` (and
+    `BOSSES`, `SLOTS`, `RIBS`) removes them in bulk. Found features show as
+    rows under the body in the model tree with Select similar, Change size
+    and Remove.
+125. **Logos, text and small raised or sunk details** (P1): `DEFEATURE, b,
+    EMBOSS, LT, h` takes off raised or sunk detail lower than h on a face
+    (logos, part numbers, knurls, grip patterns, small ribs) and lets the
+    face close over it. Mouse: draw a box or lasso round the detail on the
+    face > Remove detail; a picked face gives Remove all detail on this face.
+126. **Faces that are nearly the same** (P1): imported faces that are a
+    hair apart or a hair off flat (a 0.01 mm step, a plane at 89.99 degrees,
+    a cylinder in two halves of slightly different radius) stop `CLEAN`
+    joining them. `ALIGNFACES, b, tol [, angle]` moves such faces onto one
+    surface and then joins them; `CHECK, b, FLAWS` lists them as "nearly
+    aligned". Mouse: pick two faces > Make the same surface.
+127. **Exact shapes for spline faces** (P1): imports often turn planes,
+    cylinders, cones and spheres into spline faces, which makes holes,
+    sizes and mates fail. `SIMPLIFY, b [, tol]` on a solid swaps each spline
+    face that fits a plane, cylinder, cone, sphere or torus within tol for
+    the exact one, and spline edges for lines and arcs; the answer lists
+    what changed and the worst fit. Faces left as splines are listed with
+    their fit error.
+128. **Extra edges and split faces** (P1): edges that cut a face for no
+    reason (seams, split lines, pieces of a circle in many arcs), vertices
+    in the middle of a straight edge, and edges whose tolerance has grown
+    large. `MERGEEDGES, b` joins edges that run on as one curve, `CLEAN, b,
+    EDGES` drops edges between faces of one surface, and `HEAL, b, TIGHTEN`
+    brings edge tolerances back down. `CHECK, b, FLAWS` lists all three.
+129. **Missing faces and open surfaces** (P1): `HEAL` cannot invent a
+    missing face. `PATCH, b, AUTO|edges` closes each open loop with a face
+    that follows its neighbours (flat when the loop is flat, tangent when
+    asked), and sews the result into a solid. `FILLHOLE, b, face|AUTO`
+    closes a hole or cut-out in a face by growing the face over it (also
+    for holes in imported sheets). Mouse: open edges shown in red > click a
+    loop > Patch.
+130. **Repairing meshes** (P2): `MESHFIX, m` closes holes, removes
+    duplicate and degenerate triangles, joins loose pieces or drops tiny
+    islands, makes the mesh manifold, turns faces the same way and cuts out
+    places where it runs into itself; `CHECK, m, FLAWS` lists these as
+    data. Then mesh booleans and `FITSURF` work on scans and downloaded STL.
+131. **Simplifying assemblies** (P2): for export, sharing and analysis.
+    `SIMPLIFYPARTS, ALL, SMALL, size` removes parts smaller than size
+    (screws, washers, clips), `..., HIDDEN` removes parts that cannot be
+    seen from outside, `..., DUPLICATES` removes a body that is twice in the
+    same place, and `REPLACEPARTS, sel, BOX|CYLINDER|HULL` puts a simple
+    shape in place of a part (with its mass kept as a property). The
+    originals stay in the project as a configuration, so it is undone by
+    `USECONFIG`. Mouse: tree > right click > Simplify ..., with the parts
+    that would go faded.
+132. **Tidy the project** (P2): `PURGE [, CHECK]` lists and removes what
+    nothing uses: sketches and datums no step uses, hidden construction
+    bodies, empty layers, unused parameters, materials and configurations,
+    and steps whose result is removed later. `PURGE, CHECK` only lists.
+    File > Tidy project shows the list with a tick box for each.
+133. **One cleanup recipe** (P2): `PREPARE, b|ALL, recipe` runs a saved set
+    of the steps above in order (for example fillets under 1, holes under 3,
+    logos, small parts, then `HEAL` and `SIMPLIFY`), on a copy if asked, and
+    reports what each step removed, the volume and mass change, and what is
+    left. Built-in recipes: export, 3d-print, analysis, share. Mouse: a
+    Prepare dialog with the recipe as a list of tick boxes and a preview.
+    Assistant: the `cleanup` skill picks a recipe from what the user wants
+    the model for.
+134. **Before and after** (P3): every cleanup step can show what it took off
+    (`COMPARE, b, STEP n` already compares bodies; here the removed volume
+    and faces are shown in a colour in the 3D view), and `REPORT, CLEANUP`
+    writes the list of all cleanup steps with numbers, for checking that
+    nothing important was lost.
