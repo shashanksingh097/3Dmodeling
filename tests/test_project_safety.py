@@ -45,7 +45,7 @@ def test_projects_from_earlier_releases_open_the_same(meta, tmp_path):
 def test_there_is_a_project_from_every_release():
     assert {os.path.basename(f) for f in OLD} >= {"sample-v0.1.0.json", "sample-v0.3.0.json",
                                                    "sample-v0.4.0.json", "sample-v0.5.0.json",
-                                                   "sample-v0.6.0.json"}
+                                                   "sample-v0.6.0.json", "sample-v0.7.0.json"}
 
 
 # ---- backups and saving safely ----------------------------------------------------------------------

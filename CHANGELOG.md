@@ -4,6 +4,14 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-26
+
+This release makes everyday work easier and fills the gaps found in three comparisons with
+other modellers (PLAN items 68-122): drag handles, joints, editing imported parts, previews
+in every form, smarter picking, units, copy and paste, snapping, projects in tabs, editing
+used sketches in place, a roomier window, more file formats, plug-ins, and the window in
+German and Spanish.
+
 ### Changed
 - A roomier window: the History, Output, Layers and Assistant panels are closed at first (the
   history is still kept). Buttons at the right of the status bar open them; the History one says how
@@ -83,6 +91,85 @@ All notable changes to 3Dmodeling. Versions follow [semantic versioning](https:/
   area and mass, and the values of the steps that made it (a part copy's values too), or the
   values of the history step clicked. Changing a value writes the ordinary step (`MOVE`, `COLOR`,
   `HIST, EDIT` ...). `PROPS, b [, key, value]` and the assistant's `properties` give the same.
+
+- Drag handles in the 3D view (Home > Drag handles, `HANDLES`): arrows and rings on a picked
+  body, a pull arrow on a picked face, grid and 5 degree snapping, typed values while dragging,
+  Esc cancels. Each drag writes `MOVE`, `ROTATE` or `PUSHPULL`; a jointed body drags its
+  linkage.
+- Snapping while dragging: vertices, edge midpoints, circle centres and faces of any part,
+  marked with a ring (Shift drags freely). `UPTO` moves a body or pulls faces up to a picked
+  face, edge or vertex (Move up to… and Pull up to… on a right click).
+- Joints that stay solved: `JOINT` with FIXED, REVOLUTE, SLIDER, CYLINDRICAL, BALL, PLANAR,
+  GEAR, RACK, SCREW and BELT, limits, chains and closed loops; held values are parameters, so
+  `DRIVE` and `MOTION` run them. `JOINTS` lists each joint, its free motions and any that fight.
+- Motion studies: `MOTION` gives the position, speed and acceleration of chosen points and the
+  drive force or torque, as tables, plots, `.csv` or `.svg` (Study and Save table… in the
+  Motion window).
+- Editing imported parts without history: `FEATURES, b` finds holes (with counterbores),
+  rounds, chamfers and rows and rings of holes with their sizes; `DEFEATURE` and `RESIZE`
+  change them in bulk; `SEL ... LIKE` and right click > Select similar, Change size, Remove.
+- Sheet metal from an imported bent part: `TOSHEET, b` finds the thickness and bends, so
+  `UNFOLD`, `SHEETINFO` and `FLANGE` work on it (refused with the reason when it cannot).
+- Drawing sheets: parts lists with balloons, hole tables with tags, revision tables
+  (`SHEETTABLE`, `REVISION`, `SHEETDATA`); centre marks and lines, cosmetic threads, surface
+  finish and weld symbols and leader notes (`SHEETNOTE`). A live sheet window (View > Drawing
+  sheets…) shows a sheet as it prints: drag views (`SHEETVIEW`), add sizes of picked edges,
+  notes, centre marks and parts lists, and save the PDF.
+- Sizes, fits, GD&T and datums written to STEP (AP242) and read back on import.
+- Plug-ins: one Python file per command in a plug-ins folder, with a form, help and an assistant
+  skill from its arguments; turned on and off in Preferences > Plug-ins (`PLUGINS`). A plug-in
+  that changes the model without commands is stopped and undone.
+- Mouse styles (this app's, middle button orbits, middle button pans, right button orbits,
+  Blender-like) and a shortcut editor for every menu item, button and form (Preferences >
+  Mouse and keys).
+- 3D mouse (SpaceMouse and similar) through spacenavd or pyspacemouse, with speed and axis
+  settings and buttons that run commands (`SPACEMOUSE`). Not yet tried with a real device.
+- The window in German and Spanish (Preferences > Look > Language), switched at once.
+  Commands, their output and the assistant stay in English, so scripts work in every language.
+- Point clouds: `IMPORT` of .xyz, .pts, .e57 and .ply points, `TOPOINTS`, and `FITPOINTS` to fit
+  a plane, cylinder, sphere, cone or freeform face around a picked point, with the deviation.
+- `WRAPSKIN` puts one clean closed skin round a messy mesh, an assembly or a point cloud.
+- `CLASHFIX, a, b, CUT|MOVE` cuts an overlap out of one part or moves it clear, with a preview;
+  `CLASH` says how to fix what it finds.
+- Getting parts ready for the separate analysis app: `MIDSURFACE` (thickness kept per face,
+  middle faces extended or cut back to meet at L and T joins), `BEAMS` (member centre lines
+  with section values), `FLUIDVOLUME` (the inside of a pipe or housing up to its openings),
+  `ENCLOSURE` (a box, cylinder or sphere of air round the model), `SHAREFACES` and `IMPRINT`
+  (touching parts share their faces), `MERGEFACES`, and `SPOTWELD` points along an edge. CM face
+  sets are written to STEP as named faces and read back as sets; the model tree lists them
+  with Select, Rename (`CMRENAME`) and Delete.
+- Editing in a cross-section: `SECTIONEDIT, plane` shows the cut; click a cut line to pull its
+  face, or "Draw on the cut" to sketch on the plane.
+- More patterns: `PATTERN` CURVE, POINTS, FILL (inside a face, for vents and perforations) and
+  MIRROR, a SKIP list, a preview in the form, and "Leave out copy n" on a right click.
+- More standard parts: countersunk, button-head and set screws, dowel and spring pins, threaded
+  inserts, ball bearings, circlips, parallel keys and inch sizes; `FASTENER, ..., HOLE` cuts the
+  matching clearance, tapped, counterbored or countersunk hole. The BOM counts them.
+- More file formats: `SSVG` (SVG paths into a sketch), `IMPORT, SCAD` (OpenSCAD), `IMPORT,
+  FCSTD` (FreeCAD documents, read without FreeCAD: shapes, names, colours, placements and the
+  part tree as layers), `EXPORT, VRML`, `EXPORT, AMF`, `EXPORT, HTML` (one web page with its own
+  3D viewer: turn, hide parts, measure, notes; works on a phone), and `BOARD` (KiCad and IDF
+  circuit boards as a plate with named part boxes and mounting holes).
+- A material library shared by every project (`MATLIB`, View > Materials…) with stiffness,
+  strength, heat and a render look; `STRESS`, `MASSPROP` and `RENDER` read it.
+- `SREPAIR` closes gaps, removes duplicates and tiny pieces and refits short lines as splines in
+  imported curves; `SCHECK`, `SDXF` and `SSVG` say when it would help.
+- A Python console (View > Python console): `run(...)`, `c.COMMAND(...)`, `report`, `value`,
+  `body`; what it changes goes to the history as commands.
+- Copy, paste and duplicate (Ctrl+C, Ctrl+V, Ctrl+D) for bodies, faces and sketch geometry,
+  also between projects; a paste is ordinary steps (`COPY`, `PASTE`, sketch commands).
+  `PASTE, LIST` shows the clipboard.
+- Several projects open at once in tabs (File > New tab, Open in new tab…, Ctrl+Tab), each with
+  its own history and undo; Copy to ▸ sends a body to another tab.
+- Big assemblies stay fast: copies of a part share one mesh, scripts that add hundreds of bodies
+  redraw once, and `DETAIL, AUTO | FINE | FAST` (View > Detail). 400 bolts show in 0.8 s
+  instead of 8.4 s.
+- Pinned measurements: `GAUGE` keeps a distance or angle in the view, measured again after every
+  change, green in range and red out ("Pin this distance" on a right click).
+
+### Fixed
+- A stray "History | Layers" tab strip no longer floats over the 3D view when the window opens
+  with those panels closed.
 
 ## [0.6.0] - 2026-11-24
 

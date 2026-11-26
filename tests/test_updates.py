@@ -64,7 +64,8 @@ def test_whats_new_from_the_changelog():
     secs = updates.notes(__version__)
     assert secs and secs[0][0] == __version__ and "###" in secs[0][1]
     older = updates.notes(__version__, since="0.4.0")
-    assert [v for v, _ in older][:2] == [__version__, "0.5.0"] and "0.4.0" not in [v for v, _ in older]
+    got = [v for v, _ in older]
+    assert got[0] == __version__ and "0.5.0" in got and "0.4.0" not in got
     assert updates.notes("0.0.1") == []
 
 
