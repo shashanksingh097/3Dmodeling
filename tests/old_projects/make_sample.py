@@ -2,11 +2,11 @@
 
 It builds the sample model with that release's own code, saves it (sample-<version>.m3d) and writes
 what it measured (sample-<version>.json), so the current version can be checked against it. For a
-new release (here v0.6.0)::
+new release (here v0.7.0)::
 
-    git archive v0.6.0 modeler | tar -x -C /tmp/rel
+    git archive v0.7.0 modeler | tar -x -C /tmp/rel
     python -I -c "import sys; sys.path.insert(0, '/tmp/rel'); \
-        sys.argv = ['make', 'tests/old_projects/sample-v0.6.0', 'v0.6.0']; \
+        sys.argv = ['make', 'tests/old_projects/sample-v0.7.0', 'v0.7.0']; \
         exec(open('tests/old_projects/make_sample.py').read())"
 """
 import json

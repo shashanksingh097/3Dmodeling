@@ -643,11 +643,16 @@ class MainWindow(QMainWindow):
 
         self.layer_panel = LayerPanel(self)
         layers = self._dock("Layers", self.layer_panel, Qt.RightDockWidgetArea)
+        # hidden before they are tabbed together: tabbing shown docks makes Qt show a tab bar that
+        # it never hides again, left floating over the 3D view once they are closed
+        for d in (hist, layers):
+            d.hide()
         self.tabifyDockWidget(hist, layers)
         from .assistant_panel import AssistantPanel
 
         self.assistant_panel = AssistantPanel(self)
         assistant = self._dock("Assistant", self.assistant_panel, Qt.RightDockWidgetArea)
+        assistant.hide()
         self.tabifyDockWidget(hist, assistant)
         self.assistant_dock = assistant
         self.history_dock = hist

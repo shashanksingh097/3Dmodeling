@@ -55,6 +55,19 @@ def test_menus_in_order(win):
         assert want in labels
 
 
+def test_no_tab_strip_left_for_closed_panels(win):
+    """History, Layers and Assistant start closed (PLAN item 120). Tabbing them together while they were
+    open made Qt show a tab strip it never hid again, floating over the 3D view."""
+    from PySide6.QtWidgets import QDockWidget, QTabBar
+
+    open_titles = {d.windowTitle() for d in win.findChildren(QDockWidget) if not d.isHidden()}
+    for tb in win.findChildren(QTabBar):
+        if tb.metaObject().className() != "QMainWindowTabBar" or tb.isHidden() or not tb.count():
+            continue
+        titles = {tb.tabText(i) for i in range(tb.count())}
+        assert titles & open_titles, f"tab strip {sorted(titles)} shown for closed panels"
+
+
 def test_title_shows_file_and_unsaved_marker(win, app, tmp_path):
     assert win.windowTitle().startswith("Untitled")
     assert not win.isWindowModified()
