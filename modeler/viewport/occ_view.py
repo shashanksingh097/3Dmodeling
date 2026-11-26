@@ -333,6 +333,7 @@ class OccViewport(QWidget):
         self._initialized = False
         self._update_pending = False  # a redraw waits for a burst of model events to end (_update_soon)
         self._last_update = 0.0
+        self._pins_pending = False
         self.detail_mode, self.cull_px, self._fast_now = "AUTO", 3.0, False  # big assemblies (set_detail)
         self._press: QPoint | None = None
         self._drag = ""  # "", "rotate", "pan", "zoom", "sketch", "point" (a control point), "cube"
@@ -664,7 +665,7 @@ class OccViewport(QWidget):
             self._show_sketches()
         elif ev.kind == "datums":
             self._show_datums()
-        elif ev.kind == "notes":
+        elif ev.kind in ("notes", "pins"):
             self._show_notes()
         elif ev.kind == "pictures":
             self._show_pictures()
@@ -688,6 +689,8 @@ class OccViewport(QWidget):
                 self._display_body(bid, update=False)
             self._show_datums()
             self._sync_selection()
+        if self.model.measure_pins and ev.kind in ("body_added", "body_removed", "restored"):
+            self._pins_soon()  # pinned measurements follow the change, once a burst of changes ends
         self._update_soon()
 
     def _update_soon(self) -> None:
@@ -704,6 +707,16 @@ class OccViewport(QWidget):
             return
         self._update_pending = True
         QTimer.singleShot(0, self, self._update_now)
+
+    def _pins_soon(self) -> None:
+        if not self._pins_pending:
+            self._pins_pending = True
+            QTimer.singleShot(0, self, self._pins_now)
+
+    def _pins_now(self) -> None:
+        self._pins_pending = False
+        if self._initialized and self.isVisible():
+            self._show_notes()
 
     def _update_now(self) -> None:
         import time as _t
@@ -943,7 +956,54 @@ class OccViewport(QWidget):
             ctx.Deactivate(label)
             ctx.SetZLayer(label, Graphic3d_ZLayerId_Topmost)
             self._note_ais.append(label)
+        self._show_pins(line)
         ctx.UpdateCurrentViewer()
+
+    def _show_pins(self, line) -> None:
+        """Pinned measurements (GAUGE, PLAN item 115): a line between the nearest points and the value now,
+        green when in range, red when out, purple without limits."""
+        if not self.model.measure_pins:
+            return
+        from OCP.AIS import AIS_TextLabel
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCP.TCollection import TCollection_ExtendedString
+        from OCP.gp import gp_Pnt
+
+        from ..commands.pin_handlers import measure
+
+        ctx = self.context
+        for pin in self.model.measure_pins:
+            r = measure(self.model, pin)
+            col = (_rgb(0.1, 0.55, 0.2) if r["ok"] else _rgb(0.85, 0.1, 0.1) if r["ok"] is False
+                   else _rgb(0.45, 0.15, 0.6))
+            start = len(self._note_ais)
+            at = None
+            if r["a"] is not None and r["b"] is not None:
+                if pin["kind"] == "DIST":  # an angle's things often touch: only its value is shown
+                    line(r["a"], r["b"])
+                at = tuple((x + y) / 2 for x, y in zip(r["a"], r["b"]))
+                for ais in self._note_ais[start:]:
+                    ais.SetColor(col)
+            if at is None:
+                continue
+            label = AIS_TextLabel()
+            label.SetText(TCollection_ExtendedString(" " + r["text"] + " ", True))
+            label.SetPosition(gp_Pnt(*at))
+            label.SetColor(col)
+            label.SetHeight(16)
+            try:  # on a white box, so it reads on any body
+                from OCP.Aspect import Aspect_TypeOfDisplayText
+                from OCP.Font import Font_FontAspect
+
+                label.SetDisplayType(Aspect_TypeOfDisplayText.Aspect_TODT_SUBTITLE)
+                label.SetColorSubTitle(_rgb(1.0, 1.0, 1.0))
+                label.SetFontAspect(Font_FontAspect.Font_FA_Bold)
+            except Exception:  # noqa: BLE001 - plain text on an older kernel
+                pass
+            ctx.Display(label, False)
+            ctx.Deactivate(label)
+            ctx.SetZLayer(label, Graphic3d_ZLayerId_Topmost)
+            self._note_ais.append(label)
 
     # ---- sketches -------------------------------------------------------
     def _show_sketches(self) -> None:

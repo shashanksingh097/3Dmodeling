@@ -4358,3 +4358,49 @@ steps would break, a question offers: Change it directly (when found), Change
 it in the history (the broken steps turn red), or Cancel. A direct change is
 one UNDO step. Long histories (over 8 seconds of rebuild) are not tried twice;
 their red steps say what broke.
+
+
+## 54. FreeCAD files, a model as a web page, pinned measurements
+
+### FreeCAD files
+
+    IMPORT, FCSTD, "gearbox.FCStd"          ! the shapes FreeCAD showed
+    IMPORT, FCSTD, "gearbox.FCStd", , ALL   ! the hidden ones too (hidden here as well)
+
+An .FCStd file is read without FreeCAD: each shape object that was shown
+(a PartDesign Body's result, a Part feature, an imported solid) becomes a
+body, exact, named after its label, in its colour, placed where FreeCAD had
+it. The App::Part containers and groups it sat in become a layer
+("Wheel_assembly", or "Assembly__Wheel" for one inside another). The tools
+a boolean used and the features inside a Body are FreeCAD's history, hidden
+there, and are left out. A saved project keeps a copy of the file.
+
+### A model as one web page
+
+    EXPORT, HTML, "bracket.html"         ! every body
+    EXPORT, HTML, "lid.html", lid        ! one body
+
+The page holds the model and its own small viewer, so it opens in any
+browser with WebGL 2 (phones too) with nothing to install and nothing
+fetched from the internet: drag to turn, right-drag or Shift-drag to pan,
+wheel or pinch to zoom, Fit / Iso / Top / Front / Right, a parts list to
+hide and show parts (hidden bodies start hidden), Measure (click two points:
+the distance and its dx, dy, dz) and the notes as labels. Triangles are
+about 1/1500 of the model's size.
+
+### Pinned measurements
+
+    GAUGE, gap, DIST, BODY, base, BODY, lid, 2      ! at least 2: red below it
+    GAUGE, square, ANGLE, FACE, 3, FACE, 9, 89.5, 90.5
+    GAUGE, gap2, DIST                               ! the two picked things
+    GAUGE                                           ! all of them with their values now
+    GAUGE, DELETE, gap · GAUGE, CLEAR
+
+A pin keeps a distance or an angle in the 3D view, as a line between the
+nearest points with its value on a white box: green in its range, red out
+of it (marked "(!)"), purple without limits. It is measured again after
+every change; faces, edges and bodies keep their numbers through edits, so
+it follows what it was put on. Pins are history steps, saved with the
+project. A right click with two things picked offers Pin this distance. The
+assistant reads them from `GAUGE` (report "pins") and its user_context.
+

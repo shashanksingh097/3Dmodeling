@@ -1,6 +1,6 @@
 ---
 name: imported-parts
-description: Changing parts that have no history (imported STEP or IGES files, or any solid) - finding their holes, rounds, chamfers and rows of holes, selecting ones like a face, resizing or removing them in bulk, pushing and moving faces. Use for "simplify this STEP", "make the holes bigger", "remove the small fillets", "the 6 mm holes should be M8 clearance".
+description: Changing parts that have no history (imported STEP, IGES or FreeCAD files, or any solid) - finding their holes, rounds, chamfers and rows of holes, selecting ones like a face, resizing or removing them in bulk, pushing and moving faces. Use for "simplify this STEP", "make the holes bigger", "remove the small fillets", "the 6 mm holes should be M8 clearance".
 commands: IMPORT, SSVG, FEATURES, DEFEATURE, RESIZE, SEL, PUSHPULL, MOVEFACE, DELFACE, CHECK, HEAL
 ---
 # Editing imported parts
@@ -56,3 +56,17 @@ ASSERT, HOLES(part), EQ, 2
   the wall: it is refused; pick a smaller size.
 * Removing a round that another round runs into: remove both kinds
   together (`DEFEATURE, part, FILLET`), or the kernel may not close the gap.
+
+## FreeCAD files
+
+`IMPORT, FCSTD, "file.FCStd"` brings the shapes FreeCAD showed, exact, named
+after their labels and in their colours; its App::Part containers become
+layers. Hidden shapes (a boolean's tools, the features inside a Body) are
+left out; `IMPORT, FCSTD, "file.FCStd", , ALL` brings them hidden. Then
+work on them like any other imported part.
+
+## Sharing
+
+`EXPORT, HTML, "part.html"` writes one web page with the model in a
+viewer, for someone without this app to turn, measure and read the notes.
+

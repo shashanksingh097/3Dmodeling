@@ -359,6 +359,7 @@ class Model:
         self.xviews: dict = {}
         self.properties: dict[str, str] = {}  # PROPERTY: the title block's title, number, author ...
         self.notes: list[Note] = []  # NOTE: text, sizes and fits pinned to the model (shown, and on drawings)
+        self.measure_pins: list[dict] = []  # GAUGE: measurements kept in the view, measured again after each change
         self.mates: list[dict] = []  # MATE steps: what was mated to what (MATES checks them)
         self.joints: list = []  # JOINT steps (core/joints.py Joint), kept true by the joint solver
         self.frames: dict[str, int] = {}  # CSYS: coordinate systems (datum planes) that move with a body
@@ -450,6 +451,7 @@ class Model:
             "xviews": {k: list(v) for k, v in self.xviews.items()},
             "properties": dict(self.properties),
             "notes": list(self.notes),
+            "measure_pins": [dict(x) for x in self.measure_pins],
             "mates": list(self.mates),
             "joints": list(self.joints),
             "frames": dict(self.frames),
@@ -493,6 +495,7 @@ class Model:
         self.xviews = {k: list(v) for k, v in snap.get("xviews", {}).items()}
         self.properties = dict(snap.get("properties", {}))
         self.notes = list(snap.get("notes", []))
+        self.measure_pins = [dict(x) for x in snap.get("measure_pins", [])]
         self.mates = list(snap.get("mates", []))
         self.joints = list(snap.get("joints", []))
         self.frames = dict(snap.get("frames", {}))
@@ -873,6 +876,11 @@ class Model:
         self.pictures = list(pictures)
         self._emit(Event("pictures"))
         return n
+
+    # ---- pinned measurements (GAUGE) -------------------------------------------
+    def set_pins(self, pins: list[dict]) -> None:
+        self.measure_pins = [dict(x) for x in pins]
+        self._emit(Event("pins"))
 
     # ---- notes -------------------------------------------------------------
     def add_note(self, note: Note) -> int:

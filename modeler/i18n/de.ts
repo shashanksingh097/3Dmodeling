@@ -1166,6 +1166,14 @@ Each drag runs one step: MOVE, ROTATE, PUSHPULL or MOVEFACE</source>
             <translation>Bei Anteil t</translation>
         </message>
         <message>
+            <source>At least (empty: no limit)</source>
+            <translation>Mindestens (leer: keine Grenze)</translation>
+        </message>
+        <message>
+            <source>At most (empty: no limit)</source>
+            <translation>Höchstens (leer: keine Grenze)</translation>
+        </message>
+        <message>
             <source>at most this many rounds (each one is a solve)</source>
             <translation type="unfinished" />
         </message>
@@ -2858,6 +2866,10 @@ Runs: SDEL, ...</source>
             <translation>Abst</translation>
         </message>
         <message>
+            <source>DIST or ANGLE (with DELETE: the pin's name)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>Distance</source>
             <translation>Abstand</translation>
         </message>
@@ -3616,6 +3628,10 @@ Runs: EXTRUDE, sketch, d [, mode, body]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>First: FACE, EDGE, VERTEX, BODY or DATUM (empty: the two picked)</source>
+            <translation>Erstes: FACE, EDGE, VERTEX, BODY oder DATUM (leer: die beiden gewählten)</translation>
+        </message>
+        <message>
             <source>Fit</source>
             <translation>Einpassen</translation>
         </message>
@@ -3810,7 +3826,7 @@ Runs: SREPAIR [, gap, tiny, refit]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, MESH above)</source>
+            <source>for triangle files: SOLID (faceted, one face per triangle), MESH (a mesh body), POINTS (only the corners, as a point body) or AUTO (SOLID up to 100,000 triangles, MESH above); FCSTD: ALL also brings the shapes FreeCAD had hidden</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3916,6 +3932,14 @@ Runs: SREPAIR [, gap, tiny, refit]</source>
         <message>
             <source>gaps and slivers smaller than this count (0: a ten-thousandth of the size)</source>
             <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Gauge</source>
+            <translation>Messlehre</translation>
+        </message>
+        <message>
+            <source>Gauge…</source>
+            <translation>Messlehre…</translation>
         </message>
         <message>
             <source>Gear</source>
@@ -4556,6 +4580,10 @@ Runs: FITS, H7/g6 [, size]</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Its number or name</source>
+            <translation>Seine Nummer oder sein Name</translation>
+        </message>
+        <message>
             <source>its parameter values, e.g. "W = 60, H = 20"</source>
             <translation type="unfinished" />
         </message>
@@ -4613,6 +4641,14 @@ Runs: SCON, COINCIDENT/ON, ...</source>
         <message>
             <source>Keep</source>
             <translation>Behalten</translation>
+        </message>
+        <message>
+            <source>Keep a measurement in the view, measured again after every change: GAUGE, gap, DIST, FACE, 6, BODY, lid (or GAUGE, gap, DIST with two things picked) · GAUGE, a, ANGLE, FACE, 3, FACE, 9 · limits: GAUGE, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Keep a measurement in the view, measured again after every change: GAUGE, gap, DIST, FACE, 6, BODY, lid (or GAUGE, gap, DIST with two things picked) · GAUGE, a, ANGLE, FACE, 3, FACE, 9 · limits: GAUGE, gap, DIST, FACE, 6, BODY, lid, 2 (at least 2: red below) or ..., 89.5, 90.5 (a range). GAUGE alone lists them with their values now; GAUGE, DELETE, gap and GAUGE, CLEAR remove them.</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <source>Keep in library</source>
@@ -6282,6 +6318,10 @@ Runs: SCON, FIX, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>Pin's name (DELETE, CLEAR)</source>
+            <translation>Name der Messung (DELETE, CLEAR)</translation>
+        </message>
+        <message>
             <source>Pinch</source>
             <translation>Kneifen</translation>
         </message>
@@ -6784,7 +6824,7 @@ Runs: SCULPT, body, DRAW, radius, strength, stroke</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. SCAD reads an OpenSCAD file's solids, flat shapes, extrusions, transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. Saved projects keep a copy of the file.</source>
+            <source>Read bodies from a file. Each solid in it becomes a body. STEP, IGES and BREP are exact; STL, OBJ, 3MF, GLTF, PLY, OFF and VTK (.vtk, .vtu) are triangles and become one faceted body (a solid when closed; volume meshes keep their outer skin), or a mesh body with kind MESH or when the file is big. MESH reads any other mesh file meshio knows, by its extension (Gmsh .msh, Abaqus .inp, Nastran .bdf, ...). XYZ (.xyz, .txt, .csv), PTS and E57 scanner files, and PLY files with no faces, become a point body, thinned to at most 200,000 points. SCAD reads an OpenSCAD file's solids, flat shapes, extrusions, transforms, booleans, variables, loops and modules as exact bodies, one per top-level object. FCSTD reads a FreeCAD document without FreeCAD: the shapes it showed, exact, with their labels as names, their colours, and the App::Part containers and groups they sat in as layers. Saved projects keep a copy of the file.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -7452,6 +7492,10 @@ Runs: SCON, EQUAL, a, b</source>
         <message>
             <source>Second is a</source>
             <translation>Zweites ist ein</translation>
+        </message>
+        <message>
+            <source>Second: FACE, EDGE, VERTEX, BODY or DATUM</source>
+            <translation>Zweites: FACE, EDGE, VERTEX, BODY oder DATUM</translation>
         </message>
         <message>
             <source>seconds the motion takes (the parameter moves at a steady rate)</source>
@@ -8295,11 +8339,11 @@ Runs: SKETCH (and PLANE when the plane is moved)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, SCAD, STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
+            <source>STEP, IGES, BREP, SCAD, FCSTD (FreeCAD), STL, OBJ, 3MF, GLTF, PLY, OFF, VTK, MESH, or points: XYZ, PTS, E57</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML or AMF</source>
+            <source>STEP, IGES, BREP, STL, OBJ, 3MF, GLTF, VRML, AMF or HTML</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9030,6 +9074,10 @@ Runs: CUTLIST</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>the least it may be (empty: no least)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>the length it acts along; empty = the body's longest side</source>
             <translation type="unfinished" />
         </message>
@@ -9099,6 +9147,10 @@ Runs: CUTLIST</source>
         </message>
         <message>
             <source>the model: a body, several ("3 7" or names), SEL, or ALL (every shown body)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the most it may be (empty: no most)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -9240,6 +9292,10 @@ Runs: TRACE, name, from, to, steps, body, x,y,z</source>
         </message>
         <message>
             <source>the picture to write (.png)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>the pin's name; DELETE, CLEAR or nothing (list them)</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -10572,7 +10628,7 @@ Runs: WRAP, sketch, face, h [, CUT]</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <source>Write bodies to a file: EXPORT, STEP, "part.step" [, body]. STEP, IGES and BREP keep the exact shape; STL, OBJ, 3MF, GLTF (.glb or .gltf), VRML (.wrl) and AMF write triangles. STEP also carries the sizes, hole diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations that other programs read. Runs when given; not kept in the history.</source>
+            <source>Write bodies to a file: EXPORT, STEP, "part.step" [, body]. STEP, IGES and BREP keep the exact shape; STL, OBJ, 3MF, GLTF (.glb or .gltf), VRML (.wrl) and AMF write triangles. STEP also carries the sizes, hole diameters and fits, geometric tolerances and datums noted on the bodies (NOTE), as AP242 annotations that other programs read. HTML writes one web page with the model in a 3D viewer (turn, hide parts, measure between two points, read the notes) that opens in any browser, with nothing to install and nothing fetched from the internet. Runs when given; not kept in the history.</source>
             <translation type="unfinished" />
         </message>
         <message>
