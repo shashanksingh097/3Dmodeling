@@ -38,6 +38,16 @@ class RenderError(RuntimeError):
     pass
 
 
+def can_trace_pictures(vp) -> bool:
+    """Whether this graphics driver can ray trace textures and decals (OCCT needs GL_ARB_bindless_texture;
+    without it ray tracing draws them blank, so RENDER draws pictures the ordinary way instead)."""
+    try:
+        drv = vp.context.CurrentViewer().Driver()
+        return bool(drv.GetSharedContext().CheckExtension("GL_ARB_bindless_texture"))
+    except Exception:  # noqa: BLE001  (bindings without it: assume it can)
+        return True
+
+
 def _material(name: str):
     from OCP.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial
 
@@ -101,6 +111,12 @@ def render(vp, path: str, width: int, height: int, view: str = "", frames: int =
                                             "RaytracingDepth")}
     saved_mat = {}
     saved_bounds = {}
+    textured = [b for b in ids if vp._tex_ais.get(b)]
+    pictures = bool(textured or vp._decal_ais)
+    trace = not pictures or can_trace_pictures(vp)
+    vp.last_render_note = "" if trace else (
+        "drawn without ray tracing: this graphics driver cannot ray trace textures and decals")
+    tex_saved = {}
     extra = []
     lights = []
     written: list[str] = []
@@ -123,6 +139,12 @@ def render(vp, path: str, width: int, height: int, view: str = "", frames: int =
             saved_bounds[b] = dr.FaceBoundaryDraw()
             dr.SetFaceBoundaryDraw(False)
             ctx.Redisplay(ais, False, True)
+            for t in vp._tex_ais.get(b, []):  # TEXTURE: its faces take the material's shine too
+                tex_saved[t] = t.Material()
+                if look:
+                    t.SetMaterial(_material(look[0]))
+            if b in textured:
+                ctx.Erase(ais, False)  # (its edges only: the textured faces show the body)
         # camera, fitted to the bodies before the floor is there
         name = (view or "").strip().upper()
         if name.count(",") == 2:
@@ -144,22 +166,25 @@ def render(vp, path: str, width: int, height: int, view: str = "", frames: int =
             ctx.Display(f, 1, -1, False)
             extra.append(f)
         # lights: a sun from above and behind the left shoulder, a soft fill, some ambient
-        v.SetLightOff()
+        # (drawn the ordinary way, without ray tracing, the view's own lights look right)
+        if trace:
+            v.SetLightOff()
         sun = V3d_DirectionalLight(gp_Dir(0.35, 0.55, -1.0), Quantity_Color(1.0, 0.97, 0.92, Quantity_TOC_RGB))
         sun.SetIntensity(0.65)
         if hasattr(sun, "SetCastShadows"):
-            sun.SetCastShadows(shadows)
+            sun.SetCastShadows(shadows and trace)
         fill = V3d_DirectionalLight(gp_Dir(-0.6, -0.3, -0.4), Quantity_Color(0.75, 0.8, 0.9, Quantity_TOC_RGB))
         fill.SetIntensity(0.2)
         if hasattr(fill, "SetCastShadows"):
             fill.SetCastShadows(False)
         amb = V3d_AmbientLight(Quantity_Color(0.3, 0.3, 0.31, Quantity_TOC_RGB))
-        for light in (sun, fill, amb):
+        for light in ((sun, fill, amb) if trace else ()):
             vp.viewer.AddLight(light)
             v.SetLightOn(light)
             lights.append(light)
-        rp.Method = Graphic3d_RenderingMode.Graphic3d_RM_RAYTRACING
-        rp.IsShadowEnabled = shadows
+        rp.Method = (Graphic3d_RenderingMode.Graphic3d_RM_RAYTRACING if trace
+                     else Graphic3d_RenderingMode.Graphic3d_RM_RASTERIZATION)
+        rp.IsShadowEnabled = shadows and trace  # (shadow maps without ray tracing fail on some drivers)
         rp.IsReflectionEnabled = True
         rp.IsAntialiasingEnabled = True
         rp.IsTransparentShadowEnabled = True
@@ -201,10 +226,15 @@ def render(vp, path: str, width: int, height: int, view: str = "", frames: int =
             setattr(rp, k, val)
         for f in extra:
             ctx.Remove(f, False)
+        for t, mat in tex_saved.items():
+            t.SetMaterial(mat if not isinstance(mat, Graphic3d_NameOfMaterial) else Graphic3d_MaterialAspect(mat))
         for b, mat in saved_mat.items():
             ais = vp._ais.get(b)
             if ais is None:
                 continue
+            if b in textured:
+                ctx.Display(ais, False)
+                vp._activate(ais)
             colour = Quantity_Color()
             ais.Color(colour)
             ais.SetMaterial(mat if not isinstance(mat, Graphic3d_NameOfMaterial) else Graphic3d_MaterialAspect(mat))

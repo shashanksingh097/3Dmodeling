@@ -149,6 +149,10 @@ def _gui(script: str | None) -> int:
 
         if start_page.enabled(win):  # nothing to open: the start page (PLAN item 88)
             win.viewport.call_when_ready(win.shell.show_start_page)
+    from .gui import updates_ui
+
+    # What's new once after an update; the check for a newer version if Preferences turned it on (item 117)
+    win.viewport.call_when_ready(lambda: updates_ui.on_start(win))
     return app.exec()
 
 

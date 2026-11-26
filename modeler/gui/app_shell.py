@@ -517,6 +517,9 @@ class AppShell:
         a(m, "&Report a problem (web)", self.report_problem, None, "Open a new issue, with your versions filled in")
         a(m, "Open the &log folder", self.open_log_folder, None, "Error and crash logs")
         m.addSeparator()
+        a(m, "What's &new in this version", self.show_whats_new, None, "What changed in this version")
+        a(m, "Check for a ne&w version…", self.check_for_update, None,
+          "Ask GitHub whether a newer version is out (Preferences can check when the app starts)")
         a(m, f"&About {APP_NAME}", self.show_about)
 
     # ---- help ---------------------------------------------------------------------
@@ -536,6 +539,16 @@ class AppShell:
         dlg.setModal(False)
         dlg.show()
         return dlg
+
+    def show_whats_new(self, since: str = ""):
+        from .updates_ui import show_whats_new
+
+        return show_whats_new(self.win, since)
+
+    def check_for_update(self):
+        from .updates_ui import check_now
+
+        return check_now(self.win)
 
     def show_getting_started(self) -> QDialog:
         return self._text_dialog("Getting started", GETTING_STARTED.format(guide=USER_GUIDE_URL))

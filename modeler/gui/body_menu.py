@@ -324,6 +324,15 @@ PICK_TOOLS_SETTING = "view/pickTools"  # the small toolbar beside a fresh pick (
 BAR_SIZE = 6  # how many tools the small toolbar shows (the rest are on the right-click menu)
 
 
+def _decal_name(p) -> str:
+    """decal1, decal2 ...: the first name no decal has yet."""
+    have = {d["name"].upper() for d in getattr(p.model, "decals", [])}
+    k = 1
+    while f"DECAL{k}" in have:
+        k += 1
+    return f"decal{k}"
+
+
 def _surface_type(shape) -> str:
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_SurfaceType as T
@@ -412,6 +421,9 @@ def pick_tools(p) -> list[MenuItem]:
         add(MenuItem("Delete face (close the gap)" if n == 1 else f"Delete {n} faces (close the gap)", ["DELFACE"],
                      short="Delete",
                      icon="delface"))
+        if n == 1 and types[0] in ("PLANE", "CYLINDER"):
+            add(MenuItem("Picture on this face (decal)…", short="Decal", form="DECAL",
+                         commands=[f"DECAL, {_decal_name(p)}, {sel[0]}"], icon="image"))
     elif kind == "EDGE":
         add(MenuItem("Fillet…" if n == 1 else f"Fillet {n} edges…", short="Fillet", form="FILLET", icon="fillet"))
         add(MenuItem("Chamfer…" if n == 1 else f"Chamfer {n} edges…", short="Chamfer", form="CHAMFER", icon="chamfer"))
@@ -471,6 +483,8 @@ def pick_tools(p) -> list[MenuItem]:
             add(MenuItem("Pin this distance", short="Pin", commands=[f"GAUGE, {_pin_name(p)}, DIST"], form="GAUGE", icon="measure"))
         add(MenuItem("Check", short="Check", commands=[f"CHECK, {sel[0]}"] if n == 1 else [f"CHECK, {b}" for b in sel], icon="check"))
         add(MenuItem("Mass and volume", short="Mass", commands=["MASSPROP"], icon="measure"))
+        add(MenuItem("Texture (a picture on its faces)…", short="Texture", form="TEXTURE",
+                     commands=[f"TEXTURE, {sel[0] if n == 1 else 'SEL'}"], icon="image"))
         _ = names
         welds = [b for b in sel if b in getattr(m, "welds", {})]
         sheets = list(getattr(m, "drawsheets", {}).values())

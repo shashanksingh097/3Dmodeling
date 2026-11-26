@@ -1,7 +1,7 @@
 ---
 name: enclosure
 description: Plastic enclosures and moulded cases - a hollow box with even walls, a lip and groove between two halves, screw bosses with ribs, snap hooks, vents, ribs and draft. Use for housings, cases, covers and lids.
-commands: BOARD, BLOCK, SHELL, LIP, BOSS, SNAP, VENT, RIB, DRAFT, FILLET, MATERIAL, THICK, PRINTCHECK
+commands: BOARD, BLOCK, SHELL, LIP, BOSS, SNAP, VENT, RIB, DRAFT, FILLET, MATERIAL, THICK, PRINTCHECK, DECAL, TEXTURE
 ---
 # Enclosure
 
@@ -40,6 +40,10 @@ commands: BOARD, BLOCK, SHELL, LIP, BOSS, SNAP, VENT, RIB, DRAFT, FILLET, MATERI
 8. **Ribs**: an open sketch line, then `RIB, sketch, t, part`; ribs about
    half to two thirds of the wall.
 9. **Draft** for moulding: select the side faces, `DRAFT, 1` (degrees).
+10. **How it looks** (for a picture or a review, not the geometry): a logo on
+   the lid with `DECAL, logo, face, "logo.png", 30` (a flat or round face;
+   `DECAL` lists them and says when one hangs over the face's edge), a finish
+   with `TEXTURE, case, "grain.png", 5`. Neither changes the shape.
 
 ```cmd
 BLOCK, 0, 0, 0, 60, 40, 20

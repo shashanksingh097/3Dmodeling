@@ -98,14 +98,22 @@ def from_dict(d: dict) -> Material:
     look = str(d.get("look", "") or "").strip().upper()
     if look and look not in LOOKS:
         raise LibraryError(f"{name}: look {look} is not one of {', '.join(LOOKS)}")
+    tex = str(d.get("texture", "") or "")
+    try:
+        tex_size = float(d.get("texture_size", 0) or 0)
+    except (TypeError, ValueError):
+        raise LibraryError(f"{name}: texture_size is a number (mm)") from None
+    if tex and tex_size <= 0:
+        raise LibraryError(f"{name}: texture_size (mm) must be more than 0")
+    texture = {"texture": tex, "texture_size": tex_size} if tex else {}
     base = MATERIALS.get(name)
     if base is not None:  # a built-in one changed: what the entry leaves out stays as built in
         return replace(base, **vals, **({"color": col} if col is not None else {}),
                        **({"transparency": tr} if "transparency" in d else {}),
                        **({"look": look, "shiny": bool(d.get("shiny", base.shiny))} if look else {}),
-                       note=str(d.get("note", "") or ""))
+                       note=str(d.get("note", "") or ""), **texture)
     return Material(name, color=col, transparency=tr, look=look, shiny=bool(d.get("shiny", False)),
-                    note=str(d.get("note", "") or ""), **vals)
+                    note=str(d.get("note", "") or ""), **vals, **texture)
 
 
 def to_dict(mat: Material) -> dict:

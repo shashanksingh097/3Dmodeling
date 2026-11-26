@@ -1543,9 +1543,21 @@ read and a skill). Built about three items per pull request, in this order.
      measured again after every change; `GAUGE` lists them (report "pins") and
      the assistant's user_context has them.
 116. **Textures and decals** (P3): textures on materials and decals (a logo
-     on a face) shown live in the view and used by RENDER.
+     on a face) shown live in the view and used by RENDER. Done:
+     `TEXTURE, body | SEL | ALL | material, picture [, tile mm]` tiles the
+     picture face by face, one tile the same size on every face (OFF takes it
+     off); `DECAL, name, face, picture, width [, dx, dy, angle]` puts it on a
+     flat face or wraps it round a round one, and it follows the face through
+     edits; `DECAL` lists them (report "decals"), right-click a face or a body
+     to add them; RENDER draws both (without ray tracing on drivers that
+     cannot ray trace pictures, and says so).
 117. **Update check and What's new** (P3): an opt-in check for a new release
-     and a "What's new" page after an update.
+     and a "What's new" page after an update. Done: Help > What's new in this
+     version (from CHANGELOG.md, which now ships with the app) and once after
+     an update; Help > Check for a new version and Preferences > Updates (off
+     unless turned on, at most once a day, asks GitHub's newest published
+     release and sends nothing else); `VERSION`, `VERSION, NEWS [, since]`,
+     `VERSION, CHECK` (report "version").
 
 ### Free editing and a roomier window (M18)
 
