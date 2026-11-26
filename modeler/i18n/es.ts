@@ -5790,6 +5790,10 @@ Runs: STRANSFORM, ...</source>
             <translation type="unfinished" />
         </message>
         <message>
+            <source>NEWS (what changed in this version) or CHECK (ask GitHub for a newer one); nothing: the version</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>New…</source>
             <translation>Nuevo…</translation>
         </message>
@@ -9725,6 +9729,14 @@ Runs: MOLD, body [, wall, shrink %]</source>
             <translation>La propia de esta aplicación</translation>
         </message>
         <message>
+            <source>This app's version: VERSION · what changed in it: VERSION, NEWS (or VERSION, NEWS, 0.5.0: every change since 0.5.0) · whether a newer version is out: VERSION, CHECK (asks GitHub; nothing about you or the model is sent)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>This app's version: VERSION · what changed in it: VERSION, NEWS (or VERSION, NEWS, 0.5.0: every change since 0.5.0) · whether a newer version is out: VERSION, CHECK (asks GitHub; nothing about you or the model is sent). Preferences can check by itself when the app starts.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <source>This change breaks later steps</source>
             <translation>Este cambio rompe pasos posteriores</translation>
         </message>
@@ -10382,6 +10394,14 @@ Runs: MASK, body, CLEAR</source>
             <translation>Rejilla…</translation>
         </message>
         <message>
+            <source>Version</source>
+            <translation>Versión</translation>
+        </message>
+        <message>
+            <source>Version…</source>
+            <translation>Versión…</translation>
+        </message>
+        <message>
             <source>Vertex</source>
             <translation>Vértice</translation>
         </message>
@@ -10706,6 +10726,10 @@ Runs: GRAVITY [, ground, fastened parts]</source>
         </message>
         <message>
             <source>with mode NORMAL: the surface the path lies on</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>with NEWS: every change since this version (e.g. 0.5.0)</source>
             <translation type="unfinished" />
         </message>
         <message>
