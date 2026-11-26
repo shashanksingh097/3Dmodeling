@@ -1,5 +1,8 @@
 """PLAN item 111: 3D mouse support (viewport/spacemouse.py, gui/spacemouse_input.py, SPACEMOUSE)."""
 
+import os
+import shutil
+
 import numpy as np
 import pytest
 
@@ -64,7 +67,11 @@ def test_spnav_packets(tmp_path, monkeypatch):
     import struct
     import threading
 
-    path = str(tmp_path / "spnav.sock")
+    import tempfile
+
+    # a short folder: macOS keeps Unix socket paths under 104 characters, and pytest's tmp_path is longer there
+    short = tempfile.mkdtemp(prefix="sn", dir="/tmp" if os.path.isdir("/tmp") else None)
+    path = os.path.join(short, "s.sock")
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     srv.bind(path)
     srv.listen(1)
@@ -89,3 +96,4 @@ def test_spnav_packets(tmp_path, monkeypatch):
     dev.close()
     got[0].close()
     srv.close()
+    shutil.rmtree(short, ignore_errors=True)
